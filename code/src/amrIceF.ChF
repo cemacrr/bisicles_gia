@@ -1,0 +1,706 @@
+#include "CONSTANTS.H"
+#include "IceConstants.H"
+
+c ----------------------------------------------------
+c  compute undivided difference of phi -- puts max(grad(phi))
+c  over all components into dq
+c ----------------------------------------------------
+      subroutine UNDIVIDEDGRAD(CHF_FRA1[dq],
+     &                         CHF_CONST_FRA[q],
+     &                         CHF_BOX[dInterior],
+     &                         CHF_BOX[loedge],
+     &                         CHF_BOX[hiedge],
+     &                         CHF_CONST_INT[idir],
+     &                         CHF_CONST_INT[haslo],
+     &                         CHF_CONST_INT[hashi])
+
+      integer ldir, CHF_DDECL[i;j;k]
+      integer CHF_DDECL[ioff;joff;koff]
+      integer n, ncomp
+
+      ncomp = CHF_NCOMP[q]
+
+      CHF_DTERM[
+      ioff = CHF_ID(0,idir);
+      joff = CHF_ID(1,idir);
+      koff = CHF_ID(2,idir)]
+      
+      
+c     Perform first difference calculation in the interior.
+
+      CHF_MULTIDO[dInterior;i;j;k]
+
+c     Find maximum gradient -- refine where max>cutoff      
+      dq(CHF_IX[i;j;k]) = 0
+      do n = 0, ncomp-1
+       dq(CHF_IX[i;j;k]) = max( abs(dq(CHF_IX[i;j;k])), 
+     &       0.5*abs( q(CHF_IX[i+ioff;j+joff;k+koff],n)
+     &         - q(CHF_IX[i-ioff;j-joff;k-koff],n) ))
+      enddo
+
+      CHF_ENDDO
+
+c     Perform calculation on the cells adjacent to the domain boundary in
+c     sweep direction, if required.
+
+      if (haslo .eq. 1) then
+
+         CHF_MULTIDO[loedge;i;j;k]
+
+         dq(CHF_IX[i;j;k])=0
+         do n = 0, ncomp-1
+           dq(CHF_IX[i;j;k]) = max( abs(dq(CHF_IX[i;j;k])),
+     &        abs( q(CHF_IX[i+ioff;j+joff;k+koff], n) - q(CHF_IX[i;j;k], n)))
+         enddo
+
+         CHF_ENDDO
+      endif
+
+      if (hashi .eq. 1) then
+         CHF_MULTIDO[hiedge;i;j;k]
+
+         dq(CHF_IX[i;j;k])=0
+         do n = 0, ncomp-1
+           dq(CHF_IX[i;j;k]) = max( abs(dq(CHF_IX[i;j;k])), 
+     &          abs(q(CHF_IX[i;j;k], n) -
+     &          q(CHF_IX[i-ioff;j-joff;k-koff], n)))
+         enddo
+         CHF_ENDDO
+
+      endif
+      return
+      end      
+      
+
+
+c ----------------------------------------------------
+c sets beta^2 to zero if ice is floating
+c ----------------------------------------------------
+      subroutine SETFLOATINGBETA(CHF_FRA1[beta],
+     &                           CHF_CONST_FIA1[floatingMask],
+     &                           CHF_CONST_FRA1[lsrf],
+     &                           CHF_CONST_FRA1[topg],
+     &                           CHF_CONST_REAL[decay],
+     &                           CHF_BOX[gridBox])
+
+      integer CHF_AUTODECL[i]
+
+      if (decay .gt. 1.0d-6) then
+c     exponential decay of beta with depth
+         CHF_AUTOMULTIDO[gridBox; i]
+         if (floatingMask(CHF_AUTOIX[i]).eq.FLOATINGMASKVAL) then
+c     floating ice
+            beta(CHF_AUTOIX[i]) =  beta(CHF_AUTOIX[i]) 
+     &           * exp(-decay*(lsrf(CHF_AUTOIX[i]) -topg(CHF_AUTOIX[i])));
+         else if (floatingMask(CHF_AUTOIX[i]).eq.OPENSEAMASKVAL) then
+c     open sea : set beta = 1.0 (and hope that rhs, mu = 0)
+            beta(CHF_AUTOIX[i]) = max(1.0d+2,beta(CHF_AUTOIX[i]))
+         else if (floatingMask(CHF_AUTOIX[i]).eq.OPENLANDMASKVAL) then
+c     open sea : set beta = 1.0 (and hope that rhs, mu = 0)
+            beta(CHF_AUTOIX[i]) = max(1.0d+2,beta(CHF_AUTOIX[i]))
+         end if
+         CHF_ENDDO
+      else
+c     original behaviour
+         CHF_AUTOMULTIDO[gridBox; i]
+         if (floatingMask(CHF_AUTOIX[i]).eq.FLOATINGMASKVAL) then
+c     floating ice
+            beta(CHF_AUTOIX[i]) = zero
+         else if (floatingMask(CHF_AUTOIX[i]).eq.OPENSEAMASKVAL) then
+c     open sea : set beta = 1.0 (and hope that rhs, mu = 0)
+            beta(CHF_AUTOIX[i]) = max(1.0d+2,beta(CHF_AUTOIX[i]))
+         else if (floatingMask(CHF_AUTOIX[i]).eq.OPENLANDMASKVAL) then
+c     open sea : set beta = 1.0 (and hope that rhs, mu = 0)
+            beta(CHF_AUTOIX[i]) = max(1.0d+2,beta(CHF_AUTOIX[i]))
+         end if
+         CHF_ENDDO
+      end if
+       
+      return
+      end
+      
+
+
+c ----------------------------------------------------
+c switch to using one-sided gradients near grounding line
+c ----------------------------------------------------
+      subroutine CORNFORDCORRECTION(CHF_FRA1[grad],
+     &                              CHF_CONST_FRA1[Zsurf],
+     &                              CHF_CONST_FIA1[floatingMask],
+     &                              CHF_INT[dir],
+     &                              CHF_CONST_REAL[dx],
+     &                              CHF_BOX[gridBox])
+
+      integer CHF_AUTODECL[i]
+      integer CHF_AUTODECL[ii]
+      integer nstep
+      integer radius
+      REAL_T oneOnDx
+
+      oneOnDx = one/dx
+
+c  radius is how many cells away from grounding line we continue to use
+c  one-sided differencing. For the moment, use 1
+      radius = 1
+
+      CHF_DTERM[ii0 = CHF_ID(dir,0);
+                ii1 = CHF_ID(dir,1);
+                ii2 = CHF_ID(dir,2)]
+
+      CHF_AUTOMULTIDO[gridBox; i]
+        if (floatingMask(CHF_AUTOIX[i]).eq.FLOATINGMASKVAL) then
+c  ice is floating; check to see if adjacent ice in dir-direction 
+c  is _not_ floating 
+           if (floatingMask(CHF_OFFSETIX[i;+ii]).eq.GROUNDEDMASKVAL) then 
+c  land to the right, water to the left, use left difference
+c  for _this_ cell
+              do nstep=0, radius-1
+c clumsy way to avoid stepping out of bounds here
+                 if ((CHF_DTERM[(i0-nstep*ii0.ge.igradlo0);.AND.(i1-nstep*ii1.ge.igradlo1);.AND.(i2-nstep*ii2.ge.igradlo2)])) then
+                    grad(CHF_OFFSETIX[i;-nstep*ii]) = oneOnDx*(zSurf(CHF_OFFSETIX[i;-nstep*ii]) - zSurf(CHF_OFFSETIX[i;-(nstep+1)*ii]))
+              endif
+              enddo
+              
+              do nstep=1, radius
+c clumsy way to avoid stepping out of bounds here
+                 if ((CHF_DTERM[(i0+nstep*ii0.le.igradhi0);.AND.(i1+nstep*ii1.le.igradhi1);.AND.(i2+nstep*ii2.le.igradhi2)])) then
+                    grad(CHF_OFFSETIX[i;+nstep*ii]) = oneOnDx*(zSurf(CHF_OFFSETIX[i;+(nstep+1)*ii]) - zSurf(CHF_OFFSETIX[i;+(nstep)*ii]))
+                 endif
+              enddo
+           else if (floatingMask(CHF_OFFSETIX[i;-ii]).eq.GROUNDEDMASKVAL) then
+c     land to the left, water to the right, use right difference
+c     for _this_ cell
+              do nstep=1, radius
+c clumsy way to avoid stepping out of bounds here
+                 if ((CHF_DTERM[(i0-nstep*ii0.ge.igradlo0);.AND.(i1-nstep*ii1.ge.igradlo1);.AND.(i2-nstep*ii2.ge.igradlo2)])) then
+                    grad(CHF_OFFSETIX[i;-nstep*ii]) = oneOnDx*(zSurf(CHF_OFFSETIX[i;-nstep*ii]) - zSurf(CHF_OFFSETIX[i;-(nstep+1)*ii]))
+                 endif
+              enddo
+              
+              do nstep=0, radius-1
+c clumsy way to avoid stepping out of bounds here
+                 if ((CHF_DTERM[(i0+nstep*ii0.le.igradhi0);.AND.(i1+nstep*ii1.le.igradhi1);.AND.(i2+nstep*ii2.le.igradhi2)])) then
+                    grad(CHF_OFFSETIX[i;+nstep*ii]) = oneOnDx*(zSurf(CHF_OFFSETIX[i;+(nstep+1)*ii]) - zSurf(CHF_OFFSETIX[i;+(nstep)*ii]))
+                 endif
+              enddo
+              
+           endif
+        endif
+        CHF_ENDDO
+      return
+      end
+      
+
+c --------------------------------------------------
+c set surface elevation to topography on open land and to
+c sea level on open sea regions
+c --------------------------------------------------
+
+      subroutine SETOPENSURFACE(CHF_FRA1[surf],
+     &     CHF_CONST_FIA1[mask],
+     &     CHF_CONST_FRA1[topg],  
+     &     CHF_CONST_REAL[seaLevel],
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      CHF_AUTOMULTIDO[box ; i]
+      
+      if ( mask(CHF_AUTOIX[i]).eq. OPENSEAMASKVAL ) then
+         surf(CHF_AUTOIX[i]) = seaLevel
+      else if( mask(CHF_AUTOIX[i]).eq. OPENLANDMASKVAL ) then
+         surf(CHF_AUTOIX[i]) = topg(CHF_AUTOIX[i])
+      end if
+
+      CHF_ENDDO
+      return 
+      end
+
+c------------------------------------------------------
+c extrapolate face centered uf to the margin
+c------------------------------------------------------
+
+      subroutine extraptomargin(CHF_FRA1[uf],
+     &     CHF_CONST_FRA1[uc],
+     &     CHF_CONST_FIA1[mask],
+     &     CHF_CONST_INT[dir],
+     &     CHF_BOX[facebox])
+
+      integer CHF_AUTODECL[i]
+      integer CHF_AUTODECL[ii]
+      integer ice,noice,maskl,maskp,maskr
+      ice = ior(GROUNDEDMASKVAL, FLOATINGMASKVAL)
+      noice = ior(OPENSEAMASKVAL,OPENLANDMASKVAL)
+
+      CHF_DTERM[ii0 = CHF_ID(dir,0);
+                ii1 = CHF_ID(dir,1);
+                ii2 = CHF_ID(dir,2)]
+
+      CHF_AUTOMULTIDO[facebox ; i]
+
+      
+      maskl = mask(CHF_OFFSETIX[i;-ii])
+      maskr = mask(CHF_AUTOIX[i])
+      
+      if ((iand(maskl,ice).gt.0).and.(iand(maskr,noice).gt.0)) then 
+         uf(CHF_AUTOIX[i]) = two * uc(CHF_OFFSETIX[i;-ii])
+     &           - uf(CHF_OFFSETIX[i;-ii])
+      else if ((iand(maskr,ice).gt.0).and.(iand(maskl,noice).gt.0)) then
+         uf(CHF_AUTOIX[i]) = two * uc(CHF_AUTOIX[i])
+     &        - uf(CHF_OFFSETIX[i;+ii])
+      end if
+
+      CHF_ENDDO
+      return
+      end
+
+
+c ----------------------------------------------------
+c switch to using one-sided stresses near grounding line
+c ----------------------------------------------------
+      subroutine GLCORRECTION(CHF_FRA1[rhs],
+     &                        CHF_CONST_FRA1[H],
+     &                        CHF_CONST_FRA1[Zsurf],
+     &                        CHF_CONST_FIA1[mask],
+     &                        CHF_INT[dir],
+     &                        CHF_CONST_REAL[dx],
+     &                        CHF_CONST_REAL[rhog],
+     &                        CHF_BOX[gridBox])
+
+      integer CHF_AUTODECL[i]
+      integer CHF_AUTODECL[ii]
+
+      integer lmask,cmask,rmask
+      integer LI,SH,OS,OL
+      REAL_T halfOnDx, sl,sr,sc,hl,hr,hc
+
+      SH = FLOATINGMASKVAL
+      LI = GROUNDEDMASKVAL
+      OS = OPENSEAMASKVAL
+      OL = OPENLANDMASKVAL
+      
+      halfOnDx = half/dx * rhog
+
+
+      CHF_DTERM[ii0 = CHF_ID(dir,0);
+                ii1 = CHF_ID(dir,1);
+                ii2 = CHF_ID(dir,2)]
+
+      CHF_AUTOMULTIDO[gridBox; i]
+
+      cmask = mask(CHF_AUTOIX[i]) 
+      rmask = mask(CHF_OFFSETIX[i;+ii])
+      lmask = mask(CHF_OFFSETIX[i;-ii])
+
+      sc = zSurf(CHF_AUTOIX[i])
+      sl = zSurf(CHF_OFFSETIX[i;-ii])
+      sr = zSurf(CHF_OFFSETIX[i;+ii])
+      
+      hc = H(CHF_AUTOIX[i])
+      hl = H(CHF_OFFSETIX[i;-ii])
+      hr = H(CHF_OFFSETIX[i;+ii])
+
+      if (cmask.eq.SH) then
+        
+         if (lmask.eq.LI) then
+            if (rmask.ne.LI) then
+c     LI | SH (this cell) | no ice
+               rhs(CHF_AUTOIX[i]) = halfOnDx
+     &              * (sr-sc) * (hr+hc)
+            else
+c     LI | SH (this cell) | LI (a bad place to be)
+               rhs(CHF_AUTOIX[i]) = zero
+            end if
+         else if  (rmask.eq.LI) then
+            if (lmask.ne.LI) then
+c     no ice | SH (this cell) | LI
+               rhs(CHF_AUTOIX[i]) = halfOnDx
+     &              * (sc-sl) * (hc+hl)
+            else
+c     LI | SH (this cell) | LI (a bad place to be)
+               rhs(CHF_AUTOIX[i]) = zero
+            endif
+         else if ((lmask.eq.SH).and.(rmask.eq.OL)) then
+c     SH | SH | OL
+            rhs(CHF_AUTOIX[i]) = zero
+         else if ((rmask.eq.SH).and.(lmask.eq.OL)) then
+c     OL | SH | SH
+            rhs(CHF_AUTOIX[i]) = zero
+         else if ((lmask.ne.SH).and.(rmask.ne.SH)) then
+c     no ice | SH (this cell) | no ice
+            rhs(CHF_AUTOIX[i]) = zero
+         end if
+
+      else if (cmask.eq.LI) then
+           
+         if (lmask.eq.SH) then
+            if (rmask.eq.LI) then
+c     SH | LI (this cell) | LI
+               rhs(CHF_AUTOIX[i]) = halfOnDx
+     &              * (sr-sc) * (hr+hc)
+            else
+c     SH | LI (this cell) | not LI (don't tinker)
+               rhs(CHF_AUTOIX[i]) = rhs(CHF_AUTOIX[i])
+            end if
+         else if  (rmask.eq.SH) then
+            if (rmask.eq.LI) then
+c     LI | LI (this cell) | SH
+               rhs(CHF_AUTOIX[i]) = halfOnDx
+     &              * (sc-sl) * (hc+hl)
+            else
+c     not LI | LI (this cell) | SH (don't tinker)
+               rhs(CHF_AUTOIX[i]) = rhs(CHF_AUTOIX[i])
+            endif
+         end if
+
+      end if
+
+      CHF_ENDDO
+      return
+      end
+      
+c$$$c------------------------------------------------------
+c$$$c compute the thickness diffusion coefficient D = rgH^2/C
+c$$$c at cell faces, given cell centred C and H
+c$$$c------------------------------------------------------
+c$$$
+c$$$      subroutine SETTHICKDIFF(CHF_FRA1[D],
+c$$$     &     CHF_CONST_FRA1[C],
+c$$$     &     CHF_CONST_FRA1[H],
+c$$$     &     CHF_CONST_REAL[rg],
+c$$$     &     CHF_CONST_INT[dir],
+c$$$     &     CHF_BOX[cellBox])
+c$$$
+c$$$      integer CHF_AUTODECL[i]
+c$$$      integer CHF_AUTODECL[ii]
+c$$$      Real oneOnD
+c$$$
+c$$$      CHF_DTERM[ii0 = CHF_ID(dir,0);
+c$$$                ii1 = CHF_ID(dir,1);
+c$$$                ii2 = CHF_ID(dir,2)]
+c$$$
+c$$$      CHF_AUTOMULTIDO[cellBox; i]
+c$$$
+c$$$      oneOnD = 0.5 * ( C(CHF_AUTOIX[i]) / H(CHF_AUTOIX[i])**2
+c$$$     &     + C (CHF_OFFSETIX[i;+ii]) / H (CHF_OFFSETIX[i;+ii])**2)
+c$$$
+c$$$      if ( C(CHF_AUTOIX[i]) .gt. zero 
+c$$$     &     .and.  C (CHF_OFFSETIX[i;+ii]) .gt. zero) then
+c$$$         D(CHF_OFFSETIX[i;+ii]) = rg / oneOnD
+c$$$      end if
+c$$$
+c$$$      CHF_ENDDO
+c$$$
+c$$$      return 
+c$$$      end 
+
+c------------------------------------------------------
+c compute the thickness diffusion coefficient D = rgH^2/C
+c at cell faces in grounded regions, given cell centred C and H
+c------------------------------------------------------
+
+      subroutine SETTHICKDIFF(CHF_FRA1[D],
+     &     CHF_CONST_FRA1[C],
+     &     CHF_CONST_FRA1[H],
+     &     CHF_CONST_FIA1[mask],
+     &     CHF_CONST_REAL[rg],
+     &     CHF_CONST_INT[dir],
+     &     CHF_BOX[faceBox])
+
+      integer CHF_AUTODECL[i]
+      integer CHF_AUTODECL[ii]
+      Real oneOnD
+
+      CHF_DTERM[ii0 = CHF_ID(dir,0);
+                ii1 = CHF_ID(dir,1);
+                ii2 = CHF_ID(dir,2)]
+
+      CHF_AUTOMULTIDO[faceBox; i]
+
+c      if ( GROUNDEDMASKVAL .eq. 
+c     &     iand(mask(CHF_AUTOIX[i]) , mask(CHF_OFFSETIX[i;-ii]))) then
+
+      if ( (mask(CHF_AUTOIX[i]).eq.GROUNDEDMASKVAL) .or.
+     &     (mask(CHF_OFFSETIX[i;-ii]).eq.GROUNDEDMASKVAL) ) then
+
+      oneOnD = 0.5 * ( C(CHF_AUTOIX[i]) / H(CHF_AUTOIX[i])**2
+     &     + C (CHF_OFFSETIX[i;-ii]) / H (CHF_OFFSETIX[i;-ii])**2)
+      
+c      if (oneOnD.gt.TINY_NORM) then
+         D(CHF_AUTOIX[i]) = rg / oneOnD
+      else
+         D(CHF_AUTOIX[i]) = 0.0;
+      end if
+
+      CHF_ENDDO
+
+      return 
+      end 
+
+
+c------------------------------------------------------
+c subtract -D/H grad(d) from faceVel
+c------------------------------------------------------
+      subroutine SUBTRACTDVEL(CHF_FRA1[faceVel],
+     &     CHF_CONST_FRA1[cellH],
+     &     CHF_CONST_FRA1[faceH],
+     &     CHF_CONST_FRA1[faceD],
+     &     CHF_CONST_INT[dir],
+     &     CHF_CONST_REAL[dx],
+     &     CHF_BOX[faceBox]);
+      
+      integer CHF_AUTODECL[i]
+      integer CHF_AUTODECL[ii]
+      Real oneOnDX
+
+      OneOnDx = one/dx;
+      CHF_DTERM[ii0 = CHF_ID(dir,0);
+                ii1 = CHF_ID(dir,1);
+                ii2 = CHF_ID(dir,2)]
+
+      CHF_AUTOMULTIDO[faceBox; i]
+      faceVel(CHF_AUTOIX[i]) = faceVel(CHF_AUTOIX[i])
+     &     + faceD(CHF_AUTOIX[i])/faceH(CHF_AUTOIX[i])
+     &     * OneOnDx 
+     &     * (  - cellH(CHF_OFFSETIX[i;-ii]) + cellH(CHF_AUTOIX[i]))
+
+      CHF_ENDDO
+      return 
+      end
+
+c------------------------------------------------------
+c subtract -D grad(d) from faceFlux
+c------------------------------------------------------
+      subroutine SUBTRACTDFLUX(CHF_FRA1[faceFlux],
+     &     CHF_CONST_FRA1[cellH],
+     &     CHF_CONST_FRA1[faceD],
+     &     CHF_CONST_INT[dir],
+     &     CHF_CONST_REAL[dx],
+     &     CHF_BOX[faceBox]);
+      
+      integer CHF_AUTODECL[i]
+      integer CHF_AUTODECL[ii]
+      Real oneOnDx
+
+      OneOnDx = one/dx;
+      CHF_DTERM[ii0 = CHF_ID(dir,0);
+                ii1 = CHF_ID(dir,1);
+                ii2 = CHF_ID(dir,2)]
+
+      CHF_AUTOMULTIDO[faceBox; i]
+      faceFlux(CHF_AUTOIX[i]) = faceFlux(CHF_AUTOIX[i])
+     &     + faceD(CHF_AUTOIX[i]) * OneOnDx 
+     &     * ( - cellH(CHF_OFFSETIX[i;-ii]) + cellH(CHF_AUTOIX[i]))
+
+      
+c      faceFlux(CHF_AUTOIX[i]) = 0.0;
+      CHF_ENDDO
+      return 
+      end
+
+
+c ------------------------------------------------------------
+c  sets initial guess for velocity field to -rhs/beta if beta isn't zero
+c  (set initial guess to zero if beta == 0)
+c INPUTS/OUTPUTS:
+c  vel <=
+c  rhs  =>
+c beta  =>
+c  box  =>
+c ------------------------------------------------------------      
+      subroutine VELINITIALGUESS(CHF_FRA[vel],
+     &                           CHF_FRA[rhs],
+     &                           CHF_FRA1[beta],
+     &                           CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+
+      CHF_AUTOMULTIDO[box; i]
+        if (beta(CHF_AUTOIX[i]) .gt. 0.001) then
+c  note that this should work in 2d and 3d...
+           vel(CHF_AUTOIX[i],0) = -rhs(CHF_AUTOIX[i],0)/beta(CHF_AUTOIX[i])
+           vel(CHF_AUTOIX[i],1) = -rhs(CHF_AUTOIX[i],1)/beta(CHF_AUTOIX[i])
+        else
+c  probably can come up with something better here...
+           vel(CHF_AUTOIX[i],0) = zero
+           vel(CHF_AUTOIX[i],1) = zero
+        endif
+      CHF_ENDDO
+
+      return
+      end
+
+
+c ---------------------------------------------------------------
+c compute cross layer fluxes f = u phi between FABS phiD and phiU
+c by simple upwinding (assuming that positive u means flow from PhiU to phiD) 
+c ---------------------------------------------------------------
+      subroutine UPWINDLAYERFLUX( CHF_FRA1[f],
+     &     CHF_CONST_FRA1[phiD], CHF_CONST_FRA1[phiU],
+     &     CHF_CONST_FRA1[u],  CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      CHF_AUTOMULTIDO[box; i]
+
+      if (u(CHF_AUTOIX[i]) . ge. zero) then
+         f(CHF_AUTOIX[i]) = u(CHF_AUTOIX[i]) * phiD(CHF_AUTOIX[i]);
+      else
+         f(CHF_AUTOIX[i]) = u(CHF_AUTOIX[i]) * phiU(CHF_AUTOIX[i]);
+      end if
+      
+      CHF_ENDDO
+      return
+      end
+
+c ------------------------------------------------------------
+c calculate a corrected FAB  
+c fs = \min(fmax, f + scale * p)
+c -----------------------------------------------------------
+
+      subroutine FABMINPLUS(CHF_FRA1[fs],
+     &     CHF_CONST_FRA1[f], 
+     &     CHF_CONST_FRA1[p], 
+     &     CHF_CONST_REAL[scale],
+     &     CHF_CONST_REAL[fmax],
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      
+      CHF_AUTOMULTIDO[box; i]
+      fs(CHF_AUTOIX[i]) = 
+     &     min(fmax, f(CHF_AUTOIX[i]) + scale * p(CHF_AUTOIX[i]))
+      CHF_ENDDO
+
+      return
+      end 
+
+#ifdef TARMAC 
+c -----------------------------------------------------------
+c calculation of the basal mass balance
+c -----------------------------------------------------------
+      subroutine COMPUTEBMB(CHF_FRA1[bmb],
+     &     CHF_CONST_FRA[temp], 
+     &     CHF_BOX[box])
+      
+      return
+      end 
+
+c -------------------------------------------------------------
+c calculation of the vertical velocity from div(u) = 0
+c plus surface / basal mass balance, surface and thickness gradients
+c -------------------------------------------------------------
+
+      subroutine COMPUTEZVEL(CHF_FRA[uz],
+     &     CHF_FRA1[uzs],
+     &     CHF_FRA[usig],
+     &     CHF_CONST_FRA[ux],
+     &     CHF_CONST_FRA[uy],
+     &     CHF_CONST_FRA[divuhxy],
+     &     CHF_CONST_VR[fsig],
+     &     CHF_CONST_VR[csig],
+     &     CHF_CONST_VR[dsig],
+     &     CHF_CONST_FRA1[H],
+     &     CHF_CONST_FRA1[dsx], 
+     &     CHF_CONST_FRA1[dhx],
+     &     CHF_CONST_FRA1[dsy], 
+     &     CHF_CONST_FRA1[dhy],
+     &     CHF_CONST_FRA1[dst], 
+     &     CHF_CONST_FRA1[dht],     
+     &     CHF_CONST_FRA1[smb],
+     &     CHF_CONST_FRA1[bmb],
+     &     CHF_INT[nlay],
+     &     CHF_BOX[box])
+
+      Real_T coldivuhxy(0:nlay-1)
+      Real_T colux(0:nlay), coluy(0:nlay)
+      Real_T coluz(0:nlay), colusig(0:nlay)
+      integer layer
+      integer CHF_AUTODECL[i]
+
+      CHF_AUTOMULTIDO[box; i]
+c     this is pretty inefficient, but needed because spatial indices run fastest in FABS 
+      do layer = 0, nlay - 1
+         coldivuhxy(layer) = divuhxy(CHF_AUTOIX[i], layer)
+      end do
+      do layer = 0, nlay
+         colux(layer) = ux(CHF_AUTOIX[i], layer)
+         coluy(layer) = uy(CHF_AUTOIX[i], layer)
+      end do
+
+      call tarmac_compute_zvel(coluz, uzs(CHF_AUTOIX[i]),
+     &      colusig, colux, coluy, coldivuhxy,
+     &     fsig, csig, dsig, nlay, H(CHF_AUTOIX[i]), 
+     &     dsx(CHF_AUTOIX[i]), dhx(CHF_AUTOIX[i]), 
+     &     dsy(CHF_AUTOIX[i]), dhy(CHF_AUTOIX[i]), 
+     &     dst(CHF_AUTOIX[i]), dht(CHF_AUTOIX[i]), 
+     &     smb(CHF_AUTOIX[i]), bmb(CHF_AUTOIX[i]))
+
+      do layer = 0, nlay
+         uz(CHF_AUTOIX[i], layer) = coluz(layer)
+         usig(CHF_AUTOIX[i], layer) = colusig(layer)
+      end do
+      CHF_ENDDO
+
+      return
+      end 
+
+
+c ---------------------------------------------------------------
+c update the mid-layer temperatures T(i,j,layer), surface temperature
+c sT(i,j) and basal temperature bT(i,j). Most of the heavy lifting
+c is done elsewhere, but the equation should be something like
+c  
+c dT / dt = (some terms) + rhs/dt
+c
+c ---------------------------------------------------------------
+
+      subroutine UPDATETEMPERATURE(
+     &     CHF_FRA[temp],
+     &     CHF_FRA1[stemp],
+     &     CHF_FRA1[btemp],
+     &     CHF_FRA1[bflux],
+     &     CHF_CONST_FIA1[floatingMask],
+     &     CHF_CONST_FRA[rhs],
+     &     CHF_CONST_FRA1[thckold],
+     &     CHF_CONST_FRA1[thcknew],
+     &     CHF_CONST_FRA[usig], 
+     &     CHF_CONST_VR[sigma],
+     &     CHF_CONST_VR[dsigma],     
+     &     CHF_REAL[time],
+     &     CHF_REAL[dt],
+     &     CHF_INT[nlay],
+     &     CHF_BOX[box])
+          
+      Real_T coltemp(0:nlay-1), colrhs(0:nlay-1)
+      Real_T colusig(0:nlay)
+
+      integer CHF_AUTODECL[i]
+      integer layer
+      logical flot
+
+      CHF_AUTOMULTIDO[box; i]
+c     this is pretty inefficient, but needed because spatial indices run fastest in FABS
+      do layer = 0, nlay - 1
+         coltemp(layer) = temp(CHF_AUTOIX[i], layer)
+         colrhs(layer) = rhs(CHF_AUTOIX[i], layer)
+      end do
+      do layer = 0, nlay
+         colusig(layer) = usig(CHF_AUTOIX[i], layer)
+      end do
+      
+c     call ice floating if it is nor grounded (ie open sea or floating)
+      flot = (floatingMask(CHF_AUTOIX[i]) .ne. GROUNDEDMASKVAL)
+
+      call tarmac_update_temperature(coltemp, stemp(CHF_AUTOIX[i]),
+     &     btemp(CHF_AUTOIX[i]), flot, bflux(CHF_AUTOIX[i]), colrhs, 
+     &     thckold(CHF_AUTOIX[i]),  thcknew(CHF_AUTOIX[i]),
+     &     colusig, sigma, dsigma, time, dt, nlay)   
+
+      do layer = 0, nlay - 1
+         temp(CHF_AUTOIX[i], layer) = coltemp(layer)
+      end do
+      CHF_ENDDO
+
+
+      return
+      end 
+#endif

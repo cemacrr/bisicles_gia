@@ -1,0 +1,47 @@
+C      _______              __
+C     / ___/ /  ___  __ _  / /  ___
+C    / /__/ _ \/ _ \/  V \/ _ \/ _ \
+C    \___/_//_/\___/_/_/_/_.__/\___/
+C    Please refer to Copyright.txt, in Chombo's root directory.
+
+#include "CONSTANTS.H"
+
+c
+c piecewise constant interpolation. same as the
+c original in Interp.ChF, but with FRA replaced
+c by FIA ...
+c
+      subroutine intinterpconstant(
+     &     CHF_FIA[fine],
+     &     CHF_CONST_FIA[coarse],
+     &     CHF_BOX[b],
+     &     CHF_CONST_INT[ref_ratio],
+     &     CHF_BOX[bref]
+     &     )
+
+      integer var
+      integer CHF_AUTODECL[ic]
+      integer CHF_AUTODECL[if]
+      integer CHF_AUTODECL[ii]
+
+c compute on the refined box of each coarse point
+      do var = 0, CHF_NCOMP[coarse] - 1
+         CHF_AUTOMULTIDO[ b;ic]
+            CHF_AUTOMULTIDO[ bref; ii]
+            CHF_DTERM[
+               if0 = ic0*ref_ratio + ii0;
+               if1 = ic1*ref_ratio + ii1;
+               if2 = ic2*ref_ratio + ii2;
+               if3 = ic3*ref_ratio + ii3;
+               if4 = ic4*ref_ratio + ii4;
+               if5 = ic5*ref_ratio + ii5 ]
+
+               fine(CHF_AUTOIX[if],var) = coarse(CHF_AUTOIX[ic],var)
+            CHF_ENDDO
+         CHF_ENDDO
+      end do
+
+      return
+      end
+
+c

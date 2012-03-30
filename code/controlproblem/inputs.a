@@ -1,0 +1,44 @@
+#sample input file for forward problem
+main.problem = forward
+
+#input data
+main.inputMethod=flathdf5
+flathdf5.infile = a.hdf5
+
+main.outputMethod=flathdf5
+flathdf5.outfile = fwd.a.hdf5
+
+#domain details
+main.domain_size = 100.0e+3 100.0e+3 1.0e+3
+main.num_cells = 64 64 11
+main.max_box_size = 1024
+
+#bulk constitutive relation and parameters
+main.constitutiveRelation = L1L2
+main.rateFactor = constRate
+constRate.epsSqr0 = 1.0e-12
+constRate.A =  4.0e-17
+
+#basal friction relation parameters
+main.basalFrictionRelation = powerLaw
+BasalFrictionPowerLaw.m = 1.0
+
+#JFNK parameters
+JFNKSolver.vtopSafety = 0.95
+JFNKSolver.minPicardIterations = 3
+JFNKSolver.maxIter = 10
+JFNKSolver.absTol = 1.0e-5
+JFNKSolver.relTol = 1.0e-4
+JFNKSolver.solverType = 0 #Relax solver
+JFNKSolver.RelaxRelTol = 4.0e-3
+JFNKSolver.maxRelaxIter = 10
+JFNKSolver.normType = 0
+JFNKSolver.verbosity = 0
+JFNKSolver.vtopRelaxTol = 0.005
+JFNKSolver.vtopRelaxMinIter = 4
+JFNKSolver.numMGSmooth = 16
+JFNKSolver.numMGIter = 2
+JFNKSolver.h = 0.025
+JFNKSolver.switchRate = 5.0
+
+

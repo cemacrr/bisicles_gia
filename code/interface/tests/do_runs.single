@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+print("doing 32 run \n");
+system("./simple_bisicles hump.0032.config > run.hump.32");
+print("doing 64 run \n");
+system("./simple_bisicles hump.0064.config > run.hump.64");
+print("doing 128 run \n");
+system("./simple_bisicles hump.0128.config > run.hump.128");
+print("doing 256 run \n");
+system("./simple_bisicles hump.0256.config > run.hump.256");
+print("doing 512 run \n");
+system("./simple_bisicles hump.0512.config > run.hump.512");
+print("doing 1024 run \n");
+system("./simple_bisicles hump.1024.config > run.hump.1024");
+
+

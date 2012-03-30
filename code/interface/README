@@ -1,0 +1,21 @@
+This is the interface between the Glimmer-CISM code and the BISICLES dynamic core. Building in this directory will produce an executable which initializes the problem from glimmer, then passes is along to the BISICLES dynamic core, then back to the glimmer-cism driver.
+
+To build the code:
+1. create a directory gc1 on the same level as the BISICLES and Chombo directories.
+2. check out the the LANL-parallel branch of glimmer-cism into the gc1 directory. this should result in a gc1/parallel directory which holds the glimmer code
+3. cd gc1/parallel
+4. ./bootstrap
+5. configure glimmer-cism as you normally would
+6. modify libdycore/simple_bisicles/Makefile.dycore to include correct paths
+(hdf5, netcdf, etc) for your build. Search for "UNAMEN" and add an option for
+your machine. 
+6. Assuming you've checked out Chombo and set up the Make.defs.local file, type "make bisicles" in this directory (BISICLES/code/interface)
+7. If the build was successful, a simple_bisicles executable should be located in gc1/parallel/bin
+
+To run the code:
+1. cd gc1/parallel/bin
+2. ./simple_bisicles <config file>
+
+Note that simple_bisicles will use the inputs file specified in
+dycore_input_file as an inputs file for the BISICLES dynamic core.
+ 

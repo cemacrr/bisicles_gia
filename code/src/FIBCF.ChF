@@ -1,0 +1,74 @@
+#include "CONSTANTS.H"
+
+c ----------------------------------------------------
+c  fill in holes in data
+c
+c INPUT/OUTPUT:
+c        data <=> data array being modified
+c     holeVal  => value which a "hole" in the data will have
+c         eps  => real-real comparison tolerance
+c  numNeigbor  => number of neigbors which need to be not at  
+c                 the holeVal in order to qualify a given 
+c                 value as a "hole"c  
+c         box  => 
+c ----------------------------------------------------
+      subroutine FILLHOLES(CHF_FRA1[data],
+     &                     CHF_REAL[holeVal],
+     &                     CHF_REAL[eps],
+     &                     CHF_INT[numNeigbor],
+     &                     CHF_BOX[box])
+
+      integer CHF_AUTODECL[ii]
+      integer CHF_AUTODECL[i]
+      integer count
+      REAL_T sum
+      
+
+      CHF_AUTOMULTIDO[box; i]
+
+         if (abs(data(CHF_AUTOIX[i]) - holeVal).lt.eps) then
+            write(6,*) 'in conditional'
+         endif
+            
+      CHF_ENDDO
+      
+      return
+      end
+
+c----------------------------------------------------------
+c average node data to cell centers
+c
+c INPUTS/OUTPUTS:
+c nodeData  => node-centered field
+c cellData <=  cell-centered field
+c cellBox   => box which defines cellData valid region
+c----------------------------------------------------------
+      subroutine NODETOCELL(CHF_CONST_FRA1[nodeData],
+     &     CHF_FRA1[cellData],
+     &     CHF_BOX[cellBox])
+
+      integer CHF_DDECL[i;j;k]
+      REAL_T w,t
+
+      CHF_DTERM[w=half;
+      w=w*half;
+      w=w*half;]
+
+      CHF_MULTIDO[cellBox; i; j; k]
+      
+      CHF_DTERM[
+      t = nodeData(CHF_IX[i;j;k])
+     &     + nodeData(CHF_IX[i+1;j;k]);
+      t = t + nodeData(CHF_IX[i;j+1;k])
+     &     + nodeData(CHF_IX[i+1;j+1;k]);
+      t = t + nodeData(CHF_IX[i;j;k + 1])
+     &     + nodeData(CHF_IX[i+1;j;k + 1])        
+     &     + nodeData(CHF_IX[i;j+1;k + 1] )          
+     &     + nodeData(CHF_IX[i+1;j+1;k + 1])] 
+
+      cellData(CHF_IX[i;j;k]) = w * t
+     
+      CHF_ENDDO
+
+      return 
+      end

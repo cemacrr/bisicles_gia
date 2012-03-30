@@ -1,0 +1,52 @@
+#-help
+#-pc_mg_type full
+#-pc_type hypre
+-pc_type gamg
+#-pc_mg_levels_pc_type bjacobi
+-pc_gamg_sym_graph
+-pc_gamg_type agg
+-pc_gamg_agg_nsmooths 1
+-pc_gamg_threshold .05
+-pc_hypre_type boomeramg
+-pc_hypre_boomeramg_no CF
+-pc_hypre_boomeramg_agg_nl 1
+-pc_hypre_boomeramg_coarsen_type HMIS
+-pc_hypre_boomeramg_interp_type ext+i
+#-pc_hypre_boomeramg_P_max 4
+#-pc_hypre_boomeramg_agg_num_paths 2
+-pc_hypre_boomeramg_print_statistics
+-pc_hypre_boomeramg_relax_type_coarse symmetric-SOR/Jacobi 
+-pc_hypre_boomeramg_grid_sweeps_coarse 4 
+-pc_ml_Threshold 0.01
+-pc_ml_EnergyMinimization 2
+-pc_ml_PrintLevel 1
+-ksp_type gmres
+#-ksp_gmres_restart 100
+-ksp_max_it 50
+-mg_levels_ksp_type richardson 
+-mg_levels_pc_type sor 
+#-ksp_rtol 1.e-2
+-ksp_rtol 1.e-4
+-mg_levels_ksp_max_it 2
+#-mat_ascii_output_large
+-options_left
+-ksp_monitor
+#-mat_view_matlab
+-pc_gamg_verbose 0
+-ksp_norm_type unpreconditioned
+#-ksp_view
+#-ksp_converged_reason
+-ksp_converged_use_initial_residual_norm
+#-log_summary
+#-info
+#-ksp_diagonal_scale
+-snes_mf_operator
+-snes_monitor
+-snes_rtol 1.e-12
+-snes_stol 1.e-12
+-snes_converged_reason
+#-snes_linesearch_type bt
+#-mat_mffd_type ds
+#-mat_mffd_err 1.e-9
+#-snes_mf_unim <umin>
+
