@@ -34,6 +34,7 @@ bc.hi_bc = 1 0 0
 #include vertical shear
 amr.additional_velocity = 1
 
+
 amr.temporal_accuracy = 1
 #amr.temporal_accuracy = 2
 #amr.temporal_accuracy = 4
