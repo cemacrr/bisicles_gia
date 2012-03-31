@@ -71,10 +71,16 @@ ifeq ($(UNAMEN),loren)
 PYTHON_VERSION=2.6
 endif
 
+ifeq ($(UNAMEN),martins)
+PYTHON_VERSION=2.6
+CPPFLAGS+=-I/home/dan/install/visit/python/2.6.4/linux-x86_64_gcc-4.4/include/python2.6
+LIBFLAGS+= -L/home/dan/install/visit/python/2.6.4/linux-x86_64_gcc-4.4/lib/
+endif
+
 ifeq ($(PYTHON_VERSION),2.6)
 PYTHON_INC=/usr/include/python2.6
 CPPFLAGS+=-I$(PYTHON_INC)
-LIBFLAGS+=-lpython2.6
+LIBFLAGS+= -L/usr/lib -lpython2.6 
 else
 PYTHON_INC=/usr/include/python2.4
 CPPFLAGS+=-I$(PYTHON_INC)
