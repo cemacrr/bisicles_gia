@@ -154,7 +154,16 @@ int main(int argc, char* argv[]) {
 	  }
       }
    
-
+  
+    // clean up memory
+    for (int lev=0; lev<data.size(); lev++)
+      {
+        if (data[lev] != NULL)
+          {
+            delete data[lev];
+            data[lev] = NULL;
+          }
+      }
 
   }  // end nested scope
   CH_TIMER_REPORT();
