@@ -396,7 +396,13 @@ AmrIce::setDefaults()
   m_basalLengthScale = 0.0; // don't mess about with the basal friction / rhs by default
   m_groundingLineRegularization = 0.0;
   m_evolve_thickness = true;
-
+  m_evolve_topography = false;
+  m_evolve_topography_max_elevation_above_flotation = 1.0e+6;
+  m_evolve_topography_min_speed = 0.0;
+  m_evolve_topography_weight = 1.0;
+  m_evolve_topography_timescale = 1.0e+10;
+  m_grounded_ice_stable = false;
+  m_floating_ice_stable = false;
   m_A_valid = false;
 
   constantFlux* cfptr = new constantFlux;
@@ -745,6 +751,15 @@ AmrIce::initialize()
   ppAmr.query("write_layer_velocities", m_write_layer_velocities);
 
   ppAmr.query("evolve_thickness", m_evolve_thickness);
+
+  ppAmr.query("evolve_topography", m_evolve_topography);
+  ppAmr.query("evolve_topography_timescale", m_evolve_topography_timescale);
+  ppAmr.query("evolve_topography_min_speed", m_evolve_topography_min_speed);
+  ppAmr.query("evolve_topography_max_elevation_above_flotation", m_evolve_topography_max_elevation_above_flotation);
+
+
+  ppAmr.query("grounded_ice_stable", m_grounded_ice_stable);
+  ppAmr.query("floating_ice_stable", m_floating_ice_stable);
 
   ppAmr.query("check_interval", m_check_interval);
            
@@ -1986,6 +2001,35 @@ AmrIce::timeStep(Real a_dt)
               // add in thickness source
               if (m_evolve_thickness)
                 {
+
+		  if (m_floating_ice_stable)
+		    {
+		      //keep floating ice stable if required
+		      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+		      for (BoxIterator bit(gridBox); bit.ok(); ++bit)
+			{
+			  const IntVect& iv = bit();
+			  if (mask(iv) == FLOATINGMASKVAL)
+			    {
+			      newH(iv) = 0.0;
+			    }
+			}
+		    }
+		  
+		  if (m_grounded_ice_stable)
+		    {
+		      //keep grounded ice stable if required
+		      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+		      for (BoxIterator bit(gridBox); bit.ok(); ++bit)
+			{
+			  const IntVect& iv = bit();
+			  if (mask(iv) == GROUNDEDMASKVAL)
+			    {
+			      newH(iv) = 0.0;
+			    }
+			}
+		    }
+
 		  // if there are still diffusive fluxes to deal
                   // with, the source term will be included then
 		  if (m_diffusionTreatment != IMPLICIT)
@@ -1995,16 +2039,47 @@ AmrIce::timeStep(Real a_dt)
 		    }
 		  
                   newH *= -1*a_dt;
+
+		  if (m_evolve_topography)
+		    {
+		      //relax topography along with thickness in regions
+		      //where |u| > m_evolve_topography_min_speed and 
+                      // s - (1-r)*H < m_evolve_topography_max_elevation_above_flotation 
+                      //Don't permit the mask to change
+		      FArrayBox& topg = levelCoords.getTopography()[dit];
+		      const FArrayBox& usrf = levelCoords.getSurfaceHeight()[dit];
+		      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+		      const FArrayBox& vel = (*m_velocity[lev])[dit];
+		      Real ratio = 1.0 - levelCoords.iceDensity()/levelCoords.waterDensity();
+		      Real ratioMinusOne = ratio - 1.0;
+		      Real weight = m_evolve_topography_weight * std::exp(-m_time/m_evolve_topography_timescale);
+		      for (BoxIterator bit(gridBox); bit.ok(); ++bit)
+			{
+			  const IntVect& iv = bit();
+			  if (mask(iv) == GROUNDEDMASKVAL)
+			    {
+			      Real sAbove = usrf(iv) - oldH(iv)*ratio;
+			      Real umod = std::sqrt(vel(iv,0)*vel(iv,0) + vel(iv,1)*vel(iv,1));
+			      if (sAbove < m_evolve_topography_max_elevation_above_flotation
+				  && umod > m_evolve_topography_min_speed)
+				{
+				  topg(iv) -=  weight*newH(iv);
+				  Real H = oldH(iv)+newH(iv);
+				  topg(iv) = std::max(H*ratioMinusOne + 1.0e-10 ,topg(iv));
+				}
+			    }
+			}
+
+		    }
+
+
                 }
               else 
                 {
                   newH.setVal(0.0);
                 }
 	      
-              //newH.plus(oldH, gridBox, 0, 0, 1);
 	      newH.plus(oldH, 0, 0, 1);
-	      // CH_assert(newH.max() < HUGE_THICKNESS);
-	     
 
             } // end loop over grids
         } // end loop over levels
