@@ -2082,6 +2082,10 @@ AmrIce::timeStep(Real a_dt)
 	      newH.plus(oldH, 0, 0, 1);
 
             } // end loop over grids
+	  if (m_evolve_topography)
+	    {
+	      levelCoords.getTopography().exchange();  
+	    }
         } // end loop over levels
       
 
