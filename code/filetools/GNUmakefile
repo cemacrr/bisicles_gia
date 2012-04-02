@@ -41,6 +41,7 @@ src_dirs = src
 include $(CHOMBO_HOME)/mk/Make.example
 
 UNAMEN := $(shell uname -n)
+WHO := $(shell whoami)
 #netcdf location
 ifeq ($(UNAMEN),martins)
 NETCDF_HOME = /usr/local/netcdf
@@ -50,9 +51,13 @@ ifeq ($(UNAMEN),loren)
 NETCDF_HOME =/home/loren/users/dmartin/util/netcdf/netcdf-4.1.2
 endif
 
-ifeq ($(UNAMEN),dartagnan.ggy.bris.ac.uk)
-NETCDF_HOME=/data/ggslc/GlimmerBISICLES/gnu/netcdf/serial
+
+ifeq ($(UNAMEN),porthos.ggy.bris.ac.uk)
+ifeq ($(WHO),ggslc)
+NETCDF_HOME = /local/ggslc/BISICLES/netcdf/serial
 endif
+endif
+
 
 ifeq ($(UNAMEN),geog-bsq92.ggy.bris.ac.uk)
 NETCDF_HOME = /local/GlimmerBisicles/netcdf
