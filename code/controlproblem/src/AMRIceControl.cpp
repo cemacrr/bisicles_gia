@@ -1164,7 +1164,7 @@ void AMRIceControl::computeObjectiveAndGradient
   //dump data
   if (a_inner)
     {
-      writeState(innerStateFile(), m_innerCounter, a_x, a_g);
+      //writeState(innerStateFile(), m_innerCounter, a_x, a_g);
       m_innerCounter++;
     }
   else
