@@ -386,6 +386,9 @@ protected:
   /// decay rate for basal friction at base of floating ice
   Real m_basalFrictionDecay;
     
+  bool m_wallDrag;
+  Real m_wallDragExtra;
+
   // Attempt to limit velocity
   // gradients close to the grounding line by adding a drag
   // term -rHu to the LHS and a source term -rQ to the RHS.

@@ -267,6 +267,40 @@ void IceVelocity::computeA
 
 }
 
+void IceVelocity::addWallDrag(FArrayBox& a_drag, 
+			      const BaseFab<int>& a_mask,
+			      const FArrayBox& a_usrf,
+			      const FArrayBox& a_thk,
+			      const FArrayBox& a_topg,
+			      const FArrayBox& a_beta,
+			      const Real& a_extra, 
+			      const Real& a_dx,
+			      const Box& a_box)
+{
+  for (int dir = 0; dir < SpaceDim; ++dir)
+    {
+      for (int sign = -1; sign <= 1; sign+=2)
+	{
+
+	  for (BoxIterator bit(a_box); bit.ok(); ++bit)
+	    {
+	      const IntVect& iv = bit();
+	      if (a_mask(iv) == GROUNDEDMASKVAL || a_mask(iv) == FLOATINGMASKVAL)
+		{
+		  const IntVect ivp = iv + sign*BASISV(dir);
+		  if (a_mask(ivp) != GROUNDEDMASKVAL && a_mask(ivp) != FLOATINGMASKVAL)
+		    {
+		      if (a_topg(ivp) > a_usrf(iv)-a_thk(iv))
+			{
+			  a_drag(iv) += (a_beta(iv) + a_extra) * 0.5 * (a_thk(iv)) / a_dx;
+			}
+		    }
+		}
+	    }
+	}
+    }
+}
+
 void IceVelocity::computeFaceVelocity(LevelData<FluxBox>& a_faceVel,
 #if BISCICLES_Z == BISICLES_LAYERED
 			 LevelData<FluxBox>& a_layerXYFaceXYVel,

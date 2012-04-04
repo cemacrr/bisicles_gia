@@ -394,6 +394,10 @@ AmrIce::setDefaults()
                                   // if m_initialGuessType = ConstMu
   m_basalFrictionDecay = -1.0 ; // set basal friction to zero wherever ioce is floating
   m_basalLengthScale = 0.0; // don't mess about with the basal friction / rhs by default
+  
+  m_wallDrag = false; //by default, don't compute  additional drag due to contact with rocky walls
+  m_wallDragExtra = 0.0; // by default, assume wall drag proportional to basal drag
+
   m_groundingLineRegularization = 0.0;
   m_evolve_thickness = true;
   m_evolve_topography = false;
@@ -959,6 +963,10 @@ AmrIce::initialize()
 
   ppAmr.query("basal_length_scale", m_basalLengthScale);
   ppAmr.query("basal_friction_decay",m_basalFrictionDecay);
+
+  ppAmr.query("wallDrag",m_wallDrag);
+  ppAmr.query("wallDragExtra",m_wallDragExtra);
+
   ppAmr.query("grounding_line_regularization",m_groundingLineRegularization);
 
   //calving model options
@@ -4548,7 +4556,21 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 	  
 	  // this is also a good place to set C=0 where
           // ice is floating, 
- 
+
+	  // before setting C = 0, add drag due to ice in contact with ice-free rocky walls
+	  FArrayBox wallDrag(gridBox,1);
+	  wallDrag.setVal(0.0);
+	  if (m_wallDrag)
+	  {
+	   
+	    const FArrayBox& topg = levelCS.getBaseHeight()[dit];
+	    const FArrayBox& usrf = levelCS.getSurfaceHeight()[dit];
+	    Real dx = m_amrDx[lev];
+	    IceVelocity::addWallDrag(wallDrag, floatingMask, levelCS.getSurfaceHeight()[dit],
+				     thisH, levelCS.getBaseHeight()[dit], thisC, m_wallDragExtra,
+				     dx, gridBox);
+
+	  }
           if(anyFloating)
             {
 	      
@@ -4575,7 +4597,7 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
      
             } // end if anything is floating
 
-
+	  thisC += wallDrag;
 
 	   
         } // end loop over boxes

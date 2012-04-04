@@ -16,6 +16,17 @@
 
 namespace IceVelocity
 {
+
+  void addWallDrag(FArrayBox& a_drag, 
+		   const BaseFab<int>& a_mask,
+		   const FArrayBox& a_usrf,
+		   const FArrayBox& a_thk,
+		   const FArrayBox& a_topg,
+		   const FArrayBox& a_beta,
+		   const Real& a_extra, 
+		   const Real& a_dx,
+		   const Box& a_box);
+
   void defineRHS(Vector<LevelData<FArrayBox>* >& a_rhs,
 		 const Vector<RefCountedPtr<LevelSigmaCS > >& a_CS,
 		 const Vector<DisjointBoxLayout>& a_grids,
