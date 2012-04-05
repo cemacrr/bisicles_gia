@@ -729,6 +729,8 @@ protected:
   string m_check_prefix;
 
   bool m_check_overwrite; // overwrite check point files
+  bool m_check_exit; // exit immediately after writing checkpoint?
+
 
   /// 
   int m_plot_interval;  

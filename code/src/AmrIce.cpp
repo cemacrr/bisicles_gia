@@ -376,6 +376,8 @@ AmrIce::setDefaults()
   m_check_prefix = "chk";
   m_check_interval = -1;
   m_check_overwrite = true;
+  m_check_exit = false;
+
   m_diffusionTreatment = NONE;
   m_additionalDiffusivity = 0.0;
   m_additionalVelocity = false;
@@ -766,10 +768,9 @@ AmrIce::initialize()
   ppAmr.query("floating_ice_stable", m_floating_ice_stable);
 
   ppAmr.query("check_interval", m_check_interval);
-           
   ppAmr.query("check_prefix", m_check_prefix);
-
   ppAmr.query("check_overwrite", m_check_overwrite);
+  ppAmr.query("check_exit", m_check_exit);
 
   bool tempBool = m_write_dHDt;
   ppAmr.query("write_dHDt", tempBool);
@@ -1556,6 +1557,16 @@ AmrIce::run(Real a_max_time, int a_max_step)
 	      && (m_cur_step != m_restart_step))
 	    {
 	      writeCheckpointFile();
+	      if (m_cur_step > 0 && m_check_exit)
+		{
+		  if (s_verbosity > 2)
+		    {
+		      pout() << "AmrIce::exit on checkpoint" << endl;
+		      return;
+		    }
+		}
+
+
 	    }
 	  
 	  
@@ -4562,14 +4573,9 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 	  wallDrag.setVal(0.0);
 	  if (m_wallDrag)
 	  {
-	   
-	    const FArrayBox& topg = levelCS.getBaseHeight()[dit];
-	    const FArrayBox& usrf = levelCS.getSurfaceHeight()[dit];
-	    Real dx = m_amrDx[lev];
 	    IceVelocity::addWallDrag(wallDrag, floatingMask, levelCS.getSurfaceHeight()[dit],
 				     thisH, levelCS.getBaseHeight()[dit], thisC, m_wallDragExtra,
-				     dx, gridBox);
-
+				     m_amrDx[lev], gridBox);
 	  }
           if(anyFloating)
             {
