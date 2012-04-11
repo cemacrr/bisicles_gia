@@ -403,6 +403,7 @@ AmrIce::setDefaults()
   m_groundingLineRegularization = 0.0;
   m_evolve_thickness = true;
   m_evolve_topography = false;
+  m_evolve_topography_preserve_mask = true;
   m_evolve_topography_max_elevation_above_flotation = 1.0e+6;
   m_evolve_topography_min_speed = 0.0;
   m_evolve_topography_weight = 1.0;
@@ -759,6 +760,7 @@ AmrIce::initialize()
   ppAmr.query("evolve_thickness", m_evolve_thickness);
 
   ppAmr.query("evolve_topography", m_evolve_topography);
+  ppAmr.query("evolve_topography_preserve_mask", m_evolve_topography_preserve_mask);
   ppAmr.query("evolve_topography_timescale", m_evolve_topography_timescale);
   ppAmr.query("evolve_topography_min_speed", m_evolve_topography_min_speed);
   ppAmr.query("evolve_topography_max_elevation_above_flotation", m_evolve_topography_max_elevation_above_flotation);
@@ -2083,8 +2085,11 @@ AmrIce::timeStep(Real a_dt)
 				  && umod > m_evolve_topography_min_speed)
 				{
 				  topg(iv) -=  weight*newH(iv);
-				  Real H = oldH(iv)+newH(iv);
-				  topg(iv) = std::max(H*ratioMinusOne + 1.0e-10 ,topg(iv));
+				  if (m_evolve_topography_preserve_mask)
+				    {
+				      Real H = oldH(iv)+newH(iv);
+				      topg(iv) = std::max(H*ratioMinusOne + 1.0e-10 ,topg(iv));
+				    }
 				}
 			    }
 			}

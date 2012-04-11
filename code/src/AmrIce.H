@@ -772,6 +772,7 @@ protected:
 
   // if true, allow topography to change in time.
   bool m_evolve_topography;
+  bool m_evolve_topography_preserve_mask;
   Real m_evolve_topography_max_elevation_above_flotation;
   Real m_evolve_topography_min_speed;
   Real m_evolve_topography_weight;
