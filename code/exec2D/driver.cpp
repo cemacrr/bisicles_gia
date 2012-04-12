@@ -718,7 +718,7 @@ int main(int argc, char* argv[]) {
 	 std::string thicknessName = "thck";
 	 ildPP.query("thicknessName",thicknessName);
 	 std::string topographyName = "topg";
-	 ildPP.query("topgraphyName",topographyName);
+	 ildPP.query("topographyName",topographyName);
 	 
 	 RefCountedPtr<LevelData<FArrayBox> > levelThck
 	   (new LevelData<FArrayBox>());
