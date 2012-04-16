@@ -2020,8 +2020,18 @@ AmrIce::timeStep(Real a_dt)
                                   CHF_INT(dir));
                 }
               // add in thickness source
+	      // if there are still diffusive fluxes to deal
+	      // with, the source term will be included then
+	      if (m_diffusionTreatment != IMPLICIT)
+		{
+		  newH.minus((*surfaceThicknessSource[lev])[dit], gridBox,0,0,1);
+		  newH.minus((*basalThicknessSource[lev])[dit], gridBox,0,0,1);
+		}
+		  
               if (m_evolve_thickness)
                 {
+
+
 
 		  if (m_floating_ice_stable)
 		    {
@@ -2051,14 +2061,7 @@ AmrIce::timeStep(Real a_dt)
 			}
 		    }
 
-		  // if there are still diffusive fluxes to deal
-                  // with, the source term will be included then
-		  if (m_diffusionTreatment != IMPLICIT)
-		    {
-		      newH.minus((*surfaceThicknessSource[lev])[dit], gridBox,0,0,1);
-		      newH.minus((*basalThicknessSource[lev])[dit], gridBox,0,0,1);
-		    }
-		  
+
                   newH *= -1*a_dt;
 
 		  if (m_evolve_topography)
