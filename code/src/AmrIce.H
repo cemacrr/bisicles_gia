@@ -173,6 +173,9 @@ public:
 
 #endif
 
+  /// compute total ice and total grounded ice (volume, at this point)
+  Real computeTotalGroundedIce() const;
+
   enum velSolverTypes { Picard = 0,
 			JFNK = 1,
 			KnownVelocity = 2,
@@ -683,8 +686,18 @@ protected:
   /// diagnostic quantity -- sum(ice) at initial time
   Real m_initialSumIce;
 
-  /// diagnostic quantity -- sum(ice) at last timestep
+  /// diagnostic quantity -- sum(ice) at last timestepa
   Real m_lastSumIce;
+
+  /// if true, report sum(grounded ice) as well as sum(total ice)
+  bool m_report_grounded_ice;
+
+  /// diagnostic quantity -- sum(grounded ice) at initial time
+  Real m_initialSumGroundedIce;
+
+  /// 
+  /// diagnostic quantity -- sum(grounded ice) at last timestepa
+  Real m_lastSumGroundedIce;
 
   /// type of basal friction distribution
   int m_beta_type;
@@ -791,7 +804,8 @@ protected:
   //ised to store a fixed time step > 0 , if desired
   Real m_fixed_dt;
 
-  
+  // if true, report sum of grounded ice (volume) -- default is false
+  bool m_reportGroundedIce;
 
 #if BISICLES_Z == BISICLES_LAYERED
   //additional members used in poor-mans multidim mode

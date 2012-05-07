@@ -362,6 +362,8 @@ AmrIce::setDefaults()
   m_seaWaterDensity = 1028.0;
   m_gravity = 9.81;
 
+  m_report_grounded_ice = false;
+
   m_plot_prefix = "plot";
   m_plot_interval = 10000000;
   m_plot_time_interval = 1.0e+12;
@@ -913,7 +915,7 @@ AmrIce::initialize()
       m_max_base_grid_size = m_max_box_size;
     }
 
-  
+  ppAmr.query("report_sum_grounded_ice",   m_report_grounded_ice);
   
   // get temporal accuracy
   ppAmr.query("temporal_accuracy", m_temporalAccuracy);
@@ -1050,9 +1052,9 @@ AmrIce::initialize()
   m_vectTagSubset.resize(m_max_level);
   
   ppAmr.query("tagSubsetBoxesFile",tagSubsetBoxesFile);
+  
   if (tagSubsetBoxesFile != "")
     {
-      
       if (procID() == uniqueProc(SerialTask::compute))
   	{
 	 
@@ -1063,6 +1065,11 @@ AmrIce::initialize()
   	      pout() << "Can't open " << tagSubsetBoxesFile << std::endl;
   	      MayDay::Error("Cannot open refine boxes file");
   	    }
+
+      // keep this around until changes propagate through inputs...
+#define BASE_SUBSET_ON_LEVEL true
+#if BASE_SUBSET_ON_LEVEL    
+          
   	  for (int lev = 0; lev < m_max_level; lev++)
   	    {
 	     
@@ -1119,6 +1126,70 @@ AmrIce::initialize()
 		}
 	      
   	    } // end loop over levels
+#else //not BASE_SUBSET_ON_LEVEL    
+  
+  	  for (int lev = 0; lev < m_max_level; lev++)
+  	    {
+              // first set empty domains for all levels
+              m_vectTagSubset[lev] = IntVectSet();
+            }
+
+
+  	      const char  levelChar[6] = "level";
+              const char domainChar[7] = "Domain";
+  	      char s[6];
+  	      is >> s;
+  	      if (std::string(level) != std::string(s))
+  		{
+  		  pout() << "expected '" << level << "' at line " << lineno << ", got " << s << std::endl;
+  		  MayDay::Error("bad input file");
+  		}
+  	      int inlev;
+  	      is >> inlev;
+  	      if (inlev != lev)
+  		{
+  		  pout() << "expected ' " << lev << "' at line " << lineno << std::endl;
+  		  MayDay::Error("bad input file");
+  		}
+  	      //advance to next line
+  	      while (is.get() != '\n');lineno++;
+  	      int nboxes;
+  	      is >> nboxes;
+  	      if (nboxes > 0)
+  		{
+  		  for (int i = 0; i < nboxes; ++i)
+  		    {
+  		      Box box;
+  		      is >> box;while (is.get() != '\n');lineno++;
+  		      m_vectTagSubset[lev] |= box;
+  		      pout() << " level " << lev << " refine box : " << box << std::endl;
+  		    }
+  		}
+  	      //advance to next line
+  	      while (is.get() != '\n');lineno++;
+	     
+	      if (lev > 0)
+		{
+		  //add lower level's subset to this subset
+		  IntVectSet crseSet (m_vectTagSubset[lev-1]);
+		  if (!crseSet.isEmpty())
+		    {
+		      crseSet.refine(m_refinement_ratios[lev-1]);
+		      // crseSet.nestingRegion(m_block_factor,m_amrDomains[lev]);
+		      if (m_vectTagSubset[lev].isEmpty())
+			{
+			  m_vectTagSubset[lev] = crseSet;
+			} 
+		      else
+			{
+			  m_vectTagSubset[lev] &= crseSet;
+			} 
+		    }
+		 
+		}
+	      
+  	    } // end loop over levels        
+#endif // not BASE_SUBSET_ON_LEVEL    
 	} // end if serial compute
       for (int lev = 0; lev < m_max_level; lev++)
 	broadcast(m_vectTagSubset[lev], uniqueProc(SerialTask::compute));
@@ -1337,6 +1408,11 @@ AmrIce::initialize()
 
   m_initialSumIce = computeTotalIce();
   m_lastSumIce = m_initialSumIce;
+  if (m_report_grounded_ice)
+    {
+      m_initialSumGroundedIce = computeTotalGroundedIce();
+      m_lastSumGroundedIce = m_initialSumGroundedIce;
+    }
 }  
   
 /// set BC for thickness advection
@@ -2458,18 +2534,34 @@ AmrIce::timeStep(Real a_dt)
   Real diffSum = sumIce - m_lastSumIce;
   Real totalDiffSum = sumIce - m_initialSumIce;
   
+  Real sumGroundedIce, diffSumGrounded, totalDiffGrounded;
+  if (m_report_grounded_ice)
+    {
+      sumGroundedIce = computeTotalGroundedIce();
+      diffSumGrounded = sumGroundedIce - m_lastSumGroundedIce;
+      totalDiffGrounded = sumGroundedIce - m_initialSumGroundedIce;      
+      m_lastSumGroundedIce = sumGroundedIce;
+    }
+
   if (s_verbosity > 0) 
     {
       pout() << "Step " << m_cur_step << ", time = " << m_time
-        //<< " (" << m_time/secondsperyear << " yr)"
              << ": sum(ice) = " << sumIce 
              << " (" << diffSum
              << " " << totalDiffSum
              << ")" << endl;
-
       
+      if (m_report_grounded_ice)
+        {
+          pout() << "Step " << m_cur_step << ", time = " << m_time
+                 << ": sum(grounded ice) = " << sumGroundedIce 
+                 << " (" << diffSumGrounded
+                 << " " << totalDiffGrounded
+                 << ")" << endl;
+        }      
     }
   
+
   m_lastSumIce = sumIce;
 
   if (s_verbosity > 0) 
@@ -2497,14 +2589,12 @@ AmrIce::timeStep(Real a_dt)
   if (s_verbosity > 0) 
     {
       pout() << "Time = " << m_time
-        //<< " (" << m_time/secondsperyear << " yr)"
              << " cells advanced = " 
              << totalCellsAdvanced << endl;
 
       for (int lev=0; lev<m_num_cells.size(); lev++) 
         {
           pout () << "Time = " << m_time 
-            //<< " (" << m_time/secondsperyear << " yr)"
                   << "  level " << lev << " cells advanced = " 
                   << m_num_cells[lev] << endl;
         }
@@ -6778,6 +6868,66 @@ AmrIce::restart(string& a_restart_file)
 
 }
 #endif
+
+Real AmrIce::computeTotalGroundedIce() const
+{
+  
+  Real totalGroundedIce = 0;
+
+  Vector<LevelData<FArrayBox>* > vectGroundedThickness(m_finest_level+1, NULL);
+
+  for (int lev=0; lev<=m_finest_level; lev++)
+    {
+      const LevelData<FArrayBox>& levelThickness = m_vect_coordSys[lev]->getH();
+      // temporary with only ungrounded ice
+      vectGroundedThickness[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1,
+                                                            IntVect::Zero);
+
+      LevelData<FArrayBox>& levelGroundedThickness = *vectGroundedThickness[lev];
+      // now copy thickness to       
+      levelThickness.copyTo(levelGroundedThickness);
+
+      const LevelData<BaseFab<int> >& levelMask = m_vect_coordSys[lev]->getFloatingMask();
+      // now loop through and set to zero where we don't have grounded ice.
+      // do this the slow way, for now
+      DataIterator dit=levelGroundedThickness.dataIterator();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          const BaseFab<int>& thisMask = levelMask[dit];
+          FArrayBox& thisThick = levelGroundedThickness[dit];
+          BoxIterator bit(thisThick.box());
+          for (bit.begin(); bit.ok(); ++bit)
+            {
+              IntVect iv = bit();
+              if (thisMask(iv,0) != GROUNDEDMASKVAL)
+                {
+                  thisThick(iv,0) = 0.0;
+                }
+            }
+        }
+    
+
+    }
+
+  // now compute sum
+  Interval thicknessInt(0,0);
+  totalGroundedIce = computeSum(vectGroundedThickness, m_refinement_ratios,
+                                m_amrDx[0], thicknessInt, 0);
+
+  
+  // clean up temp storage
+  for (int lev=0; lev<vectGroundedThickness.size(); lev++)
+    {
+      if (vectGroundedThickness[lev] != NULL)
+        {
+          delete vectGroundedThickness[lev];
+          vectGroundedThickness[lev] = NULL;
+        }
+    }
+
+  return totalGroundedIce;
+
+}
 
 void AmrIce::helmholtzSolve
 (Vector<LevelData<FArrayBox>* >& a_phi,
