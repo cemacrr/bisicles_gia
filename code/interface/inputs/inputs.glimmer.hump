@@ -1,4 +1,6 @@
-#inputs file for Amr ice-sheet solver
+#inputs file for CISM-BISICLES AMR ice-sheet solver
+glimmerInterface.nodalInitialData = false
+
 main.maxTime = 10000000000  # maximum time to run to
 main.maxStep = 2   # maximum number of steps to runx
 #main.maxStep = 20000   # maximum number of steps to runx
@@ -70,5 +72,32 @@ amr.strain_rate_invariant_tagging_val = 1
 
 amr.velocity_solver_tolerance = 1.0e-10
 
+#velocity solve type -- 0 = Picard, 1 = JFNK
+amr.velocity_solver_type = 1
+
 picardSolver.linearSolver = BiCGStab
 picardSolver.max_iterations = 50
+
+#JFNK parameters
+JFNKSolver.vtopSafety = 0.65
+JFNKSolver.minPicardIterations = 2
+JFNKSolver.maxIter = 20
+JFNKSolver.absTol = 1.0
+JFNKSolver.relTol = 3.0e-8
+JFNKSolver.solverType = 0 #Relax solver
+JFNKSolver.RelaxRelTol = 1.0e-6
+JFNKSolver.RelaxHang = 0.9
+JFNKSolver.maxRelaxIter = 30
+JFNKSolver.normType = 2
+JFNKSolver.verbosity = 5
+JFNKSolver.vtopRelaxTol = 0.005
+JFNKSolver.vtopRelaxMinIter = 8
+JFNKSolver.numMGSmooth = 32
+JFNKSolver.numMGIter = 1
+JFNKSolver.h = 0.025
+JFNKSolver.switchRate = 2.0
+#JFNKSolver.writeResiduals = true
+#JFNKSolver.muMin = 1.0e+4
+#JFNKSolver.uMaxAbs = 1.0e+6
+JFNKSolver.hAdaptive = 1
+#JFNKSolver.h = 

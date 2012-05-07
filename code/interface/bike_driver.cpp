@@ -8,12 +8,22 @@
 #include "ConstitutiveRelation.H"
 #include "L1L2ConstitutiveRelation.H"
 #include "BasalFriction.H"
+#include "BasalFrictionRelation.H"
+#include "MuCoefficient.H"
 #include "twistyStreamFriction.H"
+#include "GaussianBumpFriction.H"
 #include "IceThicknessIBC.H"
 #include "FortranInterfaceIBC.H"
 #include "FortranInterfaceBasalFriction.H"
+#include "LevelDataIBC.H"
+#include "IceTemperatureIBC.H"
+#include "LevelDataTemperatureIBC.H"
+#include "LevelDataBasalFriction.H"
 #include "SurfaceFlux.H"
 #include "PiecewiseLinearFlux.H"
+
+#include "ReadLevelData.H"
+
 #include "bike_driver.H"
 
 
@@ -48,11 +58,13 @@ void bike_driver_run(int argc, int exec_mode);
  
 /// types of basal friction (beta) distributions
 /** SinusoidalBeta is the one for exp C in Pattyn et al (2008)
+    guassianBump is used for the MISMIP3D perturbations tests.
  */
 enum basalFrictionTypes {constantBeta = 0,
                          sinusoidalBeta,
                          sinusoidalBetay,
                          twistyStreamx,
+			 gaussianBump,
                          NUM_BETA_TYPES};
 
 void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const char * input_fname)
@@ -71,10 +83,13 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
   argv[0] = argv0;
   argv[1] = argv1;
 
-
+#ifdef CH_USE_PETSC
+  ierr = PetscInitialize(&argc, &argv,"./.petscrc",PETSC_NULL); CHKERRQ(ierr);
+#else
 #ifdef MPI
   MPI_Init(&argc, &argv);
 #endif
+#endif // end petsc conditional
   
   cout << "In bike_driver..." << endl;
   
@@ -110,6 +125,8 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
     //ParmParse pp(argc-2,argv+2,NULL,in_file);
     bikePtr->parmParse = new ParmParse(argc-2,argv+2,NULL,in_file);
 
+    RealVect domainSize;
+
     ParmParse pp2("main");
 
     ParmParse interfacePP("glimmerInterface");
@@ -137,8 +154,17 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
       }
     else if (constRelType == "L1L2")
       {
-        constRelPtr = new L1L2ConstitutiveRelation;
-	gfrPtr = (dynamic_cast<L1L2ConstitutiveRelation*>(constRelPtr))->getGlensFlowRelationPtr();
+        L1L2ConstitutiveRelation* l1l2Ptr = new L1L2ConstitutiveRelation;
+        ParmParse ppL1L2("l1l2");
+
+        // set L1L2 internal solver tolerance
+        // default matches original hardwired value
+        Real tol = 1.0e-6;
+        ppL1L2.query("solverTolerance", tol);
+        l1l2Ptr->solverTolerance(tol);
+	gfrPtr = l1l2Ptr->getGlensFlowRelationPtr();
+        constRelPtr = l1l2Ptr;
+
       }
     else 
       {
@@ -175,140 +201,193 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
       }
 
 
-    //amrObject.setConstitutiveRelation(constRelPtr);
-    amrObjectPtr -> setConstitutiveRelation(constRelPtr);  
+    amrObjectPtr->setConstitutiveRelation(constRelPtr);  
     
 
     // ---------------------------------------------
     // set (upper) surface flux. 
     // ---------------------------------------------
 
-    // for now, set it to be zero
-    SurfaceFlux* surf_flux_ptr = NULL;
-    std::string surfaceFluxType = "zeroFlux";
-    pp2.query("surface_flux_type", surfaceFluxType);
+    SurfaceFlux* surf_flux_ptr = SurfaceFlux::parseSurfaceFlux("surfaceFlux");
 
-    if (surfaceFluxType == "zeroFlux")
+    if (surf_flux_ptr == NULL)
       {
-        surf_flux_ptr = new zeroFlux;
-      }
-    else if (surfaceFluxType == "constantFlux")
-      {
-        constantFlux* constFluxPtr = new constantFlux;
-        Real fluxVal;
-        ParmParse ppFlux("constFlux");
-        ppFlux.get("flux_value", fluxVal);
-        constFluxPtr->setFluxVal(fluxVal);
-        
-        surf_flux_ptr = static_cast<SurfaceFlux*>(constFluxPtr);
-      }
-    else
-      {
-        MayDay::Error("invalid surface flux type");
+	// chunk for compatiblity with older input files
+	MayDay::Warning("trying to parse old style surface_flux_type");
+	surf_flux_ptr = NULL;
+	std::string surfaceFluxType = "zeroFlux";
+	pp2.query("surface_flux_type", surfaceFluxType);
+	
+	if (surfaceFluxType == "zeroFlux")
+	  {
+            surf_flux_ptr = new zeroFlux;
+	  }
+	else if (surfaceFluxType == "constantFlux")
+	  {
+	    constantFlux* constFluxPtr = new constantFlux;
+	    Real fluxVal;
+	    ParmParse ppFlux("constFlux");
+	    ppFlux.get("flux_value", fluxVal);
+	    constFluxPtr->setFluxVal(fluxVal);
+	    
+	    surf_flux_ptr = static_cast<SurfaceFlux*>(constFluxPtr);
+	  }
       }
     
-     amrObjectPtr -> setSurfaceFlux(surf_flux_ptr);
+    if (surf_flux_ptr == NULL)
+      {
+	MayDay::Error("invalid surface flux type");
+      }
+
+    amrObjectPtr->setSurfaceFlux(surf_flux_ptr);
+  
 
     // ---------------------------------------------
     // set basal (lower surface) flux. 
     // ---------------------------------------------
     
-    SurfaceFlux* basal_flux_ptr = NULL;
-    std::string basalFluxType = "zeroFlux";
-    pp2.query("basal_flux_type", basalFluxType);
-    if (basalFluxType == "zeroFlux")
+    SurfaceFlux* basal_flux_ptr = SurfaceFlux::parseSurfaceFlux("basalFlux");
+    
+    if (basal_flux_ptr == NULL)
       {
-        basal_flux_ptr = new zeroFlux;
-      }
-    else if (basalFluxType == "constantFlux")
-      {
-        constantFlux* constFluxPtr = new constantFlux;
-        Real fluxVal;
-        ParmParse ppFlux("basalConstFlux");
-        ppFlux.get("flux_value", fluxVal);
-        constFluxPtr->setFluxVal(fluxVal);
-        basal_flux_ptr = static_cast<SurfaceFlux*>(constFluxPtr);
-
-      }
-    else if (basalFluxType == "maskedFlux")
-      {
-	SurfaceFlux* grounded_basal_flux_ptr = NULL;
-	std::string groundedBasalFluxType = "zeroFlux";
-	ParmParse ppbmFlux("basalMaskedFlux");
-	ppbmFlux.query("grounded_flux_type",groundedBasalFluxType);
-	if (groundedBasalFluxType == "zeroFlux")
+	//chunk for compatiblity with older input files
+	MayDay::Warning("trying to parse old style basal_flux_type");
+	std::string basalFluxType = "zeroFlux";
+	pp2.query("basal_flux_type", basalFluxType);
+	if (basalFluxType == "zeroFlux")
 	  {
-	    grounded_basal_flux_ptr = new zeroFlux;
+	    basal_flux_ptr = new zeroFlux;
 	  }
-	else if (groundedBasalFluxType == "constantFlux")
+	else if (basalFluxType == "constantFlux")
 	  {
 	    constantFlux* constFluxPtr = new constantFlux;
 	    Real fluxVal;
-	    ParmParse ppgFlux("groundedBasalConstFlux");
-	    ppgFlux.get("flux_value", fluxVal);
+	    ParmParse ppFlux("basalConstFlux");
+	    ppFlux.get("flux_value", fluxVal);
 	    constFluxPtr->setFluxVal(fluxVal);
-	    grounded_basal_flux_ptr = static_cast<SurfaceFlux*>(constFluxPtr);
+	    basal_flux_ptr = static_cast<SurfaceFlux*>(constFluxPtr);
+	    
 	  }
-	else
+	else if (basalFluxType == "maskedFlux")
 	  {
-	    MayDay::Error("invalid grounded basal flux type");
+	    SurfaceFlux* grounded_basal_flux_ptr = NULL;
+	    std::string groundedBasalFluxType = "zeroFlux";
+	    ParmParse ppbmFlux("basalMaskedFlux");
+	    ppbmFlux.query("grounded_flux_type",groundedBasalFluxType);
+	    if (groundedBasalFluxType == "zeroFlux")
+	      {
+		grounded_basal_flux_ptr = new zeroFlux;
+	      }
+	    else if (groundedBasalFluxType == "constantFlux")
+	      {
+		constantFlux* constFluxPtr = new constantFlux;
+		Real fluxVal;
+		ParmParse ppgFlux("groundedBasalConstFlux");
+		ppgFlux.get("flux_value", fluxVal);
+		constFluxPtr->setFluxVal(fluxVal);
+		grounded_basal_flux_ptr = static_cast<SurfaceFlux*>(constFluxPtr);
+	      }
+	    else
+	      {
+		MayDay::Error("invalid grounded basal flux type");
+	      }
+	    
+	    SurfaceFlux* floating_basal_flux_ptr = NULL;
+	    std::string floatingBasalFluxType = "zeroFlux";
+	    
+	    ppbmFlux.query("floating_flux_type",floatingBasalFluxType);
+	    if (floatingBasalFluxType == "zeroFlux")
+	      {
+		floating_basal_flux_ptr = new zeroFlux;
+	      }
+	    else if (floatingBasalFluxType == "constantFlux")
+	      {
+		constantFlux* constFluxPtr = new constantFlux;
+		Real fluxVal;
+		ParmParse ppfFlux("floatingBasalConstFlux");
+		ppfFlux.get("flux_value", fluxVal);
+		constFluxPtr->setFluxVal(fluxVal);
+		floating_basal_flux_ptr = static_cast<SurfaceFlux*>(constFluxPtr);
+	      }
+	    else if (floatingBasalFluxType == "piecewiseLinearFlux")
+	      {
+		ParmParse pwlFlux("floatingBasalPWLFlux");
+		int n = 1;  
+		pwlFlux.query("n",n);
+		Vector<Real> vabs(n,0.0);
+		Vector<Real> vord(n,0.0);
+		pwlFlux.getarr("abscissae",vabs,0,n);
+		pwlFlux.getarr("ordinates",vord,0,n);
+		PiecewiseLinearFlux* ptr = new PiecewiseLinearFlux(vabs,vord);
+		floating_basal_flux_ptr = static_cast<SurfaceFlux*>(ptr);
+	      }
+	    else
+	      {
+		MayDay::Error("invalid floating basal flux type");
+	      }
+	    
+	    basal_flux_ptr = static_cast<SurfaceFlux*>
+	      (new MaskedFlux(grounded_basal_flux_ptr->new_surfaceFlux(), 
+			      floating_basal_flux_ptr->new_surfaceFlux()));
+	    
+	    delete grounded_basal_flux_ptr;
+	    delete floating_basal_flux_ptr;
+       	
 	  }
-	
-	SurfaceFlux* floating_basal_flux_ptr = NULL;
-	std::string floatingBasalFluxType = "zeroFlux";
-
-	ppbmFlux.query("floating_flux_type",floatingBasalFluxType);
-	if (floatingBasalFluxType == "zeroFlux")
-	  {
-	    floating_basal_flux_ptr = new zeroFlux;
-	  }
-	else if (floatingBasalFluxType == "constantFlux")
-	  {
-	    constantFlux* constFluxPtr = new constantFlux;
-	    Real fluxVal;
-	    ParmParse ppfFlux("floatingBasalConstFlux");
-	    ppfFlux.get("flux_value", fluxVal);
-	    constFluxPtr->setFluxVal(fluxVal);
-	    floating_basal_flux_ptr = static_cast<SurfaceFlux*>(constFluxPtr);
-	  }
-	else if (floatingBasalFluxType == "piecewiseLinearFlux")
-	  {
-	    ParmParse pwlFlux("floatingBasalPWLFlux");
-	    int n = 1;  
-	    pwlFlux.query("n",n);
-	    Vector<Real> vabs(n,0.0);
-	    Vector<Real> vord(n,0.0);
-	    pwlFlux.getarr("abscissae",vabs,0,n);
-	    pwlFlux.getarr("ordinates",vord,0,n);
-	    PiecewiseLinearFlux* ptr = new PiecewiseLinearFlux(vabs,vord);
-	    floating_basal_flux_ptr = static_cast<SurfaceFlux*>(ptr);
-	  }
-	else
-	  {
-	    MayDay::Error("invalid floating basal flux type");
-	  }
-
-	basal_flux_ptr = static_cast<SurfaceFlux*>
-	  (new MaskedFlux(grounded_basal_flux_ptr->new_surfaceFlux(), 
-			  floating_basal_flux_ptr->new_surfaceFlux()));
-
-	delete grounded_basal_flux_ptr;
-	delete floating_basal_flux_ptr;
-
-	  
       }
-    else
+    
+    if (basal_flux_ptr == NULL)
       {
 	MayDay::Error("invalid basal flux type");
       }
-
+    
     amrObjectPtr->setBasalFlux(basal_flux_ptr); 
-   
+
     // ---------------------------------------------
-    // set basal friction coefficient
+    // set mu coefficient
     // ---------------------------------------------
+    ParmParse muPP("muCoefficient");
+    std::string muCoefType = "unit";
+    muPP.query("type",muCoefType );
+    if (muCoefType == "unit")
+      {
+	MuCoefficient* ptr = static_cast<MuCoefficient*>(new UnitMuCoefficient());
+	amrObjectPtr->setMuCoefficient(ptr);
+	delete ptr;
+      }
+    else if (muCoefType == "LevelData")
+      {
+	//read a one level muCoef from an AMR Hierarchy, and  store it in a LevelDataMuCoeffcient
+	 ParmParse ildPP("inputLevelData");
+	 std::string infile;
+	 ildPP.get("muCoefFile",infile);
+	 std::string frictionName = "muCoef";
+	 ildPP.query("muCoefName",frictionName);
+	 RefCountedPtr<LevelData<FArrayBox> > levelMuCoef (new LevelData<FArrayBox>());
+	 Vector<RefCountedPtr<LevelData<FArrayBox> > > vectMuCoef;
+	 vectMuCoef.push_back(levelMuCoef);
+	 Vector<std::string> names(1);
+	 names[0] = frictionName;
+	 Real dx;
+	 readLevelData(vectMuCoef,dx,infile,names,1);
+	 RealVect levelDx = RealVect::Unit * dx;
+	 MuCoefficient* ptr = static_cast<MuCoefficient*>
+	   (new LevelDataMuCoefficient(levelMuCoef,levelDx));
+	 amrObjectPtr->setMuCoefficient(ptr);
+	 delete ptr;
+      }
+    else
+      {
+	MayDay::Error("undefined MuCoefficient in inputs");
+      }
+
 
     ParmParse geomPP("geometry");
+    Real dew, dns;
+    long * dimInfo;        
+    int * dimInfoVelo;
+    IntVect ghostVect = IntVect::Zero;
+    bool nodal;
 
     // ---------------------------------------------
     // set IBC -- this includes initial ice thickness, 
@@ -317,11 +396,7 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
    
     
     IceThicknessIBC* thicknessIBC = NULL;
-    BasalFriction* basalFrictionPtr = NULL;
-    std::string problem_type;
- 
- 
-    RealVect domainSize;
+    std::string problem_type; 
     
     geomPP.get("problem_type", problem_type);
     if (problem_type =="fortran")
@@ -330,13 +405,12 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         // need to set thickness and topography
 
         Vector<int> nGhost(SpaceDim, 0);
-        IntVect ghostVect;
         interfacePP.queryarr("numGhost", nGhost, 0, SpaceDim);
         {
           ghostVect = IntVect(D_DECL(nGhost[0], nGhost[1], nGhost[2]));
         }
 
-        bool nodal = true;
+        nodal = true;
         interfacePP.query("nodalInitialData", nodal);
         
         // this is about removing ice from regions which
@@ -390,8 +464,6 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         
         
 
-        long * dimInfo;
-        
         double * thicknessDataPtr, *topographyDataPtr;
         int i, reg_index;      
 
@@ -399,8 +471,6 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         thicknessDataPtr = btg_ptr -> getDoubleVar("thck","geometry");
         topographyDataPtr = btg_ptr -> getDoubleVar("topg","geometry");
 
-
-        Real dew, dns;
 
         //dew = 1000.;
         //dns = 1000.;
@@ -467,9 +537,9 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         cout << "DimInfoVelo in bike_driver: " << endl;
         for (i=0;i<=dimInfoVelo[0];i++) cout << dimInfoVelo[i] << " ";
         cout << endl; 
-	
-	string beta_type;
-	geomPP.get("beta_type", beta_type);
+
+#if 0
+        // moved this in with the other basal friction choices
 	if (beta_type == "fortran")
 	  {
 	    cout << "setting up basal friction coefficient " << endl;
@@ -500,7 +570,8 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 	      }
 	    basalFrictionPtr = static_cast<BasalFriction*>(fibfPtr);
 	  }
-        
+#endif
+      
         // get Glimmer surface mass balance
         double * surfMassBalPtr;
 
@@ -537,11 +608,15 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 
     amrObjectPtr -> setDomainSize(domainSize);
             
-    // amrObject.setDomainSize(domainSize);
+    // amrObjectPtr->setDomainSize(domainSize);
     amrObjectPtr -> setThicknessBC(thicknessIBC);
 
-    
-    
+
+    // ---------------------------------------------
+    // set basal friction coefficient and relation
+    // ---------------------------------------------
+
+    BasalFriction* basalFrictionPtr = NULL;
 
     std::string beta_type;
     geomPP.get("beta_type", beta_type);
@@ -552,11 +627,6 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         Real betaVal;
         geomPP.get("betaValue", betaVal);
         basalFrictionPtr = static_cast<BasalFriction*>(new constantFriction(betaVal));
-      }
-    else if (beta_type == "fortran")
-      {
-	// use the basal traction coefficient  btrc(x,y) supplied by glimmer
-	// in this case, we already set up basalFrictionPtr
       }
     else if (beta_type == "sinusoidalBeta")
       {
@@ -570,6 +640,8 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
             omega = RealVect(D_DECL(omegaVect[0], omegaVect[1], omegaVect[2]));
           }
         geomPP.get("betaEps", eps);
+        // fix this later, if we need to...
+        MayDay::Error("trying to define basal Friction with undefined DomainSize");
         basalFrictionPtr = static_cast<BasalFriction*>(new sinusoidalFriction(betaVal, 
                                                                               omega, 
                                                                               eps,
@@ -590,6 +662,8 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
             omega[1] = omegaVal;
           }
         geomPP.get("betaEps", eps);
+        // fix this later, if we need to...
+        MayDay::Error("trying to define basal Friction with undefined DomainSize");
         basalFrictionPtr = static_cast<BasalFriction*>(new sinusoidalFriction(betaVal, 
                                                                               omega, 
                                                                               eps,
@@ -610,23 +684,110 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
           }
         geomPP.query("magOffset", magOffset);
         geomPP.get("betaEps", eps);
+        // fix this later, if we need to...
+        MayDay::Error("trying to define basal Friction with undefined DomainSize");
         basalFrictionPtr = static_cast<BasalFriction*>(new twistyStreamFriction(betaVal, 
                                                                                 omega, 
                                                                                 magOffset, 
                                                                                 eps,
-                                                                                domainSize));
+                                                                                domainSize));          
       }
+     else if (beta_type == "gaussianBump")
+      {
+	int nt;
+	geomPP.get("gaussianBump_nt", nt);
+	Vector<Real> t(nt-1);
+	Vector<Real> C0(nt),a(nt);
+	Vector<RealVect> b(nt),c(nt);
+
+	geomPP.getarr("gaussianBump_t", t, 0, nt-1);
+	geomPP.getarr("gaussianBump_C", C0, 0, nt);
+	geomPP.getarr("gaussianBump_a", a, 0, nt);
+       
+#if CH_SPACEDIM == 2
+	Vector<Real> xb(nt),yb(nt),xc(nt),yc(nt);
+	geomPP.getarr("gaussianBump_xb", xb, 0, nt);
+	geomPP.getarr("gaussianBump_xc", xc, 0, nt);
+	geomPP.getarr("gaussianBump_yb", yb, 0, nt);
+	geomPP.getarr("gaussianBump_yc", yc, 0, nt);
+	for (int i = 0; i < nt; ++i)
+	  {
+	    b[i][0] = xb[i];
+	    b[i][1] = yb[i];
+	    c[i][0] = xc[i];
+	    c[i][1] = yc[i];
+	  }
+#else
+	       MayDay::Error("beta_type = gaussianBump not implemented for CH_SPACEDIM > 2")
+#endif
+        basalFrictionPtr = static_cast<BasalFriction*>
+	  (new GaussianBumpFriction(t, C0, a, b, c));
+      }
+     else if (beta_type == "fortran")
+       {
+         cout << "setting up basal friction coefficient " << endl;
+         double * basalTractionCoeffPtr = btg_ptr -> getDoubleVar("btrc","velocity"); 
+         FortranInterfaceBasalFriction* fibfPtr = new FortranInterfaceBasalFriction();
+         RealVect dx;
+         dx[0] = dew;
+         dx[1] = dns;
+         
+         bool bfnodal = false;
+         interfacePP.query("nodalBasalFrictionData", bfnodal);
+         
+         if (!bfnodal)
+           {
+             // (DFM -- 6/19/11) -- friction is always cell-centered, 
+             // regardless of thickness centering
+             cout << "basal friction data is assumed to be cell-centered" << endl;
+             fibfPtr->setReferenceFAB(basalTractionCoeffPtr, dimInfoVelo, dx, 
+                                      ghostVect, false);
+           }
+         else
+           {
+             // (SLC -- 11/25/11) -- if we are taking glimmer's thickness to
+             // be cell-centered, then its friction must be node centered 
+             cout << "basal friction data will be averaged to cell-centers" << endl;
+             fibfPtr->setReferenceFAB(basalTractionCoeffPtr, dimInfoVelo, dx, 
+                                      ghostVect, !nodal);
+           }
+         basalFrictionPtr = static_cast<BasalFriction*>(fibfPtr);
+       }
     
+     else if (beta_type == "LevelData")
+       {
+	 //read a one level beta^2 from an AMR Hierarchy, and  store it in a LevelDataBasalFriction
+	 ParmParse ildPP("inputLevelData");
+	 std::string infile;
+	 ildPP.get("frictionFile",infile);
+	 std::string frictionName = "btrc";
+	 ildPP.query("frictionName",frictionName);
+
+	 RefCountedPtr<LevelData<FArrayBox> > levelC (new LevelData<FArrayBox>());
+
+	 Real dx;
+
+	 Vector<RefCountedPtr<LevelData<FArrayBox> > > vectC;
+	 vectC.push_back(levelC);
+
+	 Vector<std::string> names(1);
+	 names[0] = frictionName;
+
+	 readLevelData(vectC,dx,infile,names,1);
+	   
+	 RealVect levelDx = RealVect::Unit * dx;
+	 basalFrictionPtr = static_cast<BasalFriction*>
+	   (new LevelDataBasalFriction(levelC,levelDx));
+       }
+
     else 
       {
         MayDay::Error("undefined beta_type in inputs");
       }
-  
-    // amrObject.setBasalFriction(basalFrictionPtr);
-    amrObjectPtr -> setBasalFriction(basalFrictionPtr);   
 
-
-    BasalFrictionRelation* basalFrictionRelationPtr = NULL;
+    amrObjectPtr->setBasalFriction(basalFrictionPtr);
+    
+    BasalFrictionRelation* basalFrictionRelationPtr;
     std::string basalFrictionRelType = "powerLaw";
     pp2.query("basalFrictionRelation", basalFrictionRelType);
     
@@ -647,8 +808,51 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 
     amrObjectPtr->setBasalFrictionRelation(basalFrictionRelationPtr);
 
+    // ---------------------------------------------
+    // now set temperature BC's
+    // ---------------------------------------------
 
-
+    IceTemperatureIBC* temperatureIBC = NULL;
+    ParmParse tempPP("temperature");
+    std::string tempType("constant");
+    tempPP.query("type",tempType);
+    if (tempType == "constant")
+      {
+	Real T = 258.0;
+	tempPP.query("value",T);
+	ConstantIceTemperatureIBC* ptr = new ConstantIceTemperatureIBC(T);
+	temperatureIBC  = static_cast<IceTemperatureIBC*>(ptr);
+      }
+    else if (tempType == "LevelData")
+      {
+	ParmParse ildPP("inputLevelData");
+	std::string infile;
+	ildPP.get("temperatureFile",infile);
+	std::string temperatureName = "temp000000";
+	ildPP.query("temperatureName",temperatureName);
+	RefCountedPtr<LevelData<FArrayBox> > levelTemp
+	  (new LevelData<FArrayBox>());
+	Vector<RefCountedPtr<LevelData<FArrayBox> > > vectData;
+	vectData.push_back(levelTemp);
+	Vector<std::string> names(1);
+	names[0] = temperatureName;
+	Real dx;
+	ParmParse ppAmr ("amr");
+	Vector<int> ancells(3); 
+	ppAmr.getarr("num_cells", ancells, 0, ancells.size());
+	readLevelData(vectData,dx,infile,names,ancells[2]);
+	RealVect levelDx = RealVect::Unit * dx;
+	LevelDataTemperatureIBC* ptr = new LevelDataTemperatureIBC(levelTemp,levelDx);
+	temperatureIBC  = static_cast<IceTemperatureIBC*>(ptr);
+      }
+    else 
+      {
+	MayDay::Error("bad temperature type");
+      }	
+	
+    amrObjectPtr->setTemperatureBC(temperatureIBC);
+ 
+   
     bike_store(btg_ptr -> getDyCoreIndex(), &bikePtr,0);
 
     // set up initial grids, initialize data, etc.
@@ -725,7 +929,7 @@ void bike_driver_run(BisiclesToGlimmer * btg_ptr, float cur_time_yr, float time_
 
 #if 0
   //  reg_index = dycore_registry(0,1,&model_index,&dtg_ptr,-1);
-  amrObject.getIceThickness(thicknessPtr, dim_info,
+  amrObjectPtr->getIceThickness(thicknessPtr, dim_info,
 			    dew, dns);
 #endif
 
