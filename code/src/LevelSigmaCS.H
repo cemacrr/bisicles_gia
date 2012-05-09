@@ -276,6 +276,9 @@ public:
   // exchange a_level accounting for the unit shift.
   void unitShiftExchange(LevelData<FArrayBox>& a_level);
 
+  /// accessor for ghost vector
+  IntVect ghostVect() const {return m_ghostVect;}
+
 protected:
 
   ///
@@ -286,6 +289,9 @@ protected:
 
   // cell spacing
   RealVect m_dx;
+
+  /// ghost vector 
+  IntVect m_ghostVect;
 
   // for periodic problems :  a vector with components
   // (topography(x + Lx , y) - topography(x , y), 

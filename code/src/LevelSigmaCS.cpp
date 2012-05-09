@@ -56,6 +56,7 @@ LevelSigmaCS::define(const DisjointBoxLayout& a_grids,
 {
   m_grids = a_grids;
   m_dx = a_dx;
+  m_ghostVect = a_ghostVect;
 
   // now define local storage
   // note that we define H and baseHeight on a one-cell-deep

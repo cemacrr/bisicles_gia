@@ -254,7 +254,7 @@ void LevelDataIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 	    }
 	  //maybe a bit inefficient, but at least we get the same interpolation scheme
 	  const DisjointBoxLayout& crseGrids = m_thck->disjointBoxLayout();
-	  LevelSigmaCS crseCoords(crseGrids,m_dx);
+	  LevelSigmaCS crseCoords(crseGrids,m_dx, a_coords.ghostVect());
 	  for (DataIterator dit(crseGrids); dit.ok(); ++dit)
 	    {
 	      crseCoords.getH()[dit].copy ( (*m_thck)[dit]);
