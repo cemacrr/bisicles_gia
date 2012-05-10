@@ -368,12 +368,16 @@ AmrIce::setDefaults()
   m_plot_prefix = "plot";
   m_plot_interval = 10000000;
   m_plot_time_interval = 1.0e+12;
-  m_write_map_file = false;
   m_write_presolve_plotfiles = false;
   m_write_solver_rhs = false;
+  m_write_dHDt = true;
   m_write_fluxVel = true;
+  m_write_viscousTensor = false;
   m_write_baseVel = true;
+  m_write_solver_rhs = false;
   m_write_temperature = false;
+  m_write_map_file = false;
+
   m_write_layer_velocities = false;
  
   m_check_prefix = "chk";
@@ -4179,17 +4183,6 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
 #endif
     }
 
-  // put this in place to catch runs where plotfile writing is
-  // going to hang _before_ I waste a few hours waiting for the 
-  // velocity solve
-#define writeTestPlots
-#ifdef  writeTestPlots
-  if (m_plot_interval >= 0)
-    {
-      writePlotFile();
-    }
-#endif
-
 
   // now call velocity solver to initialize velocity field
   solveVelocityField(m_velocity);
@@ -4269,6 +4262,17 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
 
     }
   
+  // put this in place to catch runs where plotfile writing is
+  // going to hang _before_ I waste a few hours waiting for the 
+  // velocity solve
+#define writeTestPlots
+#ifdef  writeTestPlots
+  if (m_plot_interval >= 0)
+    {
+      writePlotFile();
+    }
+#endif
+
   
 
   if (m_doInitialVelSolve) 
