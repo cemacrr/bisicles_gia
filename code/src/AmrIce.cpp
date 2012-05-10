@@ -4179,6 +4179,18 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
 #endif
     }
 
+  // put this in place to catch runs where plotfile writing is
+  // going to hang _before_ I waste a few hours waiting for the 
+  // velocity solve
+#define writeTestPlots
+#ifdef  writeTestPlots
+  if (m_plot_interval >= 0)
+    {
+      writePlotFile();
+    }
+#endif
+
+
   // now call velocity solver to initialize velocity field
   solveVelocityField(m_velocity);
 
