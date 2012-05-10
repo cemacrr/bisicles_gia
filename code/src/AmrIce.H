@@ -573,6 +573,9 @@ protected:
   /// tag at the ice margin
   bool m_tagMargin;
 
+  /// tag any cell with ice in it
+  bool m_tagAllIce;
+  
   /// amount to buffer tags used in regridding
   int m_tags_grow;
 

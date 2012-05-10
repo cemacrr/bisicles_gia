@@ -349,6 +349,7 @@ AmrIce::setDefaults()
   m_divHGradVel_tagVal = 1.0;
   m_tagGroundingLine  = false;
   m_tagMargin  = false;
+  m_tagAllIce  = false;
   m_groundingLineTaggingMinVel = 200.0;
   m_tags_grow = 1;
   m_cfl = 0.25;
@@ -883,6 +884,9 @@ AmrIce::initialize()
 
   ppAmr.query("tag_ice_margin", m_tagMargin);
   isThereATaggingCriterion |= m_tagMargin;
+
+  ppAmr.query("tag_all_ice", m_tagAllIce);
+  isThereATaggingCriterion |= m_tagAllIce;
 
 
   ppAmr.query("tag_on_div_H_grad_vel",m_tagOndivHgradVel);
@@ -3501,7 +3505,26 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
             } // end loop over cells
         } // end loop over boxes
     } // end if tagging on ice margins
-                       
+
+  // tag anywhere there's ice
+  if (m_tagAllIce)
+    {
+      const LevelData<FArrayBox>& levelH = levelCS.getH();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          Box gridBox = levelGrids[dit];
+          const FArrayBox& H = levelH[dit];
+          BoxIterator bit(gridBox);
+          for (bit.begin(); bit.ok(); ++bit)
+            {
+              const IntVect& iv = bit();
+              if (H(iv,0) > 0.0)
+                {
+                  local_tags |= iv;
+                }
+            } // end bit loop
+        } // end loop over boxes
+    } // end if tag all ice
 
   // now buffer tags
   local_tags.grow(m_tags_grow); 
