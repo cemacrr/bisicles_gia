@@ -30,7 +30,16 @@ LevelDataIBC::LevelDataIBC( RefCountedPtr<LevelData<FArrayBox> > a_thck,
   // Construction means nothing to me. It's a lot like Vienna.
   for (DataIterator dit( m_thck->disjointBoxLayout());dit.ok();++dit)
     {
-      CH_assert( (*m_thck)[dit].min() >= 0.0);
+      //CH_assert( (*m_thck)[dit].min() >= 0.0);
+      FArrayBox& thck = (*m_thck)[dit];
+      for (BoxIterator bit(thck.box());bit.ok();++bit)
+	{
+	  if (thck(bit()) < 0.0)
+	    {
+	      thck(bit()) = 0.0;
+	    }
+	}
+
     }
 }
 
@@ -166,10 +175,48 @@ if(!a_domain.domainBox().contains(a_state.box()))
 
 }
 
+void  iceDivideIIBC_LDBC(FArrayBox& a_vel,
+			 const Box& a_valid,
+			 const ProblemDomain& a_domain,
+			 Real a_dx,
+			 bool a_homogeneous)
+{
+
+  const IntVect ghostVect = IntVect::Unit;
+   for (int dir = 0; dir < SpaceDim; ++dir)
+    {
+      if (!(a_domain.isPeriodic(dir)))
+	{
+	  ReflectGhostCells(a_vel, a_domain,ghostVect, dir, Side::Lo);
+	  ReflectGhostCells(a_vel, a_domain,ghostVect, dir, Side::Hi);
+
+	  Box ghostBoxLo = adjCellBox(a_valid, dir, Side::Lo, 1);
+              
+	  if(!a_domain.domainBox().contains(ghostBoxLo))
+	    {
+	      ghostBoxLo &= a_vel.box();
+	      a_vel.mult(-1.0,ghostBoxLo,dir,1);
+		  
+	    }
+	  Box ghostBoxHi = adjCellBox(a_valid, dir, Side::Hi, 1);
+	  if(!a_domain.domainBox().contains(ghostBoxHi))
+	    {
+	      ghostBoxHi &= a_vel.box();
+	      a_vel.mult(-1.0,ghostBoxHi,dir,1);
+	    }
+
+	}
+    }
+
+}
+
 
 void LevelDataIBC::setupBCs()
 {
-  m_velBCs = iceDivideBC_LDBC;
+  
+
+  m_velBCs = iceDivideIIBC_LDBC;
+  //m_velBCs = iceDivideBC_LDBC;
   m_isBCsetUp = true;
 }
 
