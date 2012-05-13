@@ -2175,7 +2175,10 @@ AmrIce::timeStep(Real a_dt)
 				  if (m_evolve_topography_preserve_mask)
 				    {
 				      Real H = oldH(iv)+newH(iv);
-				      topg(iv) = std::max(H*ratioMinusOne + 1.0e-10 ,topg(iv));
+				      Real oldTopg = topg(iv);
+				      topg(iv) = std::max(H*ratioMinusOne + 1.0e-2 ,topg(iv));
+				      //topg(iv) = std::max(H*ratioMinusOne + 5.0 ,topg(iv));
+				      //topg(iv) = std::min(topg(iv), oldTopg);
 				    }
 				}
 			    }
@@ -6609,7 +6612,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   string s("sigma");
   bool found = false;
   do {
-    char idx[4]; sprintf(idx, "%04d", l);
+    char idx[6]; sprintf(idx, "%04d", l);
     string ss = s + string(idx);
     map<std::string, Real>::const_iterator it = header.m_real.find(ss);
     found = (it != header.m_real.end());
