@@ -724,10 +724,10 @@ LevelSigmaCS::computeSurface(const LevelSigmaCS* a_crseCoords,
     }
   if (destroyed > 0)
     {
-      char warn[256];
-      sprintf(warn,"Destroyed %i single cell icebergs",destroyed);
-      MayDay::Warning(warn);
-
+      //char warn[256];
+      //sprintf(warn,"Destroyed %i single cell icebergs",destroyed);
+      //MayDay::Warning(warn);
+      pout() << "Warning :: destroyed " << destroyed << "single cell icebergs";
     }
 
   //next, the surface elevation gradient : need to put in the clipping code
