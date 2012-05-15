@@ -396,6 +396,7 @@ AmrIce::setDefaults()
   
   m_limitFluxSpeed = -1.0;
 
+  m_velocitySolveInitialResidualNorm = -1.0;
   m_doInitialVelSolve = true; 
   m_doInitialVelGuess = false; 
   m_initialGuessType = SlidingLaw;
@@ -2175,7 +2176,7 @@ AmrIce::timeStep(Real a_dt)
 				  if (m_evolve_topography_preserve_mask)
 				    {
 				      Real H = oldH(iv)+newH(iv);
-				      Real oldTopg = topg(iv);
+				      //Real oldTopg = topg(iv);
 				      topg(iv) = std::max(H*ratioMinusOne + 1.0e-2 ,topg(iv));
 				      //topg(iv) = std::max(H*ratioMinusOne + 5.0 ,topg(iv));
 				      //topg(iv) = std::min(topg(iv), oldTopg);
