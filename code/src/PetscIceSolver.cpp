@@ -122,8 +122,7 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *T )
 
 /* ------------------------------------------------------------------- */
 /*
-   FormJacobian - This routine demonstrates the use of different
-   matrices for the Jacobian and preconditioner
+   FormJacobian - this does not depend on PetscIceSolver so it could be moved into Mat solver.
 
    This can go into the PetscSolver class -- it is not BICICLES specific!!!
      -- there does not seem to be a need to recompute mu, etc. (?)
