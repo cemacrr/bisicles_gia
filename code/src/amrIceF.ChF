@@ -112,6 +112,8 @@ c     open sea : set beta = 1.0 (and hope that rhs, mu = 0)
          else if (floatingMask(CHF_AUTOIX[i]).eq.OPENLANDMASKVAL) then
 c     open sea : set beta = 1.0 (and hope that rhs, mu = 0)
             beta(CHF_AUTOIX[i]) = max(1.0d+2,beta(CHF_AUTOIX[i]))
+         else
+            beta(CHF_AUTOIX[i]) = max(1.0e-10,beta(CHF_AUTOIX[i]))
          end if
          CHF_ENDDO
       end if
