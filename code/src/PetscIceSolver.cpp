@@ -105,7 +105,7 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *T )
 
   ierr = solver->putPetscInChombo( phi, x );     CHKERRQ(ierr);
 
-  // delete after use (full Newton) and create only if(0) to save a computeMu & MGnewOp
+  // delete after use (full Newton) 
 
   tthis->computeMu( phi, *tthis->m_tfaceA, tthis->m_tcoordSys, tthis->ttime );
 
@@ -209,7 +209,8 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
 
   if ( !m_isOpDefined ) {
     defineOpFactory( a_dxCrse );    CH_assert(!m_OpPtr);
-    m_OpPtr = m_opFactoryPtr->MGnewOp( m_domain, 0, true ); // this copies the unset data above, just needed here for dx &crdx!!!
+    // this copies the unset data above, just needed here for dx &crdx.
+    m_OpPtr = m_opFactoryPtr->MGnewOp( m_domain, 0, true ); 
 #ifdef CH_USE_PETSC
     Real opAlpha, opBeta;
     m_petscSolver->define( m_OpPtr, false ); // dx & crdx
@@ -271,7 +272,7 @@ PetscIceSolver::solve(Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       // setup matrix stuff
       computeMu( *a_horizontalVel[0], *faceA, a_coordSys[0], a_time ); 
       CH_assert( m_OpPtr ); delete m_OpPtr;
-      // MGnewOp copies mu,lambda,acoef copies stuff -- have to do this every time???
+      // MGnewOp copies mu,lambda,acoef copies stuff 
       m_OpPtr = m_opFactoryPtr->MGnewOp( m_domain, 0, true );
       if (m_verbosity >= 0)
 	{
@@ -299,7 +300,7 @@ PetscIceSolver::solve(Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       {
 	computeMu( *a_horizontalVel[0], *faceA, a_coordSys[0], a_time ); 
 	CH_assert( m_OpPtr ); delete m_OpPtr;
-	// MGnewOp copies mu,lambda,acoef copies stuff -- have to do this every time???
+	// MGnewOp copies mu,lambda,acoef copies stuff
 	m_OpPtr = m_opFactoryPtr->MGnewOp( m_domain, 0, true );
 	m_OpPtr->residual( *vect, *a_horizontalVel[0], *a_rhs[0] );  
 	Real residNorm = sqrt(m_OpPtr->dotProduct(*vect,*vect)),lastR;
