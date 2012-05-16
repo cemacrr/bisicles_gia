@@ -4271,7 +4271,7 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
   // velocity solve
 #define writeTestPlots
 #ifdef  writeTestPlots
-  if (m_plot_interval >= 0)
+  if (m_plot_interval >= 0 && m_cur_step == 0)
     {
       writePlotFile();
     }
