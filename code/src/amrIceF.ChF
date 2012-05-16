@@ -344,7 +344,7 @@ c     SH | LI (this cell) | not LI (don't tinker)
                rhs(CHF_AUTOIX[i]) = rhs(CHF_AUTOIX[i])
             end if
          else if  (rmask.eq.SH) then
-            if (rmask.eq.LI) then
+            if (lmask.eq.LI) then
 c     LI | LI (this cell) | SH
                rhs(CHF_AUTOIX[i]) = halfOnDx
      &              * (sc-sl) * (hc+hl)
