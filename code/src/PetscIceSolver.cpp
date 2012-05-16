@@ -85,12 +85,13 @@ PetscIceSolver::~PetscIceSolver()
 
    Input Parameters:
    user - user-defined application context
-   X - vector
+.  x - vector
+.  T - optional user-defined context, as set by SNESSetFunction()
 
    Output Parameter:
-   X - vector
+.  f - vector
  */
-PetscErrorCode FormFunction(SNES snes,Vec x,Vec f, void *T)
+PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *T )
 {
   CH_TIME("PetscIceSolver::FormFunction");
   PetscErrorCode ierr;
@@ -107,7 +108,7 @@ PetscErrorCode FormFunction(SNES snes,Vec x,Vec f, void *T)
   // delete after use (full Newton) and create only if(0) to save a computeMu & MGnewOp
 
   tthis->computeMu( phi, *tthis->m_tfaceA, tthis->m_tcoordSys, tthis->ttime );
-  
+
   CH_assert( tthis->m_OpPtr ); delete tthis->m_OpPtr;
   // MGnewOp copies mu,lambda,acoef
   tthis->m_OpPtr = tthis->m_opFactoryPtr->MGnewOp( tthis->m_domain, 0, true );
@@ -129,26 +130,29 @@ PetscErrorCode FormFunction(SNES snes,Vec x,Vec f, void *T)
 
    Input Parameters:
 .  snes - the SNES context
-.  x - input vector
-.  ptr - optional user-defined context, as set by SNESSetJacobian()
+.  dummy - input vector
+.  T - optional user-defined context, as set by SNESSetJacobian()
 
    Output Parameters:
-.  A - Jacobian matrix
-.  B - different preconditioning matrix
+.  jac - Jacobian matrix
+.  prejac - different preconditioning matrix
 .  flag - flag indicating matrix structure
 */
-PetscErrorCode FormJacobian(SNES snes,Vec x,Mat *jac,Mat *prejac,MatStructure *flag, void *T)
+PetscErrorCode FormJacobian(SNES snes,Vec dummy,Mat *jac,Mat *prejac,MatStructure *flag, void *T)
 {
   CH_TIME("PetscIceSolver::FormJacobian");
   PetscErrorCode ierr;
   PetscSolverViscousTensor<LevelData<FArrayBox> > *solver;
-  // PetscIceSolver *tthis;
+  //PetscIceSolver *tthis;
   Mat mat = *prejac;
   LevelData<FArrayBox> &phi = *(LevelData<FArrayBox>*)T; // just used for stencil, not data
 
   PetscFunctionBegin;
   ierr = SNESGetApplicationContext(snes,(void**)&solver);CHKERRQ(ierr);
-  // tthis = (PetscIceSolver*)solver->m_ctx;
+
+  //tthis = (PetscIceSolver*)solver->m_ctx;  -- updating state does not seem to effect solver one bit. (Form must be called first)
+  //ierr = solver->putPetscInChombo( phi, x );     CHKERRQ(ierr); // needed???
+  //tthis->computeMu( phi, *tthis->m_tfaceA, tthis->m_tcoordSys, tthis->ttime );
 
   ierr = solver->formMatrix( mat, phi ); CHKERRQ(ierr);
 
