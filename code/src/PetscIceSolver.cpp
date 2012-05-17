@@ -107,14 +107,16 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *T )
 
   // delete after use (full Newton) 
 
-  tthis->computeMu( phi, *tthis->m_tfaceA, tthis->m_tcoordSys, tthis->ttime );
+  //tthis->computeMu( phi, *tthis->m_tfaceA, tthis->m_tcoordSys, tthis->ttime );
+  tthis->updateCoefs( phi );
 
-  CH_assert( tthis->m_OpPtr ); delete tthis->m_OpPtr;
+  //delete tthis->m_OpPtr;
   // MGnewOp copies mu,lambda,acoef
-  tthis->m_OpPtr = tthis->m_opFactoryPtr->MGnewOp( tthis->m_domain, 0, true );
+  //tthis->m_OpPtr = tthis->m_opFactoryPtr->MGnewOp( tthis->m_domain, 0, true );
 
-  tthis->m_OpPtr->applyOp( *tthis->m_tphi, phi ); 
-  
+  //tthis->m_OpPtr->applyOp( *tthis->m_tphi, phi ); 
+  tthis->applyOp( *tthis->m_tphi, phi ); 
+ 
   ierr = solver->putChomboInPetsc( f, *tthis->m_tphi );  CHKERRQ(ierr);
 
   PetscFunctionReturn(0);
@@ -271,9 +273,10 @@ PetscIceSolver::solve(Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       Real residNorm0;
       // setup matrix stuff
       computeMu( *a_horizontalVel[0], *faceA, a_coordSys[0], a_time ); 
-      CH_assert( m_OpPtr ); delete m_OpPtr;
+      CH_assert( m_OpPtr ); 
+      //delete m_OpPtr;
       // MGnewOp copies mu,lambda,acoef copies stuff 
-      m_OpPtr = m_opFactoryPtr->MGnewOp( m_domain, 0, true );
+      //m_OpPtr = m_opFactoryPtr->MGnewOp( m_domain, 0, true );
       if (m_verbosity >= 0)
 	{
 	  m_OpPtr->residual( *vect, *a_horizontalVel[0], *a_rhs[0] );  
@@ -299,9 +302,10 @@ PetscIceSolver::solve(Vector<LevelData<FArrayBox>* >& a_horizontalVel,
     for( int it=0 ; it < m_max_its ; it++ ) // temparary
       {
 	computeMu( *a_horizontalVel[0], *faceA, a_coordSys[0], a_time ); 
-	CH_assert( m_OpPtr ); delete m_OpPtr;
+	CH_assert( m_OpPtr ); 
+	//delete m_OpPtr;
 	// MGnewOp copies mu,lambda,acoef copies stuff
-	m_OpPtr = m_opFactoryPtr->MGnewOp( m_domain, 0, true );
+	//m_OpPtr = m_opFactoryPtr->MGnewOp( m_domain, 0, true );
 	m_OpPtr->residual( *vect, *a_horizontalVel[0], *a_rhs[0] );  
 	Real residNorm = sqrt(m_OpPtr->dotProduct(*vect,*vect)),lastR;
 	if(it==0) 
@@ -349,7 +353,7 @@ PetscIceSolver::setDefaultValues()
 ////////////////////////////////////////////////////////////////////////
 // PetscIceSolver::defineOpFactory()
 ////////////////////////////////////////////////////////////////////////
-void PetscIceSolver::defineOpFactory(RealVect a_dx)
+void PetscIceSolver::defineOpFactory( RealVect a_dx )
 {
   if( !m_isOpDefined )
     {

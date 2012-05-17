@@ -123,6 +123,15 @@ public:
 		  const LevelData<FluxBox> &a_A, 
 		  const RefCountedPtr<LevelSigmaCS> &a_coordSys,
 		  Real a_time);
+  // abstract methods for (PETSc) nonlinear solvers
+  virtual void updateCoefs( LevelData<FArrayBox> &a_horizontalVel){
+    computeMu( a_horizontalVel, *m_tfaceA, m_tcoordSys, ttime );
+  }
+  virtual void applyOp( LevelData<FArrayBox> &a_out, LevelData<FArrayBox> &a_in){
+    CH_assert( m_OpPtr ); 
+    m_OpPtr->applyOp( a_out, a_in ); 
+  }
+
   // cache 
   LevelData<FArrayBox> *m_tphi;  // place to cache a vector
   LevelData<FluxBox>* m_tfaceA;
