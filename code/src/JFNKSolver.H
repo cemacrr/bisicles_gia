@@ -88,8 +88,11 @@ class JFNKOp :  public LinearOp<Vector<LevelData<FArrayBox>*> >
   //m_perturbedMlOp is used to evaluate f(u + h*v)
   MultilevelIceVelOp m_perturbedMlOp;
   
-  // bottom solver type for MG solver in MultiLevelIceVelOps
+  /// bottom solver type for MG solver in MultiLevelIceVelOps
   static int m_bottom_solver_type;
+
+  /// max depth for multigrid solvers
+  static int m_MG_solver_depth;
 
   Vector<DisjointBoxLayout> m_grids;
   Vector<int> m_refRatio;

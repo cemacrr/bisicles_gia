@@ -27,6 +27,7 @@
 
 // static member initialization
 int JFNKOp::m_bottom_solver_type = bicg;
+int JFNKOp::m_MG_solver_depth = -1;
 
 void JFNKSolver::imposeMaxAbs(Vector<LevelData<FArrayBox>*>& a_u,
 		 Real a_limit)
@@ -80,6 +81,7 @@ JFNKOp::JFNKOp(JFNKState* a_currentState ,
     opFactoryPtr = m_u->opFactoryPtr();
   
   m_mlOp.m_bottom_solver_type = m_bottom_solver_type;
+  m_mlOp.m_preCondSolverDepth = m_MG_solver_depth;
   m_mlOp.m_num_mg_smooth =  a_numMGSmooth;
   m_mlOp.m_num_mg_iterations = a_numMGIter;
   m_mlOp.define(m_grids , m_refRatio, m_domains, m_dxs, 
@@ -702,6 +704,10 @@ void JFNKSolver::define(const ProblemDomain& a_coarseDomain,
   int bs_type = JFNKOp::m_bottom_solver_type;
   pp.query("bottom_solver_type", bs_type);
   JFNKOp::m_bottom_solver_type = bs_type;
+
+  int mg_depth = JFNKOp::m_MG_solver_depth;
+  pp.query("mg_solver_depth", mg_depth);
+  JFNKOp::m_MG_solver_depth = mg_depth;
 
   int mgAverageType  = CoarseAverageFace::arithmetic;
   pp.query("mgCoefficientAverageType", mgAverageType);
