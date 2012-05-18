@@ -14,7 +14,7 @@
 
 #include "IceVelocitySolver.H"
 #include "AMRMultiGrid.H"
-#include "MultilevelLinearOp.H"
+#include "MultilevelIceVelOp.H"
 #include "ViscousTensorOp.H"
 #ifdef CH_USE_PETSC
 #include "PetscSolver.H"
@@ -24,7 +24,6 @@
 
 /// Jacobian-Free Newton Krylov solver for the nonlinear ice-sheet/shelf momentum equations
 enum SolverMode {PICARD_SOLVER_MODE, JFNK_SOLVER_MODE, MAX_SOLVER_MODE};
-
 
 // virtual base for classes which encpasulate a state,
 class JFNKState
@@ -84,10 +83,13 @@ class JFNKOp :  public LinearOp<Vector<LevelData<FArrayBox>*> >
 
   // m_mlOp provides the multigrid precondioner
   // and is used to evaluate f(u)
-  MultilevelLinearOp<FArrayBox> m_mlOp;
+  MultilevelIceVelOp m_mlOp;
   
   //m_perturbedMlOp is used to evaluate f(u + h*v)
-  MultilevelLinearOp<FArrayBox> m_perturbedMlOp;
+  MultilevelIceVelOp m_perturbedMlOp;
+  
+  // bottom solver type for MG solver in MultiLevelIceVelOps
+  static int m_bottom_solver_type;
 
   Vector<DisjointBoxLayout> m_grids;
   Vector<int> m_refRatio;

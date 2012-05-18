@@ -16,7 +16,7 @@
 #include "GMRESSolver.H"
 #include "AMRMultiGrid.H"
 #include "LinearSolver.H"
-#include "MultilevelLinearOp.H"
+#include "MultilevelIceVelOp.H"
 #ifdef CH_USE_PETSC
 #include "PetscSolver.H"
 #endif
@@ -130,7 +130,7 @@ protected:
 
   IceThicknessIBC* m_bc;
 
-  MultilevelLinearOp<FArrayBox>* m_mlOpPtr;
+  MultilevelIceVelOp* m_mlOpPtr;
   BiCGStabSolver<Vector<LevelData<FArrayBox>* > >* m_biCGStabSolverPtr;
   GMRESSolver<Vector<LevelData<FArrayBox>* > >* m_GMRESSolverPtr;
   LinearSolver<LevelData<FArrayBox> >* m_bottomSolverPtr;
@@ -174,14 +174,14 @@ protected:
   /** returns pointer to the MultilevelLinearOp used by the solver. 
       As things stand now, we'll need to manage that one ourselves.
   */
-  MultilevelLinearOp<FArrayBox>*  defineBiCGStabSolver(BiCGStabSolver<Vector<LevelData<FArrayBox>* > >& a_bicgstab,
+  MultilevelIceVelOp*  defineBiCGStabSolver(BiCGStabSolver<Vector<LevelData<FArrayBox>* > >& a_bicgstab,
                                                        AMRMultiGrid<LevelData<FArrayBox> >& a_mgSolver);
 
   /// define GMRES solver
   /** returns pointer to the MultilevelLinearOp used by the solver. 
       As things stand now, we'll need to manage that one ourselves.
   */
-  MultilevelLinearOp<FArrayBox>*  defineGMRESSolver(GMRESSolver<Vector<LevelData<FArrayBox>* > >& a_gmres,
+  MultilevelIceVelOp*  defineGMRESSolver(GMRESSolver<Vector<LevelData<FArrayBox>* > >& a_gmres,
                                                     AMRMultiGrid<LevelData<FArrayBox> >& a_mgSolver);
 
 

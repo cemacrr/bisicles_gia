@@ -4269,7 +4269,7 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
   // put this in place to catch runs where plotfile writing is
   // going to hang _before_ I waste a few hours waiting for the 
   // velocity solve
-#define writeTestPlots
+  //#define writeTestPlots
 #ifdef  writeTestPlots
   if (m_plot_interval >= 0 && m_cur_step == 0)
     {

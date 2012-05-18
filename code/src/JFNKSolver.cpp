@@ -25,7 +25,8 @@
 #include <sstream>
 #include "NamespaceHeader.H"
 
-
+// static member initialization
+int JFNKOp::m_bottom_solver_type = bicg;
 
 void JFNKSolver::imposeMaxAbs(Vector<LevelData<FArrayBox>*>& a_u,
 		 Real a_limit)
@@ -78,6 +79,7 @@ JFNKOp::JFNKOp(JFNKState* a_currentState ,
   RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > > 
     opFactoryPtr = m_u->opFactoryPtr();
   
+  m_mlOp.m_bottom_solver_type = m_bottom_solver_type;
   m_mlOp.m_num_mg_smooth =  a_numMGSmooth;
   m_mlOp.m_num_mg_iterations = a_numMGIter;
   m_mlOp.define(m_grids , m_refRatio, m_domains, m_dxs, 
@@ -696,6 +698,10 @@ void JFNKSolver::define(const ProblemDomain& a_coarseDomain,
           MayDay::Error("JFNKSolver -- bad linear solver type");
         }
     }
+  
+  int bs_type = JFNKOp::m_bottom_solver_type;
+  pp.query("bottom_solver_type", bs_type);
+  JFNKOp::m_bottom_solver_type = bs_type;
 
   int mgAverageType  = CoarseAverageFace::arithmetic;
   pp.query("mgCoefficientAverageType", mgAverageType);

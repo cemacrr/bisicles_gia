@@ -126,6 +126,7 @@ HumpIBC::HumpIBC()
   m_isBCsetUp = false;
   m_paramsSet = false;
   m_isDefined = false;
+  m_doHOinit = true;
 }
 
 HumpIBC::~HumpIBC()
@@ -184,6 +185,7 @@ HumpIBC::new_thicknessIBC()
   retval->m_center = m_center;
   retval->m_widthScale = m_widthScale;
   retval->m_seaLevel = m_seaLevel;
+  retval->m_doHOinit = m_doHOinit;
 
   retval->m_paramsSet = true;
   retval->m_isDefined = m_isDefined;

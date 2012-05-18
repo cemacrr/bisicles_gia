@@ -792,15 +792,15 @@ PicardSolver::defineMGSolver(AMRMultiGrid<LevelData<FArrayBox> >& a_mgSolver,
 /** returns pointer to the MultilevelLinearOp used by the solver. 
     As things stand now, we'll need to manage that one ourselves.
 */
-MultilevelLinearOp<FArrayBox>*  
+MultilevelIceVelOp*  
 PicardSolver::defineBiCGStabSolver(BiCGStabSolver<Vector<LevelData<FArrayBox>* > >& a_solver,
                                    AMRMultiGrid<LevelData<FArrayBox> >& a_mgSolver)
 {
   int lBase = 0;
   CH_assert(m_opFactoryPtr != NULL);
 
-  MultilevelLinearOp<FArrayBox>* mlOpPtr = new MultilevelLinearOp<FArrayBox>();
-  MultilevelLinearOp<FArrayBox>& mlOp = *mlOpPtr;
+  MultilevelIceVelOp* mlOpPtr = new MultilevelIceVelOp();
+  MultilevelIceVelOp& mlOp = *mlOpPtr;
 
   ParmParse pp2("picardSolver");
 
@@ -861,15 +861,15 @@ PicardSolver::defineBiCGStabSolver(BiCGStabSolver<Vector<LevelData<FArrayBox>* >
 /** returns pointer to the MultilevelLinearOp used by the solver. 
     As things stand now, we'll need to manage that one ourselves.
 */
-MultilevelLinearOp<FArrayBox>*  
+MultilevelIceVelOp*  
 PicardSolver::defineGMRESSolver(GMRESSolver<Vector<LevelData<FArrayBox>* > >& a_solver,
                                 AMRMultiGrid<LevelData<FArrayBox> >& a_mgSolver)
 {
   int lBase = 0;
   CH_assert(m_opFactoryPtr != NULL);
 
-  MultilevelLinearOp<FArrayBox>* mlOpPtr = new MultilevelLinearOp<FArrayBox>();
-  MultilevelLinearOp<FArrayBox>& mlOp = *mlOpPtr;
+  MultilevelIceVelOp* mlOpPtr = new MultilevelIceVelOp();
+  MultilevelIceVelOp& mlOp = *mlOpPtr;
 
   ParmParse pp2("picardSolver");
 

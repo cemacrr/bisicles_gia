@@ -177,6 +177,8 @@ protected:
 
   BCFunc m_velBCs;
 
+  // do higher-order averaged initial condition (for convergence testing)
+  bool m_doHOinit;
 
 private:
   // Disallowed for all the usual reasons
