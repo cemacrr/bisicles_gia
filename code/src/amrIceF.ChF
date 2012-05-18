@@ -273,7 +273,7 @@ c ----------------------------------------------------
 
       integer lmask,cmask,rmask
       integer LI,SH,OS,OL
-      REAL_T halfOnDx, sl,sr,sc,hl,hr,hc
+      REAL_T halfOnDx, sl,sr,sc,hl,hr,hc,tmprhs 
 
       SH = FLOATINGMASKVAL
       LI = GROUNDEDMASKVAL
@@ -333,12 +333,13 @@ c     no ice | SH (this cell) | no ice
          end if
 
       else if (cmask.eq.LI) then
-           
          if (lmask.eq.SH) then
             if (rmask.eq.LI) then
 c     SH | LI (this cell) | LI
-               rhs(CHF_AUTOIX[i]) = halfOnDx
-     &              * (sr-sc) * (hr+hc)
+               tmprhs =  halfOnDx * (sr-sc) * (hr+hc)
+               if (abs(tmprhs).gt.abs(rhs(CHF_AUTOIX[i]))) then
+                  rhs(CHF_AUTOIX[i]) = tmprhs
+               end if
             else
 c     SH | LI (this cell) | not LI (don't tinker)
                rhs(CHF_AUTOIX[i]) = rhs(CHF_AUTOIX[i])
@@ -346,8 +347,10 @@ c     SH | LI (this cell) | not LI (don't tinker)
          else if  (rmask.eq.SH) then
             if (lmask.eq.LI) then
 c     LI | LI (this cell) | SH
-               rhs(CHF_AUTOIX[i]) = halfOnDx
-     &              * (sc-sl) * (hc+hl)
+               tmprhs =  halfOnDx * (sc-sl) * (hc+hl)
+               if (abs(tmprhs).gt.abs(rhs(CHF_AUTOIX[i]))) then
+                  rhs(CHF_AUTOIX[i]) = tmprhs
+               end if
             else
 c     not LI | LI (this cell) | SH (don't tinker)
                rhs(CHF_AUTOIX[i]) = rhs(CHF_AUTOIX[i])
@@ -355,6 +358,29 @@ c     not LI | LI (this cell) | SH (don't tinker)
          end if
 
       end if
+c$$$      else if (cmask.eq.LI) then
+c$$$           
+c$$$         if (lmask.eq.SH) then
+c$$$            if (rmask.eq.LI) then
+c$$$c     SH | LI (this cell) | LI
+c$$$               rhs(CHF_AUTOIX[i]) = halfOnDx
+c$$$     &              * (sr-sc) * (hr+hc)
+c$$$            else
+c$$$c     SH | LI (this cell) | not LI (don't tinker)
+c$$$               rhs(CHF_AUTOIX[i]) = rhs(CHF_AUTOIX[i])
+c$$$            end if
+c$$$         else if  (rmask.eq.SH) then
+c$$$            if (lmask.eq.LI) then
+c$$$c     LI | LI (this cell) | SH
+c$$$               rhs(CHF_AUTOIX[i]) = halfOnDx
+c$$$     &              * (sc-sl) * (hc+hl)
+c$$$            else
+c$$$c     not LI | LI (this cell) | SH (don't tinker)
+c$$$               rhs(CHF_AUTOIX[i]) = rhs(CHF_AUTOIX[i])
+c$$$            endif
+c$$$         end if
+c$$$
+c$$$     end if
 
       CHF_ENDDO
       return

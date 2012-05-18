@@ -401,6 +401,8 @@ protected:
   // is only valid for 1D SSA models.
   Real m_groundingLineRegularization;
 
+  //use one sided diffs at the grounding line?
+  bool m_groundingLineCorrection;
 #if 0
   /// BCFunc for velSolver. Eventually would like this to be a BCHolder
   BCFunc m_velBCs;

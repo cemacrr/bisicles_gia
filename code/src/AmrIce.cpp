@@ -409,6 +409,7 @@ AmrIce::setDefaults()
   m_wallDragExtra = 0.0; // by default, assume wall drag proportional to basal drag
 
   m_groundingLineRegularization = 0.0;
+  m_groundingLineCorrection = true;
   m_evolve_thickness = true;
   m_evolve_topography = false;
   m_evolve_topography_preserve_mask = true;
@@ -982,6 +983,7 @@ AmrIce::initialize()
   ppAmr.query("wallDragExtra",m_wallDragExtra);
 
   ppAmr.query("grounding_line_regularization",m_groundingLineRegularization);
+  ppAmr.query("grounding_line_correction",m_groundingLineCorrection);
 
   //calving model options
   std::string calvingModelType = "NoCalvingModel";
@@ -4620,7 +4622,8 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 
 	 
 
-	  if(true && anyFloating == 1 && 0.0 * m_basalLengthScale < dx[0])
+	  if(m_groundingLineCorrection && anyFloating == 1 
+	     && 0.0 * m_basalLengthScale < dx[0])
 	    {
 	      Real rhog = iceDensity*gravity;
 	      CH_assert(SpaceDim != 3);
