@@ -125,7 +125,7 @@ public:
 		  Real a_time);
   // abstract methods for (PETSc) nonlinear solvers
   virtual void updateCoefs( LevelData<FArrayBox> &a_horizontalVel){
-    computeMu( a_horizontalVel, *m_tfaceA, m_tcoordSys, ttime );
+    computeMu( a_horizontalVel, *m_tfaceA, m_tcoordSys, m_ttime );
   }
   virtual void applyOp( LevelData<FArrayBox> &a_out, LevelData<FArrayBox> &a_in){
     CH_assert( m_OpPtr ); 
@@ -134,9 +134,10 @@ public:
 
   // cache 
   LevelData<FArrayBox> *m_tphi;  // place to cache a vector
+  LevelData<FArrayBox> *m_tphi2;  // place to cache a vector
   LevelData<FluxBox>* m_tfaceA;
   RefCountedPtr<LevelSigmaCS> m_tcoordSys;
-  Real ttime;
+  Real m_ttime;
 };
 #include "NamespaceFooter.H"
 #endif

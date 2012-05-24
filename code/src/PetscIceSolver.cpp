@@ -91,31 +91,34 @@ PetscIceSolver::~PetscIceSolver()
    Output Parameter:
 .  f - vector
  */
-PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *T )
+PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *dummy )
 {
   CH_TIME("PetscIceSolver::FormFunction");
   PetscErrorCode ierr;
   PetscSolverViscousTensor<LevelData<FArrayBox> > *solver;
   PetscIceSolver *tthis;
-  LevelData<FArrayBox> &phi = *(LevelData<FArrayBox>*)T;
-
+ 
   PetscFunctionBegin;
+
   ierr = SNESGetApplicationContext(snes,(void**)&solver); CHKERRQ(ierr);
   tthis = (PetscIceSolver*)solver->m_ctx;
 
-  ierr = solver->putPetscInChombo( phi, x );     CHKERRQ(ierr);
+// static PetscReal      norm=-1.,t;
+// VecNorm(x,NORM_2,&t);
 
-  // delete after use (full Newton) 
+  ierr = solver->putPetscInChombo( *tthis->m_tphi2, x );     CHKERRQ(ierr);
+  tthis->m_tphi2->exchange();
 
-  //tthis->computeMu( phi, *tthis->m_tfaceA, tthis->m_tcoordSys, tthis->ttime );
-  tthis->updateCoefs( phi );
-
-  //delete tthis->m_OpPtr;
-  // MGnewOp copies mu,lambda,acoef
-  //tthis->m_OpPtr = tthis->m_opFactoryPtr->MGnewOp( tthis->m_domain, 0, true );
+  // if(abs(t-norm) > 1.e-1){
+  //   pout() << "\tFormFunction |x|_2 = " << t << ", diff |x| = " << t-norm << endl;
+  //   norm = t;
+    
+    //tthis->computeMu( phi, *tthis->m_tfaceA, tthis->m_tcoordSys, tthis->m_ttime );
+    tthis->updateCoefs( *tthis->m_tphi2 ); // needed because called before FormJacobian
+  // }
 
   //tthis->m_OpPtr->applyOp( *tthis->m_tphi, phi ); 
-  tthis->applyOp( *tthis->m_tphi, phi ); 
+  tthis->applyOp( *tthis->m_tphi, *tthis->m_tphi2 ); 
  
   ierr = solver->putChomboInPetsc( f, *tthis->m_tphi );  CHKERRQ(ierr);
 
@@ -127,7 +130,6 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *T )
    FormJacobian - this does not depend on PetscIceSolver so it could be moved into Mat solver.
 
    This can go into the PetscSolver class -- it is not BICICLES specific!!!
-     -- there does not seem to be a need to recompute mu, etc. (?)
 
    Input Parameters:
 .  snes - the SNES context
@@ -139,24 +141,31 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *T )
 .  prejac - different preconditioning matrix
 .  flag - flag indicating matrix structure
 */
-PetscErrorCode FormJacobian(SNES snes,Vec dummy,Mat *jac,Mat *prejac,MatStructure *flag, void *T)
+PetscErrorCode FormJacobian( SNES snes,Vec x,Mat *jac,Mat *prejac,MatStructure *flag, void *dummy )
 {
   CH_TIME("PetscIceSolver::FormJacobian");
   PetscErrorCode ierr;
   PetscSolverViscousTensor<LevelData<FArrayBox> > *solver;
-  //PetscIceSolver *tthis;
-  Mat mat = *prejac;
-  LevelData<FArrayBox> &phi = *(LevelData<FArrayBox>*)T; // just used for stencil, not data
+  PetscIceSolver *tthis;
 
   PetscFunctionBegin;
+
   ierr = SNESGetApplicationContext(snes,(void**)&solver);CHKERRQ(ierr);
+  tthis = (PetscIceSolver*)solver->m_ctx;
 
-  //tthis = (PetscIceSolver*)solver->m_ctx;  -- updating state does not seem to effect solver one bit. (Form must be called first)
-  //ierr = solver->putPetscInChombo( phi, x );     CHKERRQ(ierr); // needed???
-  //tthis->computeMu( phi, *tthis->m_tfaceA, tthis->m_tcoordSys, tthis->ttime );
+// PetscReal      norm;
+// VecNorm(x,NORM_2,&norm);
+// pout() << "FormJacobian |x|_2 = " << norm << endl;
 
-  ierr = solver->formMatrix( mat, phi ); CHKERRQ(ierr);
+  ierr = solver->putPetscInChombo( *tthis->m_tphi2, x );     CHKERRQ(ierr);
+  tthis->m_tphi2->exchange(); // needed?
 
+  //tthis->computeMu( phi, *tthis->m_tfaceA, tthis->m_tcoordSys, tthis->m_ttime );
+  //tthis->updateCoefs( *tthis->m_tphi2 ); // needed in FormFunction ...
+
+  ierr = solver->formMatrix( *prejac, *tthis->m_tphi2 ); CHKERRQ(ierr);
+
+  // not sure why this needs to be called, we don't touch it
   ierr = MatAssemblyBegin(*jac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   ierr = MatAssemblyEnd(*jac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
 
@@ -285,12 +294,16 @@ PetscIceSolver::solve(Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	}
       // call solver will create matrix, setup PC
       m_tphi = vect;
+      LevelData<FArrayBox>* vect2 = new LevelData<FArrayBox>(m_grid,a_horizontalVel[0]->nComp(),a_horizontalVel[0]->ghostVect());
+      m_tphi2 = vect2;
       m_tfaceA = faceA;
       m_tcoordSys = a_coordSys[0];
+      m_ttime = a_time;
 #ifdef CH_USE_PETSC
       m_petscSolver->m_ctx = (void*)this;
       m_petscSolver->solve( *a_horizontalVel[0], *a_rhs[0] );	
 #endif
+      delete vect2;
       if (m_verbosity >= 0)
 	{
 	  m_OpPtr->residual( *vect, *a_horizontalVel[0], *a_rhs[0] );  
