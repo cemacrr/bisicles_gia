@@ -2,43 +2,13 @@
 
 ### This makefile produces an executable for each 
 ### name in the `ebase' variable
+DIM=2
+
+include ../mk/Make.defs
 
 ebase := testCGOptimize control
 #set compiler and CHOMBO_HOME
 
-MACHINE = $(shell uname)
-UNAMEM = $(shell uname -m)
-
-DIM=2
-
-TRAPFPE=FALSE
-ifeq ($(TRAPFPE),TRUE)	
-# petermc, 12 Oct 2007:  never set XTRACPPFLAGS in makefile
-# XTRACPPFLAGS += -DTRAP_FPE
-endif
-
-# petermc, 12 Oct 2007:  never set XTRACPPFLAGS in makefile
-# XTRACPPFLAGS += #-DPAPI 
-PAPILIBS = #/usr/local/lib/libpapi.a
-PAPILIBS = #/usr/common/usg/papi/2.1/lib/libpapi.a -L/usr/lpp/pmtoolkit/lib -lpmapi
-
-ifeq ($(TARMAC),TRUE)
-TARMACDIR=../interface/libtarmac
-XTRALIBFLAGS += -L$(TARMACDIR) -ltarmac
-XTRACPPFLAGS += -DTARMAC
-endif
-
-#  have a default for machines not defined here.
-# make this a relative path so it will find the Chombo 
-# on same level as BISICLES
-CHOMBO_HOME = ../../../Chombo/lib
-
-include $(CHOMBO_HOME)/mk/Make.defs
-include $(CHOMBO_HOME)/mk/Make.defs.config
-
-
-
-#cases := $(shell echo case*)
 
 ##
 ## names of Chombo libraries needed by this program, in order of search.
@@ -61,18 +31,7 @@ src_dirs = src $(SRC_DIR) $(UTIL_DIR)
 include $(CHOMBO_HOME)/mk/Make.example
 
 
-ifeq ($(TARMAC),TRUE)
-all:  $(TARMACDIR)/libtarmac.a all-example
-$(TARMACDIR)/libtarmac.a: $(TARMACDIR)/tarmac.f90
-	$(RM) $(patsubst %,%$(config).ex,$(ebase)); \
-	cd $(TARMACDIR); \
-	$(MAKE) all
-endif
 
-ifeq ($(DEBUG), TRUE)
-# petermc, 12 Oct 2007:  never set XTRACPPFLAGS in makefile
-#XTRACPPFLAGS += -DDEBUG
-endif
 
 doxygen:
 	mkdir -p doc/doxygen
