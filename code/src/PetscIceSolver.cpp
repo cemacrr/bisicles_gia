@@ -103,23 +103,13 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *dummy )
   ierr = SNESGetApplicationContext(snes,(void**)&solver); CHKERRQ(ierr);
   tthis = (PetscIceSolver*)solver->m_ctx;
 
-// static PetscReal      norm=-1.,t;
-// VecNorm(x,NORM_2,&t);
-
   ierr = solver->putPetscInChombo( *tthis->m_tphi2, x );     CHKERRQ(ierr);
   tthis->m_tphi2->exchange();
+  
+  tthis->updateCoefs( *tthis->m_tphi2 ); // needed because called before FormJacobian
 
-  // if(abs(t-norm) > 1.e-1){
-  //   pout() << "\tFormFunction |x|_2 = " << t << ", diff |x| = " << t-norm << endl;
-  //   norm = t;
-    
-    //tthis->computeMu( phi, *tthis->m_tfaceA, tthis->m_tcoordSys, tthis->m_ttime );
-    tthis->updateCoefs( *tthis->m_tphi2 ); // needed because called before FormJacobian
-  // }
-
-  //tthis->m_OpPtr->applyOp( *tthis->m_tphi, phi ); 
   tthis->applyOp( *tthis->m_tphi, *tthis->m_tphi2 ); 
- 
+
   ierr = solver->putChomboInPetsc( f, *tthis->m_tphi );  CHKERRQ(ierr);
 
   PetscFunctionReturn(0);
@@ -153,18 +143,11 @@ PetscErrorCode FormJacobian( SNES snes,Vec x,Mat *jac,Mat *prejac,MatStructure *
   ierr = SNESGetApplicationContext(snes,(void**)&solver);CHKERRQ(ierr);
   tthis = (PetscIceSolver*)solver->m_ctx;
 
-// PetscReal      norm;
-// VecNorm(x,NORM_2,&norm);
-// pout() << "FormJacobian |x|_2 = " << norm << endl;
-
   ierr = solver->putPetscInChombo( *tthis->m_tphi2, x );     CHKERRQ(ierr);
-  tthis->m_tphi2->exchange(); // needed?
-
-  //tthis->computeMu( phi, *tthis->m_tfaceA, tthis->m_tcoordSys, tthis->m_ttime );
-  //tthis->updateCoefs( *tthis->m_tphi2 ); // needed in FormFunction ...
+  tthis->m_tphi2->exchange(); 
 
   ierr = solver->formMatrix( *prejac, *tthis->m_tphi2 ); CHKERRQ(ierr);
-
+  
   // not sure why this needs to be called, we don't touch it
   ierr = MatAssemblyBegin(*jac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   ierr = MatAssemblyEnd(*jac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
