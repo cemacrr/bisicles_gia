@@ -1,0 +1,56 @@
+# -*- Mode: Makefile -*- 
+
+# a bunch of common defs for the various BISICLES make files
+
+MACHINE = $(shell uname)
+UNAMEM = $(shell uname -m)
+UNAMEN := $(shell uname -n)
+WHO := $(shell whoami)
+
+# have a default for machines not defined here.
+# make this a relative path so it will find the Chombo 
+# on same level as BISICLES
+
+CHOMBO_HOME = ../../../Chombo/lib
+include $(CHOMBO_HOME)/mk/Make.defs
+include $(CHOMBO_HOME)/mk/Make.defs.config
+
+#netcdf location
+NETCDF_HOME=../../../netcdf/serial
+
+#PYTHON_INC=x
+#PYTHON_LIBS=x
+
+ifeq ($(UNAMEN),martins)
+NETCDF_HOME = /usr/local/netcdf
+endif
+
+ifeq ($(UNAMEN),loren)
+NETCDF_HOME =/home/loren/users/dmartin/util/netcdf/netcdf-4.1.2
+endif
+
+ifeq ($(UNAMEN),geog-bsq92.ggy.bris.ac.uk)
+NETCDF_HOME = /local/GlimmerBisicles/netcdf
+endif
+
+#python includes and libs - don't define unless that make sense
+
+#python 2.7
+#PYTHON_INC=/usr/include/python2.7
+#PYTHON_LIBS=-lpython2.7
+
+#python 2.6
+#PYTHON_INC=/usr/include/python2.7
+#PYTHON_LIBS=-lpython2.7
+
+#python 2.4
+#PYTHON_INC=/usr/include/python2.4
+#PYTHON_LIBS=-lpython2.4
+
+ifeq ($(UNAMEN),stephmbp)
+PYTHON_INC=/usr/include/python2.7
+PYTHON_LIBS=-lpython2.7
+endif
+
+
+
