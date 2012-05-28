@@ -2276,6 +2276,24 @@ AmrIce::timeStep(Real a_dt)
 	    (*(m_vect_coordSys[lev]), *m_velocity[lev]);
 	}
 
+      //dont allow thickness to be negative
+      for (int lev=0; lev<= m_finest_level; lev++)
+	{
+	  DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+          LevelSigmaCS& levelCoords = *(m_vect_coordSys[lev]);
+          LevelData<FArrayBox>& levelH = levelCoords.getH();
+          DataIterator dit = levelGrids.dataIterator();          
+          
+          for (DataIterator dit(levelGrids); dit.ok(); ++dit)
+	    {
+	      Real lim = 0.0;
+	      FORT_MAXFAB(CHF_FRA(levelH[dit]), 
+			  CHF_CONST_REAL(lim), 
+			  CHF_BOX(levelH[dit].box()));
+	    }
+	}
+
+
       //interpolate levelSigmaCS to any levels above finestTimestepLevel()
       for (int lev = finestTimestepLevel()+1 ; lev<= m_finest_level; lev++)
 	{
