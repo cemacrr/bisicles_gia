@@ -1,7 +1,7 @@
 #domain details
 main.domain_size = 6400e+3 6400e+3 1.0e+3
-amr.num_cells = 1280 1280 10
-#amr.num_cells = 640 640 10
+#amr.num_cells = 1280 1280 10
+amr.num_cells = 640 640 10
 #amr.num_cells = 320 320 10
 amr.is_periodic = 0 0 0
 
@@ -79,7 +79,7 @@ picardSolver.linearsolver_tolerance = 1.0e-8
 picardSolver.normType = 2
 
 #JFNK parameters
-JFNKSolver.vtopSafety = 0.95
+JFNKSolver.vtopSafety = 0.65
 JFNKSolver.minPicardIterations = 2
 JFNKSolver.maxIter = 20
 JFNKSolver.absTol = 1.0
@@ -92,7 +92,7 @@ JFNKSolver.normType = 2
 JFNKSolver.verbosity = 5
 JFNKSolver.vtopRelaxTol = 0.005
 JFNKSolver.vtopRelaxMinIter = 8
-JFNKSolver.numMGSmooth = 4
+JFNKSolver.numMGSmooth = 32
 JFNKSolver.numMGIter = 1
 JFNKSolver.h = 0.025
 JFNKSolver.switchRate = 2.0
@@ -116,7 +116,7 @@ amr.time_step_ticks = 1
 #amr.plot_interval = 1
 amr.plot_time_interval = 1.0
 amr.plot_prefix = plot.ant.MG-JFNK.
-#amr.write_preSolve_plotfiles = true
+amr.write_preSolve_plotfiles = true
 amr.write_solver_rhs = 1
 
 #check points
@@ -126,7 +126,7 @@ amr.check_overwrite = 0
 #amr.restart_file = chk.ant.5km.l1l2.searise.melt200.2lev.000000.2d.hdf5 
 
 #AMR mesh options
-amr.maxLevel = 0 # finest level allowed in simulation
+amr.maxLevel = 10 # finest level allowed in simulation
 amr.ref_ratio = 2 2 2 2 2 2 2 2 2 2 2
 amr.regrid_interval = 10  # number of timesteps between regridding
 amr.blockFactor = 8      # block factor used in grid generation
