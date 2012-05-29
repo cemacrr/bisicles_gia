@@ -16,6 +16,9 @@
 #include <iostream>
 #include "AMRIO.H"
 #include "NamespaceHeader.H"
+
+bool verbose = true;
+
 int main(int argc, char* argv[]) {
 
 #ifdef CH_MPI
@@ -50,6 +53,11 @@ int main(int argc, char* argv[]) {
 	var.push_back(std::string(argv[i]));
       }  
 
+    if (verbose) 
+      {
+        pout() << "reading " << in_file << "..." << endl;
+      }
+
     Vector<std::string> names;
     Vector<LevelData<FArrayBox>* > data;
     Vector<DisjointBoxLayout> grids;
@@ -63,6 +71,13 @@ int main(int argc, char* argv[]) {
     if (status != 0)
       {
 	MayDay::Error("failed to read AMR hierarchy");
+      }
+    
+    if (verbose)
+      {
+        pout() << "... done." << endl;
+        pout() << endl;
+        pout() << "looking for variables to extract..." << endl;
       }
     
     
@@ -85,6 +100,12 @@ int main(int argc, char* argv[]) {
 	    MayDay::Error("variable not found");
 	  }
       }
+    
+    if (verbose)
+      {
+        pout() << "... done." << endl;
+        pout() << "constructing output data" << endl;
+      }
 
     Vector<LevelData<FArrayBox>* > outData(numLevels,NULL);
     for (int lev = 0; lev < numLevels; lev++)
@@ -95,9 +116,19 @@ int main(int argc, char* argv[]) {
 	  data[lev]->copyTo(Interval(outToIn[i],outToIn[i]),*outData[lev],Interval(i,i));
       }
 
+    if (verbose)
+      {
+        pout() << "writing file..." << endl;
+      }
     WriteAMRHierarchyHDF5(out_file, grids, outData, var, 
 			  crseBox, crseDx, dt, time, ratio,numLevels);
     
+
+    if (verbose)
+      {
+        pout() << "... done." << endl;
+      }
+
   }  // end nested scope
   CH_TIMER_REPORT();
 
