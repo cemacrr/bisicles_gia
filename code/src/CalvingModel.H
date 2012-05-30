@@ -24,7 +24,8 @@ public:
   //thickness has ben updated but before 
   //a_coordSys.recomputeGeometry() is called.
   virtual void postUpdateThickness(LevelSigmaCS& a_coordSys,
-			   LevelData<FArrayBox>& a_vel) const=0;
+				   LevelData<FArrayBox>& a_vel,
+				   const Real& a_time) const=0;
 
   virtual ~CalvingModel(){};
 
@@ -37,7 +38,8 @@ class NoCalvingModel : public CalvingModel
 public:
 
   virtual void postUpdateThickness(LevelSigmaCS& a_coordSys,
-			   LevelData<FArrayBox>& a_vel) const
+				   LevelData<FArrayBox>& a_vel,
+				   const Real& a_time) const
   {
 
   }
@@ -57,20 +59,25 @@ class DeglaciationCalvingModelA : public CalvingModel
 
 public:
   virtual void postUpdateThickness(LevelSigmaCS& a_coordSys,
-			   LevelData<FArrayBox>& a_vel) const;
+				   LevelData<FArrayBox>& a_vel,
+				   const Real& a_time) const;
  
   DeglaciationCalvingModelA(const Real& a_calvingThickness,
-			   const Real& a_calvingOceanDepth,
-			   const Real& a_minThickness)
+			    const Real& a_calvingOceanDepth,
+			    const Real& a_minThickness, 
+			    const Real& a_startTime, 
+			    const Real& a_endTime)
     : m_calvingThickness(a_calvingThickness),
       m_calvingOceanDepth(a_calvingOceanDepth),
-      m_minThickness(a_minThickness)
+      m_minThickness(a_minThickness),
+      m_startTime(a_startTime),
+      m_endTime(a_endTime)
   {
     ;
   }
  
 protected:
-  Real m_calvingThickness, m_calvingOceanDepth, m_minThickness;
+  Real m_calvingThickness, m_calvingOceanDepth, m_minThickness, m_startTime, m_endTime;
   
 private:
   DeglaciationCalvingModelA();
@@ -82,7 +89,8 @@ class DomainEdgeCalvingModel :  public CalvingModel
 
 public:
   virtual void postUpdateThickness(LevelSigmaCS& a_coordSys,
-				   LevelData<FArrayBox>& a_vel) const;
+				   LevelData<FArrayBox>& a_vel,
+				   const Real& a_time) const;
 
   DomainEdgeCalvingModel(const Vector<int>& a_frontLo,
 			 const Vector<int>& a_frontHi)
