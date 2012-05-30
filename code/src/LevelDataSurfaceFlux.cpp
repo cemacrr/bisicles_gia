@@ -91,7 +91,7 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
     }
 
   FillFromReference(a_flux, *m_startFlux, a_coordSys.dx(),m_dx,m_verbose);
-  if (m_startTime < m_endTime)
+  if (a_time > m_startTime && m_startTime < m_endTime)
     {
       
       Real w = std::min(1.0 , (a_time - m_startTime) / (m_endTime - m_startTime)); 
