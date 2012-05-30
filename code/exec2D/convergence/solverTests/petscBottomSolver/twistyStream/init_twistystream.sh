@@ -77,9 +77,9 @@ do
     sed  -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@MAXDEPTH/$MAXDEPTH/  $INFILE1_TEMPLATE > $of1
     sed  -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@MAXDEPTH/$MAXDEPTH/  $INFILE2_TEMPLATE > $of2
 
-    outfile1="run.petscBottom.$RES.$MAXDEPTHdepth"
-    innerConvergename1="solverConverge/resid.petscBottom.$RES.$MAXDEPTHdepth"
-    outerConvergename1="solverConverge/resid.petscBottom.$RES.$MAXDEPTHdepth.outer"
+    outfile1="run.petscBottom.$RES.depth$MAXDEPTH"
+    innerConvergename1="solverConverge/resid.petscBottom.$RES.depth$MAXDEPTH"
+    outerConvergename1="solverConverge/resid.petscBottom.$RES.depth$MAXDEPTH.outer"
     poutname1="pout.petscBottom.$RES.$MAXDEPTH"
     runcommand1="mpirun -np $NPROC $EXECFILE1 $of1 > $outfile1"
     echo "echo \"doing $RES, $MAXDEPTH depth run\" " >> $RUNFILE3
@@ -90,9 +90,9 @@ do
     echo "$SCRIPTDIR/petsc.awk < $outfile1 > $TEMPFILE" >> $RUNFILE3
     echo "$SCRIPTDIR/parseJFNK $TEMPFILE  $outerConvergename1" >> $RUNFILE3
 
-    outfile2="run.BiCGBottom.$RES.$MAXDEPTHdepth"
-    innerConvergename2="solverConverge/resid.BiCGBottom.$RES.$MAXDEPTHdepth"
-    outerConvergename2="solverConverge/resid.BiCGBottom.$RES.$MAXDEPTHdepth.outer"
+    outfile2="run.BiCGBottom.$RES.depth$MAXDEPTH"
+    innerConvergename2="solverConverge/resid.BiCGBottom.$RES.depth$MAXDEPTH"
+    outerConvergename2="solverConverge/resid.BiCGBottom.$RES.depth$MAXDEPTH.outer"
     runcommand2="mpirun -np $NPROC $EXECFILE2 $of2 > $outfile2"
     echo "echo \"doing $RES run\" " >> $RUNFILE4
     poutname2="pout.BiCGBottom.$RES.$MAXDEPTH"
