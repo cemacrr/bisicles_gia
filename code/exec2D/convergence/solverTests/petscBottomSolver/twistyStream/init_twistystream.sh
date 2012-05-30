@@ -8,12 +8,15 @@ INFILE2_TEMPLATE=inputs.BiCGBottom.template
 INFILE2_BASE=inputs.BiCGBottom
 SCRIPTDIR=../../../../scripts
 TEMPFILE=temp.out
+MAXDEPTH=-1
 NPROC=1
 
 CRSERES="0032"
 FINESTRES=2048
 RUNFILE1=doRuns.petscBottom
 RUNFILE2=doRuns.BiCGBottom
+RUNFILE3=doRuns.petscBottom.MGdepth
+RUNFILE4=doRuns.BiCGBottom.MGdepth
 if [ -f $RUNFILE ]; then
   echo "deleting $RUNFILE1, $RUNFILE2"
   rm $RUNFILE1
@@ -26,8 +29,8 @@ do
     echo $RES 
     of1=$INFILE1_BASE.$RES
     of2=$INFILE2_BASE.$RES
-    sed  -e s/@RES/$RES/ -e s/@YRES/$RES/  $INFILE1_TEMPLATE > $of1
-    sed  -e s/@RES/$RES/ -e s/@YRES/$RES/  $INFILE2_TEMPLATE > $of2
+    sed  -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@MAXDEPTH/$MAXDEPTH/ $INFILE1_TEMPLATE > $of1
+    sed  -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@MAXDEPTH/$MAXDEPTH/ $INFILE2_TEMPLATE > $of2
 
     outfile1="run.petscBottom.$RES"
     innerConvergename1="solverConverge/resid.petscBottom.$RES"
@@ -57,6 +60,49 @@ do
 
 chmod +x $RUNFILE1
 chmod +x $RUNFILE2
+
+
+CRSERES=$RES
+done 
+
+echo "generating MG depth test inputs"
+for MAXDEPTH in 0 1 2 3 4 
+do
+    YRES=$RES
+    echo "$RES, depth = $MAXDEPTH"
+    of1=$INFILE1_BASE.$RES.depth$MAXDEPTH
+    of2=$INFILE2_BASE.$RES.depth$MAXDEPTH
+    sed  -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@MAXDEPTH/$MAXDEPTH/  $INFILE1_TEMPLATE > $of1
+    sed  -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@MAXDEPTH/$MAXDEPTH/  $INFILE2_TEMPLATE > $of2
+
+    outfile1="run.petscBottom.$RES.$MAXDEPTHdepth"
+    innerConvergename1="solverConverge/resid.petscBottom.$RES.$MAXDEPTHdepth"
+    outerConvergename1="solverConverge/resid.petscBottom.$RES.$MAXDEPTHdepth.outer"
+    poutname1="pout.petscBottom.$RES.$MAXDEPTH"
+    runcommand1="mpirun -np $NPROC $EXECFILE1 $of1 > $outfile1"
+    echo "echo \"doing $RES, $MAXDEPTH depth run\" " >> $RUNFILE3
+    echo $runcommand1 >> $RUNFILE3
+    echo "mv pout.0 $poutname1" >> $RUNFILE3
+    echo "$SCRIPTDIR/innerPetsc.awk < $outfile1 > $TEMPFILE " >> $RUNFILE3
+    echo "$SCRIPTDIR/parseMG $TEMPFILE  $innerConvergename1" >> $RUNFILE3
+    echo "$SCRIPTDIR/petsc.awk < $outfile1 > $TEMPFILE" >> $RUNFILE3
+    echo "$SCRIPTDIR/parseJFNK $TEMPFILE  $outerConvergename1" >> $RUNFILE3
+
+    outfile2="run.BiCGBottom.$RES.$MAXDEPTHdepth"
+    innerConvergename2="solverConverge/resid.BiCGBottom.$RES.$MAXDEPTHdepth"
+    outerConvergename2="solverConverge/resid.BiCGBottom.$RES.$MAXDEPTHdepth.outer"
+    runcommand2="mpirun -np $NPROC $EXECFILE2 $of2 > $outfile2"
+    echo "echo \"doing $RES run\" " >> $RUNFILE4
+    poutname2="pout.BiCGBottom.$RES.$MAXDEPTH"
+    echo $runcommand2 >> $RUNFILE4
+    echo "mv pout.0 $poutname2 " >> $RUNFILE4
+    echo "$SCRIPTDIR/innerJFNK.awk < $poutname2 > $TEMPFILE " >> $RUNFILE4
+    echo "$SCRIPTDIR/parseMG $TEMPFILE  $innerConvergename2" >> $RUNFILE4
+    echo "$SCRIPTDIR/jfnk.awk < $poutname2 > $TEMPFILE" >> $RUNFILE4
+    echo "$SCRIPTDIR/parseJFNK $TEMPFILE  $outerConvergename2" >> $RUNFILE4
+
+chmod +x $RUNFILE3
+chmod +x $RUNFILE4
 
 
 CRSERES=$RES

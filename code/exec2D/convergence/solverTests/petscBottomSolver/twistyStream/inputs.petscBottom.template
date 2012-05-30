@@ -56,9 +56,9 @@ amr.lap_vel_tagging_val = 10
 amr.max_solver_iterations = 20
 
 #velocity solve type -- 0=Picard, 1=JFNK, 2=knownVel, 3=petsc
-amr.velocity_solver_type = 3
+amr.velocity_solver_type = 1
 
-picardSolver.linearSolver = petsc
+picardSolver.linearSolver = relax
 picardSolver.max_iterations = 20
 picardSolver.vtopSafety = 0.50
 picardSolver.vtopSafety = 1.0
@@ -91,7 +91,8 @@ JFNKSolver.MGtol = 1.0e-5
 JFNKSolver.RelaxTol = 1.0e-5
 JFNKSolver.maxRelaxIter = 50
 JFNKSolver.vtopRelaxTol = 0
-
+JFNKSolver.bottom_solver_type = 1 # 0 = BiCGStab, 1  = petsc
+JFNKSolver.mg_solver_depth = @MAXDEPTH
 
 #input file for solver benchmark
 main.filename = stream.@RES.petsc.000000.2d.hdf5
