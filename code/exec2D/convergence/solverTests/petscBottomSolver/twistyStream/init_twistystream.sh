@@ -9,7 +9,7 @@ INFILE2_BASE=inputs.BiCGBottom
 SCRIPTDIR=../../../../scripts
 TEMPFILE=temp.out
 MAXDEPTH=-1
-NPROC=1
+NPROC=8
 
 CRSERES="0032"
 FINESTRES=2048
@@ -18,9 +18,11 @@ RUNFILE2=doRuns.BiCGBottom
 RUNFILE3=doRuns.petscBottom.MGdepth
 RUNFILE4=doRuns.BiCGBottom.MGdepth
 if [ -f $RUNFILE ]; then
-  echo "deleting $RUNFILE1, $RUNFILE2"
+  echo "deleting $RUNFILE1, $RUNFILE2, $RUNFILE3, $RUNFILE4"
   rm $RUNFILE1
   rm $RUNFILE2
+  rm $RUNFILE3
+  rm $RUNFILE4
 fi
 echo "generating single-level inputs"
 for RES in 0032 0064 0128 0256 0512 1024 2048  
