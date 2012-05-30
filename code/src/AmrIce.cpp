@@ -1001,9 +1001,15 @@ AmrIce::initialize()
       ppc.get("calving_thickness", calvingThickness );
       Real calvingDepth = 0.0;
       ppc.get("calving_depth", calvingDepth );
+      Real startTime = -1.2345678e+300;
+      ppc.query("start_time",  startTime);
+      Real endTime = 1.2345678e+300;
+      ppc.query("end_time",  endTime);
+     
+      
       delete m_calvingModelPtr;
       DeglaciationCalvingModelA* ptr = new DeglaciationCalvingModelA
-	(calvingThickness,  calvingDepth, minThickness);
+	(calvingThickness,  calvingDepth, minThickness, startTime, endTime);
       m_calvingModelPtr = ptr;
       
     }
@@ -2273,7 +2279,7 @@ AmrIce::timeStep(Real a_dt)
       for (int lev=0; lev<= m_finest_level; lev++)
 	{
 	  m_calvingModelPtr->postUpdateThickness
-	    (*(m_vect_coordSys[lev]), *m_velocity[lev]);
+	    (*(m_vect_coordSys[lev]), *m_velocity[lev], m_time);
 	}
 
       //dont allow thickness to be negative
@@ -4194,7 +4200,7 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
 
       //allow calving model to modify geometry and velocity
       m_calvingModelPtr->postUpdateThickness
-	(*(m_vect_coordSys[lev]), *m_velocity[lev]);
+	(*(m_vect_coordSys[lev]), *m_velocity[lev], m_time);
 
       a_vectCoordSys[lev]->recomputeGeometry(crsePtr, refRatio);
 
@@ -4237,7 +4243,7 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
 			   Real a_convergenceMetric)
 {
 
-  //computeConnectivity(0);
+  
 
   //ensure A is up to date
 #if BISICLES_Z == BISICLES_LAYERED
@@ -4267,12 +4273,15 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
 	}
     }
 
-  setBasalFriction(vectC);
+  //setBasalFriction(vectC);
   setMuCoefficient(m_cellMuCoef,m_faceMuCoef);
+  //computeConnectivity(1.0e-4);
+  setBasalFriction(vectC);
+  //setMuCoefficient(m_cellMuCoef,m_faceMuCoef);
 
   // also sets beta=0 where ice is floating 
   defineVelRHS(vectRhs, vectC,vectC0);
-
+  
   // write out sumRhs if appropriate
   if (s_verbosity > 3)
     {
@@ -5364,105 +5373,6 @@ AmrIce::computeInitialDt()
 // by solving phi - div( H * grad (phi) ) = (mask==GROUNDEDMASKVAL)?1:0
 void AmrIce::computeConnectivity(const Real& a_thresh)
 {
-
-  //Dirchlett boundary conditions
-  BCHolder bc(ConstDiriNeumBC(IntVect(1,1), RealVect(0.0,0.0),
- 			      IntVect(1,1), RealVect(0.0,0.0)));
-
-  Vector<RefCountedPtr<LevelData<FArrayBox> > > I(m_finest_level + 1);
-  Vector<RefCountedPtr<LevelData<FluxBox> > > D(m_finest_level + 1);
-  Vector<LevelData<FArrayBox>* > rhs(m_finest_level+ 1,NULL);
-  Vector<LevelData<FArrayBox>* > phi(m_finest_level + 1);
-   Vector<DisjointBoxLayout> grids(finestTimestepLevel() + 1);
-  for (int lev=0; lev <= m_finest_level; ++lev)
-    {
-      LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
-      const LevelData<BaseFab<int> >& levelMask = levelCS.getFloatingMask();
-      const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-      I[lev] = RefCountedPtr<LevelData<FArrayBox> >
- 	(new LevelData<FArrayBox>(levelGrids, 1, IntVect::Zero));
-      D[lev] = RefCountedPtr<LevelData<FluxBox> >
- 	(new LevelData<FluxBox>(levelGrids, 1, IntVect::Zero));
-      rhs[lev] = new LevelData<FArrayBox>(levelGrids, 1, IntVect::Zero);
-      phi[lev] = new LevelData<FArrayBox>(levelGrids, 1, IntVect::Unit);
-      grids[lev] = levelGrids;
-      for (DataIterator dit(levelGrids); dit.ok(); ++dit)
- 	{
-	  
- 	  (*I[lev])[dit].setVal(1.0);
- 	  (*D[lev])[dit][0].copy(levelCS.getFaceH()[dit][0]);
- 	  (*D[lev])[dit][1].copy(levelCS.getFaceH()[dit][1]);
-	  
-	 
-
- 	  FArrayBox& r =  (*rhs[lev])[dit];
- 	  r.setVal(0.0);
- 	  const BaseFab<int>& mask = levelMask[dit];
- 	  const Box& gridBox = levelGrids[dit];
- 	  for (BoxIterator bit(gridBox);bit.ok();++bit)
- 	    {
- 	      const IntVect& iv = bit();
- 	      if (mask(iv) == GROUNDEDMASKVAL)
- 		{
- 		  r(iv) = 1.0;
- 		}
-	      
-	      
- 	    }
- 	  FArrayBox& p =  (*phi[lev])[dit];
- 	  p.setVal(0.0);
- 	  //p.copy(r);
-
- 	}
-
-      //rhs[lev]->exchange();
-      //phi[lev]->exchange();
-      //D[lev]->exchange();
-      //I[lev]->exchange();
-    }
-
-  VCAMRPoissonOp2Factory* poissonOpFactory = new VCAMRPoissonOp2Factory;
-  poissonOpFactory->define(m_amrDomains[0], grids , m_refinement_ratios,
- 			   m_amrDx[0], bc, 1.0, I,  1.0e+8, D);
-
-  
-  BiCGStabSolver<LevelData<FArrayBox> > bottomSolver;
-  AMRMultiGrid<LevelData<FArrayBox> > mgSolver;
-  mgSolver.define(m_amrDomains[0], *poissonOpFactory , &bottomSolver, m_finest_level + 1);
-  mgSolver.m_eps = 1.0e-10;
-  mgSolver.m_normThresh = 1.0e-10;
-  
-  int numMGSmooth = 4;
-  mgSolver.m_pre = numMGSmooth;
-  mgSolver.m_post = numMGSmooth;
-  mgSolver.m_bottom = numMGSmooth;
-  
-  mgSolver.solve(phi, rhs, m_finest_level, 0,  false);
-
-  char file[32];
-  sprintf(file,"connectivity.%06d.2d.hdf5",m_finest_level);
-  Real dt = 0.0; Real time = 0.0;
-  Vector<std::string> names(1,"conn");
-  WriteAMRHierarchyHDF5(file ,grids, phi ,names, m_amrDomains[0].domainBox(),
- 			m_amrDx[0], dt, time, m_refinement_ratios, phi.size());
-
- 
- 
-
- for (int lev=0; lev <= m_finest_level ; ++lev)
-    {
-      if (rhs[lev] != NULL)
- 	{
- 	  delete rhs[lev];
- 	 rhs[lev] = NULL;
- 	}
-      if (phi[lev] != NULL)
- 	{
- 	  delete phi[lev];
- 	  phi[lev] = NULL;
- 	}
-    }
-  
 
 
 }
