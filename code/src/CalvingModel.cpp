@@ -18,21 +18,21 @@ DeglaciationCalvingModelA::postUpdateThickness
  LevelData<FArrayBox>& a_vel, 
  const Real& a_time) const
 {
-  pout() << "DeglaciationCalvingModelA::postUpdateThickness"
-	 << "time = " << a_time 
-	 << " start time = " << m_startTime 
-	 << " end time = " << m_endTime 
-	 << std::endl;
+  // pout() << "DeglaciationCalvingModelA::postUpdateThickness"
+  // 	 << "time = " << a_time 
+  // 	 << " start time = " << m_startTime 
+  // 	 << " end time = " << m_endTime 
+  // 	 << std::endl;
   bool calvingActive = (a_time >= m_startTime && a_time < m_endTime);
-  if (calvingActive)
-    pout() << " calving active " << std::endl;
+  //if (calvingActive)
+    // pout() << " calving active " << std::endl;
 
   const DisjointBoxLayout& levelGrids = a_coordSys.grids();
   for (DataIterator dit(levelGrids); dit.ok(); ++dit)
     {
       const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
       FArrayBox& thck = a_coordSys.getH()[dit];
-      FArrayBox& u = a_vel[dit];
+      // FArrayBox& u = a_vel[dit];
       const FArrayBox& topg = a_coordSys.getTopography()[dit];
       Box b = thck.box();
       b &= thck.box();
@@ -125,6 +125,23 @@ void DomainEdgeCalvingModel::postUpdateThickness
 		} 
 	    } // end if (!domain.isPeriodic(dir))
 	} // end loop over dirs
+      
+      const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
+      FArrayBox& thck = a_coordSys.getH()[dit];
+      const Box& b = grids[dit];
+      for (BoxIterator bit(b); bit.ok(); ++bit)
+	{
+	  const IntVect& iv = bit();
+	  if (m_preserveSea && mask(iv) == OPENSEAMASKVAL)
+	    {
+	      thck(iv) = 0.0;
+	    }
+	  else if (m_preserveLand && mask(iv) == OPENLANDMASKVAL)
+	    {
+	      thck(iv) = 0.0;
+	    }
+	}
+
     } // end loop over boxes
 
 }

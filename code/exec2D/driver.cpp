@@ -290,13 +290,19 @@ int main(int argc, char* argv[]) {
 		MayDay::Error("invalid floating basal flux type");
 	      }
 	    
+	    SurfaceFlux* openland_basal_flux_ptr = new zeroFlux;
+	    SurfaceFlux* opensea_basal_flux_ptr = new zeroFlux;
+	    
 	    basal_flux_ptr = static_cast<SurfaceFlux*>
 	      (new MaskedFlux(grounded_basal_flux_ptr->new_surfaceFlux(), 
-			      floating_basal_flux_ptr->new_surfaceFlux()));
+			      floating_basal_flux_ptr->new_surfaceFlux(),
+			      opensea_basal_flux_ptr->new_surfaceFlux(),
+			      openland_basal_flux_ptr->new_surfaceFlux()));
 	    
 	    delete grounded_basal_flux_ptr;
 	    delete floating_basal_flux_ptr;
-       	
+	    delete opensea_basal_flux_ptr;
+	    delete openland_basal_flux_ptr;
 	  }
       }
     
@@ -496,8 +502,9 @@ int main(int argc, char* argv[]) {
 
 	Real m = 1.0;
 	plPP.query("m",m);
-
-	BasalFrictionPowerLaw*  pl = new BasalFrictionPowerLaw(m);
+	bool includeEffectivePressure = false;
+	plPP.query("includeEffectivePressure",includeEffectivePressure);
+	BasalFrictionPowerLaw*  pl = new BasalFrictionPowerLaw(m,includeEffectivePressure);
 	basalFrictionRelationPtr = static_cast<BasalFrictionRelation*>(pl);
       }
     else

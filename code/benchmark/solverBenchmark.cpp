@@ -807,8 +807,9 @@ int main(int argc, char* argv[]) {
 
 	Real m = 1.0;
 	plPP.query("m",m);
-
-	BasalFrictionPowerLaw*  pl = new BasalFrictionPowerLaw(m);
+	bool includeEffectivePressure = false;
+	plPP.query("includeEffectivePressure",includeEffectivePressure);
+	BasalFrictionPowerLaw*  pl = new BasalFrictionPowerLaw(m,includeEffectivePressure);
 	basalFrictionRelationPtr = static_cast<BasalFrictionRelation*>(pl);
       }
     else

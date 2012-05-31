@@ -194,8 +194,10 @@ fortranInterfaceFlux::setFluxVal(Real* a_data_ptr,
 }
 
  /// constructor
-MaskedFlux::MaskedFlux(SurfaceFlux* a_groundedIceFlux, SurfaceFlux* a_floatingIceFlux)
-  :m_groundedIceFlux(a_groundedIceFlux),m_floatingIceFlux(a_floatingIceFlux)
+MaskedFlux::MaskedFlux(SurfaceFlux* a_groundedIceFlux, SurfaceFlux* a_floatingIceFlux,
+		       SurfaceFlux* a_openSeaFlux, SurfaceFlux* a_openLandFlux)
+  :m_groundedIceFlux(a_groundedIceFlux),m_floatingIceFlux(a_floatingIceFlux),
+   m_openSeaFlux(a_openSeaFlux),m_openLandFlux(a_openLandFlux)
 {
 
 }
@@ -206,7 +208,9 @@ SurfaceFlux* MaskedFlux::new_surfaceFlux()
 {
   SurfaceFlux* f = m_floatingIceFlux->new_surfaceFlux();
   SurfaceFlux* g = m_groundedIceFlux->new_surfaceFlux();
-  return static_cast<SurfaceFlux*>(new MaskedFlux(g,f));
+  SurfaceFlux* s = m_openSeaFlux->new_surfaceFlux();
+  SurfaceFlux* l = m_openLandFlux->new_surfaceFlux();
+  return static_cast<SurfaceFlux*>(new MaskedFlux(g,f,s,l));
 }
 
 void MaskedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
@@ -319,11 +323,33 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
 	  floatingPtr = new zeroFlux;
 	}
 
+      std::string openLandPrefix(a_prefix);
+      openLandPrefix += ".openLand";
+      SurfaceFlux* openLandPtr = parseSurfaceFlux(openLandPrefix.c_str());
+      if (openLandPtr == NULL)
+	{
+	  openLandPtr = new zeroFlux;
+	}
+
+      
+      std::string openSeaPrefix(a_prefix);
+      openSeaPrefix += ".openSea";
+      SurfaceFlux* openSeaPtr = parseSurfaceFlux(openSeaPrefix.c_str());
+      if (openSeaPtr == NULL)
+	{
+	  openSeaPtr = new zeroFlux;
+	}
+
       ptr = static_cast<SurfaceFlux*>
-	(new MaskedFlux(groundedPtr->new_surfaceFlux(),floatingPtr->new_surfaceFlux()));
+	(new MaskedFlux(groundedPtr->new_surfaceFlux(),
+			floatingPtr->new_surfaceFlux(),
+			openSeaPtr->new_surfaceFlux(),
+			openLandPtr->new_surfaceFlux()));
       
       delete groundedPtr;
       delete floatingPtr;
+      delete openSeaPtr;
+      delete openLandPtr;
     }
 
   return ptr;

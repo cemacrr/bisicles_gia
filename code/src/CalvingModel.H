@@ -93,9 +93,12 @@ public:
 				   const Real& a_time) const;
 
   DomainEdgeCalvingModel(const Vector<int>& a_frontLo,
-			 const Vector<int>& a_frontHi)
+			 const Vector<int>& a_frontHi,
+			 bool a_preserveSea, 
+			 bool a_preserveLand)
     
-    :m_frontLo(a_frontLo),m_frontHi(a_frontHi)
+    :m_frontLo(a_frontLo),m_frontHi(a_frontHi),
+     m_preserveSea(a_preserveSea),m_preserveLand(a_preserveLand)
   {
     ;
   }
@@ -103,6 +106,7 @@ public:
 protected:
   Vector<int> m_frontLo;
   Vector<int> m_frontHi;
+  bool m_preserveSea, m_preserveLand;
 private:
   DomainEdgeCalvingModel();
 };

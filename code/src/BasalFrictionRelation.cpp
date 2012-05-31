@@ -25,11 +25,12 @@
 void 
 BasalFrictionRelation::computeDissipation(FArrayBox& a_dissipation, 
 					  const FArrayBox& a_basalVel, 
+					  const FArrayBox& a_thckOverFlotation,
 					  const FArrayBox& a_C,
 					  const Box& a_box) const
 {
     
-  computeAlpha(a_dissipation,a_basalVel,a_C,a_box);
+  computeAlpha(a_dissipation,a_basalVel,a_thckOverFlotation,a_C,a_box);
   
   FORT_BFRICTIONAUU(CHF_FRA1(a_dissipation,0),
 		    CHF_CONST_FRA(a_basalVel),
@@ -40,22 +41,31 @@ BasalFrictionRelation::computeDissipation(FArrayBox& a_dissipation,
 
 void
 BasalFrictionPowerLaw::computeAlpha(FArrayBox& a_alpha,
-			    const FArrayBox& a_basalVel, 
-			    const FArrayBox& a_C,
-			    const Box& a_box) const
+				    const FArrayBox& a_basalVel, 
+				    const FArrayBox& a_thckOverFlotation,
+				    const FArrayBox& a_C,
+				    const Box& a_box) const
 {
   Real mm1 = m_m - 1.0;
+  FArrayBox C(a_C.box(),1);
+  C.copy(a_C);
+
+  if (m_includeEffectivePressure)
+    {
+      C *= a_thckOverFlotation;
+    }
+
   if (std::abs(mm1) > 1.0e-3)
     {
       FORT_BFRICTIONPOWER(CHF_FRA1(a_alpha,0),
 			  CHF_CONST_FRA( a_basalVel),
-			  CHF_CONST_FRA1(a_C,0),
+			  CHF_CONST_FRA1(C,0),
 			  CHF_CONST_REAL(mm1),
 			  CHF_BOX(a_box));	
     }
   else
     {
-      a_alpha.copy(a_C,a_box);
+      a_alpha.copy(C,a_box);
     } 
   
 }

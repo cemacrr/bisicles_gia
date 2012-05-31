@@ -1020,9 +1020,13 @@ AmrIce::initialize()
        ppc.getarr("front_lo",frontLo,0,frontLo.size());
        Vector<int> frontHi(2,false);
        ppc.getarr("front_hi",frontHi,0,frontHi.size());
+       bool preserveSea = false;
+       ppc.query("preserveSea",preserveSea);
+       bool preserveLand = false;
+       ppc.query("preserveLand",preserveLand);
        delete m_calvingModelPtr;
        DomainEdgeCalvingModel* ptr = new DomainEdgeCalvingModel
-	 (frontLo, frontHi);
+	 (frontLo, frontHi,preserveSea,preserveLand);
        m_calvingModelPtr = ptr;
     }
   else
@@ -4906,8 +4910,10 @@ AmrIce::setThicknessDiffusivity(const Vector<LevelData<FArrayBox>* >& a_beta)
 	  Box grownBox = levelGrids[dit];
 	  grownBox.grow(1);
 	  FArrayBox cellC(grownBox,1);;
-	  m_basalFrictionRelation->computeAlpha(cellC,levelVel[dit],cellBeta,
-					    grownBox);
+	  
+	  m_basalFrictionRelation->computeAlpha(cellC,levelVel[dit], 
+						levelCoords.getThicknessOverFlotation()[dit], 
+						cellBeta, grownBox);
 	  //cellC *= cellBeta;
 
 	  for (int dir = 0; dir < SpaceDim; ++dir)

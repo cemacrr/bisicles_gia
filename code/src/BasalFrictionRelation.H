@@ -31,12 +31,14 @@ public:
   /** 
       \param a_alpha -- \f$C\f$ based on the local velocity field. 
       \param a_basalVel -- Cell-centered basal velocity field.
+      \param a_thckOverFlotation -- Cell-centered thckness over flotation field.
       \param a_C: Cell-centered coefficient field
       \param a_box: cell-centered box over which to do this computation
   */
 
   virtual void computeAlpha(FArrayBox& a_alpha,
-			    const FArrayBox& a_basalVel, 
+			    const FArrayBox& a_basalVel,
+			    const FArrayBox& a_thckOverFlotation,
 			    const FArrayBox& a_C,
 			    const Box& a_box) const = 0;
 
@@ -49,8 +51,9 @@ public:
       \param a_C: Cell-centered coefficient field
       \param a_box: cell-centered box over which to do this computation
   */
-  virtual void computeDissipation(FArrayBox& a_dissipation, 
-				  const FArrayBox& a_basalVel, 
+  virtual void computeDissipation(FArrayBox& a_dissipation,  
+				  const FArrayBox& a_basalVel,
+				  const FArrayBox& a_thckOverFlotation,
 				  const FArrayBox& a_C,
 				  const Box& a_box) const;
 
@@ -78,24 +81,27 @@ class BasalFrictionPowerLaw : public BasalFrictionRelation
 {
 public:
 
-  BasalFrictionPowerLaw(Real m) : m_m(m) {;}
+  BasalFrictionPowerLaw(Real a_m, bool a_includeEffectivePressure) 
+    : m_m(a_m), m_includeEffectivePressure(a_includeEffectivePressure) {;}
   
   virtual ~BasalFrictionPowerLaw() {;}
 
   virtual void computeAlpha(FArrayBox& a_alpha,
 			    const FArrayBox& a_basalVel, 
+			    const FArrayBox& a_thckOverFlotation,
 			    const FArrayBox& a_C,
 			    const Box& a_box) const;
 
   BasalFrictionRelation* getNewBasalFrictionRelation() const{
-    return static_cast<BasalFrictionRelation*> (new BasalFrictionPowerLaw(m_m));
+    return static_cast<BasalFrictionRelation*> (new BasalFrictionPowerLaw(m_m, m_includeEffectivePressure));
   }
 
  
   virtual Real power() const {return m_m;} 
 
 private:
-   Real m_m;
+  Real m_m;
+  bool m_includeEffectivePressure;
   BasalFrictionPowerLaw();
 
 };

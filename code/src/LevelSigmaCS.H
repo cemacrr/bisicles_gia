@@ -163,7 +163,9 @@ public:
   const LevelData<FArrayBox>& getGradSurface() const;
   //returns the surface gradient (at cell faces)
   const LevelData<FluxBox>& getGradSurfaceFace() const;
-  
+  //returns the thickness over flotation (at cell centres)
+  const LevelData<FArrayBox>& getThicknessOverFlotation() const;
+
   /// computes ice surface height
   /** 
       if ice is grounded, then this equals z_base + H
@@ -320,6 +322,9 @@ protected:
 
   /// face-centered gradient of surface elevation
   LevelData<FluxBox> m_gradSurfaceFace;
+
+  /// cell-centered thickness over flotation
+  LevelData<FArrayBox> m_thicknessOverFlotation;
 
   /// floating mask 
   LevelData<BaseFab<int> > m_floatingMask;

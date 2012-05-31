@@ -97,6 +97,7 @@ LevelSigmaCS::define(const DisjointBoxLayout& a_grids,
   m_surface.define(m_Hgrids, 1, 2 * IntVect::Unit);
   m_gradSurface.define(m_Hgrids, 2, IntVect::Unit);
   m_gradSurfaceFace.define(m_Hgrids, 2, IntVect::Unit);
+  m_thicknessOverFlotation.define(m_Hgrids, 1, IntVect::Unit) ;
 
   m_H.define(m_Hgrids, 1, Hghost);
   m_faceH.define(m_Hgrids, 1, Hghost);
@@ -435,6 +436,12 @@ LevelSigmaCS::getGradSurfaceFace() const
   return m_gradSurfaceFace;
 }
 
+const LevelData<FArrayBox>&
+LevelSigmaCS::getThicknessOverFlotation() const
+{
+  return m_thicknessOverFlotation;
+}
+
 
 /// returns ice surface height
 /** 
@@ -730,6 +737,22 @@ LevelSigmaCS::computeSurface(const LevelSigmaCS* a_crseCoords,
       pout() << "Warning :: destroyed " << destroyed << "single cell icebergs";
     }
 
+  //thickness over flotation
+ for (DataIterator dit(m_grids); dit.ok(); ++dit)
+   {
+     Real rhoi = iceDensity();
+     Real rhoo = waterDensity(); 
+     Real sl = seaLevel();
+     
+     FORT_THICKNESSOVERFLOTATION(CHF_FRA1(m_thicknessOverFlotation[dit],0),
+				 CHF_CONST_FRA1(m_H[dit],0),
+				 CHF_CONST_FRA1(m_topography[dit],0),
+				 CHF_CONST_FIA1(m_floatingMask[dit],0),
+				 CHF_CONST_REAL(rhoi),
+				 CHF_CONST_REAL(rhoo),
+				 CHF_CONST_REAL(sl),
+				 CHF_BOX(m_thicknessOverFlotation[dit].box()));
+   }
   //next, the surface elevation gradient : need to put in the clipping code
   for (DataIterator dit(m_grids); dit.ok(); ++dit)
     {

@@ -216,7 +216,8 @@ class MaskedFlux : public SurfaceFlux
 
 public:
   /// constructor
-  MaskedFlux(SurfaceFlux* a_groundedIceFlux, SurfaceFlux* a_floatingIceFlux);
+  MaskedFlux(SurfaceFlux* a_groundedIceFlux, SurfaceFlux* a_floatingIceFlux,
+	     SurfaceFlux* a_openSeaFlux, SurfaceFlux* a_openLandFlux);
 
   /// destructor
   virtual ~MaskedFlux(){};
@@ -239,7 +240,9 @@ public:
 protected:
   SurfaceFlux* m_groundedIceFlux;
   SurfaceFlux* m_floatingIceFlux;
-
+  SurfaceFlux* m_openSeaFlux;
+  SurfaceFlux* m_openLandFlux;
+  
 private:
   // Disallowed for all the usual reasons
   void operator=(const MaskedFlux& a_input)

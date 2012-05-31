@@ -526,8 +526,10 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
         
 	  // also update alpha
           const Box& gridBox = levelGrids[dit];
+	  
 	  m_basalFrictionRelPtr->computeAlpha
-	    (levelAlpha[dit], levelVel[dit], levelC[dit] ,gridBox);
+	    (levelAlpha[dit], levelVel[dit], levelCoords.getThicknessOverFlotation()[dit] 
+	     , levelC[dit] ,gridBox);
 	  levelAlpha[dit] += (*m_C0[lev])[dit];
 #if 0
 	  //check that either alpha > 0, or mu > 0 along one face, or both, for every cell
