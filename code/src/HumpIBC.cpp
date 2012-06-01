@@ -12,6 +12,7 @@
 #include "ParmParse.H"
 #include "BoxIterator.H"
 #include "ExtrapBCF_F.H"
+#include "AverageF_F.H"
 #include "IceConstants.H"
 
 #include "NamespaceHeader.H"
@@ -407,21 +408,32 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
   LevelData<FArrayBox> zBlocal(grids, 1, zBref.ghostVect());
   LevelData<FArrayBox>& levelH = a_coords.getH();
 
+  // generate sufficiently-accurate initial condition for H by 
+  // computing a refined solution and then averaging down.
+  int initRef = 32;
+  RealVect fineDx = dx/initRef;
+  Box refbox(IntVect::Zero,
+             (initRef-1)*IntVect::Unit);
 
   for (dit.begin(); dit.ok(); ++dit)
     { 
       FArrayBox& zB = zBlocal[dit];
       FArrayBox& H = levelH[dit];
-      
-      zB.setVal(m_baseElevation);
 
-      BoxIterator bit(zB.box());
+      zB.setVal(m_baseElevation);
+      
+      // allocate storage for refined patch
+      Box fineBox(H.box());
+      fineBox.refine(initRef);
+      FArrayBox fineH(fineBox, 1);
+
+      BoxIterator bit(fineH.box());
       for (bit.begin(); bit.ok(); ++bit)
         {
           IntVect iv = bit();
           RealVect x(iv);
           x += 0.5*RealVect::Unit;
-          x *= dx;
+          x *= fineDx;
 
           x -= m_center;
 
@@ -437,10 +449,17 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
               thickness = m_maxThickness*pow(radSqr, 0.5);
               thickness += m_minThickness;
             }
-          H(iv,0) = thickness;
-        }
-     
+          fineH(iv,0) = thickness;
+        } // end loop over refined thickness box
 
+      // now average down to fill H
+      FORT_AVERAGE(CHF_FRA(H),
+                   CHF_CONST_FRA(fineH),
+                   CHF_BOX(H.box()),
+                   CHF_CONST_INT(initRef),
+                   CHF_BOX(refbox));
+      
+      
     } // end loop over boxes
 
   a_coords.setBaseHeight(zBlocal);
