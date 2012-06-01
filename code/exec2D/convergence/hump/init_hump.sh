@@ -1,5 +1,5 @@
 #!/bin/sh
-EXECFILE=../../driver2d.Linux.64.g++.gfortran.OPT.ex
+EXECFILE=mpirun -np 8 ../../driver2d.Linux.64.mpiCC.gfortran.OPT.ex
 COMPAREEXEC=compare2d
 INFILE_TEMPLATE=inputs.hump.template
 INFILE_BASE=inputs.hump
