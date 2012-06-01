@@ -304,8 +304,8 @@ c ----------------------------------------------------
       if (cmask.eq.SH) then
         
          if (lmask.eq.LI) then
-            if (rmask.ne.LI) then
-c     LI | SH (this cell) | no ice
+            if ( (rmask.eq.SH).or.(rmask.eq.OS) ) then
+c     LI | SH (this cell) | SH or OS
                rhs(CHF_AUTOIX[i]) = halfOnDx
      &              * (sr-sc) * (hr+hc)
             else
@@ -313,8 +313,8 @@ c     LI | SH (this cell) | LI (a bad place to be)
                rhs(CHF_AUTOIX[i]) = zero
             end if
          else if  (rmask.eq.LI) then
-            if (lmask.ne.LI) then
-c     no ice | SH (this cell) | LI
+            if ( (lmask.eq.SH).or.(lmask.eq.OS) ) then
+c     SH or OS | SH (this cell) | LI
                rhs(CHF_AUTOIX[i]) = halfOnDx
      &              * (sc-sl) * (hc+hl)
             else
