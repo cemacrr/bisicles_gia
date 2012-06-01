@@ -1,5 +1,6 @@
 #!/bin/sh
-EXECFILE=mpirun -np 8 ../../driver2d.Linux.64.mpiCC.gfortran.OPT.ex
+RUNPREFIX="mpirun -np 8"
+EXECFILE=../../driver2d.Linux.64.mpiCC.gfortran.OPT.ex
 COMPAREEXEC=compare2d
 INFILE_TEMPLATE=inputs.hump.template
 INFILE_BASE=inputs.hump
@@ -75,7 +76,7 @@ do
     cof=inputs.compare.$CRSERES.l$MAXLEVEL
     sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINESTRES/ -e s/@CRSERES/$CRSERES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $cof
  
-    runcommand="$EXECFILE $of > run.$CRE.$RES.l$MAXLEVEL"
+    runcommand="$RUNPREFIX $EXECFILE $of > run.$CRE.$RES.l$MAXLEVEL"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
     if [ $RES!="0032" ]; then
@@ -118,7 +119,7 @@ do
     cof=inputs.compare.$RES.r$NREF.l$MAXLEVEL
     sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $cof
  
-    runcommand="$EXECFILE $of > run.$CRE.$RES.r$NREF.l$MAXLEVEL"
+    runcommand="$RUNPREFIX $EXECFILE $of > run.$CRE.$RES.r$NREF.l$MAXLEVEL"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
 
@@ -156,7 +157,7 @@ do
     cof=inputs.compare.$RES.r$NREF.l$MAXLEVEL
     sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $cof
  
-    runcommand="$EXECFILE $of > run.$CRE.$RES.l$MAXLEVEL"
+    runcommand="$RUNPREFIX $EXECFILE $of > run.$CRE.$RES.l$MAXLEVEL"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
 
@@ -194,7 +195,7 @@ do
     cof=inputs.compare.$RES.r$NREF.l$MAXLEVEL
     sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $cof
  
-    runcommand="$EXECFILE $of > run.$CRE.$RES.r$NREF.l$MAXLEVEL"
+    runcommand="$RUNPREFIX $EXECFILE $of > run.$CRE.$RES.r$NREF.l$MAXLEVEL"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
 
