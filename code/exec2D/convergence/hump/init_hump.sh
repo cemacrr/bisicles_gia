@@ -21,6 +21,8 @@ gettagval()
      0512) TAGVAL="0.0390625";; 
      1024) TAGVAL="0.009765625";; 
      2048) TAGVAL="0.00244140625";; 
+     4096) TAGVAL="0.0006103515";; 
+     8192) TAGVAL="0.0001525878";; 
      *) echo "Unanticipated RES val for Tagging values";;
    esac
 }
@@ -35,6 +37,8 @@ gettagval3lev()
      0256) TAGVAL="0.0390625";; 
      0512) TAGVAL="0.009765625";; 
      1024) TAGVAL="0.00244140625";; 
+     2048) TAGVAL="0.0006103515";; 
+     4096) TAGVAL="0.0001525878";; 
      *) echo "Unanticipated RES val for Tagging values";;
    esac
 }
@@ -42,7 +46,7 @@ gettagval3lev()
 NREF=2
 MAXLEVEL=0
 CRSERES="0032"
-FINESTRES=2048
+FINESTRES=8192
 COMPAREFILE=doCompare.single
 RICHCOMPAREFILE=doRichardsonCompare.single
 RUNFILE=doRuns.single
@@ -59,7 +63,7 @@ if [ -f $COMPAREFILE ]; then
   rm  $COMPAREFILE
 fi
 echo "generating single-level inputs"
-for RES in 0032 0064 0128 0256 0512 1024 2048  
+for RES in 0032 0064 0128 0256 0512 1024 2048 4096 8192
 do
     YRES=$RES
     gettagval 
@@ -104,7 +108,7 @@ NREF=2
 NSMOOTH=32
 MAXLEVEL=1
 echo "generating nRef = 2 inputs"
-for RES in 0032 0064 0128 0256 0512 
+for RES in 0032 0064 0128 0256 0512 1024 2048
 do
     YRES=$RES
     gettagval 
@@ -142,7 +146,7 @@ NREF=2
 NSMOOTH=32
 MAXLEVEL=2
 echo "generating three-level inputs" 
-for RES in 0032 0064 0128 0256 
+for RES in 0032 0064 0128 0256 0512 1024
 do
     YRES=$RES
     gettagval3lev 
@@ -180,7 +184,7 @@ NREF=4
 NSMOOTH=32
 MAXLEVEL=1
 echo "generating nRef = 4 inputs" 
-for RES in 0032 0064 0128 0256 
+for RES in 0032 0064 0128 0256 0512 1024
 do
     YRES=$RES
     gettagval 

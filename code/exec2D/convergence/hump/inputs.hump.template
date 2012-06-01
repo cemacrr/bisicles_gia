@@ -63,14 +63,21 @@ amr.velocity_solver_tolerance = 1.0e-10
 amr.tag_on_laplacian_velocity = 1
 amr.lap_vel_tagging_val = @TAGVAL
 
-#velocity solve type -- 0 = Picard, 1 = JFNK
+#velocity solve type -- 0 = Picard, 1 = JFNK, 3 = petsc
 amr.velocity_solver_type = 1
 
-picardSolver.linearSolver = BiCGStab
+#initial guess 
+amr.do_initial_velocity_guess = 1
+amr.do_initial_velocity_solve = 1
+amr.initial_velocity_guess_type = 1 # linear PDE
+amr.initial_velocity_guess_const_mu = 9.9e+6
+
+picardSolver.linearSolver = multigrid
 picardSolver.num_mg = 2
 picardSolver.max_iterations = 100
 picardSolver.vtopSafety = 0.50
 picardSolver.num_smooth = @NSMOOTH
+picardSolver.normType = 2
 
 JFNKSolver.vtopSafety = 0.9
 JFNKSolver.minPicardIterations = 2
@@ -98,6 +105,6 @@ JFNKSolver.mgProlongType = 1
 JFNKSolver.solverType = 0
 JFNKSolver.maxBiCGStabIter = 50
 JFNKSolver.MGtol = 1.0e-5
-JFNKSolver.RelaxTol = 1.0e-2
+JFNKSolver.RelaxTol = 1.0e-6
 JFNKSolver.maxRelaxIter = 50
 JFNKSolver.vtopRelaxTol = 0
