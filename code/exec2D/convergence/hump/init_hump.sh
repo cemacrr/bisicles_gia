@@ -79,6 +79,7 @@ do
     runcommand="$RUNPREFIX $EXECFILE $of > run.$CRE.$RES.l$MAXLEVEL"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
+    echo "cp pout.0 pout.$RES" >> $RUNFILE
     if [ $RES!="0032" ]; then
       richcomparecommand="$COMPAREEXEC $rcof"
       echo $richcomparecommand >> $RICHCOMPAREFILE
@@ -122,6 +123,7 @@ do
     runcommand="$RUNPREFIX $EXECFILE $of > run.$CRE.$RES.r$NREF.l$MAXLEVEL"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
+    echo "cp pout.0 pout.2Ref.$RES" >> $RUNFILE
 
     comparecommand="$COMPAREEXEC $cof"
     echo $comparecommand >> $COMPAREFILE
@@ -160,6 +162,7 @@ do
     runcommand="$RUNPREFIX $EXECFILE $of > run.$CRE.$RES.l$MAXLEVEL"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
+    echo "cp pout.0 pout.3Lev.$RES" >> $RUNFILE    
 
     comparecommand="$COMPAREEXEC $cof"
     echo $comparecommand >> $COMPAREFILE
@@ -198,6 +201,7 @@ do
     runcommand="$RUNPREFIX $EXECFILE $of > run.$CRE.$RES.r$NREF.l$MAXLEVEL"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
+    echo "cp pout.0 pout.4Ref.$RES" >> $RUNFILE
 
     comparecommand="$COMPAREEXEC $cof"
     echo $comparecommand >> $COMPAREFILE
