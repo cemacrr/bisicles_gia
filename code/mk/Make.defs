@@ -30,24 +30,38 @@ ifeq ($(UNAMEN),geog-bsq92.ggy.bris.ac.uk)
 NETCDF_HOME = /local/GlimmerBisicles/netcdf
 endif
 
-#python includes and libs - don't define unless that make sense
-
-#python 2.7
-#PYTHON_INC=/usr/include/python2.7
-#PYTHON_LIBS=-lpython2.7
-
-#python 2.6
-#PYTHON_INC=/usr/include/python2.6
-#PYTHON_LIBS=-lpython2.6
-
-#python 2.4
-#PYTHON_INC=/usr/include/python2.4
-#PYTHON_LIBS=-lpython2.4
+#python includes and libs - don't define unless that makes sense
 
 ifeq ($(UNAMEN),stephmbp)
+PYTHON_VERSION=2.7
+endif
+
+ifeq ($(UNAMEN),loren)
+PYTHON_VERSION=2.6
+endif
+
+ifeq ($(UNAMEN),martins)
+PYTHON_VERSION=2.6
+endif
+
+ifeq ($(PYTHON_VERSION),2.7)
+#python 2.7
 PYTHON_INC=/usr/include/python2.7
 PYTHON_LIBS=-lpython2.7
 endif
+
+ifeq ($(PYTHON_VERSION),2.6)
+#python 2.6
+PYTHON_INC=/usr/include/python2.6
+PYTHON_LIBS=-lpython2.6
+endif
+
+ifeq ($(PYTHON_VERSION),2.4)
+#python 2.4
+PYTHON_INC=/usr/include/python2.4
+PYTHON_LIBS=-lpython2.4
+endif
+
 
 
 
