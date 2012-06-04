@@ -402,6 +402,9 @@ AmrIce::setDefaults()
   m_initialGuessType = SlidingLaw;
   m_initialGuessConstMu = 1.0e+7; // a number that seems plausible, only needed
                                   // if m_initialGuessType = ConstMu
+  m_initialGuessSolverType = Picard; 
+  m_initialGuessConstVel = RealVect::Zero; // only needed if m_initialGuessType = ConstMu *and* the basal traction relation is nonlinear
+
   m_basalFrictionDecay = -1.0 ; // set basal friction to zero wherever ioce is floating
   m_basalLengthScale = 0.0; // don't mess about with the basal friction / rhs by default
   
@@ -956,6 +959,13 @@ AmrIce::initialize()
   ppAmr.query("do_initial_velocity_guess", m_doInitialVelGuess);
   ppAmr.query("initial_velocity_guess_type", m_initialGuessType);
   ppAmr.query("initial_velocity_guess_const_mu", m_initialGuessConstMu);
+  ppAmr.query("initial_velocity_guess_solver_type", m_initialGuessSolverType);
+
+  {
+    Vector<Real> t(SpaceDim,0.0);
+    ppAmr.queryarr("initial_velocity_guess_const_vel", t, 0, SpaceDim);
+    m_initialGuessConstVel = RealVect(D_DECL(t[0], t[1], t[2]));
+  }
 
   ppAmr.query("additional_velocity",m_additionalVelocity);
 
@@ -1649,7 +1659,8 @@ AmrIce::run(Real a_max_time, int a_max_step)
 	      dt = computeDt();           
 	    }
 	  
-	  if (next_plot_time - m_time < dt) dt = next_plot_time - m_time;
+	  if (next_plot_time - m_time + TIME_EPS < dt) 
+	   dt =  std::max(2 * TIME_EPS, next_plot_time - m_time);
 	  
 	  
 	  if ((m_cur_step%m_check_interval == 0) && (m_check_interval > 0)
@@ -3386,9 +3397,8 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
 		 const IntVect& ivm = iv - BASISV(dir);
 		 const IntVect& ivp = iv + BASISV(dir);
 		 
-
-
-		 if ( mask(iv) == GROUNDEDMASKVAL && mask(ivm) == FLOATINGMASKVAL)
+		 if ( mask(iv) == GROUNDEDMASKVAL && 
+		      (mask(ivm) == FLOATINGMASKVAL || mask(ivm) == OPENSEAMASKVAL ))
 		   {
 		     if (std::abs(levelVel[dit](iv,dir)) > m_groundingLineTaggingMinVel
 			 || std::abs(levelVel[dit](ivm,dir)) > m_groundingLineTaggingMinVel
@@ -3400,7 +3410,8 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
 		       }   
 		   }
 		 
-		 if ( mask(iv) == GROUNDEDMASKVAL && mask(ivp) == FLOATINGMASKVAL)
+		 if ( mask(iv) == GROUNDEDMASKVAL && 
+		      (mask(ivp) == FLOATINGMASKVAL || mask(ivp) == OPENSEAMASKVAL))
 		   {
 		     if (std::abs(levelVel[dit](iv,dir)) > m_groundingLineTaggingMinVel
 			 || std::abs(levelVel[dit](ivp,dir)) > m_groundingLineTaggingMinVel
@@ -3411,6 +3422,8 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
 			 local_tags |= ivp;
 		       } 
 		   }
+
+		
 		 
 		}
 	    }
@@ -4320,8 +4333,7 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
           m_doInitialVelGuess = false;
 	  if (m_initialGuessType == SlidingLaw)
 	    {
-	      pout() << "computing an initial guess via a sliding law u = rhs/C " 
-			 << m_initialGuessConstMu   << endl;
+	      pout() << "computing an initial guess via a sliding law u = rhs/C "  << endl;
 	      // compute initial guess as rhs/beta
 	      LevelData<FArrayBox>& vel = *m_velocity[0];
 	      LevelData<FArrayBox>& C = *m_velBasalC[0];
@@ -4341,16 +4353,28 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
 	    {
 	      if (s_verbosity > 3) 
 		{
-		  pout() << "computing an initial guess by solving the velocity equations with a constant mu = " 
-			 << m_initialGuessConstMu   << endl;
+		  pout() << "computing an initial guess by solving the velocity equations "
+			 <<" with constant mu = " 
+			 << m_initialGuessConstMu   
+			 << "and constant initial velcocity = " << m_initialGuessConstVel
+			 << endl;
 		}
 	      // compute initial guess by solving a linear problem with a
 	      // modest constant viscosity
 	      RealVect dxCrse = m_amrDx[0]*RealVect::Unit;
-	      //int numLevels = m_finest_level +1;
 	      constMuRelation* newPtr = new constMuRelation;
 	      newPtr->setConstVal(m_initialGuessConstMu);
+	      for (int lev=0; lev < m_finest_level + 1; lev++)
+		{
+		  for (DataIterator dit(m_amrGrids[lev]);dit.ok();++dit)
+		    {
+		      for (int dir = 0; dir < SpaceDim; dir++)
+			{
+			  (*m_velocity[lev])[dit].setVal(m_initialGuessConstVel[dir],dir);
+			}
+		    }
 
+		}
               // do this by saving the exisiting velSolver and 
               // constitutiveRelation, re-calling defineSolver, then 
               // doing solve.
@@ -4359,30 +4383,41 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
               int solverTypeSave = m_solverType;
 
               // new values prior to calling defineSolver
-              m_velSolver = NULL;
-              // since the constant-viscosity solve is a linear solve,
-              // Picard (or JFNK in Picard mode) is the best option, 
-              // since it's just the linear solve
-              m_solverType = Picard;
+             
               m_constitutiveRelation = static_cast<ConstitutiveRelation*>(newPtr);
-              defineSolver();
-
-#if 0              
-              m_velSolver->define(m_amrDomains[0],
-				  static_cast<ConstitutiveRelation*>(newPtr),
-				  m_basalFrictionRelation,
-				  m_amrGrids,
-				  m_refinement_ratios,
-				  dxCrse,
-				  m_thicknessIBCPtr,
-				  numLevels);
-#endif
+             
 	      Real finalNorm = 0.0, initialNorm = 0.0, convergenceMetric = -1.0;
 	      Vector<LevelData<FluxBox>* > muCoef(m_finest_level + 1,NULL);
-	      int rc = m_velSolver->solve
-		(m_velocity, initialNorm,finalNorm,convergenceMetric,
-		 m_velRHS, m_velBasalC, vectC0, m_A, muCoef,
-		 m_vect_coordSys, m_time, 0, m_finest_level);
+	      int rc;
+	      if (m_initialGuessSolverType == JFNK)
+		{
+		  //JFNK can be instructed to assume a linear solve
+		  m_velSolver = NULL;
+		  defineSolver();
+		  JFNKSolver* jfnkSolver = dynamic_cast<JFNKSolver*>(m_velSolver);
+		  CH_assert(jfnkSolver != NULL);
+		  const bool linear = true;
+		  rc = jfnkSolver->solve(m_velocity, initialNorm,finalNorm,convergenceMetric,
+					  linear , m_velRHS, m_velBasalC, vectC0, m_A, muCoef,
+					  m_vect_coordSys, m_time, 0, m_finest_level);
+		}
+	      else if (m_initialGuessSolverType == Picard)
+		{
+		  // since the constant-viscosity solve is a linear solve,
+		  // Picard is the best option.
+		  m_solverType = Picard;
+		  m_velSolver = NULL;
+		  defineSolver();
+		  rc = m_velSolver->solve(m_velocity, initialNorm,finalNorm,convergenceMetric,
+				     m_velRHS, m_velBasalC, vectC0, m_A, muCoef,
+				     m_vect_coordSys, m_time, 0, m_finest_level);
+		}
+	      else
+		{
+		  MayDay::Error("unknown initial guess solver type");
+		}
+
+
 	      if (rc != 0)
 		{
 		  MayDay::Warning("constant mu solve failed");
@@ -4678,80 +4713,23 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 
 	  
 	  FArrayBox& thisC = levelC[dit];
-	 
+	  FArrayBox& thisC0 = (*a_vectC0[lev])[dit];
+
+	
+
+	  // add drag due to ice in contact with ice-free rocky walls
 	  
-	  //grounding line flux regularization
-	  if (anyFloating && m_groundingLineRegularization > 0.0)
-	    {
-
-	      
-	      
-
-	      FArrayBox& thisC0 = (*a_vectC0[lev])[dit];
-	      FArrayBox& thisTopg = levelCS.getTopography()[dit];
-	      
-	      const BaseFab<int>& mask = floatingMask;
-	      FArrayBox thisA;
-#if BISICLES_Z == BISICLES_LAYERED
-	      int comp = (*m_A[lev])[dit].nComp()-1;
-	      thisA.define(Interval(comp,comp),(*m_A[lev])[dit]);
-#else
-	      MayDay::Error("AmrIce::defineVelRhs full z grounding line flux regularization not implemented"); 
-#endif
-	      for (BoxIterator bit(grids[dit]); bit.ok(); ++bit)
-		{
-		  const IntVect& iv = bit();
-		  if (mask(iv) == FLOATINGMASKVAL)
-		    {
-		      for (int dir = 0; dir < SpaceDim; ++dir)
-			{
-			  for (int sign = -1; sign <= 1; sign += 2)
-			    {
-			      IntVect ivp = iv + sign * BASISV(dir);
-			      if (mask(ivp) == GROUNDEDMASKVAL)
-				{
-				  
-				  
-				  Real topg = .5*(thisTopg(iv) + thisTopg(ivp));
-				  Real Hf = - topg * levelCS.waterDensity()/ levelCS.iceDensity();
-				  Real A = .5*(thisA(iv) + thisA(ivp));
-				  //Real Hp = thisH(ivp);
-				  Real C = .5*(thisC(iv) + thisC(ivp));
-				  Real n = m_constitutiveRelation->power();
-				  Real m = m_basalFrictionRelation->power();
-				  
-				  //Real up = (*m_velocity[lev])[dit](ivp,dir);
-				  
-				  thisC0(iv) += Hf
-				    * m_groundingLineRegularization;
-				  //thisC0(ivp) += Hf
-				  //  * m_groundingLineRegularization;
-				  Real r =   sign * glFluxSchoof(Hf, A, C, n, m,
-								 levelCS.iceDensity(), 
-								 levelCS.waterDensity(),
-								 levelCS.gravity()) ;
-				  Real a = 0.0;
-				  thisRhs(iv,dir) += (1.0+a) * r * m_groundingLineRegularization;
-				  //thisRhs(ivp,dir) += (1.0-a) * r * m_groundingLineRegularization;
-				}
-			    }
-			}
-		    }
-		}
-	    }// end grounding line regularization
-	  
-	  // this is also a good place to set C=0 where
-          // ice is floating, 
-
-	  // before setting C = 0, add drag due to ice in contact with ice-free rocky walls
-	  FArrayBox wallDrag(gridBox,1);
-	  wallDrag.setVal(0.0);
+	  thisC0.setVal(0.0);
 	  if (m_wallDrag)
 	  {
-	    IceVelocity::addWallDrag(wallDrag, floatingMask, levelCS.getSurfaceHeight()[dit],
+	    IceVelocity::addWallDrag(thisC0, floatingMask, levelCS.getSurfaceHeight()[dit],
 				     thisH, levelCS.getBaseHeight()[dit], thisC, m_wallDragExtra,
 				     m_amrDx[lev], gridBox);
 	  }
+	  
+
+	    // this is also a good place to set C=0 where
+          // ice is floating, 
           if(anyFloating)
             {
 	      
@@ -4778,7 +4756,7 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
      
             } // end if anything is floating
 
-	  thisC += wallDrag;
+	 
 
 	   
         } // end loop over boxes
@@ -4912,8 +4890,10 @@ AmrIce::setThicknessDiffusivity(const Vector<LevelData<FArrayBox>* >& a_beta)
 	  FArrayBox cellC(grownBox,1);;
 	  
 	  m_basalFrictionRelation->computeAlpha(cellC,levelVel[dit], 
-						levelCoords.getThicknessOverFlotation()[dit], 
-						cellBeta, grownBox);
+						levelCoords.getThicknessOverFlotation()[dit],
+						cellBeta, 
+						levelCoords.getFloatingMask()[dit],
+						grownBox);
 	  //cellC *= cellBeta;
 
 	  for (int dir = 0; dir < SpaceDim; ++dir)
@@ -5355,6 +5335,8 @@ AmrIce::computeDt()
     
   }
   
+  
+
   return dt;// min(dt,2.0);
 
 }
@@ -5607,7 +5589,7 @@ AmrIce::writePlotFile()
 
   if (m_write_viscousTensor)
     {
-      numPlotComps += SpaceDim * SpaceDim;
+      numPlotComps += 1 + SpaceDim + SpaceDim * SpaceDim;
     }
   
 
@@ -5650,7 +5632,10 @@ AmrIce::writePlotFile()
   string zxVTname("zxViscousTensor");
   string zyVTname("zyViscousTensor");
   string zzVTname("zzViscousTensor");
-
+  string xViscosityCoefName("xViscosityCoef");
+  string yViscosityCoefName("yViscosityCoef");
+  string zViscosityCoefName("zViscosityCoef");
+  string dragCoefName("dragCoef");
   Vector<string> vectName(numPlotComps);
   //int dThicknessComp;
 
@@ -5765,8 +5750,21 @@ AmrIce::writePlotFile()
   }
 #endif
 
+ 
   if (m_write_viscousTensor)
     {
+      vectName[comp] = dragCoefName; comp++;
+      vectName[comp] = xViscosityCoefName; comp++;
+      if (SpaceDim > 1)
+	{
+	  vectName[comp] = yViscosityCoefName; comp++;
+	  if (SpaceDim > 2)
+	    {
+	      vectName[comp] = zViscosityCoefName; comp++;
+	    }
+	}
+      
+
       vectName[comp] = xxVTname;comp++;
       if (SpaceDim > 1)
 	{
@@ -5825,7 +5823,8 @@ AmrIce::writePlotFile()
 
   Vector<LevelData<FluxBox>*> viscousTensor(numLevels,NULL);
   Vector<LevelData<FluxBox>*> faceA(numLevels,NULL);
-
+  Vector<RefCountedPtr<LevelData<FluxBox> > > viscosityCoef;
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > dragCoef;
   if (m_write_viscousTensor)
     {
       //need to compute the  Viscous Tensor, which might be expensive
@@ -5851,6 +5850,8 @@ AmrIce::writePlotFile()
 			 m_A, faceA, m_time, vtopSafety, vtopRelaxMinIter, vtopRelaxTol, 
 			 muMin, muMax);
       state.setState(m_velocity);
+      viscosityCoef = state.getViscosityCoef();
+      dragCoef = state.getDragCoef();
       state.computeViscousTensorFace(viscousTensor);
     }
 
@@ -6047,6 +6048,21 @@ AmrIce::writePlotFile()
 #endif
 	  if (m_write_viscousTensor)
 	    {
+	      thisPlotData.copy((*dragCoef[lev])[dit],0,comp);
+	      comp++;
+
+	      for (int dir = 0; dir < SpaceDim; ++dir)
+		{
+		  const FArrayBox& thisVisc = (*viscosityCoef[lev])[dit][dir];
+		  
+		  for (BoxIterator bit(gridBox); bit.ok(); ++bit)
+		    {
+		      const IntVect& iv = bit();
+		      const IntVect ivp = iv + BASISV(dir);
+		      thisPlotData(iv,comp) = half*(thisVisc(iv) + thisVisc(ivp));
+		    }
+		   comp++;
+		}
 	      for (int dir = 0; dir < SpaceDim; ++dir)
 		{
 		  const FArrayBox& thisVT = (*viscousTensor[lev])[dit][dir];
@@ -6753,7 +6769,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
                                        velData,
                                        "velocityData",
 				       levelDBL);
-
+	   m_velocitySolveInitialResidualNorm = 1.0e+6; //\todo fix this
 	   // dit.reset();
 	   // for (dit.begin(); dit.ok(); ++dit)
 	   //   {

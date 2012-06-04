@@ -227,7 +227,7 @@ void JFNKOp::writeResidual
       int j = 0;
       a_u[lev]->copyTo(Interval(0,1),*data[lev],Interval(j,j+1)); j+=2;
       a_residual[lev]->copyTo(Interval(0,1),*data[lev],Interval(j,j+1)); j+=2;
-      m_u->getC()[lev]->copyTo(Interval(0,0),*data[lev],Interval(j,j)); j+=1;
+      m_u->getDragCoef()[lev]->copyTo(Interval(0,0),*data[lev],Interval(j,j)); j+=1;
     }
 
   for (int lev = a_u.size() -1; lev > 0; lev--)
@@ -240,6 +240,8 @@ void JFNKOp::writeResidual
   char file[32];
   sprintf(file,"jfnkopres.%06d.2d.hdf5",m_residualID);
   Real dt(1.0); Real time(m_residualID);
+  pout() << "writing " << file << std::endl;
+
   WriteAMRHierarchyHDF5(file ,m_grids, data ,names, m_domains[0].domainBox(),
 			m_dxs[0][0], dt, time, m_refRatio, data.size());
 
@@ -529,8 +531,11 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
 	  
 	  m_basalFrictionRelPtr->computeAlpha
 	    (levelAlpha[dit], levelVel[dit], levelCoords.getThicknessOverFlotation()[dit] 
-	     , levelC[dit] ,gridBox);
+	     , levelC[dit] , 	levelCoords.getFloatingMask()[dit], gridBox);
 	  levelAlpha[dit] += (*m_C0[lev])[dit];
+
+	  CH_assert(levelAlpha[dit].min() >= 0.0);
+
 #if 0
 	  //check that either alpha > 0, or mu > 0 along one face, or both, for every cell
 	  BaseFab<int> coefOK(gridBox,1);

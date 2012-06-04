@@ -40,6 +40,7 @@ public:
 			    const FArrayBox& a_basalVel,
 			    const FArrayBox& a_thckOverFlotation,
 			    const FArrayBox& a_C,
+			    const BaseFab<int>& a_mask,
 			    const Box& a_box) const = 0;
 
   /// computes cell-centered heat source \f$ s = T_b . u_b  / k_ice \f$
@@ -55,6 +56,7 @@ public:
 				  const FArrayBox& a_basalVel,
 				  const FArrayBox& a_thckOverFlotation,
 				  const FArrayBox& a_C,
+				  const BaseFab<int>& a_mask,
 				  const Box& a_box) const;
 
   
@@ -90,6 +92,7 @@ public:
 			    const FArrayBox& a_basalVel, 
 			    const FArrayBox& a_thckOverFlotation,
 			    const FArrayBox& a_C,
+			    const BaseFab<int>& a_mask,
 			    const Box& a_box) const;
 
   BasalFrictionRelation* getNewBasalFrictionRelation() const{

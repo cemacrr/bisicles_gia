@@ -702,18 +702,27 @@ c--------------------------------------------------
 
       integer CHF_AUTODECL[i]
       REAL_T ratio
+      REAL_T eps
+      eps = 1.0e-10
 
       ratio = rhoo / rhoi
 
       CHF_AUTOMULTIDO[box; i]
-      if (mask(CHF_AUTOIX[i]).eq.GROUNDEDMASKVAL) then
-         p(CHF_AUTOIX[i]) = (topg(CHF_AUTOIX[i])-sealevel) * ratio 
-     &        + thck(CHF_AUTOIX[i])
-      else if (mask(CHF_AUTOIX[i]).eq.FLOATINGMASKVAL) then
-         p(CHF_AUTOIX[i]) = 0.0
-      else
-         p(CHF_AUTOIX[i]) = 1.0
-      end if
+      p(CHF_AUTOIX[i]) = 1.0
+      if (thck(CHF_AUTOIX[i]).ge.eps) then
+          p(CHF_AUTOIX[i]) = max(0.0d0,
+     &        (topg(CHF_AUTOIX[i])-sealevel) * ratio  
+     &        + thck(CHF_AUTOIX[i]))
+      endif
+
+c$$$      if (mask(CHF_AUTOIX[i]).eq.GROUNDEDMASKVAL) then
+c$$$         p(CHF_AUTOIX[i]) = (topg(CHF_AUTOIX[i])-sealevel) * ratio 
+c$$$     &        + thck(CHF_AUTOIX[i])
+c$$$      else if (mask(CHF_AUTOIX[i]).eq.FLOATINGMASKVAL) then
+c$$$         p(CHF_AUTOIX[i]) = 1.0
+c$$$      else
+c$$$         p(CHF_AUTOIX[i]) = 1.0
+c$$$      end if
       CHF_ENDDO
 
       return

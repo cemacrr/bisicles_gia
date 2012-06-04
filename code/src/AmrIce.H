@@ -517,7 +517,10 @@ protected:
 			  NUM_INITIAL_GUESS_TYPES};
   int m_initialGuessType;
 
-  Real m_initialGuessConstMu;
+  //paramamters which specify the linear solver in the case m_initialGuessType = ConstMu
+  Real m_initialGuessConstMu; // domain wide viscosity
+  int m_initialGuessSolverType; // solver type, defaults to the Picard solver
+  RealVect m_initialGuessConstVel; // initial velocity, useful when the basal friction relation is nonlinear
 
   /// if true, interpolate things like base topography at regrid time 
   /** if false, use IceThicknesIBC::regridIceGeometry function to set values

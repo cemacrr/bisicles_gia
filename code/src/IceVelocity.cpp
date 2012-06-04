@@ -290,9 +290,11 @@ void IceVelocity::addWallDrag(FArrayBox& a_drag,
 		  const IntVect ivp = iv + sign*BASISV(dir);
 		  if (a_mask(ivp) != GROUNDEDMASKVAL && a_mask(ivp) != FLOATINGMASKVAL)
 		    {
-		      if (a_topg(ivp) > a_usrf(iv)-a_thk(iv))
+		      Real contact = 
+			std::min(a_thk(iv) * 0.5,  a_topg(ivp) - (a_usrf(iv)-a_thk(iv)));
+		      if (contact > 0.0)
 			{
-			  a_drag(iv) += (a_beta(iv) + a_extra) * 0.5 * (a_thk(iv)) / a_dx;
+			  a_drag(iv) += (a_beta(iv) + a_extra) * contact / a_dx;
 			}
 		    }
 		}
@@ -329,6 +331,7 @@ void IceVelocity::computeFaceVelocity(LevelData<FluxBox>& a_faceVel,
   
   for (DataIterator dit(grids); dit.ok(); ++dit)
     {
+      grownVel[dit].setVal(0.0);
       grownVel[dit].copy(a_velocity[dit], a_velocity[dit].box());
     }
   
@@ -407,12 +410,14 @@ void IceVelocity::computeFaceVelocity(LevelData<FluxBox>& a_faceVel,
 	  CH_assert(faceVel.box().contains(faceBox));
 	  const FArrayBox& cellVel = grownVel[dit];
 	  const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
-	  CH_assert(faceVel.norm(faceBox,0) < HUGE_NORM);
+	  //CH_assert(faceVel.norm(faceBox,0) < HUGE_NORM);
 	  FORT_EXTRAPTOMARGIN(CHF_FRA1(faceVel,0),
 			      CHF_CONST_FRA1(cellVel,dir),
 			      CHF_CONST_FIA1(mask,0),
 			      CHF_CONST_INT(dir),
 			      CHF_BOX(faceBox));
+	  //pout() << "FORT_EXTRAPTOMARGIN" << std::endl;
+	  CH_assert(faceVel.norm(faceBox,0) < HUGE_NORM);
 	}
     }
     

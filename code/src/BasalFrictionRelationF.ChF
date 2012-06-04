@@ -1,10 +1,14 @@
+#include "CONSTANTS.H"
+#include "IceConstants.H"
+
 c------------------------------------
 c compute C |u|^m
 c-----------------------------------
 
       subroutine BFRICTIONPOWER(CHF_FRA1[alpha],
      &     CHF_CONST_FRA[u],
-     &     CHF_CONST_FRA1[C], 
+     &     CHF_CONST_FRA1[C],
+     &     CHF_CONST_FIA1[mask],
      &     CHF_CONST_REAL[m],
      &     CHF_BOX[box])
 
@@ -19,9 +23,13 @@ c-----------------------------------
          usq = u(CHF_AUTOIX[i],0)**2;
      &        + u(CHF_AUTOIX[i],1)**2;
      &        + u(CHF_AUTOIX[i],2)**2]
-                
-         alpha(CHF_AUTOIX[i]) = C(CHF_AUTOIX[i]) 
-     &        * (usq + 1.0e-6)**mExp
+         if (mask(CHF_AUTOIX[i]).eq.GROUNDEDMASKVAL) then       
+            alpha(CHF_AUTOIX[i]) = C(CHF_AUTOIX[i]) 
+     &           * (usq + 1.0e-6)**mExp
+         else
+            alpha(CHF_AUTOIX[i]) = C(CHF_AUTOIX[i]) 
+         end if
+         
       
       CHF_ENDDO
       return
