@@ -48,29 +48,26 @@ BasalFrictionPowerLaw::computeAlpha(FArrayBox& a_alpha,
 				    const BaseFab<int>& a_mask,
 				    const Box& a_box) const
 {
-  Real mm1 = m_m - 1.0;
-  FArrayBox C(a_C.box(),1);
-  C.copy(a_C);
-
-  if (m_includeEffectivePressure)
-    {
-      C *= a_thckOverFlotation;
-      //C *= 300.0;
-    }
+  const Real mm1 = m_m - 1.0;
 
   if (std::abs(mm1) > 1.0e-3)
     {
+      const Real pexp = (m_includeEffectivePressure)?m_m:0.0;
       FORT_BFRICTIONPOWER(CHF_FRA1(a_alpha,0),
-			  CHF_CONST_FRA( a_basalVel),
-			  CHF_CONST_FRA1(C,0),
+			  CHF_CONST_FRA(a_basalVel),
+			  CHF_CONST_FRA1(a_C,0),
+			  CHF_CONST_FRA1(a_thckOverFlotation,0),
 			  CHF_CONST_FIA1(a_mask,0),
 			  CHF_CONST_REAL(mm1),
+			  CHF_CONST_REAL(pexp),
 			  CHF_BOX(a_box));	
     }
   else
     {
-      a_alpha.copy(C,a_box);
-    } 
+      a_alpha.copy(a_C,a_box);
+      if (m_includeEffectivePressure)
+	a_alpha *= a_thckOverFlotation;
+    }
   
 }
 

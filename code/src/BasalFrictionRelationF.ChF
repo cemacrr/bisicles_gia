@@ -2,21 +2,23 @@
 #include "IceConstants.H"
 
 c------------------------------------
-c compute C |u|^m
+c compute C p^n |u|^m
 c-----------------------------------
 
       subroutine BFRICTIONPOWER(CHF_FRA1[alpha],
      &     CHF_CONST_FRA[u],
      &     CHF_CONST_FRA1[C],
+     &     CHF_CONST_FRA1[p],
      &     CHF_CONST_FIA1[mask],
      &     CHF_CONST_REAL[m],
+     &     CHF_CONST_REAL[n],
      &     CHF_BOX[box])
 
       integer CHF_AUTODECL[i]
-      Real usq, mExp
+      Real usq, mExp, nExp
 
       mExp = m/two
-    
+      nExp = n
       
       CHF_AUTOMULTIDO[box;i]
          CHF_DTERM[
@@ -26,6 +28,12 @@ c-----------------------------------
          if (mask(CHF_AUTOIX[i]).eq.GROUNDEDMASKVAL) then       
             alpha(CHF_AUTOIX[i]) = C(CHF_AUTOIX[i]) 
      &           * (usq + 1.0e-6)**mExp
+
+            if (n.ne.0.0d0) then
+               alpha(CHF_AUTOIX[i]) = alpha(CHF_AUTOIX[i]) *
+     &            p(CHF_AUTOIX[i])**nExp 
+            end if
+
          else
             alpha(CHF_AUTOIX[i]) = C(CHF_AUTOIX[i]) 
          end if
