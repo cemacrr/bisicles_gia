@@ -14,7 +14,9 @@ constFlux.flux_value = 0.0
 
 geometry.problem_type = hump
 hump.center = 20480 20480
-hump.minThickness = 10.0
+#hump.center = 20000 20000
+#hump.minThickness = 10.0
+hump.minThickness = 0.0
 
 geometry.beta_type = constantBeta
 geometry.betaValue = 1.0e7 #from MISMIP, exp 1b
@@ -57,6 +59,7 @@ amr.fill_ratio = 0.8          # how efficient are the grids
 amr.nestingRadius = 1         # proper nesting radius required
 amr.tags_grow = 1             # amount to buffer tags
 amr.max_box_size = 256         # largest box length allowed
+#amr.max_box_size = 100000         # largest box length allowed
 amr.max_solver_iterations = 3   #maximun number of outer iterations ins
 amr.velocity_solver_tolerance = 1.0e-10
 
@@ -67,8 +70,8 @@ amr.lap_vel_tagging_val = @TAGVAL
 amr.velocity_solver_type = 1
 
 #initial guess 
-amr.do_initial_velocity_guess = 1
-amr.do_initial_velocity_solve = 1
+amr.do_initial_velocity_guess = 0
+amr.do_initial_velocity_solve = 0
 amr.initial_velocity_guess_type = 1 # linear PDE
 amr.initial_velocity_guess_const_mu = 9.9e+6
 

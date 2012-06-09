@@ -1,6 +1,8 @@
 #!/bin/sh
 RUNPREFIX="mpirun -np 8"
+#RUNPREFIX=""
 EXECFILE=../../driver2d.Linux.64.mpiCC.gfortran.OPT.ex
+#EXECFILE=../../driver2d.Linux.64.g++.gfortran.OPT.ex 
 COMPAREEXEC=compare2d
 INFILE_TEMPLATE=inputs.hump.template
 INFILE_BASE=inputs.hump
@@ -47,7 +49,7 @@ gettagval3lev()
 NREF=2
 MAXLEVEL=0
 CRSERES="0032"
-FINESTRES=8192
+FINESTRES=2048
 COMPAREFILE=doCompare.single
 RICHCOMPAREFILE=doRichardsonCompare.single
 RUNFILE=doRuns.single
