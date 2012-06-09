@@ -15,6 +15,11 @@
 #include "AverageF_F.H"
 #include "IceConstants.H"
 
+//#define USEFOURTHORDER
+#ifdef USEFOURTHORDER
+#include "FourthOrderUtil.H"
+#endif
+
 #include "NamespaceHeader.H"
 
 
@@ -410,7 +415,7 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 
   // generate sufficiently-accurate initial condition for H by 
   // computing a refined solution and then averaging down.
-  int initRef = 32;
+  int initRef = 8;
   RealVect fineDx = dx/initRef;
   Box refbox(IntVect::Zero,
              (initRef-1)*IntVect::Unit);
@@ -437,11 +442,14 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 
           x -= m_center;
 
+#if 0
           Real radSqr = D_TERM(m_widthScale[0]*x[0]*x[0], 
                                +m_widthScale[1]*x[1]*x[1], 
                                +m_widthScale[2]*x[2]*x[2]);
+#endif
+          Real radSqr = m_widthScale[0]*x[0]*x[0];
 
-          Real thickness = 0.0;
+          Real thickness = m_minThickness;
           if (radSqr < m_radSqr)
             {
               radSqr = m_radSqr - radSqr;
@@ -449,17 +457,31 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
               thickness = m_maxThickness*pow(radSqr, 0.5);
               thickness += m_minThickness;
             }
-          fineH(iv,0) = thickness;
+          if (initRef > 1)
+            {
+              fineH(iv,0) = thickness;
+            }
+          else
+            {
+              H(iv,0) = thickness;
+            }
         } // end loop over refined thickness box
 
-      // now average down to fill H
-      FORT_AVERAGE(CHF_FRA(H),
-                   CHF_CONST_FRA(fineH),
-                   CHF_BOX(H.box()),
-                   CHF_CONST_INT(initRef),
-                   CHF_BOX(refbox));
-      
-      
+      if (initRef > 1)
+        {
+#ifdef USEFOURTHORDER
+          // convert from point values to 4th-order cell averages
+          fourthOrderAverageCell(fineH);
+#endif
+
+          // now average down to fill H
+          FORT_AVERAGE(CHF_FRA(H),
+                       CHF_CONST_FRA(fineH),
+                       CHF_BOX(H.box()),
+                       CHF_CONST_INT(initRef),
+                       CHF_BOX(refbox));
+        }
+          
     } // end loop over boxes
 
   a_coords.setBaseHeight(zBlocal);
