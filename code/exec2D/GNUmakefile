@@ -44,6 +44,7 @@ include $(CHOMBO_HOME)/mk/Make.defs.config
 ##
 ## names of Chombo libraries needed by this program, in order of search.
 ##
+#LibNames :=  HOAMRTools AMRElliptic  AMRTimeDependent AMRTools BoxTools BaseTools
 LibNames :=  AMRElliptic  AMRTimeDependent AMRTools BoxTools BaseTools
 
 base_dir = .
