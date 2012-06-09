@@ -1,0 +1,48 @@
+What I (DanM) need to do in order to build the hybrid code on hopper:
+
+1. Check out Seacism, Chombo, and BISICLES in root directory (due to hardwired paths)
+
+2. set modules appropriately. this is what I need to do:
+
+module unload hdf5-parallel
+module load netcdf/4.1.2
+module load python
+module unload hdf5
+module load hdf5-parallel/1.8.6
+module unload PrgEnv-gnu
+module load PrgEnv-pgi
+
+3. cd glimmer-cism2/branches/seacism/
+
+4. ./bootstrap
+
+5. configure: 
+
+
+
+(a) add "-DNO_RESCALE" to FCFLAGS (and F77FLAGS?)
+   (also add "-g" if desired)
+(b) sh configure-scripts/hopper-config
+
+6. compile CISM: "make, make install" 
+   (not sure if this is really necessary or not)
+
+7. cd Chombo/lib/mk
+ln -s local/Make.defs.hopper.pgi Make.defs.local
+
+8. cd BISICLES/code/exec2D
+make driver MPI=TRUE
+
+9. cd Chombo/lib
+make include
+
+10. cd ../interface
+make -f GNUmakefile.hopper libs MPI=TRUE
+
+11. cd ~/glimmer-cism2/branches/seacism/libdycore
+make -f Makefile.hopper libDyCoreToGlimmer.a
+
+12. cd ~/glimmer-cism2/branches/seacism/example-drivers/simple_bisicles/src 
+edit Makefile.hopper -- replace /global/u1/r/ranken -> $(HOME)
+make -f Makefile.hopper simple_bisicles
+
