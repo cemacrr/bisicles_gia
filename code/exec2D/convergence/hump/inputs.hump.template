@@ -17,6 +17,7 @@ hump.center = 20480 20480
 #hump.center = 20000 20000
 #hump.minThickness = 10.0
 hump.minThickness = 0.0
+#hump.radSqr = 100000000
 
 geometry.beta_type = constantBeta
 geometry.betaValue = 1.0e7 #from MISMIP, exp 1b
@@ -71,7 +72,7 @@ amr.velocity_solver_type = 1
 
 #initial guess 
 amr.do_initial_velocity_guess = 0
-amr.do_initial_velocity_solve = 0
+amr.do_initial_velocity_solve = 1
 amr.initial_velocity_guess_type = 1 # linear PDE
 amr.initial_velocity_guess_const_mu = 9.9e+6
 
