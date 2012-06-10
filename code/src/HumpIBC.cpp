@@ -14,6 +14,7 @@
 #include "ExtrapBCF_F.H"
 #include "AverageF_F.H"
 #include "IceConstants.H"
+#include "CONSTANTS.H"
 
 //#define USEFOURTHORDER
 #ifdef USEFOURTHORDER
@@ -449,14 +450,27 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 #endif
           Real radSqr = m_widthScale[0]*x[0]*x[0];
 
-          Real thickness = m_minThickness;
-          if (radSqr < m_radSqr)
+
+
+          Real thickness;
+
+          //#define PARABOLIC_PROFILE
+#ifdef PARABOLIC_PROFILE
+          //  parabolic profile
+          if (radSqr <= m_radSqr)
             {
               radSqr = m_radSqr - radSqr;
               radSqr /= (a_domainSize[0]*a_domainSize[1]);
               thickness = m_maxThickness*pow(radSqr, 0.5);
-              thickness += m_minThickness;
             }
+#else
+          // cosine profile
+          Real phi = 0.5*Pi*(radSqr/m_radSqr);
+          thickness = max(m_maxThickness*cos(phi),0.0);
+#endif
+          
+
+          thickness += m_minThickness;
           if (initRef > 1)
             {
               fineH(iv,0) = thickness;
