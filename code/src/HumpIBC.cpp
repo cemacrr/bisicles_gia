@@ -407,6 +407,11 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
       
   const DisjointBoxLayout& grids = a_coords.grids();
 
+#ifdef USEFOURTHORDER
+  // reality check to make sure we're doing what we think we're doing..."
+  pout() << "using 4th-order cell-averaging for initial thickness profile" << endl;
+#endif
+
   DataIterator dit = grids.dataIterator();
 
   const RealVect& dx = a_coords.dx();
