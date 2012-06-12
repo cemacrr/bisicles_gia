@@ -16,10 +16,7 @@
 #include "IceConstants.H"
 #include "CONSTANTS.H"
 
-//#define USEFOURTHORDER
-#ifdef USEFOURTHORDER
-#include "FourthOrderUtil.H"
-#endif
+#include "FourthOrderAverage.H"
 
 #include "NamespaceHeader.H"
 
@@ -448,13 +445,14 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 
           x -= m_center;
 
-#if 0
+#define HUMP2D
+#ifdef HUMP2D
           Real radSqr = D_TERM(m_widthScale[0]*x[0]*x[0], 
                                +m_widthScale[1]*x[1]*x[1], 
                                +m_widthScale[2]*x[2]*x[2]);
-#endif
+#else
           Real radSqr = m_widthScale[0]*x[0]*x[0];
-
+#endif
 
 
           Real thickness;
