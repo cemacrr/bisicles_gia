@@ -469,7 +469,10 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 #else
           // cosine profile
           Real phi = 0.5*Pi*(radSqr/m_radSqr);
-          thickness = max(m_maxThickness*cos(phi),0.0);
+          if (phi < Pi)
+            {
+              thickness = max(m_maxThickness*cos(phi),0.0);
+            }
 #endif
           
 

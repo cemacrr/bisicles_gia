@@ -4221,6 +4221,10 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
 
       a_vectCoordSys[lev]->recomputeGeometry(crsePtr, refRatio);
 
+      // initialize oldH to be the current value
+      LevelData<FArrayBox>& currentH = a_vectCoordSys[lev]->getH();
+      currentH.copyTo(*m_old_thickness[lev]);
+
 #if BISICLES_Z == BISICLES_LAYERED
       m_temperatureIBCPtr->initializeIceTemperature
 	(*m_temperature[lev], *m_sTemperature[lev], *m_bTemperature[lev],*a_vectCoordSys[lev] );
