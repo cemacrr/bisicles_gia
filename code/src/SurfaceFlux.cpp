@@ -248,6 +248,104 @@ void MaskedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 
 }
 
+
+/// factory method
+/** return a pointer to a new SurfaceFlux object
+ */
+SurfaceFlux* CompositeFlux::new_surfaceFlux()
+{
+  return static_cast<SurfaceFlux*>(new CompositeFlux(m_fluxes));
+}
+
+CompositeFlux::CompositeFlux(const Vector<SurfaceFlux*>& a_fluxes)
+{
+  m_fluxes.resize(a_fluxes.size());
+  for (int i =0; i < a_fluxes.size(); i++)
+    {
+      CH_assert(a_fluxes[i] != NULL);
+      m_fluxes[i] =  a_fluxes[i]->new_surfaceFlux();
+    }
+}
+
+CompositeFlux::~CompositeFlux()
+{
+  for (int i =0; i < m_fluxes.size(); i++)
+    {
+      if (m_fluxes[i] != NULL)
+	{
+	  delete m_fluxes[i];
+	  m_fluxes[i] = NULL;
+	}
+    }
+}
+
+void CompositeFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					 LevelSigmaCS& a_coordSys,
+					 Real a_time,
+					 Real a_dt)
+{
+  m_fluxes[0]->surfaceThicknessFlux(a_flux, a_coordSys,a_time, a_dt);
+
+  // this is hardly effcient... but it is convenient
+  LevelData<FArrayBox> tmpFlux(a_flux.disjointBoxLayout(),1,a_flux.ghostVect());
+  for (int i = 1; i <  m_fluxes.size(); i++)
+    {
+      m_fluxes[i]->surfaceThicknessFlux(tmpFlux, a_coordSys,a_time,a_dt);
+      for (DataIterator dit(a_flux.disjointBoxLayout()); dit.ok(); ++dit)
+	{
+	  a_flux[dit] += tmpFlux[dit];
+	}
+    }
+
+}
+
+
+
+SurfaceFlux* BoxBoundedFlux::new_surfaceFlux()
+{
+  return static_cast<SurfaceFlux*>( new BoxBoundedFlux(m_lo, m_hi,m_startTime,m_endTime,m_fluxPtr));
+}
+
+
+void BoxBoundedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  LevelSigmaCS& a_coordSys,
+					  Real a_time,
+					  Real a_dt)
+{
+
+  for (DataIterator dit(a_flux.disjointBoxLayout()); dit.ok(); ++dit)
+    {
+      a_flux[dit].setVal(0.0);
+    }
+
+  if (a_time >= m_startTime && a_time < m_endTime)
+    {
+      // this is hardly efficient... but it is convenient
+      LevelData<FArrayBox> tmpFlux(a_flux.disjointBoxLayout(),1,a_flux.ghostVect());
+      m_fluxPtr->surfaceThicknessFlux(tmpFlux, a_coordSys,a_time,a_dt);
+      const RealVect& dx = a_coordSys.dx();
+      
+      IntVect ilo,ihi;
+      for (int dir =0; dir < SpaceDim; dir++)
+	{
+	  ilo[dir] = int(m_lo[dir]/dx[dir] - 0.5);
+	  ihi[dir] = int(m_hi[dir]/dx[dir] - 0.5);
+	}
+      
+    
+      for (DataIterator dit(a_flux.disjointBoxLayout()); dit.ok(); ++dit)
+	{
+	  const Box& b = a_flux[dit].box();
+	  if (b.intersects(Box(ilo,ihi)))
+	    { 
+	      Box sub(max(b.smallEnd(),ilo), min(b.bigEnd(),ihi));
+	      a_flux[dit].plus(tmpFlux[dit],sub,0,0,1);
+	    }
+	}
+    }
+
+}
+
 SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
 {
   
@@ -351,11 +449,184 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       delete openSeaPtr;
       delete openLandPtr;
     }
+  else if (type == "boxBoundedFlux")
+    {
+      Vector<Real> tmp(SpaceDim); 
+      pp.getarr("lo",tmp,0,SpaceDim);
+      RealVect lo (D_DECL(tmp[0], tmp[1],tmp[2]));
+      pp.getarr("hi",tmp,0,SpaceDim);
+      RealVect hi (D_DECL(tmp[0], tmp[1],tmp[2]));
 
+      Vector<Real> time(2);
+      time[0] = -1.2345678e+300;
+      time[1] = 1.2345678e+300;
+      pp.queryarr("time",time,0,2);
+           
+      std::string prefix(a_prefix);
+      prefix += ".flux";
+      SurfaceFlux* fluxPtr = parseSurfaceFlux(prefix.c_str());
+
+      BoxBoundedFlux bbf(hi,lo,time[0],time[1],fluxPtr);
+      ptr = static_cast<SurfaceFlux*>(bbf.new_surfaceFlux());
+
+    }
+  else if (type == "compositeFlux")
+   {
+     
+     
+     int nElements;
+     pp.get("nElements",nElements);
+     
+     std::string elementPrefix(a_prefix);
+     elementPrefix += ".element";
+
+     Vector<SurfaceFlux*> elements(nElements);
+     for (int i = 0; i < nElements; i++)
+       {
+	 std::string prefix(elementPrefix);
+	 char s[32];
+	 sprintf(s,"%i",i);
+	 prefix += s;
+	 ParmParse pe(prefix.c_str());
+	 elements[i] = parseSurfaceFlux(prefix.c_str());
+	 CH_assert(elements[i] != NULL);
+	 
+       }
+     CompositeFlux compositeFlux(elements);
+     ptr = static_cast<SurfaceFlux*>(compositeFlux.new_surfaceFlux());
+   
+   }
+#ifdef HAVE_PYTHON
+  else if (type == "pythonFlux") {
+    
+    std::string module;
+    pp.get("module",module);
+    std::string function;
+    pp.get("function",function);
+    PythonSurfaceFlux pythonFlux(module, function);
+    ptr = static_cast<SurfaceFlux*>(pythonFlux.new_surfaceFlux());
+
+  }
+#endif
   return ptr;
   
 }
 
 
+#ifdef HAVE_PYTHON
+PythonSurfaceFlux::PythonSurfaceFlux(const std::string& a_pyModule,
+				     const std::string& a_pyFunc)
+{
 
+  Py_Initialize();
+
+  PyObject* pName = PyString_FromString(a_pyModule.c_str());
+  m_pModule =  PyImport_Import(pName);
+
+  if (m_pModule == NULL)
+    {
+      pout() << "failed to import Python module " << a_pyModule << endl;
+      CH_assert(m_pModule != NULL);
+      MayDay::Error("failed to import Python module ");
+    }
+  char* t = const_cast<char*>(a_pyFunc.c_str());
+  m_pFunc = PyObject_GetAttrString(m_pModule,t);
+  
+  if (m_pFunc == NULL)
+    {
+      pout() << "failed to initialize Python function " << a_pyFunc << endl;
+      CH_assert(m_pFunc != NULL);
+      MayDay::Error("failed to initialize Python function");
+    }
+
+  if (!PyCallable_Check(m_pFunc))
+    {
+      pout() << "Python function " << a_pyFunc << " not callable " <<  endl;
+      CH_assert(PyCallable_Check(m_pFunc));
+      MayDay::Error("Python function not callable");
+    }
+
+
+}
+
+PythonSurfaceFlux::~PythonSurfaceFlux()
+{
+  Py_DECREF(m_pModule);
+  Py_DECREF(m_pFunc);
+}
+
+SurfaceFlux* PythonSurfaceFlux::new_surfaceFlux()
+{
+
+
+  PythonSurfaceFlux* ptr = new PythonSurfaceFlux(m_pModule, m_pFunc);
+  return static_cast<SurfaceFlux*>( ptr);
+}
+
+
+void PythonSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					     LevelSigmaCS& a_coordSys,
+					     Real a_time,
+					     Real a_dt)
+{
+  
+  PyObject *pArgs, *pValue;
+  Vector<Real> args(SpaceDim + 3);
+
+  const DisjointBoxLayout& grids = a_flux.disjointBoxLayout();
+  for (DataIterator dit(grids);dit.ok();++dit)
+    {
+      const Box& b = grids[dit];
+      for (BoxIterator bit(b);bit.ok();++bit)
+	{
+	  const IntVect& iv = bit();
+	  int i = 0;
+	  for (int dir=0; dir < SpaceDim; dir++)
+	    {
+	      args[i] = (Real(iv[dir]) + 0.5)*a_coordSys.dx()[dir];
+	      i++;
+	    }
+	  args[i] = a_time + a_dt / 2.0;i++;
+	  args[i] = a_coordSys.getH()[dit](iv);i++;
+	  args[i] = a_coordSys.getTopography()[dit](iv);i++;
+	  
+	  //construct a python tuple of args
+	  pArgs = PyTuple_New(args.size());
+	  for (int j = 0; j < args.size(); ++j)
+	    {
+	      pValue = PyFloat_FromDouble(args[j]);
+	      if (!pValue)
+		{
+		  pout() << "PythonSurfaceFlux::surfaceThicknessFlux failed to construct Python args" << endl;
+		  CH_assert(pValue != NULL);
+		  MayDay::Error("PythonSurfaceFlux::surfaceThicknessFlux failed to construct Python args");
+		}
+	      PyTuple_SetItem(pArgs, j, pValue);
+	    }
+	  pValue = PyObject_CallObject(m_pFunc, pArgs);
+	  Py_DECREF(pArgs);
+	  if (!pValue)
+	    {
+	      pout() << "PythonSurfaceFlux::surfaceThicknessFlux python call failed" << endl;
+	      PyErr_Print();
+	      CH_assert(pValue != NULL);
+	      MayDay::Error("PythonSurfaceFlux::surfaceThicknessFlux python call failed");
+	    }
+	  
+	  if (PyFloat_CheckExact(pValue))
+	    {
+	      a_flux[dit](iv) =  PyFloat_AS_DOUBLE(pValue);
+	    }
+	  else
+	    {
+	      Py_DECREF(pValue);
+	      CH_assert(PyFloat_CheckExact(pValue));
+	      MayDay::Error("PythonSurfaceFlux::surfaceThicknessFlux python return value is not a float");
+	    }
+
+
+	}
+    }
+}
+#endif
 #include "NamespaceFooter.H"

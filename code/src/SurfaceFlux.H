@@ -16,6 +16,9 @@
 #include "LevelData.H"
 #include "FArrayBox.H"
 #include "LevelSigmaCS.H"
+#ifdef HAVE_PYTHON
+#include "Python.h"
+#endif
 
 #include "NamespaceHeader.H"
 
@@ -264,6 +267,180 @@ private:
 };
   
 
+//class which applies a flux inside a box with Real boundaries 
+//(and optionally time boundaries) and zero outside
+class BoxBoundedFlux : public SurfaceFlux
+{
+  RealVect m_lo,m_hi;
+  Real m_startTime, m_endTime;
+  SurfaceFlux* m_fluxPtr;
+public:
+  BoxBoundedFlux
+(const RealVect& a_lo,
+		 const RealVect& a_hi,
+		 const Real& a_startTime,
+		 const Real& a_endTime,
+		 SurfaceFlux* a_fluxPtr)
+    : m_lo(a_lo),m_hi(a_hi),m_startTime(a_startTime),m_endTime(a_endTime)
+  {
+    m_fluxPtr = a_fluxPtr->new_surfaceFlux();
+  }
+  
+
+   /// destructor
+  virtual ~BoxBoundedFlux(){};
+
+/// factory method
+/** return a pointer to a new SurfaceFlux object
+ */
+virtual SurfaceFlux* new_surfaceFlux();
+
+/// define source term for thickness evolution and place it in flux
+/** dt is included in case one needs integrals or averages over a
+    timestep. flux should be defined in meters/second in the current 
+      implementation. 
+*/
+virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				  LevelSigmaCS& a_coordSys,
+				  Real a_time,
+				  Real a_dt);
+
+private:
+  // Disallowed for all the usual reasons
+  void operator=(const BoxBoundedFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  // Disallowed for all the usual reasons
+  BoxBoundedFlux(const BoxBoundedFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  BoxBoundedFlux()
+  {
+    MayDay::Error("invalid operator");
+  }
+
+};
+
+//class which adds together the results of a list of fluxes
+class CompositeFlux : public SurfaceFlux
+{
+  
+  Vector<SurfaceFlux*> m_fluxes;
+
+public:
+  CompositeFlux(const Vector<SurfaceFlux*>& a_fluxes);
+
+  virtual ~CompositeFlux();
+    
+  /// factory method
+  /** return a pointer to a new SurfaceFlux object
+ */
+  virtual SurfaceFlux* new_surfaceFlux();
+
+/// define source term for thickness evolution and place it in flux
+/** dt is included in case one needs integrals or averages over a
+    timestep. flux should be defined in meters/second in the current 
+    implementation. 
+*/
+  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				  LevelSigmaCS& a_coordSys,
+				  Real a_time,
+				  Real a_dt);
+
+  
+private:
+  // Disallowed for all the usual reasons
+  void operator=(const CompositeFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  // Disallowed for all the usual reasons
+  CompositeFlux(const CompositeFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  CompositeFlux()
+  {
+    MayDay::Error("invalid operator");
+  }
+
+
+};
+
+#ifdef HAVE_PYTHON
+
+///Use a python function to evaluate the surface flux
+/** the user needs to provide a python function that
+    takes x,y,thickness,topography as args
+    returns a single scalar (the flux)
+    def <fluxf>(x,y,thickness,topography):
+    ...
+    return flux
+
+ */
+class PythonSurfaceFlux : public SurfaceFlux
+{
+  PyObject*  m_pModule;
+  PyObject*  m_pFunc;
+ 
+public:
+  PythonSurfaceFlux(const std::string& a_pyModule,
+		    const std::string& a_pyFunc);
+
+  virtual ~PythonSurfaceFlux();
+    
+  /// factory method
+  /** return a pointer to a new SurfaceFlux object
+ */
+  virtual SurfaceFlux* new_surfaceFlux();
+
+/// define source term for thickness evolution and place it in flux
+/** dt is included in case one needs integrals or averages over a
+    timestep. flux should be defined in meters/second in the current 
+    implementation. 
+*/
+  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				    LevelSigmaCS& a_coordSys,
+				    Real a_time,
+				    Real a_dt);
+
+  
+private:
+  // Disallowed for all the usual reasons
+  void operator=(const CompositeFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  // Disallowed for all the usual reasons
+  PythonSurfaceFlux(const CompositeFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  PythonSurfaceFlux()
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  PythonSurfaceFlux(PyObject*  a_pModule,  PyObject*  a_pFunc)
+  {
+    m_pModule = a_pModule;
+    m_pFunc = a_pFunc;
+    Py_XINCREF(m_pModule);
+    Py_XINCREF(m_pFunc);
+  }
+  
+
+};
+
+#endif
 
 
 #include "NamespaceFooter.H"

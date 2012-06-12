@@ -35,7 +35,9 @@
 #include "LevelDataBasalFriction.H"
 #include "PiecewiseLinearFlux.H"
 #include "SurfaceFlux.H"
-
+#ifdef HAVE_PYTHON
+#include "Python.h"
+#endif
 //#include "LevelDataSurfaceFlux.H"
 #include "LoadBalance.H"
 #include "BRMeshRefine.H"
@@ -856,6 +858,10 @@ int main(int argc, char* argv[]) {
   
 
   CH_TIMER_REPORT();
+
+#ifdef HAVE_PYTHON
+  Py_Finalize();
+#endif
 
 #ifdef CH_USE_PETSC
   ierr = PetscFinalize(); CHKERRQ(ierr);
