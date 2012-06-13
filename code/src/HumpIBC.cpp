@@ -445,7 +445,7 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 
           x -= m_center;
 
-#define HUMP2D
+          //#define HUMP2D
 #ifdef HUMP2D
           Real radSqr = D_TERM(m_widthScale[0]*x[0]*x[0], 
                                +m_widthScale[1]*x[1]*x[1], 
