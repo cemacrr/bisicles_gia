@@ -514,12 +514,17 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
 
 
 #ifdef HAVE_PYTHON
+#include "signal.h"
+
 PythonSurfaceFlux::PythonSurfaceFlux(const std::string& a_pyModule,
 				     const std::string& a_pyFunc)
 {
-
+  
+  //initialize Python without overriding SIGINT  
+  PyOS_sighandler_t sigint = PyOS_getsig(SIGINT);
   Py_Initialize();
-
+  sigint =  PyOS_setsig(SIGINT, sigint);
+  
   PyObject* pName = PyString_FromString(a_pyModule.c_str());
   m_pModule =  PyImport_Import(pName);
 
@@ -576,7 +581,8 @@ void PythonSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
   const DisjointBoxLayout& grids = a_flux.disjointBoxLayout();
   for (DataIterator dit(grids);dit.ok();++dit)
     {
-      const Box& b = grids[dit];
+      a_flux[dit].setVal(0.0);
+      const Box& b = a_flux[dit].box();//grids[dit];
       for (BoxIterator bit(b);bit.ok();++bit)
 	{
 	  const IntVect& iv = bit();
