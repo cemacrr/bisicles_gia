@@ -1,6 +1,6 @@
 #inputs file for Amr ice-sheet solver
-main.maxTime = 10000000000  # maximum time to run to
-main.maxStep = 0   # maximum number of steps to runx
+main.maxTime = 1.0  # maximum time to run to
+main.maxStep = 20   # maximum number of steps to runx
 main.constitutiveRelation = @CRE
 constMu.mu = 1.279e8
 main.rateFactor = constRate
@@ -9,8 +9,9 @@ l1l2.solverTolerance = 1.0e-8
 
 main.domain_size = 40960 40960 1000.0
 
-main.surface_flux_type = constantFlux
-constFlux.flux_value = 0.0
+surfaceFlux.type = zeroFlux
+basalFlux.type = zeroFlux
+#constFlux.flux_value = 0.0
 
 geometry.problem_type = hump
 hump.center = 20480 20480
@@ -20,7 +21,8 @@ hump.minThickness = 0.0
 #hump.radSqr = 100000000
 
 geometry.beta_type = constantBeta
-geometry.betaValue = 1.0e7 #from MISMIP, exp 1b
+#geometry.betaValue = 1.0e10 #from MISMIP, exp 1b
+geometry.betaValue = 10000 #from MISMIP, exp 1b
 
 geometry.basalSlope = 0 0 0 
 
@@ -42,8 +44,8 @@ amr.temporal_accuracy = 1
 #amr.temporal_accuracy = 2
 #amr.temporal_accuracy = 4
 
-amr.cfl = 0.5  # "cfl" number
-amr.initial_cfl = 0.5  # "cfl" number
+amr.cfl = 0.125  # "cfl" number
+amr.initial_cfl = 0.0625  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
 
 
