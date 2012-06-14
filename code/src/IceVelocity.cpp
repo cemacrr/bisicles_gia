@@ -356,30 +356,17 @@ void IceVelocity::computeFaceVelocity(LevelData<FluxBox>& a_faceVel,
     }
 
   grownVel.exchange();
-     
-  if (a_additionalVelocity)
-    {
-      const L1L2ConstitutiveRelation* L1L2Ptr = dynamic_cast<const L1L2ConstitutiveRelation*>(a_constitutiveRelation);
-      if (L1L2Ptr != NULL)
-	{
-	  L1L2Ptr->computeFaceFluxVelocity(grownVel, a_crseVelocity, a_nRefCrse, a_coordSys, 
-					   grids,  grids.physDomain(), a_A, a_sA, a_bA,
-					   a_faceVel ,a_layerXYFaceXYVel, a_layerSFaceXYVel);
-	}
-    }
-  else
-    {
-      //default calculation : average to faces 
-      CellToEdge(grownVel, a_faceVel);
+      
+  //default calculation : average to faces 
+  CellToEdge(grownVel, a_faceVel);
 #if BISCICLES_Z == BISICLES_LAYERED
-      //for layered models (SSA,L1L2) assume du/dz = 0
-      for (int j = 0; j < a_layerXYFaceXYVel.nComp(); ++j)
-	a_faceVel.copyTo(Interval(0,0), a_layerXYFaceXYVel, Interval(j,j));
-	
-      for (int j = 0; j < a_layerSFaceXYVel.nComp(); j+=SpaceDim)
-	grownVel.copyTo(Interval(0,SpaceDim-1), a_layerSFaceXYVel,Interval(j,j+SpaceDim-1)); 
+  //for layered models (SSA,L1L2) assume du/dz = 0
+  for (int j = 0; j < a_layerXYFaceXYVel.nComp(); ++j)
+    a_faceVel.copyTo(Interval(0,0), a_layerXYFaceXYVel, Interval(j,j));
+  
+  for (int j = 0; j < a_layerSFaceXYVel.nComp(); j+=SpaceDim)
+    grownVel.copyTo(Interval(0,SpaceDim-1), a_layerSFaceXYVel,Interval(j,j+SpaceDim-1)); 
 #endif
-    }
 
   //modification to fluxes at the margins, that is where mask changes to open sea or land.
   //
@@ -421,6 +408,46 @@ void IceVelocity::computeFaceVelocity(LevelData<FluxBox>& a_faceVel,
 	}
     }
     
+#if BISCICLES_Z == BISICLES_LAYERED
+  //copy the basal velocity into the vertically varying velocities.
+  {
+    
+    for (DataIterator dit(grids); dit.ok(); ++dit)
+      {
+
+	FArrayBox& SFaceXYVel = a_layerSFaceXYVel[dit];
+	const FArrayBox& cellVel = grownVel[dit];
+	for (int ic = 0; ic < SFaceXYVel.nComp(); ic++)
+	  {
+	    SFaceXYVel.copy( cellVel , 0, ic, 1);
+	  }
+
+	for (int dir = 0; dir < SpaceDim; ++dir)
+	  {
+	    const FArrayBox& faceVel = a_faceVel[dit][dir];
+	    FArrayBox& XYFaceXYVel = a_layerXYFaceXYVel[dit][dir];
+	    
+	    for (int ic = 0; ic < XYFaceXYVel.nComp(); ic++)
+	      {
+		XYFaceXYVel.copy( faceVel , 0, ic, 1);
+	      }
+	  }
+      }
+  }
+#endif 
+
+
+  if (a_additionalVelocity)
+    {
+      const L1L2ConstitutiveRelation* L1L2Ptr = dynamic_cast<const L1L2ConstitutiveRelation*>(a_constitutiveRelation);
+      if (L1L2Ptr != NULL)
+	{
+	  L1L2Ptr->computeFaceFluxVelocity(grownVel, a_crseVelocity, a_nRefCrse, a_coordSys, 
+					   grids,  grids.physDomain(), a_A, a_sA, a_bA,
+					   a_faceVel ,a_layerXYFaceXYVel, a_layerSFaceXYVel);
+	}
+    }
+  
   a_faceVel.exchange();
 #if BISCICLES_Z == BISICLES_LAYERED
   a_layerXYFaceXYVel.exchange();

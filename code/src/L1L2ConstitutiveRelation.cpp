@@ -694,19 +694,21 @@ L1L2ConstitutiveRelation::computeFaceFluxVelocity(const LevelData<FArrayBox>& a_
 						  LevelData<FArrayBox>& a_layerSFaceXYVel) const
 {
   CH_TIME("L1L2ConstitutiveRelation::computeFaceFluxVelocity");
-  //usual interpolation of the base velocity to cell faces, these will be incremented
-  CellToEdge(a_cellVel, a_faceVel);
 
-  //also copy the base velocity into all the layers; again, these will be incremented
-  for (int j = 0; j < a_layerXYFaceXYVel.nComp(); ++j)
-    {
-      a_faceVel.copyTo(Interval(0,0), a_layerXYFaceXYVel, Interval(j,j));
-    }
+  //we now assume the usual interpolation of the base velocity to cell faces has been done
+  // //usual interpolation of the base velocity to cell faces, these will be incremented
+  // CellToEdge(a_cellVel, a_faceVel);
+
+  // //also copy the base velocity into all the layers; again, these will be incremented
+  // for (int j = 0; j < a_layerXYFaceXYVel.nComp(); ++j)
+  //   {
+  //     a_faceVel.copyTo(Interval(0,0), a_layerXYFaceXYVel, Interval(j,j));
+  //   }
   
-  for (int j = 0; j < a_layerSFaceXYVel.nComp(); j+=SpaceDim)
-    {
-      a_cellVel.copyTo(Interval(0,SpaceDim-1), a_layerSFaceXYVel, Interval(j,j+1));
-    }
+  // for (int j = 0; j < a_layerSFaceXYVel.nComp(); j+=SpaceDim)
+  //   {
+  //     a_cellVel.copyTo(Interval(0,SpaceDim-1), a_layerSFaceXYVel, Interval(j,j+1));
+  //   }
    
   //return;
   // (DFM) this mirrors the original implementation, in terms of ghosting...
