@@ -3,7 +3,7 @@
 ### This makefile produces an executable for each 
 ### name in the `ebase' variable
 include ../mk/Make.defs
-ebase := driver glfaces faces
+ebase := driver stats glfaces faces
 
 #set compiler and CHOMBO_HOME
 
