@@ -38,7 +38,7 @@ public:
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                                    LevelSigmaCS& a_coordSys,
+                                     const LevelSigmaCS& a_coordSys,
                                     Real a_time,
                                     Real a_dt);
   

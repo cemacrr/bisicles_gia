@@ -25,7 +25,7 @@ SurfaceFlux* PiecewiseLinearFlux::new_surfaceFlux()
 }
 
 void PiecewiseLinearFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					       LevelSigmaCS& a_coordSys,
+					       const LevelSigmaCS& a_coordSys,
 					       Real a_time,
 					       Real a_dt)
 {
@@ -35,7 +35,7 @@ void PiecewiseLinearFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
   for (DataIterator dit(a_flux.dataIterator()); dit.ok(); ++dit)
     {
       FORT_PWLFILL(CHF_FRA1(a_flux[dit],0),
-		   CHF_FRA1(a_coordSys.getH()[dit],0),
+		   CHF_CONST_FRA1(a_coordSys.getH()[dit],0),
 		   CHF_CONST_VR(m_abscissae),
 		   CHF_CONST_VR(m_ordinates),
 		   CHF_VR(dx),CHF_VR(db),

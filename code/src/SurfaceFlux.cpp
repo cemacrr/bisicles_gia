@@ -35,7 +35,7 @@ zeroFlux::new_surfaceFlux()
   */
 void
 zeroFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                               LevelSigmaCS& a_coordSys,
+                                const LevelSigmaCS& a_coordSys,
                                Real a_time,
                                Real a_dt)
 {
@@ -66,7 +66,7 @@ constantFlux::new_surfaceFlux()
   */
 void
 constantFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                                   LevelSigmaCS& a_coordSys,
+                                    const LevelSigmaCS& a_coordSys,
                                    Real a_time,
                                    Real a_dt)
 {
@@ -126,7 +126,7 @@ fortranInterfaceFlux::new_surfaceFlux()
 */
 void 
 fortranInterfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                                           LevelSigmaCS& a_coordSys,
+                                            const LevelSigmaCS& a_coordSys,
                                            Real a_time,
                                            Real a_dt)
 {
@@ -214,7 +214,7 @@ SurfaceFlux* MaskedFlux::new_surfaceFlux()
 }
 
 void MaskedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				      LevelSigmaCS& a_coordSys,
+				       const LevelSigmaCS& a_coordSys,
 				      Real a_time,
 				      Real a_dt)
 {
@@ -280,7 +280,7 @@ CompositeFlux::~CompositeFlux()
 }
 
 void CompositeFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					 LevelSigmaCS& a_coordSys,
+					  const LevelSigmaCS& a_coordSys,
 					 Real a_time,
 					 Real a_dt)
 {
@@ -308,7 +308,7 @@ SurfaceFlux* BoxBoundedFlux::new_surfaceFlux()
 
 
 void BoxBoundedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  LevelSigmaCS& a_coordSys,
+					   const LevelSigmaCS& a_coordSys,
 					  Real a_time,
 					  Real a_dt)
 {
@@ -466,7 +466,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       prefix += ".flux";
       SurfaceFlux* fluxPtr = parseSurfaceFlux(prefix.c_str());
 
-      BoxBoundedFlux bbf(hi,lo,time[0],time[1],fluxPtr);
+      BoxBoundedFlux bbf(lo,hi,time[0],time[1],fluxPtr);
       ptr = static_cast<SurfaceFlux*>(bbf.new_surfaceFlux());
 
     }
@@ -570,7 +570,7 @@ SurfaceFlux* PythonSurfaceFlux::new_surfaceFlux()
 
 
 void PythonSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					     LevelSigmaCS& a_coordSys,
+					     const  LevelSigmaCS& a_coordSys,
 					     Real a_time,
 					     Real a_dt)
 {
