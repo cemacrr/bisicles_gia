@@ -41,7 +41,7 @@ PYTHON_VERSION=2.6
 endif
 
 ifeq ($(UNAMEN),martins)
-PYTHON_VERSION=2.6
+#PYTHON_VERSION=2.6
 endif
 
 ifeq ($(PYTHON_VERSION),2.7)
