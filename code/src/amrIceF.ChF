@@ -218,7 +218,8 @@ c --------------------------------------------------
       end
 
 c------------------------------------------------------
-c extrapolate face centered uf to the margin
+c extrapolate face centered uf to the margin. assumes it
+c already contains a face averaged value
 c------------------------------------------------------
 
       subroutine extraptomargin(CHF_FRA1[uf],
@@ -244,11 +245,12 @@ c------------------------------------------------------
       maskr = mask(CHF_AUTOIX[i])
       
       if ((iand(maskl,ice).gt.0).and.(iand(maskr,noice).gt.0)) then 
-         uf(CHF_AUTOIX[i]) = two * uc(CHF_OFFSETIX[i;-ii])
-     &           - uf(CHF_OFFSETIX[i;-ii])
+         uf(CHF_AUTOIX[i]) = max(two * uc(CHF_OFFSETIX[i;-ii])
+     &           - uf(CHF_OFFSETIX[i;-ii]), uf(CHF_AUTOIX[i]))
+ 
       else if ((iand(maskr,ice).gt.0).and.(iand(maskl,noice).gt.0)) then
-         uf(CHF_AUTOIX[i]) = two * uc(CHF_AUTOIX[i])
-     &        - uf(CHF_OFFSETIX[i;+ii])
+         uf(CHF_AUTOIX[i]) = min(two * uc(CHF_AUTOIX[i])
+     &        - uf(CHF_OFFSETIX[i;+ii]),uf(CHF_AUTOIX[i]))
       end if
 
       CHF_ENDDO
