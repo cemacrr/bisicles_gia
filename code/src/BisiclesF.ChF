@@ -24,7 +24,7 @@ c abscissae xn and ordinates bn. dx and db are
 c workspaces 
 c--------------------------------------------------
       subroutine pwlfill(CHF_FRA1[a],
-     &     CHF_FRA1[x],
+     &     CHF_CONST_FRA1[x],
      &     CHF_CONST_VR[xn],
      &     CHF_CONST_VR[bn],
      &     CHF_VR[dx],
@@ -111,7 +111,8 @@ c-----------------------------------------------------------
      &     CHF_CONST_INT[dir],
      &     CHF_CONST_FRA1[mu],
      &     CHF_CONST_FRA1[alpha],
-     &     CHF_CONST_REAL[tol],
+     &     CHF_CONST_REAL[mumin],
+     &     CHF_CONST_REAL[alphamin],
      &     CHF_BOX[box])
       
       integer CHF_AUTODECL[i]
@@ -121,11 +122,11 @@ c-----------------------------------------------------------
                 ii2 = CHF_ID(dir,2)]
 
       CHF_AUTOMULTIDO[box; i]
-      if (alpha(CHF_AUTOIX[i]).gt.tol) then
+      if (alpha(CHF_AUTOIX[i]).gt.alphamin) then
          ok(CHF_AUTOIX[i]) = 1
-      else if (mu(CHF_AUTOIX[i]).gt.tol) then
+      else if (mu(CHF_AUTOIX[i]).gt.mumin) then
          ok(CHF_AUTOIX[i]) = 1
-      else if (mu(CHF_OFFSETIX[i;+ii]).gt.tol) then
+      else if (mu(CHF_OFFSETIX[i;+ii]).gt.mumin) then
          ok(CHF_AUTOIX[i]) = 1
       end if
 
@@ -134,3 +135,33 @@ c-----------------------------------------------------------
       return
       end 
 
+      subroutine applyminviscosity(CHF_FRA1[mu],
+     &     CHF_CONST_INT[dir],
+     &     CHF_CONST_FRA1[faceH],
+     &     CHF_CONST_FIA1[ok],
+     &     CHF_CONST_REAL[mumin],
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      integer CHF_AUTODECL[ii]
+
+      CHF_DTERM[ii0 = CHF_ID(dir,0);
+                ii1 = CHF_ID(dir,1);
+                ii2 = CHF_ID(dir,2)]
+
+       CHF_AUTOMULTIDO[box; i]
+      if (ok(CHF_AUTOIX[i]).ne.1) then
+         if (faceH(CHF_AUTOIX[i]).gt.1.0d-10) then
+            mu(CHF_AUTOIX[i]) = 
+     &           max(mu(CHF_AUTOIX[i]), mumin);
+         end if
+         if (faceH(CHF_OFFSETIX[i;+ii]).gt.1.0d-10) then
+            mu(CHF_OFFSETIX[i;+ii]) = 
+     &           max(mu(CHF_OFFSETIX[i;+ii]), mumin);
+         end if
+      end if
+
+      CHF_ENDDO
+
+      return
+      end
