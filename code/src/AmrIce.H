@@ -691,6 +691,13 @@ protected:
   // possibly won't even need surface and basal temperature
   // field, but if we do they will need to be 2D
 #endif
+  //the thickness source will have two components, from the surface and base.
+  //Although they are combined for thickness evolution, they must
+  //be kept seperate for the temperature calculation. 
+  Vector<LevelData<FArrayBox>* > m_surfaceThicknessSource;
+  Vector<LevelData<FArrayBox>* > m_basalThicknessSource;
+
+
   /// diagnostic quantity -- sum(ice) at initial time
   Real m_initialSumIce;
 
@@ -776,6 +783,8 @@ protected:
   //if true, include temperature in plot files
   bool m_write_temperature;
 
+  //if true, include thickness source terms in plot files
+  bool m_write_thickness_sources;
 
   /// if true, write out .map.hdf5 file
   bool m_write_map_file;
