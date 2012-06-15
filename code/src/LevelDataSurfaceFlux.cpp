@@ -27,7 +27,7 @@
 
 void LevelDataSurfaceFlux::surfaceThicknessFlux
 (LevelData<FArrayBox>& a_flux,
- LevelSigmaCS& a_coordSys,
+ const LevelSigmaCS& a_coordSys,
  Real a_time,
  Real a_dt)
 {
@@ -83,7 +83,7 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
 	  m_endTime = end->first;
 	}
     }
-  pout() << " LevelDataSurfaceFlux::m_startTime = " <<   m_startTime;
+  //pout() << " LevelDataSurfaceFlux::m_startTime = " <<   m_startTime;
   
   for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
     {
@@ -96,8 +96,8 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
       
       Real w = std::min(1.0 , (a_time - m_startTime) / (m_endTime - m_startTime)); 
 
-      pout() << " LevelDataSurfaceFlux::m_endTime = " <<   m_endTime
-	     << " w = " << w; 
+      // pout() << " LevelDataSurfaceFlux::m_endTime = " <<   m_endTime
+      //	     << " w = " << w; 
 
       LevelData<FArrayBox> tmp; tmp.define(a_flux);
       for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
@@ -129,7 +129,7 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
     {
       f = max(f, a_flux[dit].max());
     }
-  pout() << " f = " << f << std::endl;
+  //pout() << " f = " << f << std::endl;
 
 }
 
