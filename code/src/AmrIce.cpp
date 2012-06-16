@@ -3974,7 +3974,7 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
 
   m_velRHS[a_level] = new LevelData<FArrayBox>(a_grids, 2, 
 					 IntVect::Zero);
-
+ 
   m_surfaceThicknessSource[a_level] = 
     new LevelData<FArrayBox>(a_grids,   1, IntVect::Unit) ;
   m_basalThicknessSource[a_level] = 
@@ -6598,6 +6598,13 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	  m_cellMuCoef[lev] = new LevelData<FArrayBox>(levelDBL, 1, ghostVect);
 	  m_faceMuCoef[lev] = new LevelData<FluxBox>(levelDBL, 1, ghostVect);
 	  m_velRHS[lev] = new LevelData<FArrayBox>(levelDBL, 2, IntVect::Zero);
+
+
+	  m_surfaceThicknessSource[lev] = 
+	    new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
+	  m_basalThicknessSource[lev] = 
+	    new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
+	  
 	  m_diffusivity[lev] =  RefCountedPtr<LevelData<FluxBox> >
 	    (new LevelData<FluxBox>(levelDBL, 1,  ghostVect));
 
