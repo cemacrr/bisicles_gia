@@ -549,7 +549,8 @@ protected:
 
   /// tagging threshold value for undivided lap(vel)
   Real m_laplacian_tagging_val;
-
+  /// when tagging on undivided lap(vel), ignore cells where the basal friction coeffcient exceeds 
+  Real m_laplacian_tagging_max_basal_friction_coef;
   /// tag on strain rate invariant?
   bool m_tagOnEpsSqr;
 
@@ -574,6 +575,9 @@ protected:
   bool m_tagGroundingLine;
   /// threshold velocity at the grounding line : tag if |u| > value
   Real m_groundingLineTaggingMinVel;
+  /// threshold Basal friction coefficient at the grounding line : tag if C < value
+  Real m_groundingLineTaggingMaxBasalFrictionCoef;
+
 
   /// tag at the ice margin
   bool m_tagMargin;
