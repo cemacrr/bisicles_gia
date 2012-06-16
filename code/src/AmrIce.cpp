@@ -341,6 +341,7 @@ AmrIce::setDefaults()
   m_tagOnLapVel = false;
   m_tagOnGroundedLapVel = false;
   m_laplacian_tagging_val = 1.0;
+  m_laplacian_tagging_max_basal_friction_coef = 0.0;
   m_tagOnEpsSqr = false;  
   m_epsSqr_tagVal =0.1;
   m_tagOnVelRHS = false;
@@ -351,6 +352,7 @@ AmrIce::setDefaults()
   m_tagMargin  = false;
   m_tagAllIce  = false;
   m_groundingLineTaggingMinVel = 200.0;
+  m_groundingLineTaggingMaxBasalFrictionCoef = 0.0;
   m_tags_grow = 1;
   m_cfl = 0.25;
   m_max_dt_grow = 1.5;
@@ -873,6 +875,7 @@ AmrIce::initialize()
   if (m_tagOnLapVel | m_tagOnGroundedLapVel)
     {
       ppAmr.get("lap_vel_tagging_val", m_laplacian_tagging_val);
+      ppAmr.query("lap_vel_tagging_max_basal_friction_coef", m_laplacian_tagging_max_basal_friction_coef);
     }
 
 
@@ -899,10 +902,11 @@ AmrIce::initialize()
   // if we set this to be true, require that we also provide the threshold
   if (m_tagGroundingLine)
     {
-      ppAmr.get("grounding_line_tagging_min_vel",
-		m_groundingLineTaggingMinVel);
+      ppAmr.get("grounding_line_tagging_min_vel",m_groundingLineTaggingMinVel);
+      ppAmr.query("grounding_line_tagging_max_basal_friction_coef", m_groundingLineTaggingMaxBasalFrictionCoef);
     }
-
+  
+  
   ppAmr.query("tag_ice_margin", m_tagMargin);
   isThereATaggingCriterion |= m_tagMargin;
 
@@ -2126,7 +2130,7 @@ AmrIce::timeStep(Real a_dt)
                                   CHF_CONST_REAL(dx[dir]),
                                   CHF_INT(dir));
 
-		  CH_assert(newH.norm() < 1.0e+4);
+		  
                 }
               // add in thickness source
 	      // if there are still diffusive fluxes to deal
@@ -3299,6 +3303,8 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
 
   const LevelData<FluxBox>& levelFaceH = levelCS.getFaceH();
 
+  LevelData<FArrayBox>& levelC = *m_velBasalC[a_level];
+
   IntVectSet local_tags;
   if (m_tagOnGradVel)
     {
@@ -3375,7 +3381,8 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
 		{
 		  if ( (m_tagOnGroundedLapVel && mask(iv) == GROUNDEDMASKVAL) | m_tagOnLapVel )
 		    {
-		      if (abs(lapVel(iv,comp)) > m_laplacian_tagging_val) 
+		      if ( (abs(lapVel(iv,comp)) > m_laplacian_tagging_val) 
+			   &&  (levelC[dit](iv) < m_laplacian_tagging_max_basal_friction_coef)) 
 			local_tags |= iv;
 		    }
 		}
@@ -3404,34 +3411,32 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
 		 const IntVect& ivm = iv - BASISV(dir);
 		 const IntVect& ivp = iv + BASISV(dir);
 		 
-		 if ( mask(iv) == GROUNDEDMASKVAL && 
-		      (mask(ivm) == FLOATINGMASKVAL || mask(ivm) == OPENSEAMASKVAL ))
+		 if (mask(iv) == GROUNDEDMASKVAL &&  levelC[dit](iv) <  m_groundingLineTaggingMaxBasalFrictionCoef)
 		   {
-		     if (std::abs(levelVel[dit](iv,dir)) > m_groundingLineTaggingMinVel
-			 || std::abs(levelVel[dit](ivm,dir)) > m_groundingLineTaggingMinVel
-			 || std::abs(levelVel[dit](iv,tdir)) > m_groundingLineTaggingMinVel
-			 || std::abs(levelVel[dit](ivm,tdir)) > m_groundingLineTaggingMinVel)
+		     if (mask(ivm) == FLOATINGMASKVAL || mask(ivm) == OPENSEAMASKVAL )
 		       {
-			 local_tags |= iv;  
-			 local_tags |= ivm;
-		       }   
-		   }
-		 
-		 if ( mask(iv) == GROUNDEDMASKVAL && 
-		      (mask(ivp) == FLOATINGMASKVAL || mask(ivp) == OPENSEAMASKVAL))
-		   {
-		     if (std::abs(levelVel[dit](iv,dir)) > m_groundingLineTaggingMinVel
-			 || std::abs(levelVel[dit](ivp,dir)) > m_groundingLineTaggingMinVel
-			 || std::abs(levelVel[dit](iv,tdir)) > m_groundingLineTaggingMinVel
-			 || std::abs(levelVel[dit](ivp,tdir)) > m_groundingLineTaggingMinVel)
+			 if (std::abs(levelVel[dit](iv,dir)) > m_groundingLineTaggingMinVel
+			     || std::abs(levelVel[dit](ivm,dir)) > m_groundingLineTaggingMinVel
+			     || std::abs(levelVel[dit](iv,tdir)) > m_groundingLineTaggingMinVel
+			     || std::abs(levelVel[dit](ivm,tdir)) > m_groundingLineTaggingMinVel)
+			   {
+			     local_tags |= iv;  
+			     local_tags |= ivm;
+			   }   
+		       }
+			 
+		     if ( mask(ivp) == FLOATINGMASKVAL || mask(ivp) == OPENSEAMASKVAL)
 		       {
-			 local_tags |= iv;  
-			 local_tags |= ivp;
-		       } 
+			 if (std::abs(levelVel[dit](iv,dir)) > m_groundingLineTaggingMinVel
+			     || std::abs(levelVel[dit](ivp,dir)) > m_groundingLineTaggingMinVel
+			     || std::abs(levelVel[dit](iv,tdir)) > m_groundingLineTaggingMinVel
+			     || std::abs(levelVel[dit](ivp,tdir)) > m_groundingLineTaggingMinVel)
+			   {
+			     local_tags |= iv;  
+			     local_tags |= ivp;
+			   } 
+		       }
 		   }
-
-		
-		 
 		}
 	    }
 	}
