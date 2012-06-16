@@ -341,7 +341,7 @@ AmrIce::setDefaults()
   m_tagOnLapVel = false;
   m_tagOnGroundedLapVel = false;
   m_laplacian_tagging_val = 1.0;
-  m_laplacian_tagging_max_basal_friction_coef = 0.0;
+  m_laplacian_tagging_max_basal_friction_coef = 1.2345678e+300;
   m_tagOnEpsSqr = false;  
   m_epsSqr_tagVal =0.1;
   m_tagOnVelRHS = false;
@@ -352,7 +352,7 @@ AmrIce::setDefaults()
   m_tagMargin  = false;
   m_tagAllIce  = false;
   m_groundingLineTaggingMinVel = 200.0;
-  m_groundingLineTaggingMaxBasalFrictionCoef = 0.0;
+  m_groundingLineTaggingMaxBasalFrictionCoef = 1.2345678e+300;
   m_tags_grow = 1;
   m_cfl = 0.25;
   m_max_dt_grow = 1.5;
