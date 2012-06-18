@@ -41,7 +41,7 @@ public:
   //retrieve the coefficient C
   virtual const Vector<RefCountedPtr< LevelData<FArrayBox> > >& getDragCoef() const =0;
   //retrieve the coefficient mu 
-
+  virtual const Vector<RefCountedPtr< LevelData<FluxBox> > >& getViscosityCoef() const =0;
   // provide a pointer to an AMRLevelOpFactory<LevelData<FArrayBox> >
   // defined at the current state
   virtual RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > > opFactoryPtr()=0;

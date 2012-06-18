@@ -1,4 +1,43 @@
 c---------------------------------------------------
+c set C = C0 in cells with mu(sum over faces) < mu0 
+c and C < C0
+c--------------------------------------------------
+
+      subroutine enforcewellposedcell(CHF_FRA1[C],
+     &     CHF_CONST_FRA1[mux], CHF_CONST_FRA1[muy],
+     &     CHF_CONST_REAL[mu0], CHF_CONST_REAL[C0],
+     &     CHF_BOX[box])
+
+
+       integer CHF_AUTODECL[i]
+       integer CHF_AUTODECL[ix]
+       integer CHF_AUTODECL[iy]
+     
+       Real_T musum
+
+       CHF_DTERM[ix0 = CHF_ID(0,0);
+                 ix1 = CHF_ID(0,1);
+                 ix2 = CHF_ID(0,2)]
+
+      CHF_DTERM[iy0 = CHF_ID(1,0);
+                iy1 = CHF_ID(1,1);
+                iy2 = CHF_ID(1,2)]          
+                
+      CHF_AUTOMULTIDO[box; i]
+      if (C(CHF_AUTOIX[i]).lt.C0) then
+         musum = mux(CHF_AUTOIX[i]) +  mux(CHF_OFFSETIX[i;+ix]) 
+     &        +  muy(CHF_AUTOIX[i]) +  muy(CHF_OFFSETIX[i;+iy])
+         
+         if (musum.lt.mu0) then
+            C(CHF_AUTOIX[i]) = C0
+         end if
+      end if
+      CHF_ENDDO
+      return
+      end
+
+
+c---------------------------------------------------
 c a <- (cond mask == m, b, a)
 c ------------------------------------------------
 

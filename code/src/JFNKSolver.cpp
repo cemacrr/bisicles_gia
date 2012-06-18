@@ -219,6 +219,8 @@ void JFNKOp::writeResidual
   names.push_back("xRes");
   names.push_back("yRes");
   names.push_back("C");
+  names.push_back("muSum");
+  
 
   Vector<LevelData<FArrayBox>* > data(a_u.size(),NULL);
   for (int lev = 0; lev < a_u.size(); lev++)
@@ -228,6 +230,22 @@ void JFNKOp::writeResidual
       a_u[lev]->copyTo(Interval(0,1),*data[lev],Interval(j,j+1)); j+=2;
       a_residual[lev]->copyTo(Interval(0,1),*data[lev],Interval(j,j+1)); j+=2;
       m_u->getDragCoef()[lev]->copyTo(Interval(0,0),*data[lev],Interval(j,j)); j+=1;
+
+      const LevelData<FluxBox>& mu =  *m_u->getViscosityCoef()[lev];
+      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	{
+	  FArrayBox muSum; 
+	  muSum.define(  Interval(j,j),(*data[lev])[dit]);
+	  for (BoxIterator bit( m_grids[lev][dit]);bit.ok();++bit)
+	    {
+	      const IntVect& iv = bit();
+	      const IntVect ive = iv + BASISV(0);
+	      const IntVect ivn = iv + BASISV(1); 
+	      muSum(iv,0) = mu[dit][0](iv) + mu[dit][0](ive) + mu[dit][1](iv) +  mu[dit][1](iv);
+	    }
+	}
+
+
     }
 
   for (int lev = a_u.size() -1; lev > 0; lev--)
@@ -535,33 +553,35 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
 	  levelAlpha[dit] += (*m_C0[lev])[dit];
 
 	  CH_assert(levelAlpha[dit].min() >= 0.0);
+#if CH_SPACEDIM==2
+	  {
+	    Real mu0 = 1.0;
+	    Real C0 = 1.0;
+	    
+	    FORT_ENFORCEWELLPOSEDCELL
+	      (CHF_FRA1(levelAlpha[dit],0),
+	       CHF_FRA1(levelMu[dit][0],0),
+	       CHF_FRA1(levelMu[dit][1],0),
+	       CHF_CONST_REAL(mu0),
+	       CHF_CONST_REAL(C0),
+	       CHF_BOX(gridBox));
 
-#if 0
-	  //check that either alpha > 0, or mu > 0 along one face, or both, for every cell
-	  BaseFab<int> coefOK(gridBox,1);
-	  coefOK.setVal(0);
-	  FArrayBox& alpha = levelAlpha[dit];
-	  for (int dir=0; dir<SpaceDim; dir++)
-            {
-	      const FArrayBox& mu = levelMu[dit][dir];
-	      Real tol = 1.0;
-	      FORT_CHECKCOEF(CHF_FIA1(coefOK,0),
-			     CHF_CONST_INT(dir),
-			     CHF_CONST_FRA1(mu,0),
-			     CHF_CONST_FRA1(alpha,0),
-			     CHF_CONST_REAL(tol),
-			     CHF_BOX(gridBox));
-	    }
-	  Real fixval = 1.23456789e+2;
-	  FArrayBox fab(gridBox,1);
-	  int zero = 0;
-	  fab.setVal(fixval);
-	  FORT_MASKEDREPLACE(CHF_FRA1(alpha,0),
-			     CHF_CONST_FRA1(fab,0),
-			     CHF_CONST_FIA1(coefOK,0),
-			     CHF_CONST_INT(zero),
-			     CHF_BOX(gridBox));
+	  }
 #endif
+	    // for (BoxIterator bit(gridBox);bit.ok();++bit)
+	    //   {
+	    // 	const IntVect& iv = bit();
+	    // 	const IntVect ive = iv + BASISV(0);
+	    // 	const IntVect ivn = iv + BASISV(1); 
+	    // 	Real muSum = mu[0](iv) + mu[0](ive) + mu[1](iv) +  mu[1](iv);
+	    // 	if (muSum < 1.0 && levelAlpha[dit](iv) < 1.0)
+	    // 	  {
+	    // 	    //levelAlpha[dit](iv) = std::max(levelAlpha[dit](iv),1.0);
+	    // 	    pout() << "warning: cell " << iv << " is evil" << std::endl; 
+	    // 	  }
+	    //   }
+	  // }
+	  
           // lambda = 2*mu
           FluxBox& lambda = levelLambda[dit];
           for (int dir=0; dir<SpaceDim; dir++)
