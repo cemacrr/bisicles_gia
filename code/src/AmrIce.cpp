@@ -5659,6 +5659,9 @@ AmrIce::writePlotFile()
     {
       vectName[comp] = basalThicknessSourceName; comp++;
       vectName[comp] = surfaceThicknessSourceName; comp++;
+      
+	 
+	
     }
 
   Box domain = m_amrDomains[0].domainBox();
@@ -5694,6 +5697,8 @@ AmrIce::writePlotFile()
     {
       defineVelRHS(m_velRHS, m_velBasalC, vectC0);
     }
+
+
 
 
   Vector<LevelData<FluxBox>*> viscousTensor(numLevels,NULL);
@@ -5745,6 +5750,13 @@ AmrIce::writePlotFile()
       LevelData<FArrayBox> levelZsurf(m_amrGrids[lev], 1, ghostVect);
       levelCS.getSurfaceHeight(levelZsurf);
 
+      if (m_write_thickness_sources)
+	{
+	  m_surfaceFluxPtr->surfaceThicknessFlux
+	    (*m_surfaceThicknessSource[lev], levelCS, m_time, m_dt);
+	  m_basalFluxPtr->surfaceThicknessFlux
+	    (*m_basalThicknessSource[lev], levelCS, m_time, m_dt);
+	}
 
       DataIterator dit = m_amrGrids[lev].dataIterator();
       for (dit.begin(); dit.ok(); ++dit)
@@ -5956,18 +5968,10 @@ AmrIce::writePlotFile()
 
 	  if (m_write_thickness_sources)
 	    {
-	      
-	      m_basalFluxPtr->surfaceThicknessFlux
-		(*m_basalThicknessSource[lev], levelCS, m_time, m_dt);
 	      thisPlotData.copy((*m_basalThicknessSource[lev])[dit], 0, comp, 1);
 	      comp++;
-
-	      m_surfaceFluxPtr->surfaceThicknessFlux
-		(*m_surfaceThicknessSource[lev], levelCS, m_time, m_dt);
 	      thisPlotData.copy((*m_surfaceThicknessSource[lev])[dit], 0, comp, 1);
 	      comp++;
-	      
-    
 	    }
 
 	} // end loop over boxes on this level
