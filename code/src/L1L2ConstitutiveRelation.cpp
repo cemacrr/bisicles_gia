@@ -298,17 +298,17 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
 		       CHF_INT(nComp),
 		       CHF_BOX(a_box));
 
-  Real maxPhiTildeSqr = 1.0e+4 * rhog*rhog;
-  FORT_L1L2SUPRESSFAB(CHF_FRA1(phiTildeSqr,0),
-  		    CHF_BOX(a_box),
-  		    CHF_CONST_REAL(maxPhiTildeSqr));
+  //Real maxPhiTildeSqr = 1.0e+4 * rhog*rhog;
+  // FORT_L1L2SUPRESSFAB(CHF_FRA1(phiTildeSqr,0),
+  // 		    CHF_BOX(a_box),
+  // 		    CHF_CONST_REAL(maxPhiTildeSqr));
 
   FArrayBox epsSqr(a_box,1);
   epsSqr.copy(a_epsSqr);
-  Real maxEpsSqr = 1.0e-2;
-  FORT_L1L2SUPRESSFAB(CHF_FRA1(epsSqr,0),
-  		    CHF_BOX(a_box),
-		    CHF_CONST_REAL(maxEpsSqr));
+  //Real maxEpsSqr = 1.0e-2;
+  // FORT_L1L2SUPRESSFAB(CHF_FRA1(epsSqr,0),
+  // 		    CHF_BOX(a_box),
+  // 		    CHF_CONST_REAL(maxEpsSqr));
   
   
   FArrayBox A(a_box,1);
@@ -463,13 +463,13 @@ L1L2ConstitutiveRelation::computeFaceFluxVelocity(LevelData<FArrayBox>& a_vel,
        
        CH_assert(SpaceDim == 2);//ought to work for 3(2) and 2(1) at some point
        
-       // noisy gradVel is a problem
-       for (int comp = 0; comp < gradVel.nComp(); ++comp){
-         Real maxGradVel = 1.0e-1;
-         FORT_L1L2SUPRESSFAB(CHF_FRA1(gradVel[dit],comp),
-                             CHF_BOX(outerCellBox),
-                             CHF_CONST_REAL(maxGradVel));
-       }
+       // // noisy gradVel is a problem
+       // for (int comp = 0; comp < gradVel.nComp(); ++comp){
+       //   Real maxGradVel = 1.0e-1;
+       //   // FORT_L1L2SUPRESSFAB(CHF_FRA1(gradVel[dit],comp),
+       //   //                     CHF_BOX(outerCellBox),
+       //   //                     CHF_CONST_REAL(maxGradVel));
+       // }
        
        
        
