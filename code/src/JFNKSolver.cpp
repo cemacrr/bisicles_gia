@@ -275,6 +275,7 @@ void JFNKOp::preCond(Vector<LevelData<FArrayBox>*>& a_cor,
 		     const Vector<LevelData<FArrayBox>*>& a_residual)
 {
   //CH_assert(norm(a_residual,0) < HUGE_NORM);
+  CH_TIME("JFNKOp::precond");
   m_mlOp.preCond( a_cor, a_residual);
   //CH_assert(norm(a_cor,0) < HUGE_NORM);
 }
@@ -813,14 +814,14 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 		      Real a_time,  int a_lbase, int a_maxLevel)
 {
 
- int returnCode = 0;
- 
- CH_TIME("JFNKOp::solve");
+  CH_TIME("JFNKSolver::solve");
 
- Vector<LevelData<FArrayBox>* > localU(a_maxLevel+1);
- Vector<LevelData<FArrayBox>* > localRhs(a_maxLevel+1);
- Vector<LevelData<FArrayBox>* > localC(a_maxLevel+1);
- Vector<LevelData<FArrayBox>* > localC0(a_maxLevel+1);
+  int returnCode = 0;
+  
+  Vector<LevelData<FArrayBox>* > localU(a_maxLevel+1);
+  Vector<LevelData<FArrayBox>* > localRhs(a_maxLevel+1);
+  Vector<LevelData<FArrayBox>* > localC(a_maxLevel+1);
+  Vector<LevelData<FArrayBox>* > localC0(a_maxLevel+1);
  
  for (int lev = 0; lev < a_maxLevel + 1; ++lev)
    {
@@ -932,7 +933,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	  if (mode == JFNK_SOLVER_MODE)
 	    {
 	      biCGStabSolver->m_numRestarts = 0;
-	      biCGStabSolver->m_hang = 1.0;
+	      biCGStabSolver->m_hang = m_RelaxHang;
 	    }
 	  krylovSolver = biCGStabSolver;
 	}
