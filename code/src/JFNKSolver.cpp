@@ -814,6 +814,8 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 {
 
  int returnCode = 0;
+ 
+ CH_TIME("JFNKOp::solve");
 
  Vector<LevelData<FArrayBox>* > localU(a_maxLevel+1);
  Vector<LevelData<FArrayBox>* > localRhs(a_maxLevel+1);

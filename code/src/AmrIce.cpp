@@ -4117,7 +4117,7 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
 			   Real a_convergenceMetric)
 {
 
-  
+  CH_TIME("AmrIce::solveVelocityField");
 
   //ensure A is up to date
 #if BISICLES_Z == BISICLES_LAYERED
