@@ -20,7 +20,7 @@
 
 #include "NamespaceHeader.H"
 
-
+#define IC_ORDER  2
 
 void zeroBCValueHump(Real* pos,
                    int* dir,
@@ -423,6 +423,18 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
   Box refbox(IntVect::Zero,
              (initRef-1)*IntVect::Unit);
 
+  // to switch back to 2nd order, set factor to be zero...
+
+  Real factor;
+  if (IC_ORDER == 4)
+    {
+      factor = 1.0/24.0;
+    }
+  else
+    {
+      factor = 0.0;
+    }
+
   for (dit.begin(); dit.ok(); ++dit)
     { 
       FArrayBox& zB = zBlocal[dit];
@@ -445,7 +457,7 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 
           x -= m_center;
 
-          //#define HUMP2D
+#define HUMP2D
 #ifdef HUMP2D
           Real radSqr = D_TERM(m_widthScale[0]*x[0]*x[0], 
                                +m_widthScale[1]*x[1]*x[1], 
@@ -472,6 +484,10 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
           if (phi < Pi)
             {
               thickness = max(m_maxThickness*cos(phi),0.0);
+            }
+          else 
+            {
+              thickness = 0.0;
             }
 #endif
           
