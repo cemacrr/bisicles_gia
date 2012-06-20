@@ -80,9 +80,10 @@ do
     runcommand="$EXECFILE $of > $outfile"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
-    echo "$SCRIPTDIR/innerJFNK.awk < $outfile > $TEMPFILE " >> $RUNFILE
-    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
-    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
+    echo "mv time.table time.table.$RES" >> $RUNFILE
+#    echo "$SCRIPTDIR/innerJFNK.awk < $outfile > $TEMPFILE " >> $RUNFILE
+#    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
+#    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
     if [ $RES!="0032" ]; then
       richcomparecommand="$COMPAREEXEC $rcof"
       echo $richcomparecommand >> $RICHCOMPAREFILE
@@ -129,9 +130,10 @@ do
     runcommand="$EXECFILE $of > $outfile"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
-    echo "$SCRIPTDIR/innerJFNK.awk < $outfile > $TEMPFILE " >> $RUNFILE
-    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
-    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
+    echo "mv time.table time.table.$RES.r$NREF.l$MAXLEVEL" >> $RUNFILE
+#    echo "$SCRIPTDIR/innerJFNK.awk < $outfile > $TEMPFILE " >> $RUNFILE
+#    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
+#    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
 
     comparecommand="$COMPAREEXEC $cof"
     echo $comparecommand >> $COMPAREFILE
@@ -173,9 +175,10 @@ do
     runcommand="$EXECFILE $of > $outfile"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
-    echo "$SCRIPTDIR/innerJFNK.awk < $outfile > $TEMPFILE " >> $RUNFILE
-    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
-    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
+    echo "mv time.table time.table.$RES.r$NREF.l$MAXLEVEL" >> $RUNFILE
+#    echo "$SCRIPTDIR/innerJFNK.awk < $outfile > $TEMPFILE " >> $RUNFILE
+#    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
+#    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
 
     comparecommand="$COMPAREEXEC $cof"
     echo $comparecommand >> $COMPAREFILE
@@ -217,9 +220,10 @@ do
     runcommand="$EXECFILE $of > $outfile"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
-    echo "$SCRIPTDIR/innerJFNK.awk < $outfile > $TEMPFILE " >> $RUNFILE
-    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
-    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
+    echo "mv time.table time.table.$RES.r$NREF.l$MAXLEVEL" >> $RUNFILE
+#    echo "$SCRIPTDIR/innerJFNK.awk < $outfile > $TEMPFILE " >> $RUNFILE
+#    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
+#    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
 
     comparecommand="$COMPAREEXEC $cof"
     echo $comparecommand >> $COMPAREFILE
