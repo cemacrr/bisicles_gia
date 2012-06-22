@@ -70,17 +70,20 @@ do
     YRES=$RES
     gettagval 
     echo $RES "-- tagval = "  $TAGVAL;
-    of=singleLev/$INFILE_BASE.$CRE.$RES.l$MAXLEVEL
+    infile=$INFILE_BASE.$CRE.$RES.l$MAXLEVEL
+    of=singleLev/$infile
     sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@NREF1/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
-    rcof=singleLev/inputs.compare.Richardson.$CRSERES.l$MAXLEVEL
+    richcomparein=inputs.compare.Richardson.$CRSERES.l$MAXLEVEL
+    rcof=singleLev/$richcomparein
     sed -e s/@CRE/$CRE/ -e s/@FINERES/$RES/ -e s/@CRSERES/$CRSERES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $rcof
-    cof=singleLev/inputs.compare.$CRSERES.l$MAXLEVEL
+    comparein=inputs.compare.$CRSERES.l$MAXLEVEL
+    cof=singleLev/$comparein
     sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINESTRES/ -e s/@CRSERES/$CRSERES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $cof
  
     outfile="run.$CRE.$RES.l$MAXLEVEL"
     innerConvergename="../solverConverge/stream.$CRE.$RES.l$MAXLEVEL"
     outerConvergename="../solverConverge/stream.$CRE.$RES.l$MAXLEVEL.outer"
-    runcommand="$RUNPREFIX $EXECFILE $of > $outfile"
+    runcommand="$RUNPREFIX $EXECFILE $infile > $outfile"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
     echo "cp pout.0 pout.$RES" >> $RUNFILE
@@ -89,9 +92,9 @@ do
 #    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
 #    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
     if [ $RES!="0032" ]; then
-      richcomparecommand="$COMPAREEXEC $rcof"
+      richcomparecommand="$COMPAREEXEC $richcomparein"
       echo $richcomparecommand >> $RICHCOMPAREFILE
-      comparecommand="$COMPAREEXEC $cof"
+      comparecommand="$COMPAREEXEC $comparein"
       echo $comparecommand >> $COMPAREFILE
     fi
 chmod +x $COMPAREFILE
@@ -123,15 +126,17 @@ do
     YRES=$RES
     gettagval 
     echo $RES "-- tagval = "  $TAGVAL;
-    of=2Ref/$INFILE_BASE.$CRE.$RES.r$NREF.l$MAXLEVEL
+    infile=$INFILE_BASE.$CRE.$RES.r$NREF.l$MAXLEVEL
+    of=2Ref/$infile
     sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@NREF1/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
-    cof=2Ref/inputs.compare.$RES.r$NREF.l$MAXLEVEL
+    comparein=inputs.compare.$RES.r$NREF.l$MAXLEVEL
+    cof=2Ref/$comparein
     sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $cof
  
     outfile="run.$CRE.$RES.r$NREF.l$MAXLEVEL"
     innerConvergename="solverConverge/stream.$CRE.$RES.r$NREF.l$MAXLEVEL"
     outerConvergename="solverConverge/stream.$CRE.$RES.r$NREF.l$MAXLEVEL.outer"
-    runcommand="$RUNPREFIX $EXECFILE $of > $outfile"
+    runcommand="$RUNPREFIX $EXECFILE $infile > $outfile"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
     echo "cp pout.0 pout.2Ref.$RES" >> $RUNFILE
@@ -140,7 +145,7 @@ do
 #    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
 #    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
 
-    comparecommand="$COMPAREEXEC $cof"
+    comparecommand="$COMPAREEXEC $comparein"
     echo $comparecommand >> $COMPAREFILE
 CRSERES=$RES
 NSMOOTH=$((NSMOOTH + NPLUS))
@@ -169,15 +174,17 @@ do
     YRES=$RES
     gettagval3lev 
     echo $RES "-- tagval = "  $TAGVAL;
-    of=3Lev/$INFILE_BASE.$CRE.$RES.r$NREF.l$MAXLEVEL
+    infile=$INFILE_BASE.$CRE.$RES.r$NREF.l$MAXLEVEL
+    of=3Lev/$infile
     sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@NREF1/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
-    cof=3Lev/inputs.compare.$RES.r$NREF.l$MAXLEVEL
+    comparein=3Lev/inputs.compare.$RES.r$NREF.l$MAXLEVEL
+    cof=$comparein
     sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $cof
  
     outfile="run.$CRE.$RES.r$NREF.l$MAXLEVEL"
     innerConvergename="solverConverge/stream.$CRE.$RES.r$NREF.l$MAXLEVEL"
     outerConvergename="solverConverge/stream.$CRE.$RES.r$NREF.l$MAXLEVEL.outer"
-    runcommand="$RUNPREFIX $EXECFILE $of > $outfile"
+    runcommand="$RUNPREFIX $EXECFILE $infile > $outfile"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
     echo "cp pout.0 pout.3Lev.$RES" >> $RUNFILE
@@ -186,7 +193,7 @@ do
 #    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
 #    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
 
-    comparecommand="$COMPAREEXEC $cof"
+    comparecommand="$COMPAREEXEC $comparein"
     echo $comparecommand >> $COMPAREFILE
 
 CRSERES=$RES
@@ -215,15 +222,17 @@ do
     YRES=$RES
     gettagval 
     echo $RES "-- tagval = "  $TAGVAL;
-    of=4Ref/$INFILE_BASE.$CRE.$RES.$NREF.l$MAXLEVEL
+    infile=$INFILE_BASE.$CRE.$RES.$NREF.l$MAXLEVEL
+    of=4Ref/$infile
     sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@NREF1/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
-    cof=4Ref/inputs.compare.$RES.r$NREF.l$MAXLEVEL
+    comparein=4Ref/inputs.compare.$RES.r$NREF.l$MAXLEVEL
+    cof=$comparein
     sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $cof
  
     outfile="run.$CRE.$RES.r$NREF.l$MAXLEVEL"
     innerConvergename="solverConverge/stream.$CRE.$RES.r$NREF.l$MAXLEVEL"
     outerConvergename="solverConverge/stream.$CRE.$RES.r$NREF.l$MAXLEVEL.outer"
-    runcommand="$RUNPREFIX $EXECFILE $of > $outfile"
+    runcommand="$RUNPREFIX $EXECFILE $infile > $outfile"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
     echo "cp pout.0 pout.4Ref.$RES" >> $RUNFILE
@@ -232,7 +241,7 @@ do
 #    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
 #    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
 
-    comparecommand="$COMPAREEXEC $cof"
+    comparecommand="$COMPAREEXEC $comparein"
     echo $comparecommand >> $COMPAREFILE
 
 CRSERES=$RES
