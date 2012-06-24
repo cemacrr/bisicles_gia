@@ -1,8 +1,8 @@
 #!/bin/sh
-RUNPREFIX="mpirun -np 16"
-#RUNPREFIX=""
-EXECFILE=../../../driver2d.Linux.64.mpiCC.gfortran.OPT.MPI.ex
-#EXECFILE=../../../driver2d.Linux.64.g++.gfortran.OPT.ex
+#RUNPREFIX="mpirun -np 16"
+RUNPREFIX=""
+#EXECFILE=../../../driver2d.Linux.64.mpiCC.gfortran.OPT.MPI.ex
+EXECFILE=../../../driver2d.Linux.64.g++.gfortran.OPT.ex
 COMPAREEXEC=compare2d
 INFILE_TEMPLATE=inputs.iceStream.template
 INFILE_BASE=inputs.iceStream
@@ -20,13 +20,13 @@ TAGFACTOR=0.25
 gettagval()
 {
    case $RES in
-     0032) TAGVAL="1000";;
-     0064) TAGVAL="250";; 
-     0128) TAGVAL="62.5";; 
-     0256) TAGVAL="15.625";; 
-     0512) TAGVAL="3.90625";; 
-     1024) TAGVAL="0.9765625";; 
-     2048) TAGVAL="0.244140625";; 
+     0032) TAGVAL="4.0";;
+     0064) TAGVAL="1.0";; 
+     0128) TAGVAL="0.25";; 
+     0256) TAGVAL="0.0625";; 
+     0512) TAGVAL="0.015625";; 
+     1024) TAGVAL="0.00390625";; 
+     2048) TAGVAL="0.0009765625";; 
      *) echo "Unanticipated RES val for Tagging values";;
    esac
 }
@@ -35,12 +35,12 @@ gettagval()
 gettagval3lev()
 {
    case $RES in
-     0032) TAGVAL="250";; 
-     0064) TAGVAL="62.5";; 
-     0128) TAGVAL="15.625";; 
-     0256) TAGVAL="3.90625";; 
-     0512) TAGVAL="0.9765625";; 
-     1024) TAGVAL="0.244140625";; 
+     0032) TAGVAL="4.0";; 
+     0064) TAGVAL="1.0";; 
+     0128) TAGVAL="0.25";; 
+     0256) TAGVAL="0.0625";; 
+     0512) TAGVAL="0.015625";; 
+     1024) TAGVAL="0.00390625";; 
      *) echo "Unanticipated RES val for Tagging values";;
    esac
 }

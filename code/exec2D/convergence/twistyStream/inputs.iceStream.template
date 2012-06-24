@@ -12,12 +12,12 @@ geometry.basal_type = constantZb
 geometry.thickness_type = constantThickness1km
 
 geometry.beta_type = twistyStreamx
-geometry.betaValue = 1000.0
+geometry.betaValue = 100000.0
 #geometry.betaEps = 0.0001
-geometry.betaEps = 1.0e-3
+geometry.betaEps = 5.0e-5
 # slope should correspond to a .5 degree x-slope
-#geometry.basalSlope = -0.087488664 0.0  # 0.5 degree slope
-geometry.basalSlope = -0.001745331 0.0 # 0.1 degree slope
+geometry.basalSlope = -0.0087488664 0.0  # 0.5 degree slope
+#geometry.basalSlope = -0.001745331 0.0 # 0.1 degree slope
 
 surfaceFlux.type = zeroFlux
 basalFlux.type = zeroFlux
