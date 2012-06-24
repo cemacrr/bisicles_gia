@@ -35,12 +35,11 @@ gettagval()
 gettagval3lev()
 {
    case $RES in
-     0032) TAGVAL="4.0";; 
-     0064) TAGVAL="1.0";; 
-     0128) TAGVAL="0.25";; 
-     0256) TAGVAL="0.0625";; 
-     0512) TAGVAL="0.015625";; 
-     1024) TAGVAL="0.00390625";; 
+     0032) TAGVAL="1.0";; 
+     0064) TAGVAL="0.25";; 
+     0128) TAGVAL="0.0625";; 
+     0256) TAGVAL="0.015625";; 
+     0512) TAGVAL="0.00390625";; 
      *) echo "Unanticipated RES val for Tagging values";;
    esac
 }
