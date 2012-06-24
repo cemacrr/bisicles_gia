@@ -262,7 +262,7 @@ protected:
 				   const Vector<LevelData<FArrayBox>* >& a_bts
 				   );
   
-  void computeConnectivity(const Real& a_thresh);
+  void eliminateRemoteIce();
 
   /// solve a_alpha * phi - a_beta * laplacian(phi) = a_rhs
   /// and grad(phi).n = 0 on the domain boundaries

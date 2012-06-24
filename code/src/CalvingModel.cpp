@@ -32,7 +32,7 @@ DeglaciationCalvingModelA::postUpdateThickness
     {
       const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
       FArrayBox& thck = a_coordSys.getH()[dit];
-      // FArrayBox& u = a_vel[dit];
+      FArrayBox& u = a_vel[dit];
       const FArrayBox& topg = a_coordSys.getTopography()[dit];
       Box b = thck.box();
       b &= thck.box();
@@ -45,6 +45,8 @@ DeglaciationCalvingModelA::postUpdateThickness
       for (BoxIterator bit(b); bit.ok(); ++bit)
 	{
 	  const IntVect& iv = bit();
+
+
 	  if (mask(iv) == OPENSEAMASKVAL)
 	    {
 	      thck(iv) = 0.0;
@@ -64,17 +66,62 @@ DeglaciationCalvingModelA::postUpdateThickness
 	      thck(iv) = std::max(thck(iv),m_minThickness);
 	    }
 	}
-      // for (BoxIterator bit(u.box()); bit.ok(); ++bit)
+
+      
+      // if (a_time < 0.26)
       // 	{
-      // 	  const IntVect& iv = bit();
-      // 	  if (abs(u(iv,0)) > 1.0e+4 || abs(u(iv,1)) > 1.0e+4 )
+      // 	  for (BoxIterator bit(u.box()); bit.ok(); ++bit)
       // 	    {
-      // 	      thck(iv) =  0.0;
+      // 	      const IntVect& iv = bit();
+      // 	      if( mask(iv) == FLOATINGMASKVAL)
+      // 		{
+      // 		  Real umod = std::sqrt( u(iv,0)*u(iv,0) + u(iv,1)*u(iv,1));
+      // 		  if (umod > 2.0e+3)
+      // 		    {
+      // 		      thck(iv) = 5.0;
+      // 		      u(iv,0) = 0.0;
+      // 		      u(iv,1) = 0.0;
+      // 		    }
+      // 		}
       // 	    }
       // 	}
+
+
     }
 
+}
 
+void DeglaciationCalvingModelA::modifySurfaceThicknessFlux
+(LevelData<FArrayBox>& a_flux,
+ const LevelSigmaCS& a_coordSys,
+ const LevelData<FArrayBox>& a_vel,
+ Real a_time, Real a_dt) const
+{
+
+  // const DisjointBoxLayout& levelGrids = a_coordSys.grids();
+  // for (DataIterator dit(levelGrids); dit.ok(); ++dit)
+  //   {
+  //     const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
+  
+  //     if (a_time < -1.25)
+  // 	{
+  // 	  const FArrayBox& u = a_vel[dit];
+  // 	  const FArrayBox& thck = a_coordSys.getH()[dit];
+  // 	  FArrayBox& flux = a_flux[dit];
+  // 	  for (BoxIterator bit(u.box()); bit.ok(); ++bit)
+  // 	    {
+  // 	      const IntVect& iv = bit();
+  // 	      if (mask(iv) == FLOATINGMASKVAL)
+  // 		{
+  // 		  Real umod = std::sqrt(u(iv,0)*u(iv,0) + u(iv,1)*u(iv,1));
+  // 		  if (umod > 1.5e+3)
+  // 		    {
+  // 		      flux(iv) -= 4 * thck(iv);
+  // 		    }
+  // 		}
+  // 	    }
+  // 	}
+  //   }
 }
 
 
@@ -143,6 +190,15 @@ void DomainEdgeCalvingModel::postUpdateThickness
 	}
 
     } // end loop over boxes
+
+}
+
+void DomainEdgeCalvingModel::modifySurfaceThicknessFlux
+(LevelData<FArrayBox>& a_flux,
+ const LevelSigmaCS& a_coordSys,
+ const LevelData<FArrayBox>& a_vel,
+ Real a_time, Real a_dt) const
+{
 
 }
 

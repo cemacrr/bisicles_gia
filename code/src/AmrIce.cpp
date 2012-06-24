@@ -56,6 +56,7 @@ using std::endl;
 #include "PicardSolver.H"
 #include "JFNKSolver.H"
 #include "PetscIceSolver.H"
+#include "RelaxSolver.H"
 #include "KnownVelocitySolver.H"
 #include "VCAMRPoissonOp2.H"
 #include "AMRPoissonOpF_F.H"
@@ -1839,6 +1840,12 @@ AmrIce::timeStep(Real a_dt)
 	  m_basalFluxPtr->surfaceThicknessFlux(levelBTS, 
 					       levelCoordSys,
 					       m_time, a_dt);
+
+	  m_calvingModelPtr->modifySurfaceThicknessFlux(levelBTS, 
+							levelCoordSys,
+							*m_velocity[lev],
+							m_time, a_dt);
+
 
 	  // modify face velocity, removing the diffusive component,
           // -D/H grad(H) and compute a source term div(D grad H))
@@ -4069,8 +4076,8 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
       a_vectCoordSys[lev]->recomputeGeometry(crsePtr, refRatio);
 
       //allow calving model to modify geometry and velocity
-      m_calvingModelPtr->postUpdateThickness
-	(*(m_vect_coordSys[lev]), *m_velocity[lev], m_time);
+      //m_calvingModelPtr->postUpdateThickness
+      //	(*(m_vect_coordSys[lev]), *m_velocity[lev], m_time);
 
       a_vectCoordSys[lev]->recomputeGeometry(crsePtr, refRatio);
 
@@ -4149,7 +4156,7 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
 
   //setBasalFriction(vectC);
   setMuCoefficient(m_cellMuCoef,m_faceMuCoef);
-  //computeConnectivity(1.0e-4);
+  //eliminateRemoteIce();
   setBasalFriction(vectC);
   //setMuCoefficient(m_cellMuCoef,m_faceMuCoef);
 
@@ -5031,6 +5038,9 @@ AmrIce::computeDivThicknessFlux(Vector<LevelData<FArrayBox>* >& a_divFlux,
       LevelData<FArrayBox>& basalThicknessSource = *m_basalThicknessSource[lev];
       m_basalFluxPtr->surfaceThicknessFlux(basalThicknessSource, levelCoords, 
                                              a_time, a_dt);
+      m_calvingModelPtr->modifySurfaceThicknessFlux(basalThicknessSource, levelCoords,
+					      *m_velocity[lev], a_time, a_dt);
+
       const RealVect& dx = levelCoords.dx();          
 
       DataIterator dit = levelGrids.dataIterator();
@@ -5216,11 +5226,191 @@ AmrIce::computeInitialDt()
   return dt;
 }
 
-// identify regions of ice that are connected to land
-// via ice at least a_thresh thick. This is achieved
-// by solving phi - div( H * grad (phi) ) = (mask==GROUNDEDMASKVAL)?1:0
-void AmrIce::computeConnectivity(const Real& a_thresh)
+///Identify regions of floating ice that are remote
+///from grounded ice and eliminate them.
+/**
+   Regions of floating ice unconnected to land 
+   lead to an ill-posed problem, with a zero
+   basal traction coefficient and Neumann boundary
+   conditions. Here, we attempt to identify them
+   by solving - div(A grad(phi)) + C phi = R with 
+   natural (or periodic) BCs
+
+   for ice, A = H * muCooef, elsewhere A = 0
+
+   for grounded ice, C = 1 and R = 1
+   for floating ice, C = 0 and R = 0
+   elsewhere, C = 1 and R = -1
+
+   The solution for the well-posed regions is
+   phi = 1, and tensd to be -1 in the ill-posed
+   regions.
+
+ */ 
+void AmrIce::eliminateRemoteIce()
 {
+  
+  //Natural boundary conditions
+  BCHolder bc(ConstDiriNeumBC(IntVect(0,0), RealVect(0.0,0.0),
+ 			      IntVect(0,0), RealVect(0.0,0.0)));
+  
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > C(m_finest_level + 1);
+  Vector<RefCountedPtr<LevelData<FluxBox> > > D(m_finest_level + 1);
+  Vector<LevelData<FArrayBox>* > rhs(m_finest_level+ 1,NULL);
+  Vector<LevelData<FArrayBox>* > phi(m_finest_level + 1);
+  Vector<DisjointBoxLayout> grids(finestTimestepLevel() + 1);
+  Vector<ProblemDomain> domains(finestTimestepLevel() + 1);
+  Vector<RealVect> dx(finestTimestepLevel() + 1);
+  for (int lev=0; lev <= m_finest_level; ++lev)
+    {
+      dx[lev] = m_amrDx[lev]*RealVect::Unit;
+      domains[lev] = m_amrDomains[lev];
+
+      LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
+      const LevelData<BaseFab<int> >& levelMask = levelCS.getFloatingMask();
+      const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+      C[lev] = RefCountedPtr<LevelData<FArrayBox> >
+ 	(new LevelData<FArrayBox>(levelGrids, 1, IntVect::Zero));
+      D[lev] = RefCountedPtr<LevelData<FluxBox> >
+ 	(new LevelData<FluxBox>(levelGrids, 1, IntVect::Zero));
+      rhs[lev] = new LevelData<FArrayBox>(levelGrids, 1, IntVect::Zero);
+      phi[lev] = new LevelData<FArrayBox>(levelGrids, 1, IntVect::Unit);
+      grids[lev] = levelGrids;
+      for (DataIterator dit(levelGrids); dit.ok(); ++dit)
+ 	{
+	  FluxBox& d= (*D[lev])[dit];
+	  
+	  for (int dir = 0; dir < SpaceDim; dir++)
+	    {
+	      d[dir].copy(levelCS.getFaceH()[dit][dir]);
+	      d[dir] *= (*m_faceMuCoef[lev])[dit][dir];
+	      d[dir] += 1.0e+2;
+	    }
+
+ 	  FArrayBox& r =  (*rhs[lev])[dit];
+ 	  r.setVal(0.0);
+
+	  FArrayBox& p =  (*phi[lev])[dit];
+ 	  p.setVal(1.0);
+
+	  FArrayBox& c =  (*C[lev])[dit];
+	  c.setVal(0.0);
+
+ 	  const BaseFab<int>& mask = levelMask[dit];
+ 	  const Box& gridBox = levelGrids[dit];
+ 	  for (BoxIterator bit(gridBox);bit.ok();++bit)
+ 	    {
+ 	      const IntVect& iv = bit();
+ 	      if (mask(iv) == GROUNDEDMASKVAL)
+ 		{
+ 		  c(iv) = 1.0;
+		  p(iv) = 1.0;
+		  r(iv) = 1.0;
+ 		} 
+	      else if (mask(iv) == OPENSEAMASKVAL || mask(iv) == OPENLANDMASKVAL)
+ 		{
+ 		  c(iv) = 1.0;
+		  p(iv) = -1.0;
+		  r(iv) = -1.0;
+ 		} 
+	      else
+		{
+		  c(iv) = 0.0;
+		  p(iv) = 0.0;
+		  r(iv) = 0.0;
+		}
+	      
+ 	    }
+ 
+ 	}
+
+      rhs[lev]->exchange();
+      phi[lev]->exchange();
+      D[lev]->exchange();
+      C[lev]->exchange();
+    }
+
+
+  VCAMRPoissonOp2Factory* poissonOpFactory = new VCAMRPoissonOp2Factory;
+  poissonOpFactory->define(domains[0], grids , m_refinement_ratios,
+ 			   m_amrDx[0], bc, 1.0, C,  1.0 , D);
+  RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > > 
+    opFactoryPtr(poissonOpFactory);
+
+  MultilevelLinearOp<FArrayBox> poissonOp;
+  poissonOp.define(grids, m_refinement_ratios, domains, dx, opFactoryPtr, 0);
+    
+  RelaxSolver<Vector<LevelData<FArrayBox>* > >* relaxSolver
+    = new RelaxSolver<Vector<LevelData<FArrayBox>* > >();
+
+  relaxSolver->define(&poissonOp,false);
+  relaxSolver->m_verbosity = s_verbosity;
+  relaxSolver->m_normType = 0;
+  relaxSolver->m_eps = 1.0e-10;
+  relaxSolver->m_imax = 4;
+  relaxSolver->m_hang = 0.05;
+  relaxSolver->solve(phi,rhs);
+
+
+  for (int lev = m_finest_level; lev > 0 ; --lev)
+    {
+      CoarseAverage averager(grids[lev],1,m_refinement_ratios[lev-1]);
+      averager.averageToCoarse(*phi[lev-1],*phi[lev]);
+    }
+
+  //std::string file("connectivity.2d.hdf5");
+  //Real dt = 0.0; //Real time = 0.0;
+  //Vector<std::string> names(1,"conn");
+  //WriteAMRHierarchyHDF5(file ,grids, phi ,names, m_amrDomains[0].domainBox(),
+  //			m_amrDx[0], dt, m_time, m_refinement_ratios, phi.size());
+  //MayDay::Error("stopping after connectivity.2d.hdf5");
+
+
+  Real threshold = -0.99;
+
+  for (int lev=0; lev <= m_finest_level ; ++lev)
+    {
+      const LevelData<FArrayBox>& levelPhi = *phi[lev];
+      LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
+      const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+     
+      for (DataIterator dit(levelGrids); dit.ok(); ++dit)
+	{
+	  const FArrayBox& thisPhi = levelPhi[dit];
+	  FArrayBox& thisH = levelCS.getH()[dit];
+	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
+	  for (BoxIterator bit(levelGrids[dit]); bit.ok(); ++bit)
+	    {
+	      const IntVect& iv = bit();
+	      if (mask(iv) == FLOATINGMASKVAL && thisPhi(iv) < threshold)
+	      	{
+		  thisH(iv) = 5.0;
+	      	}
+	    }
+	}
+
+      LevelSigmaCS* crseCS = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
+      int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
+      levelCS.recomputeGeometry(crseCS, refRatio);     
+    }
+
+
+
+  delete(relaxSolver);
+
+  for (int lev=0; lev <= m_finest_level ; ++lev)
+    {
+      if (rhs[lev] != NULL)
+ 	{
+ 	  delete rhs[lev];
+	  rhs[lev] = NULL;
+ 	}
+      if (phi[lev] != NULL)
+ 	{
+ 	  delete phi[lev];
+ 	  phi[lev] = NULL;
+ 	}
+    }
 
 
 }
@@ -5756,6 +5946,9 @@ AmrIce::writePlotFile()
 	    (*m_surfaceThicknessSource[lev], levelCS, m_time, m_dt);
 	  m_basalFluxPtr->surfaceThicknessFlux
 	    (*m_basalThicknessSource[lev], levelCS, m_time, m_dt);
+	  m_calvingModelPtr->modifySurfaceThicknessFlux(*m_basalThicknessSource[lev], 
+							 levelCS,
+							 *m_velocity[lev], m_time, m_dt);
 	}
 
       DataIterator dit = m_amrGrids[lev].dataIterator();

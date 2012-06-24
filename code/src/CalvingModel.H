@@ -27,7 +27,15 @@ public:
 				   LevelData<FArrayBox>& a_vel,
 				   const Real& a_time) const=0;
 
+  //modify a thickness flux
+  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				    const LevelSigmaCS& a_coordSys,
+				    const LevelData<FArrayBox>& a_vel,
+				    Real a_time, Real a_dt) const=0;
+
+
   virtual ~CalvingModel(){};
+
 
 };
 
@@ -43,6 +51,16 @@ public:
   {
 
   }
+
+  
+  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				    const LevelSigmaCS& a_coordSys,
+				    const LevelData<FArrayBox>& a_vel,
+				    Real a_time, Real a_dt) const
+  {
+
+  }
+
 
 };
 
@@ -62,6 +80,14 @@ public:
 				   LevelData<FArrayBox>& a_vel,
 				   const Real& a_time) const;
  
+
+  
+  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				    const LevelSigmaCS& a_coordSys,
+				    const LevelData<FArrayBox>& a_vel,
+				    Real a_time, Real a_dt) const;
+  
+
   DeglaciationCalvingModelA(const Real& a_calvingThickness,
 			    const Real& a_calvingOceanDepth,
 			    const Real& a_minThickness, 
@@ -91,6 +117,12 @@ public:
   virtual void postUpdateThickness(LevelSigmaCS& a_coordSys,
 				   LevelData<FArrayBox>& a_vel,
 				   const Real& a_time) const;
+
+  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				    const LevelSigmaCS& a_coordSys,
+				    const LevelData<FArrayBox>& a_vel,
+				    Real a_time, Real a_dt) const;
+
 
   DomainEdgeCalvingModel(const Vector<int>& a_frontLo,
 			 const Vector<int>& a_frontHi,
