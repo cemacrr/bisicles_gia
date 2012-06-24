@@ -32,7 +32,7 @@ compare.doPlots = 1
 compare.HOaverage = 0
 
 #which variables to compute error for
-compare.error_var = thickness xVel yVel 
+compare.error_var = thickness xVel yVel xfVel yfVel
 
 #these variables are not compared against a finer plotfile
 #(it's assumed that the "exact" solution is 0)
