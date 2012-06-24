@@ -6,7 +6,7 @@
 compare.sameSize = 0
 
 #name of file for "exact" solution (single-level fine-resolution solution)
-compare.exactRoot = stream.@CRE.@FINERES.r@NREF.l0.000000.2d.hdf5
+compare.exactRoot = @EXACTDIRstream.@CRE.@FINERES.r@NREF.l0.000000.2d.hdf5
 
 #name of file containing "computed" solution (which may be AMR )
 compare.computedRoot = stream.@CRE.@CRSERES.r@NREF.l@MAXLEVEL.000000.2d.hdf5

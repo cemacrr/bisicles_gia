@@ -64,6 +64,7 @@ if [ -f $COMPAREFILE ]; then
   echo "deleting  $COMPAREFILE"
   rm  $COMPAREFILE
 fi
+EXACTDIR=
 echo "generating single-level inputs"
 for RES in 0032 0064 0128 0256 0512 1024 2048  
 do
@@ -75,10 +76,10 @@ do
     sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@NREF1/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
     richcomparein=inputs.compare.Richardson.$CRSERES.l$MAXLEVEL
     rcof=singleLev/$richcomparein
-    sed -e s/@CRE/$CRE/ -e s/@FINERES/$RES/ -e s/@CRSERES/$CRSERES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $rcof
+    sed -e s/@CRE/$CRE/ -e s/@FINERES/$RES/ -e s/@CRSERES/$CRSERES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/ -e s/@EXACTDIR/$EXACTDIR/  $COMPARE_TEMPLATE > $rcof
     comparein=inputs.compare.$CRSERES.l$MAXLEVEL
     cof=singleLev/$comparein
-    sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINESTRES/ -e s/@CRSERES/$CRSERES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $cof
+    sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINESTRES/ -e s/@CRSERES/$CRSERES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/ -e s/@EXACTDIR/$EXACTDIR/  $COMPARE_TEMPLATE > $cof
  
     outfile="run.$CRE.$RES.l$MAXLEVEL"
     innerConvergename="../solverConverge/stream.$CRE.$RES.l$MAXLEVEL"
@@ -120,6 +121,7 @@ FINERES=2048
 NREF=2
 NSMOOTH=32
 MAXLEVEL=1
+EXACTDIR="..\/singleLev\/"
 echo "generating nRef = 2 inputs"
 for RES in 0032 0064 0128 0256 0512 
 do
@@ -131,7 +133,7 @@ do
     sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@NREF1/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
     comparein=inputs.compare.$RES.r$NREF.l$MAXLEVEL
     cof=2Ref/$comparein
-    sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $cof
+    sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/ -e s/@EXACTDIR/$EXACTDIR/  $COMPARE_TEMPLATE > $cof
  
     outfile="run.$CRE.$RES.r$NREF.l$MAXLEVEL"
     innerConvergename="solverConverge/stream.$CRE.$RES.r$NREF.l$MAXLEVEL"
@@ -179,7 +181,7 @@ do
     sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@NREF1/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
     comparein=3Lev/inputs.compare.$RES.r$NREF.l$MAXLEVEL
     cof=$comparein
-    sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $cof
+    sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/ -e s/@EXACTDIR/$EXACTDIR/ $COMPARE_TEMPLATE > $cof
  
     outfile="run.$CRE.$RES.r$NREF.l$MAXLEVEL"
     innerConvergename="solverConverge/stream.$CRE.$RES.r$NREF.l$MAXLEVEL"
@@ -227,7 +229,7 @@ do
     sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@NREF1/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
     comparein=4Ref/inputs.compare.$RES.r$NREF.l$MAXLEVEL
     cof=$comparein
-    sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $COMPARE_TEMPLATE > $cof
+    sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/ -e s/@EXACTDIR/$EXACTDIR/ $COMPARE_TEMPLATE > $cof
  
     outfile="run.$CRE.$RES.r$NREF.l$MAXLEVEL"
     innerConvergename="solverConverge/stream.$CRE.$RES.r$NREF.l$MAXLEVEL"
