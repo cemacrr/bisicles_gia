@@ -221,7 +221,7 @@ echo "generating nRef = 4 inputs"
 for RES in 0032 0064 0128 0256 
 do
     YRES=$RES
-    gettagval 
+    gettagval3lev
     echo $RES "-- tagval = "  $TAGVAL;
     infile=$INFILE_BASE.$CRE.$RES.$NREF.l$MAXLEVEL
     of=4Ref/$infile
