@@ -45,6 +45,7 @@ gettagval3lev()
 }
 
 TAGSGROW=1
+BLOCKFACTOR=4
 NREF=2
 MAXLEVEL=0
 CRSERES="0032"
@@ -73,7 +74,7 @@ do
     echo $RES "-- tagval = "  $TAGVAL;
     infile=$INFILE_BASE.$CRE.$RES.l$MAXLEVEL
     of=singleLev/$infile
-    sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@TAGSGROW/$TAGSGROW/ -e s/@NREF1/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
+    sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@TAGSGROW/$TAGSGROW/ -e s/@BLOCKFACTOR/$BLOCKFACTOR/ -e s/@NREF1/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
     richcomparein=inputs.compare.Richardson.$CRSERES.l$MAXLEVEL
     rcof=singleLev/$richcomparein
     sed -e s/@CRE/$CRE/ -e s/@FINERES/$RES/ -e s/@CRSERES/$CRSERES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/ -e s/@EXACTDIR/$EXACTDIR/  $COMPARE_TEMPLATE > $rcof
@@ -130,7 +131,7 @@ do
     echo $RES "-- tagval = "  $TAGVAL;
     infile=$INFILE_BASE.$CRE.$RES.r$NREF.l$MAXLEVEL
     of=2Ref/$infile
-    sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@NREF1/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@TAGSGROW/$TAGSGROW/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
+    sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@NREF1/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@TAGSGROW/$TAGSGROW/ -e s/@BLOCKFACTOR/$BLOCKFACTOR/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
     comparein=inputs.compare.$RES.r$NREF.l$MAXLEVEL
     cof=2Ref/$comparein
     sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/ -e s/@EXACTDIR/$EXACTDIR/  $COMPARE_TEMPLATE > $cof
@@ -178,7 +179,7 @@ do
     echo $RES "-- tagval = "  $TAGVAL;
     infile=$INFILE_BASE.$CRE.$RES.r$NREF.l$MAXLEVEL
     of=3Lev/$infile
-    sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@NREF1/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@TAGSGROW/$TAGSGROW/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
+    sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@NREF1/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@TAGSGROW/$TAGSGROW/ -e s/@BLOCKFACTOR/$BLOCKFACTOR/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
     comparein=3Lev/inputs.compare.$RES.r$NREF.l$MAXLEVEL
     cof=$comparein
     sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/ -e s/@EXACTDIR/$EXACTDIR/ $COMPARE_TEMPLATE > $cof
@@ -219,6 +220,7 @@ NREF=4
 NSMOOTH=32
 MAXLEVEL=1
 TAGSGROW=2
+BLOCKFACTOR=8
 
 echo "generating nRef = 4 inputs" 
 for RES in 0032 0064 0128 0256 
@@ -228,9 +230,9 @@ do
     echo $RES "-- tagval = "  $TAGVAL;
     infile=$INFILE_BASE.$CRE.$RES.$NREF.l$MAXLEVEL
     of=4Ref/$infile
-    sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@NREF1/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@TAGSGROW/$TAGSGROW/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
-    comparein=4Ref/inputs.compare.$RES.r$NREF.l$MAXLEVEL
-    cof=$comparein
+    sed -e s/@NSMOOTH/$NSMOOTH/ -e s/@CRE/$CRE/ -e s/@NLAYER/$NLAYER/ -e s/@RES/$RES/ -e s/@YRES/$RES/ -e s/@NREF/$NREF/ -e s/@NREF1/$NREF/ -e s/@TAGVAL/$TAGVAL/ -e s/@TAGSGROW/$TAGSGROW/ -e s/@BLOCKFACTOR/$BLOCKFACTOR/ -e s/@MAXLEVEL/$MAXLEVEL/  $INFILE_TEMPLATE > $of
+    comparein=inputs.compare.$RES.r$NREF.l$MAXLEVEL
+    cof=4Ref/$comparein
     sed -e s/@CRE/$CRE/ -e s/@FINERES/$FINERES/ -e s/@CRSERES/$RES/ -e s/@NREF/$NREF/ -e s/@MAXLEVEL/$MAXLEVEL/ -e s/@EXACTDIR/$EXACTDIR/ $COMPARE_TEMPLATE > $cof
  
     outfile="run.$CRE.$RES.r$NREF.l$MAXLEVEL"

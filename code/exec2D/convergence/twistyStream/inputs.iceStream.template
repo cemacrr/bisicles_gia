@@ -49,10 +49,10 @@ amr.check_prefix = chk
 amr.verbosity = 5
 
 amr.regrid_interval = 10000   # number of timesteps between regridding
-amr.blockFactor = 4           # block factor used in grid generation
+amr.blockFactor = @BLOCKFACTOR           # block factor used in grid generation
 amr.fill_ratio = 0.9         # how efficient are the grids
 amr.nestingRadius = 1         # proper nesting radius required
-amr.tags_grow = 1             # amount to buffer tags
+amr.tags_grow = @TAGSGROW             # amount to buffer tags
 amr.max_box_size = 256      # largest box length allowed
 #amr.tagging_val = 0.001       # min undivided grad(vel) resulting in tagging
 
