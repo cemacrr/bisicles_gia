@@ -1832,14 +1832,10 @@ AmrIce::timeStep(Real a_dt)
           CH_assert(m_surfaceFluxPtr != NULL);
 
           // set surface thickness source
-          m_surfaceFluxPtr->surfaceThicknessFlux(levelSTS, 
-                                                 levelCoordSys,
-                                                 m_time, a_dt);
+          m_surfaceFluxPtr->surfaceThicknessFlux(levelSTS, *this, lev);
 	  
 	  // set basal thickness source
-	  m_basalFluxPtr->surfaceThicknessFlux(levelBTS, 
-					       levelCoordSys,
-					       m_time, a_dt);
+	  m_basalFluxPtr->surfaceThicknessFlux(levelBTS, *this, lev);
 
 	  m_calvingModelPtr->modifySurfaceThicknessFlux(levelBTS, 
 							levelCoordSys,
@@ -4394,6 +4390,7 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
   //calculate the face centred (flux) velocity 
   computeFaceVelocity(m_faceVel, m_layerXYFaceXYVel, m_layerSFaceXYVel);
 
+
   for (int lev=0; lev<=m_finest_level; lev++)
     {
       if (vectC0[lev] != NULL)
@@ -5032,12 +5029,10 @@ AmrIce::computeDivThicknessFlux(Vector<LevelData<FArrayBox>* >& a_divFlux,
       LevelSigmaCS& levelCoords = *(m_vect_coordSys[lev]);
 
       LevelData<FArrayBox>& surfaceThicknessSource = *m_surfaceThicknessSource[lev];
-      m_surfaceFluxPtr->surfaceThicknessFlux(surfaceThicknessSource, levelCoords, 
-                                             a_time, a_dt);
+      m_surfaceFluxPtr->surfaceThicknessFlux(surfaceThicknessSource, *this, lev);
       
       LevelData<FArrayBox>& basalThicknessSource = *m_basalThicknessSource[lev];
-      m_basalFluxPtr->surfaceThicknessFlux(basalThicknessSource, levelCoords, 
-                                             a_time, a_dt);
+      m_basalFluxPtr->surfaceThicknessFlux(basalThicknessSource, *this, lev);
       m_calvingModelPtr->modifySurfaceThicknessFlux(basalThicknessSource, levelCoords,
 					      *m_velocity[lev], a_time, a_dt);
 
@@ -5943,12 +5938,13 @@ AmrIce::writePlotFile()
       if (m_write_thickness_sources)
 	{
 	  m_surfaceFluxPtr->surfaceThicknessFlux
-	    (*m_surfaceThicknessSource[lev], levelCS, m_time, m_dt);
+	    (*m_surfaceThicknessSource[lev], *this, lev);
 	  m_basalFluxPtr->surfaceThicknessFlux
-	    (*m_basalThicknessSource[lev], levelCS, m_time, m_dt);
-	  m_calvingModelPtr->modifySurfaceThicknessFlux(*m_basalThicknessSource[lev], 
-							 levelCS,
-							 *m_velocity[lev], m_time, m_dt);
+	    (*m_basalThicknessSource[lev], *this, lev);
+	  m_calvingModelPtr->modifySurfaceThicknessFlux
+	    (*m_basalThicknessSource[lev], 
+	     levelCS,
+	     *m_velocity[lev], m_time, m_dt);
 	}
 
       DataIterator dit = m_amrGrids[lev].dataIterator();

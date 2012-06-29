@@ -182,6 +182,21 @@ public:
 			PetscNLSolver = 3,
                         NUM_SOLVER_TYPES};
 
+  /// read only access members
+  const Real time() const
+  {
+    return m_time;
+  };
+
+  const RealVect dx(int a_level) const
+  {
+    return m_vect_coordSys[a_level]->dx();
+  };
+  
+  const RefCountedPtr<LevelSigmaCS> geometry(int a_level) const 
+  {
+    return m_vect_coordSys[a_level];
+  };
 
 protected:
   /// compute tags for regridding
@@ -700,7 +715,6 @@ protected:
   //be kept seperate for the temperature calculation. 
   Vector<LevelData<FArrayBox>* > m_surfaceThicknessSource;
   Vector<LevelData<FArrayBox>* > m_basalThicknessSource;
-
 
   /// diagnostic quantity -- sum(ice) at initial time
   Real m_initialSumIce;

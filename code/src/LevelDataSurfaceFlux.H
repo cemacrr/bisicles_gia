@@ -75,9 +75,8 @@ public:
   */
 
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                                    const LevelSigmaCS& a_coordSys,
-                                    Real a_time,
-                                    Real a_dt);
+				    const AmrIce& a_amrIce, 
+				    int a_level);
   
 
 protected:

@@ -23,22 +23,25 @@
 #include "ReadLevelData.H"
 #include "FillFromReference.H"
 #include "ReflectGhostCells.H"
+#include "AmrIce.H"
 #include "NamespaceHeader.H"
 
 void LevelDataSurfaceFlux::surfaceThicknessFlux
 (LevelData<FArrayBox>& a_flux,
- const LevelSigmaCS& a_coordSys,
- Real a_time,
- Real a_dt)
+ const AmrIce& a_amrIce, 
+ int a_level)
 {
     
+  const Real& time = a_amrIce.time();
+  const RealVect& levelDx = a_amrIce.dx(a_level);
+
   if (m_timeFileMap != NULL)
     {
       std::map<Real,std::string>::const_iterator start,end;
       if (m_timeFileMap->size() > 1)
 	{
 	  end = ++m_timeFileMap->begin();
-	  while (end != m_timeFileMap->end() && end->first <= a_time)
+	  while (end != m_timeFileMap->end() && end->first <= time )
 	    {
 	      end++;
 	    }
@@ -90,11 +93,11 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
       a_flux[dit].setVal(0.0);
     }
 
-  FillFromReference(a_flux, *m_startFlux, a_coordSys.dx(),m_dx,m_verbose);
-  if (a_time > m_startTime && m_startTime < m_endTime)
+  FillFromReference(a_flux, *m_startFlux, levelDx ,m_dx,m_verbose);
+  if (time > m_startTime && m_startTime < m_endTime)
     {
       
-      Real w = std::min(1.0 , (a_time - m_startTime) / (m_endTime - m_startTime)); 
+      Real w = std::min(1.0 , (time - m_startTime) / (m_endTime - m_startTime)); 
 
       // pout() << " LevelDataSurfaceFlux::m_endTime = " <<   m_endTime
       //	     << " w = " << w; 
@@ -105,7 +108,7 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
 	  tmp[dit].setVal(0.0);
 	}
 
-      FillFromReference(a_flux, *m_endFlux, a_coordSys.dx(),m_dx,m_verbose);
+      FillFromReference(a_flux, *m_endFlux, levelDx ,m_dx,m_verbose);
       for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
   	{
   	  tmp[dit] *=w;

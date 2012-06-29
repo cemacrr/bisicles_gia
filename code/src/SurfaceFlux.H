@@ -26,8 +26,12 @@
 /** This is a virtual base class -- it is expected that specific cases
     will be derived from this
 */
+
+class AmrIce;
+
 class SurfaceFlux
 {
+  
 public:
   /// constructor
   SurfaceFlux() {};
@@ -46,9 +50,8 @@ public:
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                                    const LevelSigmaCS& a_coordSys,
-                                    Real a_time,
-                                    Real a_dt) = 0;
+				    const AmrIce& a_amrIce, 
+				    int a_level) = 0;
   
   //assemble a SurfaceFlux* object from ParmParse input
   static SurfaceFlux* parseSurfaceFlux(const char* a_prefix);
@@ -90,9 +93,8 @@ public:
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                                     const LevelSigmaCS& a_coordSys,
-                                    Real a_time,
-                                    Real a_dt);
+				    const AmrIce& a_amrIce, 
+				    int a_level);
 
 
 private:
@@ -131,9 +133,8 @@ public:
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                                     const LevelSigmaCS& a_coordSys,
-                                    Real a_time,
-                                    Real a_dt);
+				    const AmrIce& a_amrIce, 
+				    int a_level);
 
   /// set flux value in meters/year
   void setFluxVal(const Real& a_fluxVal);
@@ -181,9 +182,8 @@ public:
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                                     const LevelSigmaCS& a_coordSys,
-                                    Real a_time,
-                                    Real a_dt);
+				    const AmrIce& a_amrIce, 
+				    int a_level);
 
   /// set fortran array-valued surface flux
   void setFluxVal(Real* a_data_ptr,
@@ -236,9 +236,8 @@ public:
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                                     const LevelSigmaCS& a_coordSys,
-                                    Real a_time,
-                                    Real a_dt);
+				    const AmrIce& a_amrIce, 
+				    int a_level);
 
 protected:
   SurfaceFlux* m_groundedIceFlux;
@@ -277,13 +276,19 @@ class BoxBoundedFlux : public SurfaceFlux
 public:
   BoxBoundedFlux
 (const RealVect& a_lo,
-		 const RealVect& a_hi,
-		 const Real& a_startTime,
-		 const Real& a_endTime,
-		 SurfaceFlux* a_fluxPtr)
+ const RealVect& a_hi,
+ const Real& a_startTime,
+ const Real& a_endTime,
+ SurfaceFlux* a_fluxPtr)
     : m_lo(a_lo),m_hi(a_hi),m_startTime(a_startTime),m_endTime(a_endTime)
   {
     m_fluxPtr = a_fluxPtr->new_surfaceFlux();
+    if (!(m_hi > m_lo))
+      {
+	pout() <<  "!(m_hi > m_lo), m_lo = " << m_lo << " m_hi = " << m_hi << endl;
+	CH_assert( (m_hi > m_lo) );
+	MayDay::Error("BoxBoundedFlux::  !(m_hi > m_lo)");
+      }
   }
   
 
@@ -301,9 +306,8 @@ virtual SurfaceFlux* new_surfaceFlux();
       implementation. 
 */
 virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				   const LevelSigmaCS& a_coordSys,
-				  Real a_time,
-				  Real a_dt);
+				  const AmrIce& a_amrIce, 
+				  int a_level);
 
 private:
   // Disallowed for all the usual reasons
@@ -347,9 +351,8 @@ public:
     implementation. 
 */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				   const LevelSigmaCS& a_coordSys,
-				  Real a_time,
-				  Real a_dt);
+				    const AmrIce& a_amrIce, 
+				    int a_level);
 
   
 private:
@@ -372,6 +375,59 @@ private:
 
 
 };
+
+/// surface flux which has a piecwise linear dependence
+/// on thickness H. 
+class PiecewiseLinearFlux : public SurfaceFlux
+{
+public:
+  //constructor
+  PiecewiseLinearFlux(const Vector<Real>& a_abscissae, 
+		      const Vector<Real>& a_ordinates);
+
+  /// destructor
+  ~PiecewiseLinearFlux(){};
+
+  /// factory method
+  /** return a pointer to a new SurfaceFlux object
+   */
+  virtual SurfaceFlux* new_surfaceFlux();
+
+  /// define source term for thickness evolution and place it in flux
+  /** dt is included in case one needs integrals or averages over a
+      timestep. flux should be defined in meters/second in the current 
+      implementation. 
+  */
+  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				    const AmrIce& a_amrIce, 
+				    int a_level);
+  
+
+
+protected:
+  Vector<Real> m_abscissae;
+  Vector<Real> m_ordinates;
+
+private:
+   // Disallowed for all the usual reasons
+  void operator=(const PiecewiseLinearFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  // Disallowed for all the usual reasons
+  PiecewiseLinearFlux(const PiecewiseLinearFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  PiecewiseLinearFlux()
+  {
+    MayDay::Error("invalid operator");
+  }
+
+};
+
 
 #ifdef HAVE_PYTHON
 
@@ -406,9 +462,8 @@ public:
     implementation. 
 */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const LevelSigmaCS& a_coordSys,
-				    Real a_time,
-				    Real a_dt);
+				    const AmrIce& a_amrIce, 
+				    int a_level);
 
   
 private:
@@ -441,6 +496,7 @@ private:
 };
 
 #endif
+
 
 
 #include "NamespaceFooter.H"

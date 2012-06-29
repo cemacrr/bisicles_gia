@@ -10,12 +10,12 @@
 
 #include "SurfaceFlux.H"
 #include "LevelDataSurfaceFlux.H"
-#include "PiecewiseLinearFlux.H"
 #include "IceConstants.H"
 #include "FineInterp.H"
 #include "CoarseAverage.H"
 #include "BisiclesF_F.H"
 #include "ParmParse.H"
+#include "AmrIce.H"
 #include "NamespaceHeader.H"
 
   /// factory method
@@ -35,9 +35,8 @@ zeroFlux::new_surfaceFlux()
   */
 void
 zeroFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                                const LevelSigmaCS& a_coordSys,
-                               Real a_time,
-                               Real a_dt)
+			       const AmrIce& a_amrIce, 
+			       int a_level)
 {
   DataIterator dit = a_flux.dataIterator();
   for (dit.begin(); dit.ok(); ++dit)
@@ -66,9 +65,8 @@ constantFlux::new_surfaceFlux()
   */
 void
 constantFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                                    const LevelSigmaCS& a_coordSys,
-                                   Real a_time,
-                                   Real a_dt)
+				   const AmrIce& a_amrIce, 
+				   int a_level)
 {
   CH_assert(m_isValSet);
   DataIterator dit = a_flux.dataIterator();
@@ -126,9 +124,8 @@ fortranInterfaceFlux::new_surfaceFlux()
 */
 void 
 fortranInterfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                                            const LevelSigmaCS& a_coordSys,
-                                           Real a_time,
-                                           Real a_dt)
+					   const AmrIce& a_amrIce, 
+					   int a_level)
 {
   CH_assert(m_isValSet);
 
@@ -145,7 +142,7 @@ fortranInterfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
     }
 
   DisjointBoxLayout levelGrids = a_flux.getBoxes();
-  RealVect dx = a_coordSys.dx();
+  RealVect dx = a_amrIce.dx(a_level);
 
   // refinement ratio for flux
   Real refRatio = m_fluxDx[0]/dx[0];
@@ -214,9 +211,8 @@ SurfaceFlux* MaskedFlux::new_surfaceFlux()
 }
 
 void MaskedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				       const LevelSigmaCS& a_coordSys,
-				      Real a_time,
-				      Real a_dt)
+				      const AmrIce& a_amrIce, 
+				      int a_level)
 {
 
   //somewhat ineffcient, because we compute all fluxes everywhere. 
@@ -224,16 +220,16 @@ void MaskedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
   //in boxes where all the ice is grounded.
 
   //first, grounded ice values
-  m_groundedIceFlux->surfaceThicknessFlux(a_flux, a_coordSys, a_time, a_dt);
+  m_groundedIceFlux->surfaceThicknessFlux(a_flux,a_amrIce,a_level);
 
   //floating ice values
   LevelData<FArrayBox> floatingFlux;
   floatingFlux.define(a_flux);
-  m_floatingIceFlux->surfaceThicknessFlux(floatingFlux, a_coordSys, a_time, a_dt);
+  m_floatingIceFlux->surfaceThicknessFlux(floatingFlux, a_amrIce,a_level);
 
   for (DataIterator dit(a_flux.dataIterator()); dit.ok(); ++dit)
     {
-      const BaseFab<int>& mask =  a_coordSys.getFloatingMask()[dit];
+      const BaseFab<int>& mask =  a_amrIce.geometry(a_level)->getFloatingMask()[dit];
       
       Box box = mask.box();
       box &= a_flux[dit].box();
@@ -280,17 +276,16 @@ CompositeFlux::~CompositeFlux()
 }
 
 void CompositeFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  const LevelSigmaCS& a_coordSys,
-					 Real a_time,
-					 Real a_dt)
+					  const AmrIce& a_amrIce, 
+					  int a_level)
 {
-  m_fluxes[0]->surfaceThicknessFlux(a_flux, a_coordSys,a_time, a_dt);
+  m_fluxes[0]->surfaceThicknessFlux(a_flux, a_amrIce, a_level );
 
   // this is hardly effcient... but it is convenient
   LevelData<FArrayBox> tmpFlux(a_flux.disjointBoxLayout(),1,a_flux.ghostVect());
   for (int i = 1; i <  m_fluxes.size(); i++)
     {
-      m_fluxes[i]->surfaceThicknessFlux(tmpFlux, a_coordSys,a_time,a_dt);
+      m_fluxes[i]->surfaceThicknessFlux(tmpFlux, a_amrIce, a_level );
       for (DataIterator dit(a_flux.disjointBoxLayout()); dit.ok(); ++dit)
 	{
 	  a_flux[dit] += tmpFlux[dit];
@@ -308,22 +303,24 @@ SurfaceFlux* BoxBoundedFlux::new_surfaceFlux()
 
 
 void BoxBoundedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					   const LevelSigmaCS& a_coordSys,
-					  Real a_time,
-					  Real a_dt)
+					  const AmrIce& a_amrIce, 
+					  int a_level)
 {
+
+  Real time = a_amrIce.time();
+  
 
   for (DataIterator dit(a_flux.disjointBoxLayout()); dit.ok(); ++dit)
     {
       a_flux[dit].setVal(0.0);
     }
 
-  if (a_time >= m_startTime && a_time < m_endTime)
+  if (time >= m_startTime && time < m_endTime)
     {
       // this is hardly efficient... but it is convenient
       LevelData<FArrayBox> tmpFlux(a_flux.disjointBoxLayout(),1,a_flux.ghostVect());
-      m_fluxPtr->surfaceThicknessFlux(tmpFlux, a_coordSys,a_time,a_dt);
-      const RealVect& dx = a_coordSys.dx();
+      m_fluxPtr->surfaceThicknessFlux(tmpFlux, a_amrIce, a_level);
+      const RealVect& dx = a_amrIce.dx(a_level);
       
       IntVect ilo,ihi;
       for (int dir =0; dir < SpaceDim; dir++)
@@ -345,6 +342,41 @@ void BoxBoundedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
     }
 
 }
+
+PiecewiseLinearFlux::PiecewiseLinearFlux(const Vector<Real>& a_abscissae, 
+					 const Vector<Real>& a_ordinates)
+  :m_abscissae(a_abscissae),m_ordinates(a_ordinates)
+{
+  CH_assert(m_abscissae.size() == m_ordinates.size());
+}
+
+
+SurfaceFlux* PiecewiseLinearFlux::new_surfaceFlux()
+{
+  return static_cast<SurfaceFlux*>(new PiecewiseLinearFlux(m_abscissae,m_ordinates));
+}
+
+void PiecewiseLinearFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					       const AmrIce& a_amrIce, 
+					       int a_level)
+{
+  Vector<Real> dx(m_abscissae.size());
+  Vector<Real> db(m_abscissae.size());
+
+  const LevelData<FArrayBox>& levelH = a_amrIce.geometry(a_level)->getH();
+
+  for (DataIterator dit(a_flux.dataIterator()); dit.ok(); ++dit)
+    {
+      FORT_PWLFILL(CHF_FRA1(a_flux[dit],0),
+		   CHF_CONST_FRA1(levelH[dit],0),
+		   CHF_CONST_VR(m_abscissae),
+		   CHF_CONST_VR(m_ordinates),
+		   CHF_VR(dx),CHF_VR(db),
+		   CHF_BOX(a_flux[dit].box()));
+    }
+
+}
+
 
 SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
 {
@@ -570,13 +602,14 @@ SurfaceFlux* PythonSurfaceFlux::new_surfaceFlux()
 
 
 void PythonSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					     const  LevelSigmaCS& a_coordSys,
-					     Real a_time,
-					     Real a_dt)
+					     const AmrIce& a_amrIce, 
+					     int a_level)
 {
   
   PyObject *pArgs, *pValue;
   Vector<Real> args(SpaceDim + 3);
+
+  const RefCountedPtr<LevelSigmaCS> levelCS = a_amrIce.geometry(a_level);
 
   const DisjointBoxLayout& grids = a_flux.disjointBoxLayout();
   for (DataIterator dit(grids);dit.ok();++dit)
@@ -589,12 +622,12 @@ void PythonSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 	  int i = 0;
 	  for (int dir=0; dir < SpaceDim; dir++)
 	    {
-	      args[i] = (Real(iv[dir]) + 0.5)*a_coordSys.dx()[dir];
+	      args[i] = (Real(iv[dir]) + 0.5)*levelCS->dx()[dir];
 	      i++;
 	    }
-	  args[i] = a_time + a_dt / 2.0;i++;
-	  args[i] = a_coordSys.getH()[dit](iv);i++;
-	  args[i] = a_coordSys.getTopography()[dit](iv);i++;
+	  args[i] = a_amrIce.time();i++;
+	  args[i] = levelCS->getH()[dit](iv);i++;
+	  args[i] = levelCS->getTopography()[dit](iv);i++;
 	  
 	  //construct a python tuple of args
 	  pArgs = PyTuple_New(args.size());
