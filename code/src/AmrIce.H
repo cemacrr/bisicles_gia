@@ -198,6 +198,9 @@ public:
     return m_vect_coordSys[a_level];
   };
 
+  const LevelData<FArrayBox>* groundingLineProximity(int a_level) const;
+  
+ 
 protected:
   /// compute tags for regridding
   void tagCells(Vector<IntVectSet>& a_tags);
@@ -716,6 +719,12 @@ protected:
   Vector<LevelData<FArrayBox>* > m_surfaceThicknessSource;
   Vector<LevelData<FArrayBox>* > m_basalThicknessSource;
 
+  //Scalar field that varies in the ice shelf from 0 at the grounding line
+  mutable Vector<LevelData<FArrayBox>* > m_groundingLineProximity;
+  // step on which m_groundingLineProximity was last updated;
+  mutable bool m_groundingLineProximity_valid;
+  void updateGroundingLineProximity() const;
+  
   /// diagnostic quantity -- sum(ice) at initial time
   Real m_initialSumIce;
 
@@ -841,6 +850,10 @@ protected:
 
   // if true, report sum of grounded ice (volume) -- default is false
   bool m_reportGroundedIce;
+
+  
+
+
 
 #if BISICLES_Z == BISICLES_LAYERED
   //additional members used in poor-mans multidim mode

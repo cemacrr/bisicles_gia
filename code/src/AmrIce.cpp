@@ -425,7 +425,10 @@ AmrIce::setDefaults()
   m_evolve_topography_timescale = 1.0e+10;
   m_grounded_ice_stable = false;
   m_floating_ice_stable = false;
+  
+  //cache validity flags
   m_A_valid = false;
+  m_groundingLineProximity_valid = false;
 
   constantFlux* cfptr = new constantFlux;
   cfptr->setFluxVal(0.0);
@@ -433,7 +436,7 @@ AmrIce::setDefaults()
   
   m_calvingModelPtr = new NoCalvingModel; 
 
-
+  
 
 }
 
@@ -608,6 +611,16 @@ AmrIce::~AmrIce()
         }
     }
 
+
+  for (int lev = 0; lev < m_groundingLineProximity.size(); lev++) 
+    {
+      if (m_groundingLineProximity[lev] != NULL) 
+        {
+          delete m_groundingLineProximity[lev];
+          m_groundingLineProximity[lev] = NULL;
+        }
+    }
+
   if (m_velSolver != NULL)
     {
       // code crashes here. comment out until I figure out the problem...
@@ -710,7 +723,7 @@ AmrIce::initialize()
   // set time to be 0 -- do this now in case it needs to be changed later
   m_time = 0.0;
   m_cur_step = 0;
-  
+ 
   // first, read in info from parmParse file
   ParmParse ppCon("constants");
   ppCon.query("ice_density",m_iceDensity);
@@ -1832,10 +1845,10 @@ AmrIce::timeStep(Real a_dt)
           CH_assert(m_surfaceFluxPtr != NULL);
 
           // set surface thickness source
-          m_surfaceFluxPtr->surfaceThicknessFlux(levelSTS, *this, lev);
+          m_surfaceFluxPtr->surfaceThicknessFlux(levelSTS, *this, lev, a_dt);
 	  
 	  // set basal thickness source
-	  m_basalFluxPtr->surfaceThicknessFlux(levelBTS, *this, lev);
+	  m_basalFluxPtr->surfaceThicknessFlux(levelBTS, *this, lev, a_dt);
 
 	  m_calvingModelPtr->modifySurfaceThicknessFlux(levelBTS, 
 							levelCoordSys,
@@ -3232,6 +3245,7 @@ AmrIce::regrid()
 	} // end if tags changed
     } // end if max level > 0 in the first place
   
+  m_groundingLineProximity_valid = false;
 } 
       
                               
@@ -3759,6 +3773,7 @@ AmrIce::initGrids(int a_finest_level)
 
           levelSetup(lev,m_amrGrids[lev]);
 	  m_A_valid = false;
+	  m_groundingLineProximity_valid = false;
 
         } // end loop over levels
 
@@ -4027,7 +4042,8 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
       pout() << "AmrIce::initData" << endl;
     }
 
-
+  m_groundingLineProximity_valid = false;
+  m_A_valid = false;
 
   for (int lev=0; lev<=m_finest_level; lev++)
     {
@@ -4133,6 +4149,7 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
 #else
   MayDay::Error("AmrIce::SolveVelocityField full z calculation of A not done"); 
 #endif
+  //updateGroundingLineProximity();
 
   // define basal friction
   Vector<LevelData<FArrayBox>* > vectC(m_finest_level+1, NULL);
@@ -4390,6 +4407,7 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
   //calculate the face centred (flux) velocity 
   computeFaceVelocity(m_faceVel, m_layerXYFaceXYVel, m_layerSFaceXYVel);
 
+  
 
   for (int lev=0; lev<=m_finest_level; lev++)
     {
@@ -5029,10 +5047,10 @@ AmrIce::computeDivThicknessFlux(Vector<LevelData<FArrayBox>* >& a_divFlux,
       LevelSigmaCS& levelCoords = *(m_vect_coordSys[lev]);
 
       LevelData<FArrayBox>& surfaceThicknessSource = *m_surfaceThicknessSource[lev];
-      m_surfaceFluxPtr->surfaceThicknessFlux(surfaceThicknessSource, *this, lev);
+      m_surfaceFluxPtr->surfaceThicknessFlux(surfaceThicknessSource, *this, lev, a_dt);
       
       LevelData<FArrayBox>& basalThicknessSource = *m_basalThicknessSource[lev];
-      m_basalFluxPtr->surfaceThicknessFlux(basalThicknessSource, *this, lev);
+      m_basalFluxPtr->surfaceThicknessFlux(basalThicknessSource, *this, lev, a_dt);
       m_calvingModelPtr->modifySurfaceThicknessFlux(basalThicknessSource, levelCoords,
 					      *m_velocity[lev], a_time, a_dt);
 
@@ -5220,6 +5238,191 @@ AmrIce::computeInitialDt()
   Real dt = computeDt();
   return dt;
 }
+
+
+
+//determine the grouding line proximity 
+/**
+
+   Solves the elliptic problem 
+      a * phi - b* grad^2 phi = 0;
+   with natural boundary conditions.
+
+   for grounded ice, a = 10^5 and b = 1
+   for floating ice, s = 0 and b = 1
+ */
+void AmrIce::updateGroundingLineProximity() const
+{
+
+  CH_TIME("AmrIce::updateGroundingLineProximity");
+
+  if (m_groundingLineProximity_valid)
+    return;
+
+  if (m_groundingLineProximity.size() < m_finest_level + 1)
+    {
+      m_groundingLineProximity.resize(m_finest_level + 1, NULL);
+    }
+
+  //Natural boundary conditions
+  BCHolder bc(ConstDiriNeumBC(IntVect(0,0), RealVect(0.0,0.0),
+  			      IntVect(0,0), RealVect(0.0,0.0)));
+
+  //BCHolder bc(ConstDiriNeumBC(IntVect(0,0), RealVect(-1.0,-1.0),
+  //			      IntVect(0,0), RealVect(1.0,1.0)));
+
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > a(m_finest_level + 1);
+  Vector<RefCountedPtr<LevelData<FluxBox> > > b(m_finest_level + 1);
+  Vector<LevelData<FArrayBox>* > rhs(m_finest_level+ 1,NULL);
+  Vector<DisjointBoxLayout> grids(finestTimestepLevel() + 1);
+  Vector<ProblemDomain> domains(finestTimestepLevel() + 1);
+  Vector<RealVect> dx(finestTimestepLevel() + 1);
+
+  for (int lev=0; lev <= m_finest_level; ++lev)
+    {
+      dx[lev] = m_amrDx[lev]*RealVect::Unit;
+      domains[lev] = m_amrDomains[lev];
+
+      const LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
+      const LevelData<BaseFab<int> >& levelMask = levelCS.getFloatingMask();
+      const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+      a[lev] = RefCountedPtr<LevelData<FArrayBox> >
+ 	(new LevelData<FArrayBox>(levelGrids, 1, IntVect::Zero));
+      b[lev] = RefCountedPtr<LevelData<FluxBox> >
+ 	(new LevelData<FluxBox>(levelGrids, 1, IntVect::Zero));
+      rhs[lev] = new LevelData<FArrayBox>(levelGrids, 1, IntVect::Zero);
+      
+      grids[lev] = levelGrids;
+
+     
+
+      if (m_groundingLineProximity[lev] != NULL)
+	{
+	  delete m_groundingLineProximity[lev];
+	  m_groundingLineProximity[lev] = NULL;
+	}
+      m_groundingLineProximity[lev] =  new LevelData<FArrayBox>(levelGrids, 1, IntVect::Unit);
+      
+      LevelData<FArrayBox>& levelPhi = *m_groundingLineProximity[lev];
+
+      for (DataIterator dit(levelGrids); dit.ok(); ++dit)
+ 	{
+	  FluxBox& B = (*b[lev])[dit];
+	  
+	  for (int dir = 0; dir < SpaceDim; dir++)
+	    {
+	      B[dir].setVal(1.0e+4);
+	    }
+
+ 	  FArrayBox& r =  (*rhs[lev])[dit];
+ 	  r.setVal(0.0);
+	  FArrayBox& A =  (*a[lev])[dit];
+	  A.setVal(0.0);
+	  FArrayBox& phi = levelPhi[dit];
+	  phi.setVal(0.0);
+
+ 	  const BaseFab<int>& mask = levelMask[dit];
+ 	  const Box& gridBox = levelGrids[dit];
+ 	  for (BoxIterator bit(gridBox);bit.ok();++bit)
+ 	    {
+ 	      const IntVect& iv = bit();
+ 	      if (mask(iv) == GROUNDEDMASKVAL)
+ 		{
+ 		  A(iv) = 1.0e+0;
+		  r(iv) = 1.0e+0;
+ 		} 
+	      else if (mask(iv) == OPENSEAMASKVAL || mask(iv) == OPENLANDMASKVAL)
+ 		{
+		  A(iv) = 1.0e+0;
+		  r(iv) = 0.0e+0;
+ 		} 
+	      else
+		{
+		  A(iv) = 1.0e-3;
+		}
+	      
+ 	    }
+ 
+ 	}
+
+      rhs[lev]->exchange();
+      m_groundingLineProximity[lev]->exchange();
+      a[lev]->exchange();
+      b[lev]->exchange();
+    }
+
+
+  VCAMRPoissonOp2Factory* poissonOpFactory = new VCAMRPoissonOp2Factory;
+  poissonOpFactory->define(domains[0], grids , m_refinement_ratios,
+ 			   m_amrDx[0], bc, 1.0, a,  1.0 , b);
+  RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > > 
+    opFactoryPtr(poissonOpFactory);
+
+  MultilevelLinearOp<FArrayBox> poissonOp;
+  poissonOp.define(grids, m_refinement_ratios, domains, dx, opFactoryPtr, 0);
+    
+  RelaxSolver<Vector<LevelData<FArrayBox>* > >* relaxSolver
+    = new RelaxSolver<Vector<LevelData<FArrayBox>* > >();
+
+  relaxSolver->define(&poissonOp,false);
+  relaxSolver->m_verbosity = s_verbosity;
+  relaxSolver->m_normType = 0;
+  relaxSolver->m_eps = 1.0e-8;
+  relaxSolver->m_imax = 12;
+  relaxSolver->m_hang = 0.05;
+  relaxSolver->solve(m_groundingLineProximity,rhs);
+
+  delete(relaxSolver);
+
+#ifdef DUMP_PROXIMITY
+  std::string file("proximity.2d.hdf5");
+  Real dt = 0.0; 
+  Real time = 0.0;
+  Vector<std::string> names(1,"proximity");
+  WriteAMRHierarchyHDF5(file ,grids, m_groundingLineProximity ,names, m_amrDomains[0].domainBox(),
+  			m_amrDx[0], dt, m_time, m_refinement_ratios, m_groundingLineProximity.size());
+#endif
+  
+  for (int lev=0; lev <= m_finest_level ; ++lev)
+    {
+      if (rhs[lev] != NULL)
+ 	{
+ 	  delete rhs[lev];
+	  rhs[lev] = NULL;
+ 	}
+    }
+
+  m_groundingLineProximity_valid = true;
+}
+
+//access the grounding line proximity
+const LevelData<FArrayBox>* AmrIce::groundingLineProximity(int a_level) const
+{
+
+  updateGroundingLineProximity();
+  
+  if (!(m_groundingLineProximity.size() > a_level))
+    {
+      std::string msg("AmrIce::groundingLineProximity !(m_groundingLineProximity.size() > a_level)");
+      pout() << msg << endl;
+      CH_assert((m_groundingLineProximity.size() > a_level));
+      MayDay::Error(msg.c_str());
+    }
+
+
+  LevelData<FArrayBox>* ptr = m_groundingLineProximity[a_level];
+  if (ptr == NULL)
+    {
+      std::string msg("AmrIce::groundingLineProximity m_groundingLineProximity[a_level] == NULL)");
+      pout() << msg << endl;
+      CH_assert(ptr != NULL);
+      MayDay::Error(msg.c_str());
+    }
+
+  return ptr;
+}
+
+
 
 ///Identify regions of floating ice that are remote
 ///from grounded ice and eliminate them.
@@ -5938,9 +6141,9 @@ AmrIce::writePlotFile()
       if (m_write_thickness_sources)
 	{
 	  m_surfaceFluxPtr->surfaceThicknessFlux
-	    (*m_surfaceThicknessSource[lev], *this, lev);
+	    (*m_surfaceThicknessSource[lev], *this, lev, m_dt);
 	  m_basalFluxPtr->surfaceThicknessFlux
-	    (*m_basalThicknessSource[lev], *this, lev);
+	    (*m_basalThicknessSource[lev], *this, lev, m_dt);
 	  m_calvingModelPtr->modifySurfaceThicknessFlux
 	    (*m_basalThicknessSource[lev], 
 	     levelCS,
@@ -8056,6 +8259,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 
   //finally, A is no longer valid 
   m_A_valid = false;
+  
 
 }
 #endif

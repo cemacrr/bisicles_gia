@@ -51,7 +51,7 @@ public:
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 				    const AmrIce& a_amrIce, 
-				    int a_level) = 0;
+				    int a_level, Real a_dt) = 0;
   
   //assemble a SurfaceFlux* object from ParmParse input
   static SurfaceFlux* parseSurfaceFlux(const char* a_prefix);
@@ -94,7 +94,7 @@ public:
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 				    const AmrIce& a_amrIce, 
-				    int a_level);
+				    int a_level, Real a_dt);
 
 
 private:
@@ -134,7 +134,7 @@ public:
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 				    const AmrIce& a_amrIce, 
-				    int a_level);
+				    int a_level, Real a_dt);
 
   /// set flux value in meters/year
   void setFluxVal(const Real& a_fluxVal);
@@ -183,7 +183,7 @@ public:
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 				    const AmrIce& a_amrIce, 
-				    int a_level);
+				    int a_level, Real a_dt);
 
   /// set fortran array-valued surface flux
   void setFluxVal(Real* a_data_ptr,
@@ -237,7 +237,8 @@ public:
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 				    const AmrIce& a_amrIce, 
-				    int a_level);
+				    int a_level, Real a_dt);
+
 
 protected:
   SurfaceFlux* m_groundedIceFlux;
@@ -307,7 +308,7 @@ virtual SurfaceFlux* new_surfaceFlux();
 */
 virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 				  const AmrIce& a_amrIce, 
-				  int a_level);
+				  int a_level, Real a_dt);
 
 private:
   // Disallowed for all the usual reasons
@@ -352,7 +353,7 @@ public:
 */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 				    const AmrIce& a_amrIce, 
-				    int a_level);
+				    int a_level, Real a_dt);
 
   
 private:
@@ -400,7 +401,7 @@ public:
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 				    const AmrIce& a_amrIce, 
-				    int a_level);
+				    int a_level, Real a_dt);
   
 
 
@@ -427,6 +428,8 @@ private:
   }
 
 };
+
+
 
 
 #ifdef HAVE_PYTHON
@@ -463,7 +466,7 @@ public:
 */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 				    const AmrIce& a_amrIce, 
-				    int a_level);
+				    int a_level, Real a_dt);
 
   
 private:
