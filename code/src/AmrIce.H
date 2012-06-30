@@ -827,14 +827,6 @@ protected:
   // if true, allow thickness to change in time
   bool m_evolve_thickness; 
 
-  // if true, allow topography to change in time.
-  bool m_evolve_topography;
-  bool m_evolve_topography_preserve_mask;
-  Real m_evolve_topography_max_elevation_above_flotation;
-  Real m_evolve_topography_min_speed;
-  Real m_evolve_topography_weight;
-  Real m_evolve_topography_timescale;
-
   //if true, keep floating or grounded ice stable;
   bool m_grounded_ice_stable ;
   bool m_floating_ice_stable ;

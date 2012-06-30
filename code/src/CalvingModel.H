@@ -15,23 +15,38 @@
 
 #include "NamespaceHeader.H"
 
+class AmrIce;
+
 ///virtual base for calving models
 class CalvingModel
 {
 
 public:
-  //alter the geometry and velocity fields after 
-  //thickness has ben updated but before 
-  //a_coordSys.recomputeGeometry() is called.
-  virtual void postUpdateThickness(LevelSigmaCS& a_coordSys,
-				   LevelData<FArrayBox>& a_vel,
-				   const Real& a_time) const=0;
+
+  //alter the thickness field prior to the first time step. 
+  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
+				  const AmrIce& a_amrIce,
+				  int a_level) = 0;
+
+
+  //alter the thickness field at the end of a time step
+  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
+				      const AmrIce& a_amrIce,
+				      int a_level) = 0;
+
+
+  // //alter the geometry and velocity fields after 
+  // //thickness has ben updated but before 
+  // //a_coordSys.recomputeGeometry() is called.
+  // virtual void postUpdateThickness(LevelSigmaCS& a_coordSys,
+  // 				   LevelData<FArrayBox>& a_vel,
+  // 				   const Real& a_time) =0;
 
   //modify a thickness flux
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const LevelSigmaCS& a_coordSys,
-				    const LevelData<FArrayBox>& a_vel,
-				    Real a_time, Real a_dt) const=0;
+					  const AmrIce& a_amrIce,
+					  int a_level,
+					  Real a_dt) =0;
 
 
   virtual ~CalvingModel(){};
@@ -45,18 +60,28 @@ class NoCalvingModel : public CalvingModel
 
 public:
 
-  virtual void postUpdateThickness(LevelSigmaCS& a_coordSys,
-				   LevelData<FArrayBox>& a_vel,
-				   const Real& a_time) const
+  
+  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
+				  const AmrIce& a_amrIce,
+				  int a_level)
   {
 
   }
 
+
   
+  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
+				      const AmrIce& a_amrIce,
+				      int a_level)
+  {
+
+  }
+
+
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const LevelSigmaCS& a_coordSys,
-				    const LevelData<FArrayBox>& a_vel,
-				    Real a_time, Real a_dt) const
+					  const AmrIce& a_amrIce,
+					  int a_level,
+					  Real a_dt)
   {
 
   }
@@ -76,17 +101,32 @@ class DeglaciationCalvingModelA : public CalvingModel
 {
 
 public:
-  virtual void postUpdateThickness(LevelSigmaCS& a_coordSys,
-				   LevelData<FArrayBox>& a_vel,
-				   const Real& a_time) const;
- 
 
   
+  //alter the thickness field prior to the first time step. Same as endTimeStepModifyState
+  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
+				  const AmrIce& a_amrIce,
+				  int a_level)
+  {
+    endTimeStepModifyState(a_thickness, a_amrIce, a_level);
+  }
+
+
+  //alter the thickness field at the end of a time step
+  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
+				      const AmrIce& a_amrIce,
+				      int a_level);
+
+  //modify a thickness flux
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const LevelSigmaCS& a_coordSys,
-				    const LevelData<FArrayBox>& a_vel,
-				    Real a_time, Real a_dt) const;
-  
+					  const AmrIce& a_amrIce,
+					  int a_level,
+					  Real a_dt)
+  {
+
+  }
+
+
 
   DeglaciationCalvingModelA(const Real& a_calvingThickness,
 			    const Real& a_calvingOceanDepth,
@@ -114,14 +154,30 @@ class DomainEdgeCalvingModel :  public CalvingModel
 {
 
 public:
-  virtual void postUpdateThickness(LevelSigmaCS& a_coordSys,
-				   LevelData<FArrayBox>& a_vel,
-				   const Real& a_time) const;
 
+  
+  //alter the thickness field prior to the first time step. 
+  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
+				  const AmrIce& a_amrIce,
+				  int a_level)
+  {
+    endTimeStepModifyState(a_thickness, a_amrIce, a_level);
+  }
+
+
+  //alter the thickness field at the end of a time step
+  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
+				      const AmrIce& a_amrIce,
+				      int a_level);
+
+  //modify a thickness flux
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const LevelSigmaCS& a_coordSys,
-				    const LevelData<FArrayBox>& a_vel,
-				    Real a_time, Real a_dt) const;
+					  const AmrIce& a_amrIce,
+					  int a_level,
+					  Real a_dt)
+  {
+
+  }
 
 
   DomainEdgeCalvingModel(const Vector<int>& a_frontLo,

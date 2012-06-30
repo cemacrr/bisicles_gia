@@ -417,12 +417,6 @@ AmrIce::setDefaults()
   m_groundingLineRegularization = 0.0;
   m_groundingLineCorrection = true;
   m_evolve_thickness = true;
-  m_evolve_topography = false;
-  m_evolve_topography_preserve_mask = true;
-  m_evolve_topography_max_elevation_above_flotation = 1.0e+6;
-  m_evolve_topography_min_speed = 0.0;
-  m_evolve_topography_weight = 1.0;
-  m_evolve_topography_timescale = 1.0e+10;
   m_grounded_ice_stable = false;
   m_floating_ice_stable = false;
   
@@ -798,14 +792,6 @@ AmrIce::initialize()
   ppAmr.query("write_layer_velocities", m_write_layer_velocities);
 
   ppAmr.query("evolve_thickness", m_evolve_thickness);
-
-  ppAmr.query("evolve_topography", m_evolve_topography);
-  ppAmr.query("evolve_topography_preserve_mask", m_evolve_topography_preserve_mask);
-  ppAmr.query("evolve_topography_timescale", m_evolve_topography_timescale);
-  ppAmr.query("evolve_topography_min_speed", m_evolve_topography_min_speed);
-  ppAmr.query("evolve_topography_max_elevation_above_flotation", m_evolve_topography_max_elevation_above_flotation);
-
-
   ppAmr.query("grounded_ice_stable", m_grounded_ice_stable);
   ppAmr.query("floating_ice_stable", m_floating_ice_stable);
 
@@ -1850,10 +1836,7 @@ AmrIce::timeStep(Real a_dt)
 	  // set basal thickness source
 	  m_basalFluxPtr->surfaceThicknessFlux(levelBTS, *this, lev, a_dt);
 
-	  m_calvingModelPtr->modifySurfaceThicknessFlux(levelBTS, 
-							levelCoordSys,
-							*m_velocity[lev],
-							m_time, a_dt);
+	  m_calvingModelPtr->modifySurfaceThicknessFlux(levelBTS, *this, lev, a_dt);
 
 
 	  // modify face velocity, removing the diffusive component,
@@ -2192,46 +2175,7 @@ AmrIce::timeStep(Real a_dt)
 
 
                   newH *= -1*a_dt;
-
-		  if (m_evolve_topography)
-		    {
-		      //relax topography along with thickness in regions
-		      //where |u| > m_evolve_topography_min_speed and 
-                      // s - (1-r)*H < m_evolve_topography_max_elevation_above_flotation 
-                      //Don't permit the mask to change
-		      FArrayBox& topg = levelCoords.getTopography()[dit];
-		      const FArrayBox& usrf = levelCoords.getSurfaceHeight()[dit];
-		      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
-		      const FArrayBox& vel = (*m_velocity[lev])[dit];
-		      Real ratio = 1.0 - levelCoords.iceDensity()/levelCoords.waterDensity();
-		      Real ratioMinusOne = ratio - 1.0;
-		      Real weight = m_evolve_topography_weight * std::exp(-m_time/m_evolve_topography_timescale);
-		      for (BoxIterator bit(gridBox); bit.ok(); ++bit)
-			{
-			  const IntVect& iv = bit();
-			  if (mask(iv) == GROUNDEDMASKVAL)
-			    {
-			      Real sAbove = usrf(iv) - oldH(iv)*ratio;
-			      Real umod = std::sqrt(vel(iv,0)*vel(iv,0) + vel(iv,1)*vel(iv,1));
-			      if (sAbove < m_evolve_topography_max_elevation_above_flotation
-				  && umod > m_evolve_topography_min_speed)
-				{
-				  topg(iv) -=  weight*newH(iv);
-				  if (m_evolve_topography_preserve_mask)
-				    {
-				      Real H = oldH(iv)+newH(iv);
-				      //Real oldTopg = topg(iv);
-				      topg(iv) = std::max(H*ratioMinusOne + 1.0e-2 ,topg(iv));
-				      //topg(iv) = std::max(H*ratioMinusOne + 5.0 ,topg(iv));
-				      //topg(iv) = std::min(topg(iv), oldTopg);
-				    }
-				}
-			    }
-			}
-
-		    }
-
-
+		  
                 }
               else 
                 {
@@ -2241,10 +2185,6 @@ AmrIce::timeStep(Real a_dt)
 	      newH.plus(oldH, 0, 0, 1);
 
             } // end loop over grids
-	  if (m_evolve_topography)
-	    {
-	      levelCoords.getTopography().exchange();  
-	    }
         } // end loop over levels
       
 
@@ -2314,8 +2254,8 @@ AmrIce::timeStep(Real a_dt)
       //allow calving model to modify geometry and velocity
       for (int lev=0; lev<= m_finest_level; lev++)
 	{
-	  m_calvingModelPtr->postUpdateThickness
-	    (*(m_vect_coordSys[lev]), *m_velocity[lev], m_time);
+	  m_calvingModelPtr->endTimeStepModifyState
+	    (m_vect_coordSys[lev]->getH(), *this, lev);
 	}
 
       //dont allow thickness to be negative
@@ -4088,8 +4028,8 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
       a_vectCoordSys[lev]->recomputeGeometry(crsePtr, refRatio);
 
       //allow calving model to modify geometry and velocity
-      //m_calvingModelPtr->postUpdateThickness
-      //	(*(m_vect_coordSys[lev]), *m_velocity[lev], m_time);
+      m_calvingModelPtr->initialModifyState
+      	(m_vect_coordSys[lev]->getH(), *this, lev);
 
       a_vectCoordSys[lev]->recomputeGeometry(crsePtr, refRatio);
 
@@ -4105,8 +4045,7 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
       m_temperatureIBCPtr->initializeIceTemperature(*m_temperature[lev],*a_vectCoordSys[lev]);
 #endif
     }
-
- 
+  
   // now call velocity solver to initialize velocity field
   solveVelocityField(m_velocity);
 
@@ -5051,8 +4990,7 @@ AmrIce::computeDivThicknessFlux(Vector<LevelData<FArrayBox>* >& a_divFlux,
       
       LevelData<FArrayBox>& basalThicknessSource = *m_basalThicknessSource[lev];
       m_basalFluxPtr->surfaceThicknessFlux(basalThicknessSource, *this, lev, a_dt);
-      m_calvingModelPtr->modifySurfaceThicknessFlux(basalThicknessSource, levelCoords,
-					      *m_velocity[lev], a_time, a_dt);
+      m_calvingModelPtr->modifySurfaceThicknessFlux(basalThicknessSource, *this, lev, a_dt);
 
       const RealVect& dx = levelCoords.dx();          
 
@@ -6145,9 +6083,7 @@ AmrIce::writePlotFile()
 	  m_basalFluxPtr->surfaceThicknessFlux
 	    (*m_basalThicknessSource[lev], *this, lev, m_dt);
 	  m_calvingModelPtr->modifySurfaceThicknessFlux
-	    (*m_basalThicknessSource[lev], 
-	     levelCS,
-	     *m_velocity[lev], m_time, m_dt);
+	    (*m_basalThicknessSource[lev],*this, lev, m_dt );
 	}
 
       DataIterator dit = m_amrGrids[lev].dataIterator();

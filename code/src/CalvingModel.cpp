@@ -10,42 +10,36 @@
 
 #include "CalvingModel.H"
 #include "IceConstants.H"
+#include "AmrIce.H"
 #include "NamespaceHeader.H"
 
 void 
-DeglaciationCalvingModelA::postUpdateThickness
-(LevelSigmaCS& a_coordSys, 
- LevelData<FArrayBox>& a_vel, 
- const Real& a_time) const
+DeglaciationCalvingModelA::endTimeStepModifyState
+(LevelData<FArrayBox>& a_thickness, 
+ const AmrIce& a_amrIce,
+ int a_level)
 {
-  // pout() << "DeglaciationCalvingModelA::postUpdateThickness"
-  // 	 << "time = " << a_time 
-  // 	 << " start time = " << m_startTime 
-  // 	 << " end time = " << m_endTime 
-  // 	 << std::endl;
-  bool calvingActive = (a_time >= m_startTime && a_time < m_endTime);
-  //if (calvingActive)
-    // pout() << " calving active " << std::endl;
 
-  const DisjointBoxLayout& levelGrids = a_coordSys.grids();
-  for (DataIterator dit(levelGrids); dit.ok(); ++dit)
+  Real time = a_amrIce.time();
+  bool calvingActive = (time >= m_startTime && time < m_endTime);
+  
+  const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
+ 
+  for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
     {
-      const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
-      FArrayBox& thck = a_coordSys.getH()[dit];
-      FArrayBox& u = a_vel[dit];
-      const FArrayBox& topg = a_coordSys.getTopography()[dit];
+      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+      FArrayBox& thck = a_thickness[dit];
+      const FArrayBox& topg = levelCoords.getTopography()[dit];
       Box b = thck.box();
-      b &= thck.box();
       b &= topg.box();
       FArrayBox water(b,1); //ocean depth beneath ice shelf
-      water.copy(a_coordSys.getSurfaceHeight()[dit]);
+      water.copy(levelCoords.getSurfaceHeight()[dit]);
       water -= thck;
       water -= topg;
 
       for (BoxIterator bit(b); bit.ok(); ++bit)
 	{
 	  const IntVect& iv = bit();
-
 
 	  if (mask(iv) == OPENSEAMASKVAL)
 	    {
@@ -67,74 +61,22 @@ DeglaciationCalvingModelA::postUpdateThickness
 	    }
 	}
 
-      
-      // if (a_time < 0.26)
-      // 	{
-      // 	  for (BoxIterator bit(u.box()); bit.ok(); ++bit)
-      // 	    {
-      // 	      const IntVect& iv = bit();
-      // 	      if( mask(iv) == FLOATINGMASKVAL)
-      // 		{
-      // 		  Real umod = std::sqrt( u(iv,0)*u(iv,0) + u(iv,1)*u(iv,1));
-      // 		  if (umod > 2.0e+3)
-      // 		    {
-      // 		      thck(iv) = 5.0;
-      // 		      u(iv,0) = 0.0;
-      // 		      u(iv,1) = 0.0;
-      // 		    }
-      // 		}
-      // 	    }
-      // 	}
-
 
     }
 
 }
 
-void DeglaciationCalvingModelA::modifySurfaceThicknessFlux
-(LevelData<FArrayBox>& a_flux,
- const LevelSigmaCS& a_coordSys,
- const LevelData<FArrayBox>& a_vel,
- Real a_time, Real a_dt) const
+void DomainEdgeCalvingModel::endTimeStepModifyState
+(LevelData<FArrayBox>& a_thickness, 
+ const AmrIce& a_amrIce,
+ int a_level)
 {
 
-  // const DisjointBoxLayout& levelGrids = a_coordSys.grids();
-  // for (DataIterator dit(levelGrids); dit.ok(); ++dit)
-  //   {
-  //     const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
-  
-  //     if (a_time < -1.25)
-  // 	{
-  // 	  const FArrayBox& u = a_vel[dit];
-  // 	  const FArrayBox& thck = a_coordSys.getH()[dit];
-  // 	  FArrayBox& flux = a_flux[dit];
-  // 	  for (BoxIterator bit(u.box()); bit.ok(); ++bit)
-  // 	    {
-  // 	      const IntVect& iv = bit();
-  // 	      if (mask(iv) == FLOATINGMASKVAL)
-  // 		{
-  // 		  Real umod = std::sqrt(u(iv,0)*u(iv,0) + u(iv,1)*u(iv,1));
-  // 		  if (umod > 1.5e+3)
-  // 		    {
-  // 		      flux(iv) -= 4 * thck(iv);
-  // 		    }
-  // 		}
-  // 	    }
-  // 	}
-  //   }
-}
-
-
-void DomainEdgeCalvingModel::postUpdateThickness
-(LevelSigmaCS& a_coordSys, 
- LevelData<FArrayBox>& a_vel, 
- const Real& a_time) const
-{
-  const DisjointBoxLayout& grids = a_coordSys.grids();
+  const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
+  const DisjointBoxLayout& grids = levelCoords.grids();
   const ProblemDomain domain = grids.physDomain();
-  LevelData<FArrayBox>& levelH = a_coordSys.getH();
-  const LevelData<BaseFab<int> >& levelMask = a_coordSys.getFloatingMask();
-  const IntVect ghost = levelH.ghostVect();
+  const LevelData<BaseFab<int> >& levelMask = levelCoords.getFloatingMask();
+  const IntVect ghost = a_thickness.ghostVect();
   
   DataIterator dit = grids.dataIterator();
   for (dit.begin(); dit.ok(); ++dit)
@@ -148,33 +90,33 @@ void DomainEdgeCalvingModel::postUpdateThickness
 	      if (m_frontLo[dir] > 0)
 		{
 		  Box loBox = adjCellLo(domain,dir,ghost[dir]);
-		  loBox &= levelH[dit].box();
+		  loBox &= a_thickness[dit].box();
 		  for (BoxIterator bit(loBox); bit.ok(); ++bit)
 		    {
 		      const IntVect& iv = bit();
 		      const IntVect ip = iv + BASISV(dir);
 		      if (levelMask[dit](ip) != GROUNDEDMASKVAL)
-			levelH[dit](iv) = 0.0;
+			a_thickness[dit](iv) = 0.0;
 		    }
 		}
 	      
 	      if (m_frontHi[dir] > 0)
 		{
 		  Box hiBox = adjCellHi(domain,dir,ghost[dir]);
-		  hiBox &= levelH[dit].box();
+		  hiBox &= a_thickness[dit].box();
 		  for (BoxIterator bit(hiBox); bit.ok(); ++bit)
 		    {
 		      const IntVect& iv = bit();
 		      const IntVect ip = iv - BASISV(dir);
 		      if (levelMask[dit](ip) != GROUNDEDMASKVAL)
-			levelH[dit](iv) = 0.0;
+			a_thickness[dit](iv) = 0.0;
 		    }
 		} 
 	    } // end if (!domain.isPeriodic(dir))
 	} // end loop over dirs
       
-      const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
-      FArrayBox& thck = a_coordSys.getH()[dit];
+      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+      FArrayBox& thck = a_thickness[dit];
       const Box& b = grids[dit];
       for (BoxIterator bit(b); bit.ok(); ++bit)
 	{
@@ -193,14 +135,6 @@ void DomainEdgeCalvingModel::postUpdateThickness
 
 }
 
-void DomainEdgeCalvingModel::modifySurfaceThicknessFlux
-(LevelData<FArrayBox>& a_flux,
- const LevelSigmaCS& a_coordSys,
- const LevelData<FArrayBox>& a_vel,
- Real a_time, Real a_dt) const
-{
-
-}
 
 
 #include "NamespaceFooter.H"
