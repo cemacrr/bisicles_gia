@@ -354,6 +354,7 @@ AmrIce::setDefaults()
   m_tagAllIce  = false;
   m_groundingLineTaggingMinVel = 200.0;
   m_groundingLineTaggingMaxBasalFrictionCoef = 1.2345678e+300;
+  
   m_tags_grow = 1;
   m_cfl = 0.25;
   m_max_dt_grow = 1.5;
@@ -420,6 +421,8 @@ AmrIce::setDefaults()
   m_grounded_ice_stable = false;
   m_floating_ice_stable = false;
   
+  m_groundingLineProximityScale = 1.0e+4;
+
   //cache validity flags
   m_A_valid = false;
   m_groundingLineProximity_valid = false;
@@ -498,7 +501,7 @@ AmrIce::~AmrIce()
         }
     }
   // clean up surface thickness storage if appropriate
-  for (int lev=0; lev < m_faceVel.size(); lev++)
+  for (int lev=0; lev < m_surfaceThicknessSource.size(); lev++)
     {
       if (m_surfaceThicknessSource[lev] != NULL)
 	{
@@ -509,6 +512,15 @@ AmrIce::~AmrIce()
 	{
 	  delete m_basalThicknessSource[lev];
 	  m_basalThicknessSource[lev] = NULL;
+	}
+    }
+  
+  for (int lev=0; lev < m_balance.size(); lev++)
+    {
+      if (m_balance[lev] != NULL)
+	{
+	  delete m_balance[lev];
+	  m_balance[lev] = NULL;
 	}
     }
 
@@ -1352,6 +1364,7 @@ AmrIce::initialize()
       m_velRHS.resize(m_max_level+1, NULL);
       m_surfaceThicknessSource.resize(m_max_level+1, NULL);
       m_basalThicknessSource.resize(m_max_level+1, NULL);
+      m_balance.resize(m_max_level+1, NULL);
       m_temperature.resize(m_max_level+1, NULL);
 #if BISICLES_Z == BISICLES_LAYERED
       m_layerXYFaceXYVel.resize(m_max_level+1, NULL);
@@ -2106,6 +2119,7 @@ AmrIce::timeStep(Real a_dt)
           LevelSigmaCS& levelCoords = *(m_vect_coordSys[lev]);
           LevelData<FArrayBox>& levelNewH = levelCoords.getH();
 	  LevelData<FArrayBox>& levelOldH = (*vectCoords_old[lev]).getH();
+	  LevelData<FArrayBox>& levelBalance = *m_balance[lev];
           const RealVect& dx = levelCoords.dx();              
 
           DataIterator dit = levelGrids.dataIterator();          
@@ -2140,6 +2154,9 @@ AmrIce::timeStep(Real a_dt)
 		  newH.minus((*m_basalThicknessSource[lev])[dit], gridBox,0,0,1);
 		}
 		  
+	      levelBalance[dit].copy(newH);
+
+
               if (m_evolve_thickness)
                 {
 
@@ -3052,6 +3069,13 @@ AmrIce::regrid()
 	      m_basalThicknessSource[lev] = 
 		new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
 	      
+	      if (m_balance[lev] != NULL)
+		{
+		  delete m_balance[lev];
+		}
+	      m_balance[lev] = 
+		new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
+
 
 #if BISICLES_Z == BISICLES_LAYERED
 	      if (m_layerXYFaceXYVel[lev] != NULL)
@@ -3937,6 +3961,8 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
     new LevelData<FArrayBox>(a_grids,   1, IntVect::Unit) ;
   m_basalThicknessSource[a_level] = 
     new LevelData<FArrayBox>(a_grids,   1, IntVect::Unit) ;
+  m_balance[a_level] = 
+    new LevelData<FArrayBox>(a_grids,   1, IntVect::Zero) ;
 
   // probably eventually want to do this differently
   RealVect dx = m_amrDx[a_level]*RealVect::Unit;
@@ -4088,7 +4114,7 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
 #else
   MayDay::Error("AmrIce::SolveVelocityField full z calculation of A not done"); 
 #endif
-  //updateGroundingLineProximity();
+ 
 
   // define basal friction
   Vector<LevelData<FArrayBox>* > vectC(m_finest_level+1, NULL);
@@ -5243,13 +5269,16 @@ void AmrIce::updateGroundingLineProximity() const
       
       LevelData<FArrayBox>& levelPhi = *m_groundingLineProximity[lev];
 
+      const Real& crseDx = m_amrDx[0];
+      Real crseDxSq = crseDx*crseDx;
+
       for (DataIterator dit(levelGrids); dit.ok(); ++dit)
  	{
 	  FluxBox& B = (*b[lev])[dit];
 	  
 	  for (int dir = 0; dir < SpaceDim; dir++)
 	    {
-	      B[dir].setVal(1.0e+4);
+	      B[dir].setVal(crseDxSq);
 	    }
 
  	  FArrayBox& r =  (*rhs[lev])[dit];
@@ -5261,22 +5290,19 @@ void AmrIce::updateGroundingLineProximity() const
 
  	  const BaseFab<int>& mask = levelMask[dit];
  	  const Box& gridBox = levelGrids[dit];
+	  const FArrayBox& u = (*m_velocity[lev])[dit];
  	  for (BoxIterator bit(gridBox);bit.ok();++bit)
  	    {
  	      const IntVect& iv = bit();
- 	      if (mask(iv) == GROUNDEDMASKVAL)
+ 	      if (mask(iv) == GROUNDEDMASKVAL )
  		{
  		  A(iv) = 1.0e+0;
 		  r(iv) = 1.0e+0;
- 		} 
-	      else if (mask(iv) == OPENSEAMASKVAL || mask(iv) == OPENLANDMASKVAL)
- 		{
-		  A(iv) = 1.0e+0;
-		  r(iv) = 0.0e+0;
+		  
  		} 
 	      else
 		{
-		  A(iv) = 1.0e-3;
+		  A(iv) = crseDx / m_groundingLineProximityScale;
 		}
 	      
  	    }
@@ -5780,7 +5806,7 @@ AmrIce::writePlotFile()
   
   if (m_write_thickness_sources)
     {
-      numPlotComps += 2;  // surface and basal sources
+      numPlotComps += 3;  // surface and basal sources, plus the balance
     }
 
 
@@ -5830,6 +5856,7 @@ AmrIce::writePlotFile()
 
   string basalThicknessSourceName("basalThicknessSource");
   string surfaceThicknessSourceName("surfaceThicknessSource");
+  string surfaceThicknessBalanceName("surfaceThicknessBalance");
 
   Vector<string> vectName(numPlotComps);
   //int dThicknessComp;
@@ -5985,9 +6012,7 @@ AmrIce::writePlotFile()
     {
       vectName[comp] = basalThicknessSourceName; comp++;
       vectName[comp] = surfaceThicknessSourceName; comp++;
-      
-	 
-	
+      vectName[comp] = surfaceThicknessBalanceName; comp++;	
     }
 
   Box domain = m_amrDomains[0].domainBox();
@@ -6299,6 +6324,8 @@ AmrIce::writePlotFile()
 	      thisPlotData.copy((*m_basalThicknessSource[lev])[dit], 0, comp, 1);
 	      comp++;
 	      thisPlotData.copy((*m_surfaceThicknessSource[lev])[dit], 0, comp, 1);
+	      comp++;
+	      thisPlotData.copy((*m_balance[lev])[dit], 0, comp, 1);
 	      comp++;
 	    }
 
@@ -6809,8 +6836,9 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   m_diffusivity.resize(m_max_level+1);
   m_vect_coordSys.resize(m_max_level+1);
   m_velRHS.resize(m_max_level+1);
-  m_surfaceThicknessSource.resize(m_max_level+1);
-  m_basalThicknessSource.resize(m_max_level+1);
+  m_surfaceThicknessSource.resize(m_max_level+1,NULL);
+  m_basalThicknessSource.resize(m_max_level+1,NULL);
+  m_balance.resize(m_max_level+1,NULL);
   m_velBasalC.resize(m_max_level+1,NULL);
   m_cellMuCoef.resize(m_max_level+1,NULL);
   m_faceMuCoef.resize(m_max_level+1,NULL);
@@ -6936,7 +6964,8 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	    new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_basalThicknessSource[lev] = 
 	    new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
-	  
+	  m_balance[lev] = 
+	    new LevelData<FArrayBox>(levelDBL,   1, IntVect::Zero) ;
 	  m_diffusivity[lev] =  RefCountedPtr<LevelData<FluxBox> >
 	    (new LevelData<FluxBox>(levelDBL, 1,  ghostVect));
 

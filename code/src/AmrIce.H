@@ -718,11 +718,16 @@ protected:
   //be kept seperate for the temperature calculation. 
   Vector<LevelData<FArrayBox>* > m_surfaceThicknessSource;
   Vector<LevelData<FArrayBox>* > m_basalThicknessSource;
+  
+  Vector<LevelData<FArrayBox>* > m_balance; // set to -dH/dt
+
 
   //Scalar field that varies in the ice shelf from 0 at the grounding line
   mutable Vector<LevelData<FArrayBox>* > m_groundingLineProximity;
   // step on which m_groundingLineProximity was last updated;
   mutable bool m_groundingLineProximity_valid;
+  // scale length for grounding line proximity
+  Real m_groundingLineProximityScale;
   void updateGroundingLineProximity() const;
   
   /// diagnostic quantity -- sum(ice) at initial time
