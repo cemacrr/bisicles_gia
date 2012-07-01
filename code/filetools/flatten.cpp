@@ -54,16 +54,17 @@ int main(int argc, char* argv[]) {
  
     out_file_type_enum out_file_type;
     std::string ofile(out_file);
-    if (ofile.find("hdf5") == ofile.size()-4)
+    if (ofile.find(".hdf5") == ofile.size()-5)
       {
 	out_file_type = hdf5;
       }
-    else if (ofile.find("nc") == ofile.size()-2)
+    else if (ofile.find(".nc") == ofile.size()-3)
       {
 	out_file_type = nc;
       }
     else
       {
+	pout() << "unknown output file type [" <<  ofile << "]" << std::endl;
 	MayDay::Error("unknown output file type");
       }
 
