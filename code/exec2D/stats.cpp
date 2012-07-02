@@ -167,10 +167,10 @@ int main(int argc, char* argv[]) {
       }
 
     
-
-
-
-    pout() << " time = " << time << endl;
+    pout().setf(ios_base::scientific,ios_base::floatfield); 
+    pout().precision(12);
+   
+    pout() << " time = " << time << " ";
 
     {
       //Compute the total thickness
@@ -180,7 +180,7 @@ int main(int argc, char* argv[]) {
 	  thk[lev] = const_cast<LevelData<FArrayBox>*>(&coords[lev]->getH());
 	}
       Real iceVolumeAll = computeSum(thk, ratio, dx[0], Interval(0,0), 0);
-      pout() << " iceVolumeAll = " << iceVolumeAll << endl;
+      pout() << " iceVolumeAll = " << iceVolumeAll << " ";
     }
     
     
@@ -192,10 +192,10 @@ int main(int argc, char* argv[]) {
 	  thk[lev] = const_cast<LevelData<FArrayBox>*>(&coords[lev]->getThicknessOverFlotation());
 	}
       Real iceVolumeAbove = computeSum(thk, ratio, dx[0], Interval(0,0), 0);
-      pout() << " iceVolumeAbove = " << iceVolumeAbove << endl;
+      pout() << " iceVolumeAbove = " << iceVolumeAbove << " ";
     }
 
-
+    pout() << endl;
 		  
   }  // end nested scope
   CH_TIMER_REPORT();
