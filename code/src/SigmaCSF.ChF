@@ -710,9 +710,10 @@ c--------------------------------------------------
       CHF_AUTOMULTIDO[box; i]
       p(CHF_AUTOIX[i]) = 1.0
       if (thck(CHF_AUTOIX[i]).ge.eps) then
-          p(CHF_AUTOIX[i]) = max(0.0d0,
+          p(CHF_AUTOIX[i]) = min( thck(CHF_AUTOIX[i]),
+     &        max(0.0d0,
      &        (topg(CHF_AUTOIX[i])-sealevel) * ratio  
-     &        + thck(CHF_AUTOIX[i]))
+     &        + thck(CHF_AUTOIX[i])))
       endif
 
 c$$$      if (mask(CHF_AUTOIX[i]).eq.GROUNDEDMASKVAL) then
