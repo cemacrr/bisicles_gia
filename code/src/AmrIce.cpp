@@ -2633,6 +2633,8 @@ void
 AmrIce::regrid()
 {
 
+  CH_TIME("AmrIce::regrid");
+
   if (s_verbosity > 3) 
     { 
       pout() << "AmrIce::regrid" << endl;

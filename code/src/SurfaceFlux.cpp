@@ -240,13 +240,22 @@ void MaskedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
       
       Box box = mask.box();
       box &= a_flux[dit].box();
-      int m = FLOATINGMASKVAL;
 
+      int m = FLOATINGMASKVAL;
       FORT_MASKEDREPLACE(CHF_FRA1(a_flux[dit],0),
 			 CHF_CONST_FRA1(floatingFlux[dit],0),
 			 CHF_CONST_FIA1(mask,0),
 			 CHF_CONST_INT(m),
 			 CHF_BOX(box));
+
+      
+      m = OPENSEAMASKVAL;
+      FORT_MASKEDREPLACE(CHF_FRA1(a_flux[dit],0),
+			 CHF_CONST_FRA1(floatingFlux[dit],0),
+			 CHF_CONST_FIA1(mask,0),
+			 CHF_CONST_INT(m),
+			 CHF_BOX(box));
+
     }
 
 }
