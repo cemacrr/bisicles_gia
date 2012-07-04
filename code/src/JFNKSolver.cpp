@@ -241,18 +241,17 @@ void JFNKOp::writeResidual
 	      const IntVect& iv = bit();
 	      const IntVect ive = iv + BASISV(0);
 	      const IntVect ivn = iv + BASISV(1); 
-	      muSum(iv,0) = mu[dit][0](iv) + mu[dit][0](ive) + mu[dit][1](iv) +  mu[dit][1](iv);
+	      muSum(iv,0) = mu[dit][0](iv) + mu[dit][0](ive) 
+	      	+ mu[dit][1](iv) +  mu[dit][1](ivn);
 	    }
 	}
-
-
     }
 
-  for (int lev = a_u.size() -1; lev > 0; lev--)
-    {
-      CoarseAverage avg(m_grids[lev],m_grids[lev-1],data[lev]->nComp(),m_refRatio[lev-1]);
-      avg.averageToCoarse(*data[lev-1], *data[lev]);
-    }
+  // for (int lev = a_u.size() -1; lev > 0; lev--)
+  //   {
+  //     CoarseAverage avg(m_grids[lev],m_grids[lev-1],data[lev]->nComp(),m_refRatio[lev-1]);
+  //     avg.averageToCoarse(*data[lev-1], *data[lev]);
+  //   }
   
   //decide on the file name
   char file[32];
@@ -321,15 +320,15 @@ IceJFNKstate::IceJFNKstate
       DisjointBoxLayout levelGrids = m_grids[lev];
 
       m_mu[lev] = RefCountedPtr<LevelData<FluxBox> >
-	(new LevelData<FluxBox>(levelGrids, 1, IntVect::Zero));
+	(new LevelData<FluxBox>(levelGrids, 1, IntVect::Unit));
 
       m_muCoef[lev] = NULL;
       
       m_lambda[lev] = RefCountedPtr<LevelData<FluxBox> >
-	(new LevelData<FluxBox>(levelGrids, 1, IntVect::Zero));	
+	(new LevelData<FluxBox>(levelGrids, 1, IntVect::Unit));	
       
       m_alpha[lev] = RefCountedPtr<LevelData<FArrayBox> >
-	(new LevelData<FArrayBox>(levelGrids, 1, IntVect::Zero));	
+	(new LevelData<FArrayBox>(levelGrids, 1, IntVect::Unit));	
     }
 
    Real alpha = -1.0;
@@ -437,7 +436,7 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
           nRefCrse = m_refRatio[lev-1];
         }
       LevelData<FluxBox>& levelMu = *m_mu[lev];
-      LevelData<FluxBox>& levelLambda = *m_lambda[lev];
+     
       LevelSigmaCS& levelCoords = *m_coordSys[lev];
       const LevelData<FArrayBox>& levelC = *m_C[lev];
       LevelData<FArrayBox>& levelAlpha = *m_alpha[lev];
@@ -552,8 +551,31 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
 	    (levelAlpha[dit], levelVel[dit], levelCoords.getThicknessOverFlotation()[dit] 
 	     , levelC[dit] , 	levelCoords.getFloatingMask()[dit], gridBox);
 	  levelAlpha[dit] += (*m_C0[lev])[dit];
-
 	  CH_assert(levelAlpha[dit].min() >= 0.0);
+
+	  
+	} // end loop over grids		
+    }
+
+  //coarse average mu and alpha
+  for (int lev = m_finestLevel; lev > 0 ; lev--)
+  {
+      CoarseAverage averageOp(m_grids[lev],1,m_refRatio[lev-1]);
+      averageOp.averageToCoarse(*m_alpha[lev-1], *m_alpha[lev]);
+
+      CoarseAverageFace averageOpFace(m_grids[lev],1,m_refRatio[lev-1]);
+      averageOpFace.averageToCoarse(*m_mu[lev-1], *m_mu[lev] );
+  }
+  // lambda = 2*mu
+  for (int lev=0; lev <= m_finestLevel ; lev++)
+    {
+      const DisjointBoxLayout& levelGrids = m_grids[lev];
+      LevelData<FluxBox>& levelLambda = *m_lambda[lev];
+      LevelData<FluxBox>& levelMu = *m_mu[lev];
+      LevelData<FArrayBox>& levelAlpha = *m_alpha[lev];
+      for (DataIterator dit(levelGrids);dit.ok();++dit)
+	{
+
 #if CH_SPACEDIM==2
 	  {
 	    Real mu0 = 1.0;
@@ -565,36 +587,21 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
 	       CHF_FRA1(levelMu[dit][1],0),
 	       CHF_CONST_REAL(mu0),
 	       CHF_CONST_REAL(C0),
-	       CHF_BOX(gridBox));
+	       CHF_BOX(levelGrids[dit]));
 
 	  }
 #endif
-	    // for (BoxIterator bit(gridBox);bit.ok();++bit)
-	    //   {
-	    // 	const IntVect& iv = bit();
-	    // 	const IntVect ive = iv + BASISV(0);
-	    // 	const IntVect ivn = iv + BASISV(1); 
-	    // 	Real muSum = mu[0](iv) + mu[0](ive) + mu[1](iv) +  mu[1](iv);
-	    // 	if (muSum < 1.0 && levelAlpha[dit](iv) < 1.0)
-	    // 	  {
-	    // 	    //levelAlpha[dit](iv) = std::max(levelAlpha[dit](iv),1.0);
-	    // 	    pout() << "warning: cell " << iv << " is evil" << std::endl; 
-	    // 	  }
-	    //   }
-	  // }
-	  
-          // lambda = 2*mu
-          FluxBox& lambda = levelLambda[dit];
-          for (int dir=0; dir<SpaceDim; dir++)
-            {
-              lambda[dir].copy(levelMu[dit][dir]);
-              lambda[dir] *= 2.0;
-            }
-	  
 
 
-	} // end loop over grids		
-    }
+	  FluxBox& lambda = levelLambda[dit];
+	  for (int dir=0; dir<SpaceDim; dir++)
+	    {
+	      lambda[dir].copy(levelMu[dit][dir]);
+	      lambda[dir] *= 2.0;
+	    }
+	} // end loop over grids
+    } // end loop over levels
+
 }
 
 
@@ -834,13 +841,14 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
  
  //cell face A
  Vector<LevelData<FluxBox>* > faceA(a_maxLevel+1, NULL);
+
  for (int lev = 0; lev < a_maxLevel + 1; ++lev)
    {
      faceA[lev] = new LevelData<FluxBox>
        (m_grids[lev], a_A[lev]->nComp(), IntVect::Zero);
      CellToEdge(*a_A[lev] , *faceA[lev]);
+
    }
- 
  
 
  //define state managers
@@ -871,6 +879,9 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
   jfnkOp.create(du,localU);
   
   
+
+  
+
   int iter = 0;
   Real oldResNorm;
   Real& resNorm = a_finalResidualNorm;
@@ -1059,6 +1070,9 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 			 m_refRatios, m_domains, m_dxs, a_lbase, 
 			 m_numMGSmooth, m_numMGIter, mode);
 	  testOp.outerResidual(residual,localU,localRhs);
+
+
+
 	  resNorm = testOp.norm(residual, m_normType);
 
 	  if (resNorm > oldResNorm)
@@ -1125,6 +1139,9 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	    }
 	  else
 	    {
+	      
+	     
+	     
 	      imposeMaxAbs(localU,m_uMaxAbs);
 	      current.setState(localU); 
 	      newOp.outerResidual(residual,localU,localRhs);
@@ -1187,6 +1204,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
   for (int lev=0; lev<residual.size(); lev++)
     {
 
+ 
       if (residual[lev] != NULL)
 	{
 	  delete residual[lev];
