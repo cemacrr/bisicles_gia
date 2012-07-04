@@ -431,7 +431,7 @@ AmrIce::setDefaults()
   cfptr->setFluxVal(0.0);
   m_basalFluxPtr = cfptr;
   
-  m_calvingModelPtr = new NoCalvingModel; 
+  m_calvingModelPtr = NULL;//new NoCalvingModel; 
 
   
 
@@ -1024,52 +1024,54 @@ AmrIce::initialize()
   ppAmr.query("grounding_line_correction",m_groundingLineCorrection);
 
   //calving model options
-  std::string calvingModelType = "NoCalvingModel";
-  ppAmr.query("calving_model_type",calvingModelType);
-  if (calvingModelType == "NoCalvingModel")
+  m_calvingModelPtr = CalvingModel::parseCalvingModel("CalvingModel");
+  if (m_calvingModelPtr == NULL)
     {
-      //default : nothing to do
-    }
-  else if (calvingModelType == "DeglaciationCalvingModelA")
-    {
-      ParmParse ppc("DeglaciationCalvingModelA");
-      Real minThickness = 0.0;
-      ppc.get("min_thickness", minThickness );
-      Real calvingThickness = 0.0;
-      ppc.get("calving_thickness", calvingThickness );
-      Real calvingDepth = 0.0;
-      ppc.get("calving_depth", calvingDepth );
-      Real startTime = -1.2345678e+300;
-      ppc.query("start_time",  startTime);
-      Real endTime = 1.2345678e+300;
-      ppc.query("end_time",  endTime);
-     
-      
-      delete m_calvingModelPtr;
-      DeglaciationCalvingModelA* ptr = new DeglaciationCalvingModelA
-	(calvingThickness,  calvingDepth, minThickness, startTime, endTime);
-      m_calvingModelPtr = ptr;
-      
-    }
-  else if (calvingModelType == "DomainEdgeCalvingModel")
-    {
-       ParmParse ppc("DomainEdgeCalvingModel");
-       Vector<int> frontLo(2,false); 
-       ppc.getarr("front_lo",frontLo,0,frontLo.size());
-       Vector<int> frontHi(2,false);
-       ppc.getarr("front_hi",frontHi,0,frontHi.size());
-       bool preserveSea = false;
-       ppc.query("preserveSea",preserveSea);
-       bool preserveLand = false;
-       ppc.query("preserveLand",preserveLand);
-       delete m_calvingModelPtr;
-       DomainEdgeCalvingModel* ptr = new DomainEdgeCalvingModel
-	 (frontLo, frontHi,preserveSea,preserveLand);
-       m_calvingModelPtr = ptr;
-    }
-  else
-    {
-      MayDay::Error("Unknown calving model");
+      MayDay::Warning("trying to parse old style amr.calving_model_type");
+
+      std::string calvingModelType = "NoCalvingModel";
+      ppAmr.query("calving_model_type",calvingModelType);
+      if (calvingModelType == "NoCalvingModel")
+	{
+	  m_calvingModelPtr = new NoCalvingModel;
+	}
+      else if (calvingModelType == "DeglaciationCalvingModelA")
+	{
+	  ParmParse ppc("DeglaciationCalvingModelA");
+	  Real minThickness = 0.0;
+	  ppc.get("min_thickness", minThickness );
+	  Real calvingThickness = 0.0;
+	  ppc.get("calving_thickness", calvingThickness );
+	  Real calvingDepth = 0.0;
+	  ppc.get("calving_depth", calvingDepth );
+	  Real startTime = -1.2345678e+300;
+	  ppc.query("start_time",  startTime);
+	  Real endTime = 1.2345678e+300;
+	  ppc.query("end_time",  endTime);
+	  DeglaciationCalvingModelA* ptr = new DeglaciationCalvingModelA
+	    (calvingThickness,  calvingDepth, minThickness, startTime, endTime);
+	  m_calvingModelPtr = ptr;
+	  
+	}
+      else if (calvingModelType == "DomainEdgeCalvingModel")
+	{
+	  ParmParse ppc("DomainEdgeCalvingModel");
+	  Vector<int> frontLo(2,false); 
+	  ppc.getarr("front_lo",frontLo,0,frontLo.size());
+	  Vector<int> frontHi(2,false);
+	  ppc.getarr("front_hi",frontHi,0,frontHi.size());
+	  bool preserveSea = false;
+	  ppc.query("preserveSea",preserveSea);
+	  bool preserveLand = false;
+	  ppc.query("preserveLand",preserveLand);
+	  DomainEdgeCalvingModel* ptr = new DomainEdgeCalvingModel
+	    (frontLo, frontHi,preserveSea,preserveLand);
+	  m_calvingModelPtr = ptr;
+	}
+      else
+	{
+	  MayDay::Error("Unknown calving model");
+	}
     }
 
   // now set up problem domains
@@ -4352,6 +4354,29 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
       // else
       {
 	//Vector<LevelData<FluxBox>* > muCoef(m_finest_level + 1,NULL);
+	{
+	  
+	  for (int lev=0; lev <= m_finest_level ; ++lev)
+	    {
+	      const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+	      LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
+	      for (DataIterator dit(levelGrids); dit.ok(); ++dit)
+		{
+		  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
+		  FArrayBox& vel = (*m_velocity[lev])[dit];
+		  for (BoxIterator bit(levelGrids[dit]); bit.ok(); ++bit)
+		    {
+		      const IntVect& iv = bit();
+		      if (mask(iv) == OPENSEAMASKVAL || 
+			  mask(iv) == OPENLANDMASKVAL )
+			{
+			  vel(iv,0) = 0.0; vel(iv,1) = 0.0;
+			} 
+		    }
+		}
+	    }
+	}
+
 	solverRetVal = m_velSolver->solve(m_velocity,
 					  m_velocitySolveInitialResidualNorm, 
 					  m_velocitySolveFinalResidualNorm,
@@ -5542,14 +5567,16 @@ void AmrIce::eliminateRemoteIce()
 	{
 	  const FArrayBox& thisPhi = levelPhi[dit];
 	  FArrayBox& thisH = levelCS.getH()[dit];
+	  FArrayBox& thisU = (*m_velocity[lev])[dit];
 	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
 	  for (BoxIterator bit(levelGrids[dit]); bit.ok(); ++bit)
 	    {
 	      const IntVect& iv = bit();
 	      if (mask(iv) == FLOATINGMASKVAL && thisPhi(iv) < threshold)
 	      	{
-		  thisH(iv) = 5.0;
+		  thisH(iv) = 0.0;
 	      	}
+
 	    }
 	}
 

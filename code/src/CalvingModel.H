@@ -51,6 +51,8 @@ public:
 
   virtual ~CalvingModel(){};
 
+  static CalvingModel* parseCalvingModel(const char* a_prefix);
+
 
 };
 
@@ -198,6 +200,50 @@ protected:
 private:
   DomainEdgeCalvingModel();
 };
+
+
+///Calve ice based on proximity to the grounding line
+class ProximityCalvingModel : public CalvingModel
+{
+
+  Real m_proximity, m_velocity,  m_startTime, m_endTime;
+
+public:
+  ProximityCalvingModel(const Real& a_proximity, 
+			const Real& a_velocity,
+			const Real& a_startTime, 
+			const Real& a_endTime)
+    : m_proximity(a_proximity), 
+      m_velocity(a_velocity),
+      m_startTime(a_startTime), 
+      m_endTime(a_endTime)
+  {
+  }
+  
+  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
+				  const AmrIce& a_amrIce,
+				  int a_level)
+  {
+    endTimeStepModifyState( a_thickness,  a_amrIce, a_level);
+  }
+
+
+  
+  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
+				      const AmrIce& a_amrIce,
+				      int a_level);
+
+  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  const AmrIce& a_amrIce,
+					  int a_level,
+					  Real a_dt)
+  {
+
+  }
+
+
+};
+
 
 
 #include "NamespaceFooter.H"

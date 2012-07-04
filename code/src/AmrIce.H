@@ -197,6 +197,11 @@ public:
   {
     return m_vect_coordSys[a_level];
   };
+  
+  const LevelData<FArrayBox>* velocity(int a_level) const
+  {
+    return m_velocity[a_level];
+  };
 
   const LevelData<FArrayBox>* groundingLineProximity(int a_level) const;
   

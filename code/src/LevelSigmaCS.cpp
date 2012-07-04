@@ -21,6 +21,7 @@
 #include "LevelData.H"
 #include "IceConstants.H"
 #include "FineInterp.H"
+#include "FineInterpFace.H"
 #include "IntFineInterp.H"
 #include "PiecewiseLinearFillPatch.H"
 #include "NamespaceHeader.H"
@@ -507,10 +508,70 @@ LevelSigmaCS::recomputeGeometry(const LevelSigmaCS* a_crseCoords,
       
     }
 
+  if (a_crseCoords)
+    {
+      //faceH needs to be zero on the fine side interface if it is on the coarse side. 
+      //If not, we end up with some open sea / open land cells on the coarse side
+      //connected to grounded ice / floating ice cells on the fine side.
+      //The catch is, we don't want to tinker with any faceH not at a coarse-fine
+      //interface...
+
+      //first off, need to decide where the coarse-fine interfaces are. This
+      //is a pretty stupid way, I suppose, but I was in a hurry, and it works.
+      LevelData<FArrayBox> tmp(m_grids, 1, IntVect::Unit);
+      for (dit.begin(); dit.ok(); ++dit)
+	{
+	  tmp[dit].setVal(0.0);
+	  tmp[dit].setVal(1.0,m_grids[dit],0,1);
+	}
+      tmp.exchange();
+      //et voila, the coarse-fine interfaces have a 0 in the ghost cell adjacent to
+      //them, and all other faces have a 1
+
+      FineInterpFace faceInterp(m_grids, 1, a_refRatio , m_grids.physDomain());
+      LevelData<FluxBox> tmpFaceH; tmpFaceH.define(m_faceH);
+      faceInterp.interpToFine(tmpFaceH, a_crseCoords->m_faceH);
+      
+      Real tol = 1.0e-18;
+      for (dit.begin(); dit.ok(); ++dit)
+	{
+	  const Box& b = m_grids[dit];
+	  
+	  for (int dir = 0; dir < SpaceDim; dir++)
+	    {
+	      const IntVect& lolo = b.smallEnd();
+	      const IntVect& hihi = b.bigEnd();
+
+	      IntVect lohi = hihi;
+	      lohi[dir] = lolo[dir];
+	      Box loBox(lolo,lohi);
+	      for (BoxIterator bit(loBox);bit.ok();++bit)
+		{
+		   const IntVect& iv = bit();
+		   const IntVect ivm = iv - BASISV(dir);
+		   if (tmp[dit](ivm) < tol && tmpFaceH[dit][dir](iv) < tol)
+		     m_faceH[dit][dir](iv) = 0.0;
+		}
+
+	      IntVect hilo = lolo;
+	      hilo[dir] = hihi[dir];
+	      Box hiBox(hilo,hihi);
+	      for (BoxIterator bit(hiBox);bit.ok();++bit)
+		{
+		   const IntVect& iv = bit();
+		   const IntVect ivp = iv + BASISV(dir);
+		   if (tmp[dit](ivp) < tol && tmpFaceH[dit][dir](ivp) < tol)
+		     m_faceH[dit][dir](ivp) = 0.0;
+		}
+	    } // end loop over direction
+	} // end loop over boxes
+    } // end if (a_crseCoords)
+
+
   computeDeltaFactors();
   computeSurface(a_crseCoords,  a_refRatio);
-  //computeFloatingMask();
 
+  
 }
 
 

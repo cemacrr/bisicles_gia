@@ -11,6 +11,7 @@
 #include "CalvingModel.H"
 #include "IceConstants.H"
 #include "AmrIce.H"
+#include "ParmParse.H"
 #include "NamespaceHeader.H"
 
 void 
@@ -135,6 +136,110 @@ void DomainEdgeCalvingModel::endTimeStepModifyState
 
 }
 
+void ProximityCalvingModel::endTimeStepModifyState
+(LevelData<FArrayBox>& a_thickness, 
+ const AmrIce& a_amrIce,
+ int a_level)
+{
 
+  Real time = a_amrIce.time();
+  bool calvingActive = (time >= m_startTime && time < m_endTime);
+  pout() << " time = " << time 
+	 << " m_startTime = " <<  m_startTime
+	 << " m_endTime = " <<  m_endTime
+	 << "calvingActive = " << calvingActive
+	 << std::endl;
+  if (true || calvingActive)
+    {
+      const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
+      const LevelData<FArrayBox>& proximity = *a_amrIce.groundingLineProximity(a_level);
+      const LevelData<FArrayBox>& velocity = *a_amrIce.velocity(a_level);
+      for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
+	{
+	  const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+	  FArrayBox& thck = a_thickness[dit];
+	  const FArrayBox& prox = proximity[dit];
+	  const FArrayBox& vel = velocity[dit];
+	  Box b = thck.box();b &= prox.box();
+	  for (BoxIterator bit(b); bit.ok(); ++bit)
+	    {
+	      const IntVect& iv = bit();
+	      Real vmod = std::sqrt(vel(iv,0)*vel(iv,0) + vel(iv,1)*vel(iv,1));
+	      if (prox(iv) < m_proximity && calvingActive && vmod > m_velocity)
+		{
+		  //thck(iv) *= 0.5; thck(iv) = max(thck(iv),10.0);
+		  thck(iv) = 0.0;
+		}
+	      if (mask(iv) == OPENSEAMASKVAL)
+		{
+		   thck(iv) = 0.0;
+		}
+	    }
+	}
+    }
+}
+
+
+
+CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
+{
+
+  CalvingModel* ptr = NULL;
+  std::string type = "";
+  ParmParse pp(a_prefix);
+  pp.query("type",type);
+  
+  if (type == "NoCalvingModel" or type == "")
+    {
+      ptr = new NoCalvingModel;
+    }
+  else if (type == "DomainEdgeCalvingModel")
+    {
+      Vector<int> frontLo(2,false); 
+      pp.getarr("front_lo",frontLo,0,frontLo.size());
+      Vector<int> frontHi(2,false);
+      pp.getarr("front_hi",frontHi,0,frontHi.size());
+      bool preserveSea = false;
+      pp.query("preserveSea",preserveSea);
+      bool preserveLand = false;
+      pp.query("preserveLand",preserveLand);
+      ptr = new DomainEdgeCalvingModel
+	(frontLo, frontHi,preserveSea,preserveLand);
+    }
+  else if (type == "DeglaciationCalvingModelA")
+    {  
+      Real minThickness = 0.0;
+      pp.get("min_thickness", minThickness );
+      Real calvingThickness = 0.0;
+      pp.get("calving_thickness", calvingThickness );
+      Real calvingDepth = 0.0;
+      pp.get("calving_depth", calvingDepth );
+      Real startTime = -1.2345678e+300;
+      pp.query("start_time",  startTime);
+      Real endTime = 1.2345678e+300;
+      pp.query("end_time",  endTime);
+      ptr = new DeglaciationCalvingModelA
+	(calvingThickness,  calvingDepth, minThickness, startTime, endTime); 
+    }
+  else if (type == "ProximityCalvingModel")
+    {
+      Real proximity = 0.0;
+      pp.get("proximity", proximity );
+      Real velocity = 0.0;
+      pp.query("velocity", velocity );
+      Real startTime = -1.2345678e+300;
+      pp.get("startTime",  startTime);
+      Real endTime = 1.2345678e+300;
+      pp.get("endTime",  endTime);
+      ptr = new ProximityCalvingModel(proximity,velocity, startTime, endTime);
+    }
+  else
+    {
+      pout() << "Unknown calving model" << type << std::endl;
+      MayDay::Error("Unknown calving model");
+    }
+  
+  return ptr;
+}
 
 #include "NamespaceFooter.H"

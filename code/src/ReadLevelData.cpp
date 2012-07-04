@@ -36,6 +36,9 @@ void readLevelData(Vector<RefCountedPtr<LevelData<FArrayBox> > >& a_data,
   Real dt = 0.0,time = 0.0;
   Box domBox;
   int numLevels;
+
+  pout() << " attempting to open file  " << a_file << std::endl;
+
   int status = ReadAMRHierarchyHDF5
     (a_file,vectGrids,vectData,names,domBox,a_dx,dt,time,
      vectRatio,numLevels);
@@ -64,10 +67,12 @@ void readLevelData(Vector<RefCountedPtr<LevelData<FArrayBox> > >& a_data,
  
  for (int j = 0; j < a_names.size(); j++)
    {
+     pout() << " looking for variable " << a_names[j] << std::endl;
      for (int i = 0; i < names.size(); i++)
        {
 	 if (names[i] == a_names[j])
 	   {
+	     pout() << " found variable " << names[i] << std::endl;
 	     vectData[0]->copyTo(Interval(i,i+a_nComp-1),*a_data[j],Interval(0,a_nComp-1));
 	     read++;
 	   }
