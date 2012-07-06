@@ -233,11 +233,11 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
       pp.get("endTime",  endTime);
       ptr = new ProximityCalvingModel(proximity,velocity, startTime, endTime);
     }
-  else
-    {
-      pout() << "Unknown calving model" << type << std::endl;
-      MayDay::Error("Unknown calving model");
-    }
+//   else
+//     {
+//       pout() << "Unknown calving model" << type << std::endl;
+//       MayDay::Error("Unknown calving model");
+//     }
   
   return ptr;
 }
