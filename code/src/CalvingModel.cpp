@@ -189,7 +189,7 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
   ParmParse pp(a_prefix);
   pp.query("type",type);
   
-  if (type == "NoCalvingModel" or type == "")
+  if (type == "NoCalvingModel")
     {
       ptr = new NoCalvingModel;
     }
