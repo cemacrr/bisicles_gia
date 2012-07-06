@@ -185,7 +185,7 @@ public:
   /// read only access members
   const Real time() const
   {
-    return m_time;
+    return m_time + m_offsetTime;
   };
 
   const RealVect dx(int a_level) const
@@ -633,7 +633,7 @@ protected:
   Vector<int> m_num_cells;
 
   /// current time
-  Real m_time;
+  Real m_time; Real m_offsetTime;
 
   /// most recent timestep
   Real m_dt;

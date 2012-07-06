@@ -421,6 +421,9 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       pp.get("fileFormat",fileFormat);
       int n;
       pp.get("n",n);
+      int offset = 0;
+      pp.query("offset",offset);
+
       Real startTime = 0.0, timeStep = 1.0;
       pp.query("startTime", startTime);
       pp.query("timeStep", timeStep);
@@ -433,7 +436,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       for (int i =0; i < n; i++)
 	{
 	  char* file = new char[fileFormat.length()+32];
-	  sprintf(file, fileFormat.c_str(),i);
+	  sprintf(file, fileFormat.c_str(),i + offset);
 	  tf->insert(make_pair(startTime + Real(i)*timeStep, file));
 	}
       

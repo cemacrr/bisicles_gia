@@ -434,6 +434,7 @@ AmrIce::setDefaults()
   m_calvingModelPtr = NULL;//new NoCalvingModel; 
 
   
+  m_offsetTime = 0.0;
 
 }
 
@@ -784,6 +785,8 @@ AmrIce::initialize()
     m_max_dt_grow = max(m_max_dt_grow, two);
 
   ppAmr.query("fixed_dt", m_fixed_dt);
+  ppAmr.query("offsetTime", m_offsetTime);
+
 
   ppAmr.query("isothermal",m_isothermal);
   ppAmr.query("isothermalTemperature",m_isothermalTemperature);
@@ -1743,7 +1746,7 @@ AmrIce::timeStep(Real a_dt)
     {
       pout() << "Timestep " << m_cur_step 
              << " Advancing solution from time " 
-             << m_time << " with dt = " << a_dt << endl;
+             << m_time << " ( " << time() << ")" " with dt = " << a_dt << endl;
     }
 
   
@@ -2569,7 +2572,7 @@ AmrIce::timeStep(Real a_dt)
 
   if (s_verbosity > 0) 
     {
-      pout() << "Step " << m_cur_step << ", time = " << m_time
+      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) " 
              << ": sum(ice) = " << sumIce 
              << " (" << diffSum
              << " " << totalDiffSum
@@ -2577,7 +2580,7 @@ AmrIce::timeStep(Real a_dt)
       
       if (m_report_grounded_ice)
         {
-          pout() << "Step " << m_cur_step << ", time = " << m_time
+          pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
                  << ": sum(grounded ice) = " << sumGroundedIce 
                  << " (" << diffSumGrounded
                  << " " << totalDiffGrounded
@@ -2593,7 +2596,7 @@ AmrIce::timeStep(Real a_dt)
       pout () << "AmrIce::timestep " << m_cur_step
               << " --     end time = " 
         //<< setiosflags(ios::fixed) << setprecision(6) << setw(12)
-              << m_time 
+              << m_time  << " ( " << time() << " )"
         //<< " (" << m_time/secondsperyear << " yr)"
               << ", dt = " 
         //<< setiosflags(ios::fixed) << setprecision(6) << setw(12)
@@ -2612,7 +2615,7 @@ AmrIce::timeStep(Real a_dt)
      
   if (s_verbosity > 0) 
     {
-      pout() << "Time = " << m_time
+      pout() << "Time = " << m_time  
              << " cells advanced = " 
              << totalCellsAdvanced << endl;
 
@@ -6415,7 +6418,7 @@ AmrIce::writePlotFile()
         }
 
       WriteAMRHierarchyHDF5(filename, m_amrGrids, plotData, vectName, 
-                            domain, m_amrDx[0], dt, m_time, m_refinement_ratios, 
+                            domain, m_amrDx[0], dt, time(), m_refinement_ratios, 
                             numLevels);
     }
 

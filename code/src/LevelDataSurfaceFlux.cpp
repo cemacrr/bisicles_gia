@@ -40,13 +40,14 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
       std::map<Real,std::string>::const_iterator start,end;
       if (m_timeFileMap->size() > 1)
 	{
-	  end = ++m_timeFileMap->begin();
+	  end = m_timeFileMap->begin();
 	  while (end != m_timeFileMap->end() && end->first <= time )
 	    {
-	      end++;
+	      ++end;
 	    }
 	  start = end;
-	  --start;
+	  if (start != m_timeFileMap->begin())
+	    --start;
 	  if (end == m_timeFileMap->end())
 	    end = start;
 	}
@@ -54,12 +55,17 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
 	{
 	  start = end = m_timeFileMap->begin();
 	}
-      
+//       pout() << " LevelDataSurfaceFlux::surfaceThicknessFlux  "
+// 	     << " time = " << time 
+// 	     << " start->first = " << start->first 
+// 	     << " end->first = " << end->first  
+// 	     << std::endl;
       Vector<std::string> name(1,m_name);
       
       if (start->first != m_startTime)
 	{
 	  //load m_startFlux
+	  pout() << " LevelDataSurfaceFlux::surfaceThicknessFlux loading start time data " << start->second << std::endl;
 	  Vector<RefCountedPtr<LevelData<FArrayBox> > > data(1,m_startFlux);
 	  Real dx;
 	  readLevelData(data,dx,start->second,name,1);
@@ -76,9 +82,10 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
 	  else
 	    {
 	      //load m_endFlux
+	      pout() << " LevelDataSurfaceFlux::surfaceThicknessFlux loading end time data " << end->second << std::endl;
 	      Vector<RefCountedPtr<LevelData<FArrayBox> > > data(1,m_endFlux);
 	      Real dx;
-	      readLevelData(data, dx , start->second,name,1);
+	      readLevelData(data, dx , end->second,name,1);
 	      for (int dir=0;dir<SpaceDim;dir++)
 		CH_assert(m_dx[dir] = dx);
 	      m_endTime = end->first;
@@ -99,7 +106,7 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
       
       Real w = std::min(1.0 , (time - m_startTime) / (m_endTime - m_startTime)); 
 
-      // pout() << " LevelDataSurfaceFlux::m_endTime = " <<   m_endTime
+      //pout() << " LevelDataSurfaceFlux::m_endTime = " <<   m_endTime
       //	     << " w = " << w; 
 
       LevelData<FArrayBox> tmp; tmp.define(a_flux);
@@ -127,11 +134,11 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
     }
   a_flux.exchange();
   
-  Real f = 0.0;
-  for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
-    {
-      f = max(f, a_flux[dit].max());
-    }
+  //Real f = 0.0;
+  // for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
+  //  {
+  //    f = max(f, a_flux[dit].max());
+  //  }
   //pout() << " f = " << f << std::endl;
 
 }
