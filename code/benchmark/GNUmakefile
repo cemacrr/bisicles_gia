@@ -52,6 +52,11 @@ UTIL_DIR = ../util
 src_dirs = $(SRC_DIR) $(UTIL_DIR) 
 #src_dirs += /home/ranken/util/pglimdev/parallel/src/external_dycore
 
+RUNCOMMAND = 
+ifeq ($(MPI),TRUE)
+RUNCOMMAND += mpirun -np 2
+endif
+
 include $(CHOMBO_HOME)/mk/Make.example
 
 all: all-example $(TARMACDIR)/libtarmac.a
@@ -65,6 +70,14 @@ ifeq ($(DEBUG), TRUE)
 # petermc, 12 Oct 2007:  never set XTRACPPFLAGS in makefile
 #XTRACPPFLAGS += -DDEBUG
 endif
+
+driver: 
+	cd ../exec2D; \
+	$(MAKE) driver 
+
+regression: all driver
+	$(RUNCOMMAND) ../exec2D/driver$(config).ex inputs.regression
+	$(RUNCOMMAND) $(ebase)$(config).ex inputs.regression
 
 doxygen:
 	mkdir -p doc/doxygen
