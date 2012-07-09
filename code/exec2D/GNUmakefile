@@ -59,6 +59,9 @@ ifeq ($(DEBUG), TRUE)
 #XTRACPPFLAGS += -DDEBUG
 endif
 
+nolink: $(shell $(CHOMBO_HOME)/mk/reverse $(LibNames)) $(objects)  
+	@echo BISICLES Objects built
+
 doxygen:
 	mkdir -p doc/doxygen
 	sed s@../../Chombo/lib@$(CHOMBO_HOME)@g doxygen.config > /tmp/doxygen.config.tmp.$$$$ ; \
