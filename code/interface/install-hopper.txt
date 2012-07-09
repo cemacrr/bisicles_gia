@@ -40,7 +40,7 @@ make include
 make -f GNUmakefile.hopper libs MPI=TRUE
 
 11. cd ~/glimmer-cism2/branches/seacism/libdycore
-make -f Makefile.hopper libDyCoreToGlimmer.a
+make -f Makefile.hopper libs
 
 12. cd ~/glimmer-cism2/branches/seacism/example-drivers/simple_bisicles/src 
 edit Makefile.hopper -- replace /global/u1/r/ranken -> $(HOME)
