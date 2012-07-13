@@ -260,6 +260,55 @@ void MaskedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 
 }
 
+SurfaceFlux* AxbyFlux::new_surfaceFlux()
+{
+  return static_cast<SurfaceFlux*>(new AxbyFlux(m_a, m_x,m_b, m_y) );
+}
+
+AxbyFlux::AxbyFlux(const Real& a_a, SurfaceFlux* a_x, 
+		   const Real& a_b, SurfaceFlux* a_y)
+{
+
+  m_a = a_a;
+  m_b = a_b;
+  
+  CH_assert(a_x != NULL);
+  CH_assert(a_y != NULL);
+  m_x = a_x->new_surfaceFlux();
+  m_y = a_y->new_surfaceFlux();
+  CH_assert(m_x != NULL);
+  CH_assert(m_y != NULL);
+
+}
+
+AxbyFlux::~AxbyFlux()
+{
+  if (m_x != NULL)
+    {
+      delete m_x; m_x = NULL;
+    }
+  if (m_y != NULL)
+    {
+      delete m_y; m_y = NULL;
+    }
+}
+
+void AxbyFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  const AmrIce& a_amrIce, 
+					  int a_level, Real a_dt)
+{
+
+  LevelData<FArrayBox> y_flux(a_flux.disjointBoxLayout(),1,a_flux.ghostVect());
+  m_x->surfaceThicknessFlux(a_flux, a_amrIce, a_level,a_dt );
+  m_y->surfaceThicknessFlux(y_flux, a_amrIce, a_level,a_dt );
+  for (DataIterator dit(a_flux.disjointBoxLayout()); dit.ok(); ++dit)
+    {
+      a_flux[dit].axby(a_flux[dit],y_flux[dit],m_a,m_b);
+    }
+  
+
+}
+
 
 /// factory method
 /** return a pointer to a new SurfaceFlux object
@@ -438,6 +487,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
 	  char* file = new char[fileFormat.length()+32];
 	  sprintf(file, fileFormat.c_str(),i + offset);
 	  tf->insert(make_pair(startTime + Real(i)*timeStep, file));
+	  delete file;
 	}
       
       LevelDataSurfaceFlux* ldptr = new LevelDataSurfaceFlux(tf,name);
@@ -521,6 +571,26 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       ptr = static_cast<SurfaceFlux*>(bbf.new_surfaceFlux());
 
     }
+  else if (type == "axbyFlux")
+   {
+     Real a; 
+     pp.get("a",a);
+     
+     std::string xpre(a_prefix);
+     xpre += ".x";
+     SurfaceFlux* x = parseSurfaceFlux(xpre.c_str());
+     
+     Real b; 
+     pp.get("b",b);
+     
+     std::string ypre(a_prefix);
+     ypre += ".y";
+     SurfaceFlux* y = parseSurfaceFlux(ypre.c_str());
+    
+     AxbyFlux axbyFlux(a,x,b,y);
+     ptr = static_cast<SurfaceFlux*>(axbyFlux.new_surfaceFlux());
+
+   }
   else if (type == "compositeFlux")
    {
      
@@ -549,6 +619,9 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
    }
   else if (type == "groundingLineLocalizedFlux")
     {
+      Real powerOfThickness = 0.0;
+      pp.query("powerOfThickness",powerOfThickness);
+
       std::string glPrefix(a_prefix);
       glPrefix += ".groundingLine";
       SurfaceFlux* glPtr = parseSurfaceFlux(glPrefix.c_str());
@@ -567,7 +640,8 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       
       ptr = static_cast<SurfaceFlux*>
 	(new GroundingLineLocalizedFlux(glPtr->new_surfaceFlux(),
-					ambientPtr->new_surfaceFlux()));
+					ambientPtr->new_surfaceFlux(),
+					powerOfThickness ));
 	 
       delete glPtr;
       delete ambientPtr;

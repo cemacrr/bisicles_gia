@@ -15,9 +15,11 @@
 
 GroundingLineLocalizedFlux::GroundingLineLocalizedFlux
 (SurfaceFlux* a_groundingLineFlux, 
- SurfaceFlux* a_ambientFlux)
+ SurfaceFlux* a_ambientFlux, 
+ const Real& a_powerOfThickness)
   :m_groundingLineFlux(a_groundingLineFlux),
-   m_ambientFlux(a_ambientFlux)
+   m_ambientFlux(a_ambientFlux),
+   m_powerOfThickness(a_powerOfThickness)
 {
   CH_assert(a_ambientFlux != NULL);
   CH_assert(a_groundingLineFlux != NULL);
@@ -27,7 +29,7 @@ SurfaceFlux* GroundingLineLocalizedFlux::new_surfaceFlux()
 {
   SurfaceFlux* g = m_groundingLineFlux->new_surfaceFlux();
   SurfaceFlux* a = m_ambientFlux->new_surfaceFlux();
-  return static_cast<SurfaceFlux*>(new GroundingLineLocalizedFlux(g,a));
+  return static_cast<SurfaceFlux*>(new GroundingLineLocalizedFlux(g,a,m_powerOfThickness));
 }
 
 void GroundingLineLocalizedFlux::surfaceThicknessFlux
@@ -51,13 +53,19 @@ void GroundingLineLocalizedFlux::surfaceThicknessFlux
   for (DataIterator dit(a_flux.dataIterator()); dit.ok(); ++dit)
     {
 
-      Real power = 1.0;
+      Real pprox = 1.0;
+      Real pthck = m_powerOfThickness;
+      const FArrayBox& thck = a_amrIce.geometry(a_level)->getH()[dit];
     
       FORT_PROXIMITYFILL(CHF_FRA1(a_flux[dit],0),
 			 CHF_CONST_FRA1(ambientFlux[dit],0),
 			 CHF_CONST_FRA1(proximity[dit],0),
-			 CHF_CONST_REAL(power),
+			 CHF_CONST_REAL(pprox),
+			 CHF_CONST_FRA1(thck,0),
+			 CHF_CONST_REAL(pthck),
 			 CHF_BOX(proximity[dit].box()));
+
+      
       
     }
 }

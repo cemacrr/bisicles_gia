@@ -19,12 +19,16 @@ class GroundingLineLocalizedFlux : public SurfaceFlux
 
   SurfaceFlux* m_groundingLineFlux; 
   SurfaceFlux* m_ambientFlux;
+  Real m_powerOfThickness;
+  
 
 public:
   //constructor
   GroundingLineLocalizedFlux
   (SurfaceFlux* a_groundingLineFlux, 
-   SurfaceFlux* a_ambientFlux);
+   SurfaceFlux* a_ambientFlux,
+   const Real& a_powerOfThickness
+   );
 
   /// destructor
   ~GroundingLineLocalizedFlux(){};

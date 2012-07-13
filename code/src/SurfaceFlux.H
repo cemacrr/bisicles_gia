@@ -330,6 +330,49 @@ private:
 
 };
 
+//class which contains two fluxes (x any y)
+//and two scalars (a and b) and provide the
+//flux a x + b y
+class AxbyFlux : public SurfaceFlux
+{
+  SurfaceFlux* m_x;
+  SurfaceFlux* m_y;
+  Real m_a,m_b;
+  
+public:
+  AxbyFlux(const Real& a_a, SurfaceFlux* a_x, 
+	   const Real& a_b, SurfaceFlux* a_y);
+
+  virtual ~AxbyFlux();
+
+  virtual SurfaceFlux* new_surfaceFlux();
+  
+  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				    const AmrIce& a_amrIce, 
+				    int a_level, Real a_dt);
+
+private:
+  
+  // Disallowed for all the usual reasons
+  void operator=(const AxbyFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  // Disallowed for all the usual reasons
+  AxbyFlux(const AxbyFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  AxbyFlux()
+  {
+    MayDay::Error("invalid operator");
+  }
+
+};
+
+
 //class which adds together the results of a list of fluxes
 class CompositeFlux : public SurfaceFlux
 {

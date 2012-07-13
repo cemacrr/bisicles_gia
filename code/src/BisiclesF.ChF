@@ -58,13 +58,15 @@ c ------------------------------------------------
       end
 
 c--------------------------------------------------
-c a <- p**n a + (1-p**n) * b
+c a <- h**m * (p**n a + (1-p**n) * b)
 c--------------------------------------------------
       subroutine proximityfill(
      &    CHF_FRA1[a],
      &    CHF_CONST_FRA1[b],
      &    CHF_CONST_FRA1[p],
      &    CHF_CONST_REAL[n],
+     &    CHF_CONST_FRA1[h],
+     &    CHF_CONST_REAL[m], 
      &    CHF_BOX[box])
 
       integer CHF_AUTODECL[i]
@@ -73,8 +75,9 @@ c--------------------------------------------------
       CHF_AUTOMULTIDO[box; i]
       pn = min(1.0,p(CHF_AUTOIX[i]))**n
 
-      a(CHF_AUTOIX[i]) = pn * a(CHF_AUTOIX[i])
-     &     + (one - pn) *  b(CHF_AUTOIX[i])
+      a(CHF_AUTOIX[i]) = (pn * a(CHF_AUTOIX[i])
+     &     + (one - pn) *  b(CHF_AUTOIX[i]))
+     &     * h(CHF_AUTOIX[i])**m
       CHF_ENDDO
       return
       end
