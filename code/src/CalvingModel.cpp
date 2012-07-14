@@ -20,28 +20,18 @@ DeglaciationCalvingModelA::endTimeStepModifyState
  const AmrIce& a_amrIce,
  int a_level)
 {
-
-  Real time = a_amrIce.time();
-  bool calvingActive = (time >= m_startTime && time < m_endTime);
   
   const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
- 
+  
   for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
     {
       const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
       FArrayBox& thck = a_thickness[dit];
-      const FArrayBox& topg = levelCoords.getTopography()[dit];
       Box b = thck.box();
-      b &= topg.box();
-      FArrayBox water(b,1); //ocean depth beneath ice shelf
-      water.copy(levelCoords.getSurfaceHeight()[dit]);
-      water -= thck;
-      water -= topg;
-
+      
       for (BoxIterator bit(b); bit.ok(); ++bit)
 	{
 	  const IntVect& iv = bit();
-
 	  if (mask(iv) == OPENSEAMASKVAL)
 	    {
 	      thck(iv) = 0.0;
@@ -50,21 +40,12 @@ DeglaciationCalvingModelA::endTimeStepModifyState
 	    {
 	      thck(iv) = 0.0;
 	    }
-	  else if (calvingActive && mask(iv) == FLOATINGMASKVAL)
-	    {
-	      if (thck(iv) < m_calvingThickness && water(iv) > m_calvingOceanDepth) 
-		thck(iv) =  0.0;
-	    }
-	  
 	  else
 	    {
 	      thck(iv) = std::max(thck(iv),m_minThickness);
 	    }
 	}
-
-
     }
-
 }
 
 void DomainEdgeCalvingModel::endTimeStepModifyState
