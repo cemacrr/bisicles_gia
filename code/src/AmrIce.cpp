@@ -426,6 +426,7 @@ AmrIce::setDefaults()
   //cache validity flags
   m_A_valid = false;
   m_groundingLineProximity_valid = false;
+  m_viscousTensor_valid = false;
 
   constantFlux* cfptr = new constantFlux;
   cfptr->setFluxVal(0.0);
@@ -618,7 +619,6 @@ AmrIce::~AmrIce()
         }
     }
 
-
   for (int lev = 0; lev < m_groundingLineProximity.size(); lev++) 
     {
       if (m_groundingLineProximity[lev] != NULL) 
@@ -627,6 +627,43 @@ AmrIce::~AmrIce()
           m_groundingLineProximity[lev] = NULL;
         }
     }
+
+  for (int lev = 0; lev < m_dragCoef.size(); lev++) 
+    {
+      if (m_dragCoef[lev] != NULL) 
+        {
+          delete m_dragCoef[lev];
+          m_dragCoef[lev] = NULL;
+        }
+    }
+  
+  for (int lev = 0; lev < m_viscosityCoefCell.size(); lev++) 
+    {
+      if (m_viscosityCoefCell[lev] != NULL) 
+        {
+          delete m_viscosityCoefCell[lev];
+          m_viscosityCoefCell[lev] = NULL;
+        }
+    }
+
+  for (int lev = 0; lev < m_viscousTensorCell.size(); lev++) 
+    {
+      if (m_viscousTensorCell[lev] != NULL) 
+        {
+          delete m_viscousTensorCell[lev];
+          m_viscousTensorCell[lev] = NULL;
+        }
+    }
+  for (int lev = 0; lev < m_viscousTensorFace.size(); lev++) 
+    {
+      if (m_viscousTensorFace[lev] != NULL) 
+        {
+          delete m_viscousTensorFace[lev];
+          m_viscousTensorFace[lev] = NULL;
+        }
+    }
+
+
 
   if (m_velSolver != NULL)
     {
@@ -782,7 +819,7 @@ AmrIce::initialize()
   ppAmr.query("time_step_ticks", m_timeStepTicks);
   // max_dt_grow must be at least two in this case - or it will never grow
   if (m_timeStepTicks)
-    m_max_dt_grow = max(m_max_dt_grow, two);
+    m_max_dt_grow = std::max(m_max_dt_grow, two);
 
   ppAmr.query("fixed_dt", m_fixed_dt);
   ppAmr.query("offsetTime", m_offsetTime);
@@ -3217,6 +3254,7 @@ AmrIce::regrid()
     } // end if max level > 0 in the first place
   
   m_groundingLineProximity_valid = false;
+  m_viscousTensor_valid = false;
 } 
       
                               
@@ -3745,6 +3783,7 @@ AmrIce::initGrids(int a_finest_level)
           levelSetup(lev,m_amrGrids[lev]);
 	  m_A_valid = false;
 	  m_groundingLineProximity_valid = false;
+	  m_viscousTensor_valid = false;
 
         } // end loop over levels
 
@@ -5320,7 +5359,7 @@ void AmrIce::updateGroundingLineProximity() const
 
  	  const BaseFab<int>& mask = levelMask[dit];
  	  const Box& gridBox = levelGrids[dit];
-	  const FArrayBox& u = (*m_velocity[lev])[dit];
+	  //	  const FArrayBox& u = (*m_velocity[lev])[dit];
  	  for (BoxIterator bit(gridBox);bit.ok();++bit)
  	    {
  	      const IntVect& iv = bit();
@@ -5387,6 +5426,195 @@ void AmrIce::updateGroundingLineProximity() const
     }
 
   m_groundingLineProximity_valid = true;
+}
+
+//access the viscous tensor (cell-centered)
+const LevelData<FArrayBox>* AmrIce::viscousTensor(int a_level) const
+{
+  updateViscousTensor();
+  if (!(m_viscousTensorCell.size() > a_level))
+    {
+      std::string msg("AmrIce::viscousTensor !(m_viscousTensorCell.size() > a_level))");
+      pout() << msg << endl;
+      CH_assert((m_viscousTensorCell.size() > a_level));
+      MayDay::Error(msg.c_str());
+    }
+
+  LevelData<FArrayBox>* ptr = m_viscousTensorCell[a_level];
+  if (ptr == NULL)
+    {
+      std::string msg("AmrIce::viscousTensor m_viscousTensorCell[a_level] == NULL ");
+      pout() << msg << endl;
+      CH_assert(ptr != NULL);
+      MayDay::Error(msg.c_str());
+    }
+
+  return ptr;
+
+}
+
+//access the viscous tensor (cell-centered)
+const LevelData<FArrayBox>* AmrIce::viscosityCoefficient(int a_level) const
+{
+  updateViscousTensor();
+  if (!(m_viscosityCoefCell.size() > a_level))
+    {
+      std::string msg("AmrIce::viscosityCoef !(m_viscosityCoefCell.size() > a_level))");
+      pout() << msg << endl;
+      CH_assert((m_viscosityCoefCell.size() > a_level));
+      MayDay::Error(msg.c_str());
+    }
+
+  LevelData<FArrayBox>* ptr = m_viscosityCoefCell[a_level];
+  if (ptr == NULL)
+    {
+      std::string msg("AmrIce::viscosityCoef m_viscosityCoefCell[a_level] == NULL ");
+      pout() << msg << endl;
+      CH_assert(ptr != NULL);
+      MayDay::Error(msg.c_str());
+    }
+
+  return ptr;
+
+}
+
+//access the drag coefficient (cell-centered)
+const LevelData<FArrayBox>* AmrIce::dragCoefficient(int a_level) const
+{
+  updateViscousTensor();
+  if (!(m_dragCoef.size() > a_level))
+    {
+      std::string msg("AmrIce::dragCoef !(m_dragCoef.size() > a_level))");
+      pout() << msg << endl;
+      CH_assert((m_dragCoef.size() > a_level));
+      MayDay::Error(msg.c_str());
+    }
+
+  LevelData<FArrayBox>* ptr = m_dragCoef[a_level];
+  if (ptr == NULL)
+    {
+      std::string msg("AmrIce::dragCoef m_dragCoefCell[a_level] == NULL ");
+      pout() << msg << endl;
+      CH_assert(ptr != NULL);
+      MayDay::Error(msg.c_str());
+    }
+
+  return ptr;
+}
+
+
+
+//update the viscous tensor components
+void AmrIce::updateViscousTensor() const
+{
+  CH_TIME("AmrIce::updateViscousTensor");
+
+  if (m_viscousTensor_valid)
+    return;
+  
+  if (m_viscousTensorCell.size() < m_finest_level + 1)
+    {
+      m_viscousTensorCell.resize(m_finest_level + 1, NULL);
+    }
+  if (m_viscosityCoefCell.size() < m_finest_level + 1)
+    {
+      m_viscosityCoefCell.resize(m_finest_level + 1, NULL);
+    }
+  if (m_dragCoef.size() < m_finest_level + 1)
+    {
+      m_dragCoef.resize(m_finest_level + 1, NULL);
+    }
+
+  if (m_viscousTensorFace.size() < m_finest_level + 1)
+    {
+      m_viscousTensorFace.resize(m_finest_level + 1, NULL);
+    }
+
+ 
+  Vector<LevelData<FluxBox>*> faceA(m_finest_level + 1,NULL);
+  Vector<RefCountedPtr<LevelData<FluxBox> > > viscosityCoef;
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > dragCoef;
+  Vector<LevelData<FArrayBox>* > C0(m_finest_level + 1,  NULL);
+
+  Vector<RealVect> vdx(m_finest_level + 1);
+  for (int lev =0; lev <= m_finest_level; lev++)
+    {
+      faceA[lev] = new LevelData<FluxBox>(m_amrGrids[lev],m_A[lev]->nComp(),IntVect::Unit);
+      CellToEdge(*m_A[lev],*faceA[lev]);
+
+      if (m_viscousTensorFace[lev] != NULL)
+	{
+	  delete m_viscousTensorFace[lev];m_viscousTensorFace[lev]=NULL;
+	}
+      m_viscousTensorFace[lev] = new LevelData<FluxBox>(m_amrGrids[lev],SpaceDim,IntVect::Unit);
+
+      if (m_viscousTensorCell[lev] != NULL)
+	{
+	  delete m_viscousTensorCell[lev];m_viscousTensorCell[lev]=NULL;
+	}
+      m_viscousTensorCell[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],SpaceDim*SpaceDim,IntVect::Zero);
+      
+      if (m_dragCoef[lev] != NULL)
+	{
+	  delete m_dragCoef[lev]; m_dragCoef[lev] = NULL;
+	}
+      m_dragCoef[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],SpaceDim,IntVect::Zero);
+      
+      if (m_viscosityCoefCell[lev] != NULL)
+	{
+	  delete m_viscosityCoefCell[lev]; m_viscosityCoefCell[lev] = NULL;
+	}
+      m_viscosityCoefCell[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],SpaceDim,IntVect::Zero);
+
+      if (C0[lev] != NULL)
+	{
+	  delete C0[lev];C0[lev] = NULL;
+	}
+      C0[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1,m_velBasalC[0]->ghostVect());
+      DataIterator dit = m_amrGrids[lev].dataIterator();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          (*C0[lev])[dit].setVal(0.0);
+        }
+      vdx[lev] = RealVect::Unit*m_amrDx[lev];
+    }
+
+  //these parameters don't matter because we don't solve anything here. 
+  Real vtopSafety = 1.0;
+  int vtopRelaxMinIter = 4;
+  Real vtopRelaxTol = 1.0;
+  Real muMin = 0.0; 
+  Real muMax = 1.23456789e+300;
+
+  int numLevels = m_finest_level + 1;
+  IceJFNKstate state(m_amrGrids, m_refinement_ratios, m_amrDomains, vdx, m_vect_coordSys, 
+		     m_velocity, m_velBasalC, C0, numLevels-1, 
+		     *m_constitutiveRelation,  *m_basalFrictionRelation, *m_thicknessIBCPtr,  
+		     m_A, faceA, m_time, vtopSafety, vtopRelaxMinIter, vtopRelaxTol, 
+		     muMin, muMax);
+  state.setState(m_velocity);
+  viscosityCoef = state.getViscosityCoef();
+  dragCoef = state.getDragCoef();
+  state.computeViscousTensorFace(m_viscousTensorFace);
+  
+  for (int lev =0; lev < numLevels; lev++)
+    {
+      EdgeToCell(*m_viscousTensorFace[lev],*m_viscousTensorCell[lev]);
+      EdgeToCell(*viscosityCoef[lev],*m_viscosityCoefCell[lev]);
+      dragCoef[lev]->copyTo(Interval(0,0),*m_dragCoef[lev],Interval(0,0));
+
+      if (faceA[lev] != NULL)
+	{
+	  delete faceA[lev]; faceA[lev] = NULL;
+	}
+      if (C0[lev] != NULL)
+	{
+	  delete C0[lev]; C0[lev] = NULL;
+	}
+    }
+
+  m_viscousTensor_valid = true;
+
 }
 
 //access the grounding line proximity
@@ -5833,7 +6061,7 @@ AmrIce::writePlotFile()
 
   if (m_write_viscousTensor)
     {
-      numPlotComps += 1 + SpaceDim + SpaceDim * SpaceDim;
+      numPlotComps += 1 + 1 + SpaceDim * SpaceDim;
     }
   
   if (m_write_thickness_sources)
@@ -5881,9 +6109,9 @@ AmrIce::writePlotFile()
   string zxVTname("zxViscousTensor");
   string zyVTname("zyViscousTensor");
   string zzVTname("zzViscousTensor");
-  string xViscosityCoefName("xViscosityCoef");
-  string yViscosityCoefName("yViscosityCoef");
-  string zViscosityCoefName("zViscosityCoef");
+  string viscosityCoefName("viscosityCoef");
+  //string yViscosityCoefName("yViscosityCoef");
+  //string zViscosityCoefName("zViscosityCoef");
   string dragCoefName("dragCoef");
 
   string basalThicknessSourceName("basalThicknessSource");
@@ -6008,17 +6236,8 @@ AmrIce::writePlotFile()
   if (m_write_viscousTensor)
     {
       vectName[comp] = dragCoefName; comp++;
-      vectName[comp] = xViscosityCoefName; comp++;
-      if (SpaceDim > 1)
-	{
-	  vectName[comp] = yViscosityCoefName; comp++;
-	  if (SpaceDim > 2)
-	    {
-	      vectName[comp] = zViscosityCoefName; comp++;
-	    }
-	}
+      vectName[comp] = viscosityCoefName; comp++;
       
-
       vectName[comp] = xxVTname;comp++;
       if (SpaceDim > 1)
 	{
@@ -6084,39 +6303,39 @@ AmrIce::writePlotFile()
 
 
 
-  Vector<LevelData<FluxBox>*> viscousTensor(numLevels,NULL);
-  Vector<LevelData<FluxBox>*> faceA(numLevels,NULL);
-  Vector<RefCountedPtr<LevelData<FluxBox> > > viscosityCoef;
-  Vector<RefCountedPtr<LevelData<FArrayBox> > > dragCoef;
-  if (m_write_viscousTensor)
-    {
-      //need to compute the  Viscous Tensor, which might be expensive
-      Vector<RealVect> vdx(numLevels);
-      for (int lev =0; lev < numLevels; lev++)
-	{
-	  faceA[lev] = new LevelData<FluxBox>(m_amrGrids[lev],m_A[lev]->nComp(),IntVect::Unit);
-	  CellToEdge(*m_A[lev],*faceA[lev]);
-	  viscousTensor[lev] = new LevelData<FluxBox>(m_amrGrids[lev],SpaceDim,IntVect::Unit);
-	  vdx[lev] = RealVect::Unit*m_amrDx[lev];
-	}
+  // Vector<LevelData<FluxBox>*> viscousTensor(numLevels,NULL);
+  // Vector<LevelData<FluxBox>*> faceA(numLevels,NULL);
+  // Vector<RefCountedPtr<LevelData<FluxBox> > > viscosityCoef;
+  // Vector<RefCountedPtr<LevelData<FArrayBox> > > dragCoef;
+  // if (m_write_viscousTensor)
+  //   {
+  //     //need to compute the  Viscous Tensor, which might be expensive
+  //     Vector<RealVect> vdx(numLevels);
+  //     for (int lev =0; lev < numLevels; lev++)
+  // 	{
+  // 	  faceA[lev] = new LevelData<FluxBox>(m_amrGrids[lev],m_A[lev]->nComp(),IntVect::Unit);
+  // 	  CellToEdge(*m_A[lev],*faceA[lev]);
+  // 	  viscousTensor[lev] = new LevelData<FluxBox>(m_amrGrids[lev],SpaceDim,IntVect::Unit);
+  // 	  vdx[lev] = RealVect::Unit*m_amrDx[lev];
+  // 	}
       
-      //these parameters don't matter because we don't solve anything here. 
-      Real vtopSafety = 1.0;
-      int vtopRelaxMinIter = 4;
-      Real vtopRelaxTol = 1.0;
-      Real muMin = 0.0; 
-      Real muMax = 1.23456789e+300;
+  //     //these parameters don't matter because we don't solve anything here. 
+  //     Real vtopSafety = 1.0;
+  //     int vtopRelaxMinIter = 4;
+  //     Real vtopRelaxTol = 1.0;
+  //     Real muMin = 0.0; 
+  //     Real muMax = 1.23456789e+300;
 
-      IceJFNKstate state(m_amrGrids, m_refinement_ratios, m_amrDomains, vdx, m_vect_coordSys, 
-			 m_velocity, m_velBasalC, vectC0, numLevels-1, 
-			 *m_constitutiveRelation,  *m_basalFrictionRelation, *m_thicknessIBCPtr,  
-			 m_A, faceA, m_time, vtopSafety, vtopRelaxMinIter, vtopRelaxTol, 
-			 muMin, muMax);
-      state.setState(m_velocity);
-      viscosityCoef = state.getViscosityCoef();
-      dragCoef = state.getDragCoef();
-      state.computeViscousTensorFace(viscousTensor);
-    }
+  //     IceJFNKstate state(m_amrGrids, m_refinement_ratios, m_amrDomains, vdx, m_vect_coordSys, 
+  // 			 m_velocity, m_velBasalC, vectC0, numLevels-1, 
+  // 			 *m_constitutiveRelation,  *m_basalFrictionRelation, *m_thicknessIBCPtr,  
+  // 			 m_A, faceA, m_time, vtopSafety, vtopRelaxMinIter, vtopRelaxTol, 
+  // 			 muMin, muMax);
+  //     state.setState(m_velocity);
+  //     viscosityCoef = state.getViscosityCoef();
+  //     dragCoef = state.getDragCoef();
+  //     state.computeViscousTensorFace(viscousTensor);
+  //   }
 
 
   for (int lev=0; lev<numLevels; lev++)
@@ -6320,36 +6539,47 @@ AmrIce::writePlotFile()
 #endif
 	  if (m_write_viscousTensor)
 	    {
-	      thisPlotData.copy((*dragCoef[lev])[dit],0,comp);
+	      thisPlotData.copy( (*dragCoefficient(lev))[dit],0,comp);
 	      comp++;
-
-	      for (int dir = 0; dir < SpaceDim; ++dir)
-		{
-		  const FArrayBox& thisVisc = (*viscosityCoef[lev])[dit][dir];
-		  
-		  for (BoxIterator bit(gridBox); bit.ok(); ++bit)
-		    {
-		      const IntVect& iv = bit();
-		      const IntVect ivp = iv + BASISV(dir);
-		      thisPlotData(iv,comp) = half*(thisVisc(iv) + thisVisc(ivp));
-		    }
-		   comp++;
-		}
-	      for (int dir = 0; dir < SpaceDim; ++dir)
-		{
-		  const FArrayBox& thisVT = (*viscousTensor[lev])[dit][dir];
-		  for (int vtcomp=0;vtcomp<SpaceDim;vtcomp++)
-		    {
-		      for (BoxIterator bit(gridBox); bit.ok(); ++bit)
-			{
-			  const IntVect& iv = bit();
-			  const IntVect ivp = iv + BASISV(dir);
-			  thisPlotData(iv,comp) = half*(thisVT(iv,vtcomp) + thisVT(ivp,vtcomp));
-			}
-		      comp++;
-		    }
-		}
+	      thisPlotData.copy( (*viscosityCoefficient(lev))[dit],0,comp);
+	      comp++;
+	      thisPlotData.copy( (*viscousTensor(lev))[dit],0,comp, SpaceDim*SpaceDim);
+	      comp += SpaceDim * SpaceDim;
 	    }
+	  
+
+	  // if (m_write_viscousTensor)
+	  //   {
+	  //     thisPlotData.copy((*dragCoef[lev])[dit],0,comp);
+	  //     comp++;
+
+	  //     for (int dir = 0; dir < SpaceDim; ++dir)
+	  // 	{
+	  // 	  const FArrayBox& thisVisc = (*viscosityCoef[lev])[dit][dir];
+		  
+	  // 	  for (BoxIterator bit(gridBox); bit.ok(); ++bit)
+	  // 	    {
+	  // 	      const IntVect& iv = bit();
+	  // 	      const IntVect ivp = iv + BASISV(dir);
+	  // 	      thisPlotData(iv,comp) = half*(thisVisc(iv) + thisVisc(ivp));
+	  // 	    }
+	  // 	   comp++;
+	  // 	}
+	  //     for (int dir = 0; dir < SpaceDim; ++dir)
+	  // 	{
+	  // 	  const FArrayBox& thisVT = (*viscousTensor[lev])[dit][dir];
+	  // 	  for (int vtcomp=0;vtcomp<SpaceDim;vtcomp++)
+	  // 	    {
+	  // 	      for (BoxIterator bit(gridBox); bit.ok(); ++bit)
+	  // 		{
+	  // 		  const IntVect& iv = bit();
+	  // 		  const IntVect ivp = iv + BASISV(dir);
+	  // 		  thisPlotData(iv,comp) = half*(thisVT(iv,vtcomp) + thisVT(ivp,vtcomp));
+	  // 		}
+	  // 	      comp++;
+	  // 	    }
+	  // 	}
+	  //   }
 
 	  if (m_write_thickness_sources)
 	    {
@@ -6437,17 +6667,17 @@ AmrIce::writePlotFile()
           vectC0[lev] = NULL;
         } 
 
-      if (faceA[lev] != NULL)
-	{
-	  delete faceA[lev];
-	  faceA[lev] = NULL;
-	}
+      // if (faceA[lev] != NULL)
+      // 	{
+      // 	  delete faceA[lev];
+      // 	  faceA[lev] = NULL;
+      // 	}
     
-      if (viscousTensor[lev] != NULL)
-	{
-	  delete viscousTensor[lev];
-	  viscousTensor[lev] = NULL;
-	}
+      // if (viscousTensor[lev] != NULL)
+      // 	{
+      // 	  delete viscousTensor[lev];
+      // 	  viscousTensor[lev] = NULL;
+      // 	}
     }
 }
 

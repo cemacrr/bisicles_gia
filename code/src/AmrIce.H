@@ -205,6 +205,12 @@ public:
 
   const LevelData<FArrayBox>* groundingLineProximity(int a_level) const;
   
+  enum viscousTensorComponent{xx,xy,yx,yy,max};
+
+  const LevelData<FArrayBox>* viscousTensor(int a_level) const;
+  const LevelData<FArrayBox>* dragCoefficient(int a_level) const;
+  const LevelData<FArrayBox>* viscosityCoefficient(int a_level) const;
+
  
 protected:
   /// compute tags for regridding
@@ -726,10 +732,24 @@ protected:
   
   Vector<LevelData<FArrayBox>* > m_balance; // set to -dH/dt
 
+  //cell centered storage for the stress-balance equation coefficients
+  mutable Vector<LevelData<FArrayBox>* > m_dragCoef;
+  mutable Vector<LevelData<FArrayBox>* > m_viscosityCoefCell;
+
+  //cell centered storage for the viscous tensor components
+  mutable Vector<LevelData<FArrayBox>* > m_viscousTensorCell;
+  //face centered storage for the viscous tensor components
+  mutable Vector<LevelData<FluxBox>* > m_viscousTensorFace;
+  // cache validity flag
+  mutable bool m_viscousTensor_valid;
+  void updateViscousTensor() const;
+
+ 
+  
 
   //Scalar field that varies in the ice shelf from 0 at the grounding line
   mutable Vector<LevelData<FArrayBox>* > m_groundingLineProximity;
-  // step on which m_groundingLineProximity was last updated;
+  // cache validity flag;
   mutable bool m_groundingLineProximity_valid;
   // scale length for grounding line proximity
   Real m_groundingLineProximityScale;
