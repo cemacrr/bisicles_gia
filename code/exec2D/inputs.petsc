@@ -18,6 +18,12 @@ geometry.betaEps = 0.0001
 geometry.basalSlope = -0.087488664 0.0  # 0.5 degree slope
 #geometry.basalSlope = -0.001745331 0.0 # 0.1 degree slope
 
+surfaceFlux.type = zeroFlux
+basalFlux.type = zeroFlux
+#constFlux.flux_value = 0.0
+
+CalvingModel.type = NoCalvingModel
+
 amr.maxLevel = 0   # finest level allowed in simulation
 amr.ref_ratio = 2 2 
 #amr.num_cells = 0032 0032 16   #number of cells in base grid
