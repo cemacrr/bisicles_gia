@@ -25,6 +25,7 @@
 #include "CGOptimize.H"
 #include "FillFromReference.H"
 #include "ControlF_F.H"
+#include "BisiclesF_F.H"
 #include "ReflectGhostCells.H"
 #include "QuadCFInterp.H"
 #include "CoarseAverage.H"
@@ -239,6 +240,33 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
       CellToEdge(*m_A[lev], *m_faceA[lev]);
     }
   
+
+  {
+    Vector<std::string> names;
+    for (int i =0; i < m_A[0]->nComp(); i++)
+      {
+	char s[64]; sprintf(s,"T%i",i);
+	names.push_back(s);
+      }
+    WriteAMRHierarchyHDF5("T.2d.hdf5",m_grids,m_temperature,names, m_domain[0].domainBox(),
+			  m_dx[0][0], 0.0, 0.0 , m_refRatio, m_A.size());
+  }
+
+  {
+    Vector<std::string> names;
+    for (int i =0; i < m_A[0]->nComp(); i++)
+      {
+	char s[64]; sprintf(s,"A%i",i);
+	names.push_back(s);
+      }
+    WriteAMRHierarchyHDF5("A.2d.hdf5",m_grids,m_A,names, m_domain[0].domainBox(),
+			  m_dx[0][0], 0.0, 0.0 , m_refRatio, m_A.size());
+  }
+
+  Real Amin = computeMin(m_A,  m_refRatio, Interval(0,m_A[0]->nComp()-1));
+  Real Amax = computeMax(m_A,  m_refRatio, Interval(0,m_A[0]->nComp()-1));
+  pout() << Amin << " <= A(x,y,sigma) <= " << Amax << std::endl;
+
   create(m_vtFace, SpaceDim, IntVect::Unit);
  
   create(m_velocityMisfit,1,IntVect::Unit);
@@ -415,6 +443,15 @@ void AMRIceControl::solveControl()
 
   m_X1Regularization = 0.0;
   pp.query("X1Regularization",m_X1Regularization);
+
+  m_muCoefLEQOne = false;
+  pp.query("muCoefLEQOne",m_muCoefLEQOne);
+  m_muCoefLEQOneGround = false;
+  pp.query("muCoefLEQOneGround",m_muCoefLEQOneGround);
+  m_muCoefGEQOne = false;
+  pp.query("muCoefGEQOne",m_muCoefGEQOne);
+  m_muCoefGEQOneGround = false;
+  pp.query("muCoefGEQOneGround",m_muCoefGEQOneGround);
 
 
   m_boundArgX0 = 3.0;
@@ -723,10 +760,37 @@ void AMRIceControl::computeObjectiveAndGradient
 	  // FORT_EXPCTRL(CHF_FRA1(thisMuCoef,0),
 	  // 	       CHF_CONST_FRA1(levelX[dit],MUCOMP),
 	  // 	       CHF_BOX(box));
+	  if (m_muCoefLEQOne || m_muCoefLEQOneGround)
+	    {
+
+	      const LevelSigmaCS& levelCS =  *m_coordSys[lev];
+	      const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
+	      for (BoxIterator bit(thisMuCoef.box());bit.ok();++bit)
+		{
+		  const IntVect& iv = bit();
+		  if (m_muCoefLEQOne || (m_muCoefLEQOneGround && mask(iv) == GROUNDEDMASKVAL))
+		    {
+		      thisMuCoef(iv) = std::min(1.0, thisMuCoef(iv));
+		    }
+		}
+	      
+	    }
+	  if (m_muCoefGEQOne || m_muCoefGEQOneGround)
+	    {
+
+	      const LevelSigmaCS& levelCS =  *m_coordSys[lev];
+	      const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
+	      for (BoxIterator bit(thisMuCoef.box());bit.ok();++bit)
+		{
+		  const IntVect& iv = bit();
+		  if (m_muCoefGEQOne || (m_muCoefGEQOneGround && mask(iv) == GROUNDEDMASKVAL))
+		    {
+		      thisMuCoef(iv) = std::max(1.0, thisMuCoef(iv));
+		    }
+		}
+	      
+	    }
 	  
-	    
-	  
-	    
 	}
     
       //boundary values for C and muCoef: extrapolation or reflection should be sufficient
@@ -1227,9 +1291,11 @@ void AMRIceControl::readState(const std::string& a_file, int& a_counter,
       int j = 0;
       restartData[lev]->copyTo(Interval(j,j+1),*(a_x[lev]),Interval(0,1));
       j+=2;
-      //restartData[lev]->copyTo(Interval(j,j),*(m_C[lev]),Interval(0,0));
-      j++;
       //restartData[lev]->copyTo(Interval(j,j),*(m_Ccopy[lev]),Interval(0,0));
+      j++;
+      //restartData[lev]->copyTo(Interval(j,j),*(m_Cplasticbed[lev]),Interval(0,0));
+      j++;
+      //restartData[lev]->copyTo(Interval(j,j),*(m_C[lev]),Interval(0,0));
       j++;
       //restartData[lev]->copyTo(Interval(j,j),*(m_muCoef[lev]),Interval(0,0));
       j++;
@@ -1270,6 +1336,7 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
   names.push_back("X0");
   names.push_back("X1");
   names.push_back("C");
+  names.push_back("Cplastic");
   names.push_back("beta");
   names.push_back("muCoef");
   names.push_back("xVelb");
@@ -1300,7 +1367,12 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
       a_x[lev]->copyTo(Interval(1,1),data,Interval(j,j));j++;
       //use m_Ccopy rather than m_C because m_C is set to zero in shelves etc
       m_Ccopy[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
-      m_C[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
+
+      LevelData<FArrayBox> Cplastic(m_grids[lev],1,IntVect::Zero);
+      CviscoustoCplastic(Cplastic, *m_Ccopy[lev], *m_velb[lev], m_coordSys[lev]->getFloatingMask());
+      Cplastic.copyTo(Interval(0,0),data,Interval(j,j));j++;
+
+      m_C[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;  
       m_muCoef[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++; 
       m_velb[lev]->copyTo(Interval(0,1),data,Interval(j,j+1));j+=2;
       m_vels[lev]->copyTo(Interval(0,1),data,Interval(j,j+1));j+=2;
@@ -1371,4 +1443,36 @@ void AMRIceControl::solveForwardProblem(Vector<LevelData<FArrayBox>* >& a_u,
 
 }
 
+void AMRIceControl::CviscoustoCplastic(LevelData<FArrayBox>& a_Cplastic, 
+				       const LevelData<FArrayBox>& a_Cviscous, 
+				       const LevelData<FArrayBox>&  a_u,
+				       const LevelData<BaseFab<int> >&  a_mask) const
+{
+
+  CH_assert(SpaceDim < 3); //not done for spacedim = 3...
+
+  const DisjointBoxLayout& grids = a_Cplastic.disjointBoxLayout();
+  for (DataIterator dit(grids); dit.ok(); ++dit)
+    {
+      FArrayBox& Cp =  a_Cplastic[dit];
+      const FArrayBox& Cv = a_Cviscous[dit];
+      const FArrayBox& u = a_u[dit];
+      const BaseFab<int>& mask = a_mask[dit];
+      //Cp.setVal(0.0);
+      Cp.copy(Cv);
+      for (BoxIterator bit(Cp.box());bit.ok();++bit)
+	{
+	  const IntVect& iv = bit();
+	  if (mask(iv) == GROUNDEDMASKVAL)
+	    {
+	      Real usq = (D_TERM(u(iv,0)*u(iv,0), + u(iv,1)*u(iv,1), +0.0));
+	      usq = std::min(usq,1e+4);
+	      Cp(iv) = Cv(iv) * std::pow(usq,1.0/3.0);
+	    }
+	}
+
+    }
+
+}
+  
 #include "NamespaceFooter.H"

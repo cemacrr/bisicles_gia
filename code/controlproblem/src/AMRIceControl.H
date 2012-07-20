@@ -71,10 +71,8 @@ class AMRIceControl
   // co-ordinate system, stores thickness, topography, surfaces, mask
   Vector<RefCountedPtr<LevelSigmaCS > > m_coordSys;
 
-  // control problem parameters
-  //Vector<LevelData<FArrayBox>*> m_X;
-  //bounds on the control problem parameters
-  Real m_boundArgX0, m_boundArgX1;
+  
+ 
 
   // coefficients of basal friction.
   // m_C = exp(X[0]) * m_COrigin;
@@ -148,9 +146,12 @@ class AMRIceControl
   Vector<LevelDataOps<FArrayBox> > m_vectOps;
 
   //control problem parameters
-  Real m_velMisfitCoefficient, m_massImbalanceCoefficient,
+  Real m_boundArgX0, m_boundArgX1, 
+    m_velMisfitCoefficient, m_massImbalanceCoefficient,
     m_gradCsqRegularization,m_gradMuCoefsqRegularization,
-    m_X0Regularization, m_X1Regularization,;
+    m_X0Regularization, m_X1Regularization;
+  bool m_muCoefLEQOne, m_muCoefLEQOneGround;
+  bool m_muCoefGEQOne, m_muCoefGEQOneGround;
 
   int m_outerCounter;
   int m_innerCounter;
@@ -281,6 +282,11 @@ private:
 
   void readState(const std::string& a_file, int& a_counter,
 		 Vector<LevelData<FArrayBox>* >& a_x);
+
+  void CviscoustoCplastic(LevelData<FArrayBox>& a_Cplastic, 
+			  const LevelData<FArrayBox>& a_Cviscous, 
+			  const LevelData<FArrayBox>&  a_u,
+			  const LevelData<BaseFab<int> >&  a_mask) const;
 };
 
 #else
