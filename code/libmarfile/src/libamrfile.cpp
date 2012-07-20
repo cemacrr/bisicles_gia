@@ -268,7 +268,7 @@ void amr_read_fab_data_2d(int *status, double *fab_data, double *x_data, double 
 		  *status = 1;
 		  return;
 		}
-		  std::cout <<" nghost = " << *nghost << std::endl;
+		  
 	      if (*comp_id < 0 || *comp_id >= ldf.nComp())
 		{
 		  *status = 1;
