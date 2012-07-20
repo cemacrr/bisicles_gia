@@ -19,7 +19,8 @@
 void writeNetCDF(const std::string& a_file,
 		 const Vector<std::string>& a_names,
 		 const FArrayBox& a_fab, 
-		 const Real& a_dx)
+		 const Real& a_dx,
+		 const RealVect& a_x0)
 {
   int rc; int ncID;
   if ( (rc = nc_create(a_file.c_str(), NC_CLOBBER, &ncID) ) != NC_NOERR) 
@@ -88,7 +89,7 @@ void writeNetCDF(const std::string& a_file,
 	}
       double *xptr = new double[count[dir]];
 
-      xptr[0] =  (Real(a_fab.box().smallEnd()[dir])+0.5)*a_dx;
+      xptr[0] =  a_x0[dir] + (Real(a_fab.box().smallEnd()[dir])+0.5)*a_dx;
       for (int i = 1; i < count[dir]; ++i)
 	{
 	  xptr[i] = xptr[i-1] + a_dx; 

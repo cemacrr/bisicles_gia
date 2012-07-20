@@ -11,17 +11,19 @@
 // ncio.H
 // read/write FABs from netcdf files
 //===========================================================================
-
-#include "FArrayBox.H"
-#include "NamespaceHeader.H"
-
 #ifndef _FABNCIO_H_
 #define _FABNCIO_H_
+#include "FArrayBox.H"
+#include "RealVect.H"
+#include "NamespaceHeader.H"
+
+
 
 void writeNetCDF(const std::string& a_file,
 		 const Vector<std::string>& a_names,
 		 const FArrayBox& a_fab, 
-		 const Real& a_dx);
+		 const Real& a_dx,
+		 const RealVect& a_x0);
 
 void readNetCDF(const std::string& a_file,
 		const Vector<std::string>& a_var,

@@ -16,9 +16,9 @@
 
 #include <iostream>
 #include "AMRIO.H"
-#include "fabncio.H"
 #include "FineInterp.H"
 #include "CoarseAverage.H"
+#include "fabncio.H"
 #include "NamespaceHeader.H"
 
 enum out_file_type_enum {hdf5,nc};
@@ -42,9 +42,9 @@ int main(int argc, char* argv[]) {
     number_procs=1;
 #endif
 
-    if(argc != 4) 
+    if(argc < 4) 
       { 
-	std::cerr << " usage: " << argv[0] << " <input_file> <output_file> level" << std::endl; 
+	std::cerr << " usage: " << argv[0] << " <input_file> <output_file> level [x0 [y0 [z0]]]" << std::endl; 
 	exit(0); 
       }
 
@@ -69,6 +69,14 @@ int main(int argc, char* argv[]) {
       }
 
     int flatLevel = atoi(argv[3]);
+
+    RealVect x0 = RealVect::Zero;
+    
+    if (argc == 4+SpaceDim)
+      {
+	for (int dir=0;dir < SpaceDim; dir++)
+	  x0[dir] = atof(argv[4+dir]);
+      }
 
     
     //pout() << "flattening AMR file " << in_file << " on to level " 
@@ -151,7 +159,7 @@ int main(int argc, char* argv[]) {
 	  {
 	    DataIterator dit(flatDBL); 
 	    const FArrayBox& fab = flatLevelData[dit];
-	    writeNetCDF(out_file, names, fab, flatDx);
+	    writeNetCDF(out_file, names, fab, flatDx, x0);
 	  }
       }
    
