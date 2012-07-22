@@ -10,13 +10,16 @@ WHO := $(shell whoami)
 # have a default for machines not defined here.
 # make this a relative path so it will find the Chombo 
 # on same level as BISICLES
+BISICLES_HOME=../../../
 
-CHOMBO_HOME = ../../../Chombo/lib
+
+CHOMBO_HOME = $(BISICLES_HOME)/Chombo/lib
 include $(CHOMBO_HOME)/mk/Make.defs
 include $(CHOMBO_HOME)/mk/Make.defs.config
 
 #netcdf location
-NETCDF_HOME=../../../netcdf/serial
+NETCDF_HOME=$(BISICLES_HOME)/netcdf/serial
+
 
 ifeq ($(UNAMEN),martins)
 NETCDF_HOME = /usr/local/netcdf
