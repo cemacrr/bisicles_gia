@@ -23,6 +23,7 @@ extern "C"
     void amr_read_file_R(int *status, int *amr_id, char **file);
     
     void amr_free(int *status, int *amr_id);
+    void amr_free_all();
     void amr_query_n_level(int *status, int *n_level, const int *amr_id);
     void amr_query_n_fab(int *status, int *n_fab, const int *amr_id, const int *level_id);
 #if CH_SPACEDIM == 2

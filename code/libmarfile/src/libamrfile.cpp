@@ -71,7 +71,10 @@ public:
 
 };
 
-std::map<int, AMRHierarchy*> g_loaded; 
+namespace libamrfile
+{
+  std::map<int, AMRHierarchy*> g_store; 
+}
 
 void amr_read_file(int *status, int *amr_id, const char *file)
 {
@@ -85,11 +88,11 @@ void amr_read_file(int *status, int *amr_id, const char *file)
  
   if (h->ok())
     {
-      if (g_loaded.size() == 0)
+      if (libamrfile::g_store.size() == 0)
 	*amr_id = 0;
       else
-	*amr_id  = (--g_loaded.end())->first;
-      g_loaded[*amr_id] = h;
+	*amr_id  = (--libamrfile::g_store.end())->first;
+      libamrfile::g_store[*amr_id] = h;
       *status = 0;
     }
   else
@@ -102,16 +105,39 @@ void amr_read_file_R(int *status, int *amr_id, char **file)
   amr_read_file(status,amr_id,*file);
 }
 
+
+void amr_free_all()
+{
+  for (std::map<int, AMRHierarchy*>::iterator i = libamrfile::g_store.begin();
+       i != libamrfile::g_store.end(); ++i)
+    {
+      if (i->second != NULL)
+	{
+	  delete i->second;
+	  i->second = NULL;
+	  libamrfile::g_store.erase(i->first);
+	}
+    }
+  
+}
+
 void amr_free(int *status, int *amr_id)
 {
 
+  if (!status)
+    return;
+
   if (amr_id)
     {
-      std::map<int, AMRHierarchy*>::const_iterator i = g_loaded.find(*amr_id);
-      if (i != g_loaded.end())
+      std::map<int, AMRHierarchy*>::iterator i = libamrfile::g_store.find(*amr_id);
+      if (i != libamrfile::g_store.end())
 	{
-	  delete i->second;
-	  g_loaded.erase(i->first);
+	  if (i->second != NULL)
+	    {
+	      delete i->second;
+	      i->second = NULL;
+	      libamrfile::g_store.erase(i->first);
+	    }
 	  *status = 0;
 	}
       else
@@ -133,8 +159,8 @@ void amr_query_n_level(int *status, int *n_level, const int *amr_id)
   
   if (amr_id)
     {
-      std::map<int, AMRHierarchy*>::const_iterator i = g_loaded.find(*amr_id);
-      if (i != g_loaded.end())
+      std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
+      if (i != libamrfile::g_store.end())
 	{
 	  *n_level = i->second->nLevel();
 	  *status = 0;
@@ -158,8 +184,8 @@ void amr_query_n_fab(int *status, int *n_fab, const int *amr_id, const int *leve
 
   if (amr_id && level_id)
     {
-      std::map<int, AMRHierarchy*>::const_iterator i = g_loaded.find(*amr_id);
-      if (i != g_loaded.end())
+      std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
+      if (i != libamrfile::g_store.end())
 	{
 	  int nLevel =  i->second->nLevel();
 	  if (*level_id < nLevel)
@@ -197,8 +223,8 @@ void amr_query_fab_dimensions_2d(int *status, int *nx, int *ny, int *ncomp,
 
   if (nx && ny && ncomp && amr_id && level_id && fab_id)
     {
-      std::map<int, AMRHierarchy*>::const_iterator i = g_loaded.find(*amr_id);
-      if (i != g_loaded.end())
+      std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
+      if (i != libamrfile::g_store.end())
 	{
 	  int nLevel =  i->second->nLevel();
 
@@ -253,8 +279,8 @@ void amr_read_fab_data_2d(int *status, double *fab_data, double *x_data, double 
 
      
 
-      std::map<int, AMRHierarchy*>::const_iterator i = g_loaded.find(*amr_id);
-      if (i != g_loaded.end())
+      std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
+      if (i != libamrfile::g_store.end())
 	{
 	  int nLevel =  i->second->nLevel();
 

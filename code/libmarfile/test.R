@@ -22,7 +22,7 @@ cg <- colorRampPalette(c("#003366","#54A9FF","#EEEEFF"),space="rgb")(128)
 
 maskcol <- rgb(c(0.5,1), c(0.5,1), c(0.5,1), c(0.2,0.0))
 
-uplot <- function(amrID, x0, y0, mag = 1.0, maxlev = 100, mesh=FALSE){
+uplot <- function(amrID, x0, y0, mag = 1.0, maxlev = 100, mesh=FALSE, glcol="black"){
   #add a color map of the velocity field and a contour marking
   #the grounding line, to a plot, with the bottom left at x0, y0
   maxlev <- min(amr.query.nlevel(amrID) - 1,maxlev)
@@ -30,12 +30,12 @@ uplot <- function(amrID, x0, y0, mag = 1.0, maxlev = 100, mesh=FALSE){
     maxfab <- amr.query.nfab(amrID,lev) - 1
     for (i in 0:maxfab)
       {
-        u <- amr.read.fab(amrID,lev,i,1)
-        v <- amr.read.fab(amrID,lev,i,2)
+        u <- amr.read.fab(amrID,lev,i,1,ng=1)
+        v <- amr.read.fab(amrID,lev,i,2,ng=1)
         modu <- sqrt(u$v^2 + v$v^2)
-        bf <-  amr.read.fab(amrID,lev,i,7)
-        s <-  amr.read.fab(amrID,lev,i,4)
-        thk <-  amr.read.fab(amrID,lev,i,0)
+        bf <-  amr.read.fab(amrID,lev,i,7,ng=1)
+        s <-  amr.read.fab(amrID,lev,i,4,ng=1)
+        thk <-  amr.read.fab(amrID,lev,i,0,ng=1)
         sab <- s$v - (1-918/1028)*thk$v
         x <- mag*u$x + x0
         y <- mag*u$y + y0
@@ -52,28 +52,52 @@ uplot <- function(amrID, x0, y0, mag = 1.0, maxlev = 100, mesh=FALSE){
             yp <- max(y)-dy/2
             rect(xm,ym,xp,yp,border=lc[lev+1])
           }
-        contour(x,y,sab,levels=c(1),add=TRUE,drawlabels=FALSE,lwd=1,col="black")
+        contour(x,y,sab,levels=c(1),add=TRUE,drawlabels=FALSE,lwd=1,col=glcol)
       }
   }
 }
 
+
+glplot <- function(amrID, x0, y0, mag = 1.0, maxlev = 100, mesh=FALSE,glcol=glcol){
+  #add a contour marking
+  #the grounding line, to a plot, with the bottom left at x0, y0
+  maxlev <- min(amr.query.nlevel(amrID) - 1,maxlev)
+  for (lev in 0:maxlev){
+    maxfab <- amr.query.nfab(amrID,lev) - 1
+    for (i in 0:maxfab)
+      {
+        s <-  amr.read.fab(amrID,lev,i,4,ng=1)
+        thk <-  amr.read.fab(amrID,lev,i,0,ng=1)
+        sab <- s$v - (1-918/1028)*thk$v
+        x <- mag*s$x + x0
+        y <- mag*s$y + y0
+        contour(x,y,sab,levels=c(1),add=TRUE,drawlabels=FALSE,lwd=1,col=glcol)
+      }
+  }
+}
+
+
 par(xaxs="i",yaxs="i",las=1,mar=c(5,5,1,1))
 
-waismap <- function(risfris,pigthw)
+waismap <- function(risfris,pigthw,addGL=FALSE,glcol="black")
   {
 
-par(xaxs="i",yaxs="i",las=1,mar=c(1,1,1,1))
-plot(c(0,5*640e+3),c(0,5*640e+3),type='n',axes=FALSE,xlab="x (km)",ylab="y (km)")
-box()
-sc <- seq(0,5*640,by=1e3)
-#axis(1,at=sc*1e3,lab=sc)
-#axis(2,at=sc*1e3,lab=sc)
+if (!addGL)
+  {
+    par(xaxs="i",yaxs="i",las=1,mar=c(1,1,1,1))
+    plot(c(0,5*640e+3),c(0,5*640e+3),type='n',axes=FALSE,xlab="x (km)",ylab="y (km)")
+    box()
+  }
+
+    
+fplot <- if(addGL){glplot}else{uplot}
 
 
 risfrisID <- amr.load(risfris)
-uplot(risfrisID,0,0,mesh=FALSE)
+fplot(risfrisID,0,0,mesh=FALSE,glcol=glcol)
 amr.free(risfrisID)
-
+if (!addGL)
+  {
 #length scale on the main map
 xos <- 150e+3
 yos <- 150e+3
@@ -84,21 +108,26 @@ dxt <- 0.5*(xt[2]-xt[1])
 rect(xos,yos,xos+xl,yos+yl,col="yellow")
 rect(xos+xt,yos,xos+xt+dxt,yos+yl,col="black")
 text(xos+xl+dxt,yos+yl/2,"1000 km",col="yellow")
-
+}
 
 
 pthwID <- amr.load(pigthw)
 
 #X2.5 inset
+
 mag <- 2.5
 xo <- 5*640e+3 - mag*(512e+3)
 yo <- 5*640e+3 - mag*(768e+3)
 xm <- -10e3 + xo; xp <- xm +  mag*(512 + 20) * 1e+3
 ym <- -10e3 + yo; yp <- ym +  mag* (768 + 20) * 1e+3
-polygon(c(xm,xm,xp,xp),c(ym,yp,yp,ym),col="#54A9FF",lwd=2)
-uplot(pthwID,xo,yo,mag=mag,mesh=FALSE)
+if (!addGL)
+  {
+    polygon(c(xm,xm,xp,xp),c(ym,yp,yp,ym),col="#54A9FF",lwd=2)
+  }
+fplot(pthwID,xo,yo,mag=mag,mesh=FALSE,glcol=glcol)
 
-
+if (!addGL)
+  {
 #length scale on X2.5  inset
 xos <- mag*150e+3 + xo
 yos <- mag*720e+3 + yo
@@ -109,18 +138,23 @@ dxt <- 0.5*(xt[2]-xt[1])
 rect(xos,yos,xos+xl,yos+yl,col="yellow")
 rect(xos+xt,yos,xos+xt+dxt,yos+yl,col="black")
 text(xos+xl+200e+3,yos+yl/2,"200 km",col="yellow")
-
+}
 
 #X1 inset
 xo <- 90e+3
 yo <- 900e+3
 xm <-  xo -5e3; xp <- xm + (512 + 10) * 1e+3
 ym <-  yo -5e3; yp <- ym + (768 + 10) * 1e+3
-polygon(c(xm,xm,xp,xp),c(ym,yp,yp,ym),col="#54A9FF",lwd=2)
-uplot(pthwID,xo,yo,mag=1.0)
+
+if (!addGL)
+  {
+    polygon(c(xm,xm,xp,xp),c(ym,yp,yp,ym),col="#54A9FF",lwd=2)
+  }
+fplot(pthwID,xo,yo,mag=1.0,glcol=glcol)
 
 amr.free(pthwID)
-
+if (!addGL)
+  {
 #speed scale
 xo <- 5*640e+3 - 220e+3
 yo <- 100e+3
@@ -145,10 +179,10 @@ text(xo-a/10,y[sq],format(10^u[sq],digits=2),pos=2)
 segments(xo,y[sq],xo+xl,y[sq])
 
 text(xo-a/4,yo+yl+5*b,expression(abs(u) * phantom(0)* ( m*a^{-1} )))
-
-
 }
 
+}
+amr.free.all()
 
 pdf("~/Desktop/test.pdf",width=8.0,height=8.0,pointsize=11)
 
@@ -156,7 +190,19 @@ waismap("plot.risfris.5km.l1l2.CONTROL_RUN_EXTRA_ACC.melt.2lev.000293.2d.hdf5",
         "plot.pigthwaites.1km.l1l2.t263.shelf-steady.000000.2d.hdf5")
 
 
+
+
+waismap("plot.risfris.5km.l1l2.P16_A1B_FES_HA3-EXTRA_ACC.melt.2lev.002055.2d.hdf5",
+        "plot.pigthwaites.1km.l1l2.t263.gllocalized-melt-soften.000738.2d.hdf5",addGL=FALSE,glcol="red")
 waismap("plot.risfris.5km.l1l2.P16_A1B_FES_HA3-SMB_A1B_RAC_HA3_EXTRA_ACC.melt.2lev.002296.2d.hdf5",
-        "plot.pigthwaites.1km.l1l2.t263.gllocalized-melt-soften.000738.2d.hdf5")
+        "plot.pigthwaites.1km.l1l2.t263.gllocalized-melt-soften.000738.2d.hdf5",addGL=TRUE,glcol="purple")
+waismap("plot.risfris.5km.l1l2.CONTROL_RUN_EXTRA_ACC.melt.2lev.000293.2d.hdf5",addGL=TRUE,
+        "plot.pigthwaites.1km.l1l2.t263.shelf-steady.000000.2d.hdf5")
+
+par(lty=2)
+waismap("plot.risfris.5km.l1l2.CONTROL_RUN_EXTRA_ACC.melt.2lev.002297.2d.hdf5",
+        "plot.pigthwaites.1km.l1l2.t263.gllocalized-melt-soften.000738.2d.hdf5",addGL=TRUE,glcol="pink")
+par(lty=1)
 
 dev.off()
+amr.free.all()

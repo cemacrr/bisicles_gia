@@ -33,7 +33,10 @@ amr.free <- function(amrID)
             amrID=as.integer(amrID))
   }
 
-
+amr.free.all <- function(amrID)
+  {
+    r <- .C("amr_free_all")
+  }
 amr.query.nlevel <- function(amrID)
   {
      r <- .C("amr_query_n_level",
@@ -65,7 +68,7 @@ amr.query.nfab <- function(amrID, level)
     
 }
 
-amr.read.fab <- function(amrID, level, fab, comp)
+amr.read.fab <- function(amrID, level, fab, comp, ng=0)
   {
     r <- .C("amr_query_fab_dimensions_2d",
            status=integer(1),nx=integer(1),ny=integer(1),
@@ -73,7 +76,7 @@ amr.read.fab <- function(amrID, level, fab, comp)
            level=as.integer(level),fab=as.integer(fab))
 
     if (r$status == 0) {
-      ng <- 1
+  
       s <- .C("amr_read_fab_data_2d",
               status=integer(1),
               v=matrix(0,r$nx+2*ng,r$ny+2*ng),
