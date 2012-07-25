@@ -250,17 +250,28 @@ c------------------------------------------------------
       if ((maskc.eq.GROUNDEDMASKVAL).or.(maskc.eq.FLOATINGMASKVAL)) then
          maskl = mask(CHF_OFFSETIX[i;-ii])
          maskr = mask(CHF_OFFSETIX[i;+ii])
-         if ((maskl.eq.OPENSEAMASKVAL).or.(maskl.eq.OPENLANDMASKVAL)) 
-     &        then
+c$$$         if ((maskl.eq.OPENSEAMASKVAL).or.(maskl.eq.OPENLANDMASKVAL)) 
+c$$$     &        then
+c$$$            facevt(CHF_AUTOIX[i]) = facevt(CHF_OFFSETIX[i;+ii])
+c$$$     &           - factor * dsdxk(CHF_AUTOIX[i])  * thck(CHF_AUTOIX[i])
+c$$$         end if
+c$$$         if ((maskr.eq.OPENSEAMASKVAL).or.(maskr.eq.OPENLANDMASKVAL)) 
+c$$$     &        then
+c$$$            facevt(CHF_OFFSETIX[i;+ii]) = facevt(CHF_AUTOIX[i]) 
+c$$$     &           + factor * dsdxk(CHF_AUTOIX[i]) * thck(CHF_AUTOIX[i])
+c$$$         end if
+         if (maskl.eq.OPENSEAMASKVAL) then
             facevt(CHF_AUTOIX[i]) = facevt(CHF_OFFSETIX[i;+ii])
      &           - factor * dsdxk(CHF_AUTOIX[i])  * thck(CHF_AUTOIX[i])
+         else if (maskl.eq.OPENLANDMASKVAL) then
+            facevt(CHF_AUTOIX[i]) = facevt(CHF_OFFSETIX[i;+ii])
          end if
-         if ((maskr.eq.OPENSEAMASKVAL).or.(maskr.eq.OPENLANDMASKVAL)) 
-     &        then
+         if (maskr.eq.OPENSEAMASKVAL) then
             facevt(CHF_OFFSETIX[i;+ii]) = facevt(CHF_AUTOIX[i]) 
      &           + factor * dsdxk(CHF_AUTOIX[i]) * thck(CHF_AUTOIX[i])
+         else if (maskr.eq.OPENLANDMASKVAL) then
+            facevt(CHF_OFFSETIX[i;+ii]) = facevt(CHF_AUTOIX[i]) 
          end if
-
       end if
 
       CHF_ENDDO
