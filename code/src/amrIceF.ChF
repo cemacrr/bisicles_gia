@@ -216,6 +216,57 @@ c --------------------------------------------------
       CHF_ENDDO
       return 
       end
+      
+c------------------------------------------------------
+c set viscous tensor normal components at faces along the 
+c calving front to
+c
+c vt_kk(i+1/2,j) = vt_kk(i-1/2,j) + factor * H(i,j) * ds/dx_k
+c
+c factor should be = rhoo*grav*(1-rhoi/rhoo) * dx
+c------------------------------------------------------     
+      subroutine setfrontfacevt(CHF_FRA1[facevt],
+     &     CHF_CONST_FRA1[thck],
+     &     CHF_CONST_FRA1[dsdxk],
+     &     CHF_CONST_FIA1[mask],
+     &     CHF_CONST_INT[k],
+     &     CHF_CONST_REAL[factor],
+     &     CHF_BOX[cellBox])
+
+      
+      integer CHF_AUTODECL[i]
+      integer CHF_AUTODECL[ii]
+      integer maskc,maskr,maskl
+     
+
+      CHF_DTERM[ii0 = CHF_ID(k,0);
+                ii1 = CHF_ID(k,1);
+                ii2 = CHF_ID(k,2)]
+
+      CHF_AUTOMULTIDO[cellBox ; i]
+
+      maskc = mask(CHF_AUTOIX[i])
+
+      if ((maskc.eq.GROUNDEDMASKVAL).or.(maskc.eq.FLOATINGMASKVAL)) then
+         maskl = mask(CHF_OFFSETIX[i;-ii])
+         maskr = mask(CHF_OFFSETIX[i;+ii])
+         if ((maskl.eq.OPENSEAMASKVAL).or.(maskl.eq.OPENLANDMASKVAL)) 
+     &        then
+            facevt(CHF_AUTOIX[i]) = facevt(CHF_OFFSETIX[i;+ii])
+     &           - factor * dsdxk(CHF_AUTOIX[i])  * thck(CHF_AUTOIX[i])
+         end if
+         if ((maskr.eq.OPENSEAMASKVAL).or.(maskr.eq.OPENLANDMASKVAL)) 
+     &        then
+            facevt(CHF_OFFSETIX[i;+ii]) = facevt(CHF_AUTOIX[i]) 
+     &           + factor * dsdxk(CHF_AUTOIX[i]) * thck(CHF_AUTOIX[i])
+         end if
+
+      end if
+
+      CHF_ENDDO
+
+      return
+      end
 
 c------------------------------------------------------
 c extrapolate face centered uf to the margin. assumes it

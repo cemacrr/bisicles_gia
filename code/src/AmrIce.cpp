@@ -5599,6 +5599,37 @@ void AmrIce::updateViscousTensor() const
   
   for (int lev =0; lev < numLevels; lev++)
     {
+      
+      //If a cell is adjacent to a calving front, we  set the (vertically integrated)
+      //viscous tensor components at the intervening face to zero. That works well enough for the velocity solves,
+      //but causes pain here because the cell average (in EdgeToCell) will end up half the value at the other face.
+      for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+	{
+
+	  const FArrayBox& thck = m_vect_coordSys[lev]->getH()[dit];
+	  const FArrayBox& dsdx = m_vect_coordSys[lev]->getGradSurface()[dit];
+	  const BaseFab<int>& mask = m_vect_coordSys[lev]->getFloatingMask()[dit];
+	  const Real& rhoi = m_vect_coordSys[lev]->iceDensity();
+	  const Real& rhoo = m_vect_coordSys[lev]->waterDensity();
+	  const Real& gravity = m_vect_coordSys[lev]->gravity();
+	  const Real rgr = rhoi * gravity * (1.0-rhoi/rhoo);
+	  const RealVect& dx = m_vect_coordSys[lev]->dx();
+
+	  for (int dir = 0; dir < SpaceDim; dir++)
+	    {
+	      FArrayBox& facevt = (*m_viscousTensorFace[lev])[dit][dir];
+	      Real factor = dx[dir] * rgr;
+	      FORT_SETFRONTFACEVT(CHF_FRA1(facevt,dir),
+				  CHF_CONST_FRA1(thck,0),
+				  CHF_CONST_FRA1(dsdx,dir),
+				  CHF_CONST_FIA1(mask,0),
+				  CHF_CONST_INT(dir),
+				  CHF_CONST_REAL(factor),
+				  CHF_BOX(m_amrGrids[lev][dit]));
+	    }
+	}
+
+
       EdgeToCell(*m_viscousTensorFace[lev],*m_viscousTensorCell[lev]);
       EdgeToCell(*viscosityCoef[lev],*m_viscosityCoefCell[lev]);
       dragCoef[lev]->copyTo(Interval(0,0),*m_dragCoef[lev],Interval(0,0));
