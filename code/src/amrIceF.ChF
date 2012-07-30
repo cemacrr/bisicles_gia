@@ -216,7 +216,30 @@ c --------------------------------------------------
       CHF_ENDDO
       return 
       end
+ 
       
+c------------------------------------------------------
+c     set fab data to val in ice-free regions
+c-----------------------------------------------------
+      subroutine seticefreeval(CHF_FRA1[fab],
+     &     CHF_CONST_FIA1[mask],
+     &     CHF_CONST_REAL[val],
+     &     CHF_BOX[cellBox])
+
+      integer CHF_AUTODECL[i] 
+      integer maskc
+      
+      CHF_AUTOMULTIDO[cellBox ; i]
+      maskc = mask(CHF_AUTOIX[i])
+      if ((maskc.eq.OPENSEAMASKVAL).or.(maskc.eq.OPENLANDMASKVAL)) then
+         fab(CHF_AUTOIX[i]) = val
+      end if
+      CHF_ENDDO
+
+      return
+      end
+
+     
 c------------------------------------------------------
 c set viscous tensor normal components at faces along the 
 c calving front to

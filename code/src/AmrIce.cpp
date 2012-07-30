@@ -2317,6 +2317,9 @@ AmrIce::timeStep(Real a_dt)
 	    (m_vect_coordSys[lev]->getH(), *this, lev);
 	}
 
+   
+
+
       //dont allow thickness to be negative
       for (int lev=0; lev<= m_finest_level; lev++)
 	{
@@ -2334,6 +2337,33 @@ AmrIce::timeStep(Real a_dt)
 	    }
 	}
 
+      //average from the finest level down
+      for (int lev =  finestTimestepLevel() ; lev > 0 ; lev--)
+	{
+	  CoarseAverage averager(m_amrGrids[lev],
+                                 1, m_refinement_ratios[lev-1]);
+          averager.averageToCoarse(*vectH[lev-1],
+                                   *vectH[lev]);
+          
+	}
+
+      for (int lev=1; lev<vectH.size(); lev++)
+        {
+      
+          PiecewiseLinearFillPatch filler(m_amrGrids[lev],
+                                          m_amrGrids[lev-1],
+                                          1, 
+                                          m_amrDomains[lev-1],
+                                          m_refinement_ratios[lev-1],
+                                          Hghost);
+
+          Real interp_coef = 0;
+          filler.fillInterp(*vectH[lev],
+                            *vectH[lev-1],
+                            *vectH[lev-1],
+                            interp_coef,
+                            0, 0, 1);
+        }
 
       //interpolate levelSigmaCS to any levels above finestTimestepLevel()
       for (int lev = finestTimestepLevel()+1 ; lev<= m_finest_level; lev++)
@@ -5604,34 +5634,49 @@ void AmrIce::updateViscousTensor() const
       //viscous tensor components at the intervening face to zero. That works well enough for the velocity solves,
       //but causes pain here because the cell average (in EdgeToCell) will end up half the value at the other face.
       for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
-	{
+      	{
 
-	  const FArrayBox& thck = m_vect_coordSys[lev]->getH()[dit];
-	  const FArrayBox& dsdx = m_vect_coordSys[lev]->getGradSurface()[dit];
-	  const BaseFab<int>& mask = m_vect_coordSys[lev]->getFloatingMask()[dit];
-	  const Real& rhoi = m_vect_coordSys[lev]->iceDensity();
-	  const Real& rhoo = m_vect_coordSys[lev]->waterDensity();
-	  const Real& gravity = m_vect_coordSys[lev]->gravity();
-	  const Real rgr = rhoi * gravity * (1.0-rhoi/rhoo);
-	  const RealVect& dx = m_vect_coordSys[lev]->dx();
+      	  const FArrayBox& thck = m_vect_coordSys[lev]->getH()[dit];
+      	  const FArrayBox& dsdx = m_vect_coordSys[lev]->getGradSurface()[dit];
+      	  const BaseFab<int>& mask = m_vect_coordSys[lev]->getFloatingMask()[dit];
+      	  const Real& rhoi = m_vect_coordSys[lev]->iceDensity();
+      	  const Real& rhoo = m_vect_coordSys[lev]->waterDensity();
+      	  const Real& gravity = m_vect_coordSys[lev]->gravity();
+      	  const Real rgr = rhoi * gravity * (1.0-rhoi/rhoo);
+      	  const RealVect& dx = m_vect_coordSys[lev]->dx();
 
-	  for (int dir = 0; dir < SpaceDim; dir++)
-	    {
-	      FArrayBox& facevt = (*m_viscousTensorFace[lev])[dit][dir];
-	      Real factor = dx[dir] * rgr;
-	      FORT_SETFRONTFACEVT(CHF_FRA1(facevt,dir),
-				  CHF_CONST_FRA1(thck,0),
-				  CHF_CONST_FRA1(dsdx,dir),
-				  CHF_CONST_FIA1(mask,0),
-				  CHF_CONST_INT(dir),
-				  CHF_CONST_REAL(factor),
-				  CHF_BOX(m_amrGrids[lev][dit]));
-	    }
-	}
+      	  for (int dir = 0; dir < SpaceDim; dir++)
+      	    {
+      	      FArrayBox& facevt = (*m_viscousTensorFace[lev])[dit][dir];
+      	      Real factor = dx[dir] * rgr;
+      	      FORT_SETFRONTFACEVT(CHF_FRA1(facevt,dir),
+      				  CHF_CONST_FRA1(thck,0),
+      				  CHF_CONST_FRA1(dsdx,dir),
+      				  CHF_CONST_FIA1(mask,0),
+      				  CHF_CONST_INT(dir),
+      				  CHF_CONST_REAL(factor),
+      				  CHF_BOX(m_amrGrids[lev][dit]));
+      	    }
+      	}
 
 
       EdgeToCell(*m_viscousTensorFace[lev],*m_viscousTensorCell[lev]);
       EdgeToCell(*viscosityCoef[lev],*m_viscosityCoefCell[lev]);
+
+      for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+      	{
+	  const BaseFab<int>& mask = m_vect_coordSys[lev]->getFloatingMask()[dit];
+	  FArrayBox& cellvt = (*m_viscousTensorCell[lev])[dit];
+	  const Real z = 0.0;
+	  for (int comp = 0; comp < SpaceDim * SpaceDim; comp++)
+	    {
+	      FORT_SETICEFREEVAL(CHF_FRA1(cellvt,comp), 
+				 CHF_CONST_FIA1(mask,0),
+				 CHF_CONST_REAL(z),
+				 CHF_BOX(m_amrGrids[lev][dit]));
+	    }
+	}
+
       dragCoef[lev]->copyTo(Interval(0,0),*m_dragCoef[lev],Interval(0,0));
 
       if (faceA[lev] != NULL)
