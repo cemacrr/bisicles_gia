@@ -9,6 +9,7 @@
 #endif
 
 #include "CalvingModel.H"
+#include "BennCalvingModel.H"
 #include "IceConstants.H"
 #include "AmrIce.H"
 #include "ParmParse.H"
@@ -213,6 +214,10 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
       Real endTime = 1.2345678e+300;
       pp.get("endTime",  endTime);
       ptr = new ProximityCalvingModel(proximity,velocity, startTime, endTime);
+    }
+  else if (type == "BennCalvingModel")
+    {
+      ptr = new BennCalvingModel();
     }
 //   else
 //     {
