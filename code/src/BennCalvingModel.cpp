@@ -70,6 +70,10 @@ void BennCalvingModel::endTimeStepModifyState
 	  const int& minus_j = iv[1]-1;
 	  const IntVect& iv_plus_i = IntVect::IntVect(plus_i, iv[1]);
 	  const IntVect& iv_minus_i = IntVect::IntVect(minus_i, iv[1]);
+	  const IntVect& iv_plus_i_plus_j = IntVect::IntVect(plus_i,plus_j);
+	  const IntVect& iv_plus_i_minus_j = IntVect::IntVect(plus_i,minus_j);
+	  const IntVect& iv_minus_i_plus_j = IntVect::IntVect(minus_i,plus_j);
+	  const IntVect& iv_minus_i_minus_j = IntVect::IntVect(minus_i,minus_j);
 	  const IntVect& iv_plus_j = IntVect::IntVect(iv[0], plus_j);
 	  const IntVect& iv_minus_j = IntVect::IntVect(iv[0], minus_j);
 
@@ -81,6 +85,10 @@ void BennCalvingModel::endTimeStepModifyState
 	  const IntVect& iv_minus_2i = IntVect::IntVect(minus_2i, iv[1]);
 	  const IntVect& iv_plus_2j = IntVect::IntVect(iv[0], plus_2j);
 	  const IntVect& iv_minus_2j = IntVect::IntVect(iv[0], minus_2j);
+	  const IntVect& iv_plus_2i_plus_2j = IntVect::IntVect(plus_2i,plus_2j);
+	  const IntVect& iv_plus_2i_minus_2j = IntVect::IntVect(plus_2i,minus_2j);
+	  const IntVect& iv_minus_2i_plus_2j = IntVect::IntVect(minus_2i,plus_2j);
+	  const IntVect& iv_minus_2i_minus_2j = IntVect::IntVect(minus_2i,minus_2j);
 
 	  
 
@@ -123,8 +131,26 @@ void BennCalvingModel::endTimeStepModifyState
 	      bool open_sea_plus_2j = mask(iv_plus_2j) == OPENSEAMASKVAL;
 	      bool open_sea_minus_2i = mask(iv_minus_2i) == OPENSEAMASKVAL;
 	      bool open_sea_minus_2j = mask(iv_minus_2j) == OPENSEAMASKVAL;
+	      bool open_sea_plus_2i_plus_2j = mask(iv_plus_2i_plus_2j) == OPENSEAMASKVAL;
+	      bool open_sea_plus_2i_minus_2j = mask(iv_plus_2i_minus_2j) == OPENSEAMASKVAL;
+	      bool open_sea_minus_2i_plus_2j = mask(iv_minus_2i_plus_2j) == OPENSEAMASKVAL;
+	      bool open_sea_minus_2i_minus_2j = mask(iv_minus_2i_minus_2j) == OPENSEAMASKVAL;
+
 	      // ALL +2 open sea
-	      bool open_sea_all_adj = open_sea_plus_2i && open_sea_plus_2j && open_sea_minus_2i && open_sea_minus_2j;
+	      // Isolated island case
+	      bool open_sea_all_adj_isol = open_sea_plus_2i && open_sea_plus_2j && open_sea_minus_2i && open_sea_minus_2j;
+	      // Attached case
+	      bool open_sea_2i_plus_2i_plus_2j_att = open_sea_plus_2i && open_sea_plus_2j && open_sea_minus_2i &&
+		open_sea_minus_2j && open_sea_plus_2i_minus_2j && open_sea_minus_2i_plus_2j && 
+		open_sea_minus_2i_minus_2j;
+	      bool open_sea_2i_plus_2i_minus_2j_att = open_sea_plus_2i && open_sea_plus_2j && open_sea_minus_2i &&
+		open_sea_minus_2j && open_sea_plus_2i_plus_2j && open_sea_minus_2i_plus_2j && 
+		open_sea_minus_2i_minus_2j;
+	      bool open_sea_2i_minus_2i_plus_2j_att = open_sea_plus_2i && open_sea_plus_2j && open_sea_minus_2i &&
+		open_sea_minus_2j && open_sea_plus_2i_plus_2j && open_sea_plus_2i_minus_2j  && 
+		open_sea_minus_2i_minus_2j;
+	      bool open_sea_2i_minus_2i_minus_2j_att = open_sea_plus_2i && open_sea_plus_2j && open_sea_minus_2i &&
+		open_sea_minus_2j && open_sea_plus_2i_plus_2j && open_sea_plus_2i_minus_2j && open_sea_minus_2i_plus_2j;
 	      // THREE +2 open sea
 	      bool open_sea_three_v1_adj = open_sea_plus_2i && open_sea_plus_2j && open_sea_minus_2i;
 	      bool open_sea_three_v2_adj = open_sea_plus_2j && open_sea_minus_2i && open_sea_minus_2j;
@@ -150,111 +176,195 @@ void BennCalvingModel::endTimeStepModifyState
 		{
 		  thck(iv) = 0;
 		}
-	      else if ((usrf(iv) - Ds < -0.01) && open_sea_all_adj)
+	      else if ((usrf(iv) - Ds < -0.01) && open_sea_all_adj_isol)
 		{
 		  thck(iv) = 0;
-		  thck(iv_plus_2i) = 0;
-		  thck(iv_plus_2j) = 0;
-		  thck(iv_minus_2i) = 0;
-		  thck(iv_minus_2j) = 0;
+		  thck(iv_plus_i) = 0;
+		  thck(iv_plus_j) = 0;
+		  thck(iv_minus_i) = 0;
+		  thck(iv_minus_j) = 0;
+		  thck(iv_plus_i_plus_j) = 0;
+		  thck(iv_minus_i_plus_j) = 0;
+		  thck(iv_plus_i_minus_j) = 0;
+		  thck(iv_minus_i_minus_j) = 0;
 		}
-
+	      else if ((usrf(iv) - Ds < -0.01) && open_sea_2i_plus_2i_plus_2j_att)
+		{
+		  thck(iv) = 0;
+		  thck(iv_plus_i) = 0;
+		  thck(iv_plus_j) = 0;
+		  thck(iv_minus_i) = 0;
+		  thck(iv_minus_j) = 0;
+		  //thck(iv_plus_i_plus_j) = 0;
+		  thck(iv_minus_i_plus_j) = 0;
+		  thck(iv_plus_i_minus_j) = 0;
+		  thck(iv_minus_i_minus_j) = 0;
+		}
+	      else if ((usrf(iv) - Ds < -0.01) && open_sea_2i_plus_2i_minus_2j_att)
+		{
+		  thck(iv) = 0;
+		  thck(iv_plus_i) = 0;
+		  thck(iv_plus_j) = 0;
+		  thck(iv_minus_i) = 0;
+		  thck(iv_minus_j) = 0;
+		  thck(iv_plus_i_plus_j) = 0;
+		  thck(iv_minus_i_plus_j) = 0;
+		  //thck(iv_plus_i_minus_j) = 0;
+		  thck(iv_minus_i_minus_j) = 0;
+		}
+	      else if ((usrf(iv) - Ds < -0.01) && open_sea_2i_minus_2i_plus_2j_att)
+		{
+		  thck(iv) = 0;
+		  thck(iv_plus_i) = 0;
+		  thck(iv_plus_j) = 0;
+		  thck(iv_minus_i) = 0;
+		  thck(iv_minus_j) = 0;
+		  thck(iv_plus_i_plus_j) = 0;
+		  //thck(iv_minus_i_plus_j) = 0;
+		  thck(iv_plus_i_minus_j) = 0;
+		  thck(iv_minus_i_minus_j) = 0;
+		}
+	      else if ((usrf(iv) - Ds < -0.01) && open_sea_2i_minus_2i_minus_2j_att)
+		{
+		  thck(iv) = 0;
+		  thck(iv_plus_i) = 0;
+		  thck(iv_plus_j) = 0;
+		  thck(iv_minus_i) = 0;
+		  thck(iv_minus_j) = 0;
+		  thck(iv_plus_i_plus_j) = 0;
+		  thck(iv_minus_i_plus_j) = 0;
+		  thck(iv_plus_i_minus_j) = 0;
+		  //thck(iv_minus_i_minus_j) = 0;
+		}
 	      else if ((usrf(iv) - Ds < -0.01) && open_sea_three_v1_adj)
 		{
 		  thck(iv) = 0;
-		  thck(iv_plus_2i) = 0;
-		  thck(iv_plus_2j) = 0;
-		  thck(iv_minus_2i) = 0;
-		  //thck(iv_minus_2j) = 0;
+		  thck(iv_plus_i) = 0;
+		  thck(iv_plus_j) = 0;
+		  thck(iv_minus_i) = 0;
+		  //thck(iv_minus_j) = 0;
+		  thck(iv_plus_i_plus_j) = 0;
+		  thck(iv_minus_i_plus_j) = 0;
+		  //thck(iv_plus_i_minus_j) = 0;
+		  //thck(iv_minus_i_minus_j) = 0;
 		}
 
 	      else if ((usrf(iv) - Ds < -0.01) && open_sea_three_v2_adj)
 		{
 		  thck(iv) = 0;
-		  //thck(iv_plus_2i) = 0;
-		  thck(iv_plus_2j) = 0;
-		  thck(iv_minus_2i) = 0;
-		  thck(iv_minus_2j) = 0;
+		  //thck(iv_plus_i) = 0;
+		  thck(iv_plus_j) = 0;
+		  thck(iv_minus_i) = 0;
+		  thck(iv_minus_j) = 0;
+		  //thck(iv_plus_i_plus_j) = 0;
+		  thck(iv_minus_i_plus_j) = 0;
+		  //thck(iv_plus_i_minus_j) = 0;
+		  thck(iv_minus_i_minus_j) = 0;
 		}
 	      else if ((usrf(iv) - Ds < -0.01) && open_sea_three_v3_adj)
 		{
 		  thck(iv) = 0;
-		  thck(iv_plus_2i) = 0;
-		  //thck(iv_plus_2j) = 0;
-		  thck(iv_minus_2i) = 0;
-		  thck(iv_minus_2j) = 0;
+		  thck(iv_plus_i) = 0;
+		  //thck(iv_plus_j) = 0;
+		  thck(iv_minus_i) = 0;
+		  thck(iv_minus_j) = 0;
+		  //thck(iv_plus_i_plus_j) = 0;
+		  //thck(iv_minus_i_plus_j) = 0;
+		  thck(iv_plus_i_minus_j) = 0;
+		  thck(iv_minus_i_minus_j) = 0;
 		}
 	      else if ((usrf(iv) - Ds < -0.01) && open_sea_three_v4_adj)
 		{
 		  thck(iv) = 0;
-		  thck(iv_plus_2i) = 0;
-		  thck(iv_plus_2j) = 0;
-		  //thck(iv_minus_2i) = 0;
-		  thck(iv_minus_2j) = 0;
+		  thck(iv_plus_i) = 0;
+		  thck(iv_plus_j) = 0;
+		  //thck(iv_minus_i) = 0;
+		  thck(iv_minus_j) = 0;
+		  thck(iv_plus_i_plus_j) = 0;
+		  //thck(iv_minus_i_plus_j) = 0;
+		  thck(iv_plus_i_minus_j) = 0;
+		  //thck(iv_minus_i_minus_j) = 0;
 		}
 	      else if ((usrf(iv) - Ds < -0.01) && open_sea_two_v1_adj)
 		{
 		  thck(iv) = 0;
-		  thck(iv_plus_2i) = 0;
-		  thck(iv_plus_2j) = 0;
-		  //thck(iv_minus_2i) = 0;
-		  //thck(iv_minus_2j) = 0;
+		  thck(iv_plus_i) = 0;
+		  thck(iv_plus_j) = 0;
+		  //thck(iv_minus_i) = 0;
+		  //thck(iv_minus_j) = 0;
+		  thck(iv_plus_i_plus_j) = 0;
+		  //thck(iv_minus_i_plus_j) = 0;
+		  //thck(iv_plus_i_minus_j) = 0;
+		  //thck(iv_minus_i_minus_j) = 0;
 		}
 	      else if ((usrf(iv) - Ds < -0.01) && open_sea_two_v2_adj)
 		{
 		  thck(iv) = 0;
-		  thck(iv_plus_2i) = 0;
-		  //thck(iv_plus_2j) = 0;
-		  //thck(iv_minus_2i) = 0;
-		  thck(iv_minus_2j) = 0;
+		  thck(iv_plus_i) = 0;
+		  //thck(iv_plus_j) = 0;
+		  //thck(iv_minus_i) = 0;
+		  thck(iv_minus_j) = 0;
+		  //thck(iv_plus_i_plus_j) = 0;
+		  //thck(iv_minus_i_plus_j) = 0;
+		  thck(iv_plus_i_minus_j) = 0;
+		  //thck(iv_minus_i_minus_j) = 0;
 		}
 	      else if ((usrf(iv) - Ds < -0.01) && open_sea_two_v3_adj)
 		{
 		  thck(iv) = 0;
-		  //thck(iv_plus_2i) = 0;
-		  thck(iv_plus_2j) = 0;
-		  thck(iv_minus_2i) = 0;
-		  //thck(iv_minus_2j) = 0;
+		  //thck(iv_plus_i) = 0;
+		  thck(iv_plus_j) = 0;
+		  thck(iv_minus_i) = 0;
+		  //thck(iv_minus_j) = 0;
+		  //thck(iv_plus_i_plus_j) = 0;
+		  thck(iv_minus_i_plus_j) = 0;
+		  //thck(iv_plus_i_minus_j) = 0;
+		  //thck(iv_minus_i_minus_j) = 0;
 		}
 	      else if ((usrf(iv) - Ds < -0.01) && open_sea_two_v4_adj)
 		{
 		  thck(iv) = 0;
-		  thck(iv_plus_2i) = 0;
-		  thck(iv_plus_2j) = 0;
-		  //thck(iv_minus_2i) = 0;
-		  //thck(iv_minus_2j) = 0;
+		  thck(iv_plus_i) = 0;
+		  thck(iv_plus_j) = 0;
+		  //thck(iv_minus_i) = 0;
+		  //thck(iv_minus_j) = 0;
+		  thck(iv_plus_i_plus_j) = 0;
+		  thck(iv_minus_i_plus_j) = 0;
+		  thck(iv_plus_i_minus_j) = 0;
+		  thck(iv_minus_i_minus_j) = 0;
 		}
 	      else if ((usrf(iv) - Ds < -0.01) && open_sea_one_plus_2i_adj)
 		{
 		  thck(iv) = 0;
-		  thck(iv_plus_2i) = 0;
-		  //thck(iv_plus_2j) = 0;
-		  //thck(iv_minus_2i) = 0;
-		  //thck(iv_minus_2j) = 0;
+		  thck(iv_plus_i) = 0;
+		  //thck(iv_plus_j) = 0;
+		  //thck(iv_minus_i) = 0;
+		  //thck(iv_minus_j) = 0;
+		  
 		}
 	      else if ((usrf(iv) - Ds < -0.01) && open_sea_one_plus_2j_adj)
 		{
 		  thck(iv) = 0;
-		  //thck(iv_plus_2i) = 0;
-		  thck(iv_plus_2j) = 0;
-		  //thck(iv_minus_2i) = 0;
-		  //thck(iv_minus_2j) = 0;
+		  //thck(iv_plus_i) = 0;
+		  thck(iv_plus_j) = 0;
+		  //thck(iv_minus_i) = 0;
+		  //thck(iv_minus_j) = 0;
 		}
 	      else if ((usrf(iv) - Ds < -0.01) && open_sea_one_minus_2i_adj)
 		{
 		  thck(iv) = 0;
-		  //thck(iv_plus_2i) = 0;
-		  //thck(iv_plus_2j) = 0;
-		  thck(iv_minus_2i) = 0;
-		  //thck(iv_minus_2j) = 0;
+		  //thck(iv_plus_i) = 0;
+		  //thck(iv_plus_j) = 0;
+		  thck(iv_minus_i) = 0;
+		  //thck(iv_minus_j) = 0;
 		}
 	      else if ((usrf(iv) - Ds < -0.01) && open_sea_one_minus_2j_adj)
 		{
 		  thck(iv) = 0;
-		  //thck(iv_plus_2i) = 0;
-		  //thck(iv_plus_2j) = 0;
-		  //thck(iv_minus_2i) = 0;
-		  thck(iv_minus_2j) = 0;
+		  //thck(iv_plus_i) = 0;
+		  //thck(iv_plus_j) = 0;
+		  //thck(iv_minus_i) = 0;
+		  thck(iv_minus_j) = 0;
 		} 
 	    }
 	}
