@@ -46,8 +46,12 @@ public:
     for (int lev = 1; lev < m_nLevel; lev++)
       {
 	m_dx[lev] = m_dx[lev-1]/Real(m_ratio[lev-1]);
-      } 
 
+      } 
+    for (int lev = 0; lev < m_nLevel; lev++)
+      {
+	m_data[lev]->exchange();
+      }
     m_ok = status == 0;
   }
 
