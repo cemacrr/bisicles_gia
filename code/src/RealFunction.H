@@ -75,6 +75,58 @@ public:
 };
 
 
+class GaussianFunction : public RealFunction<RealVect>
+{
+  RealVect m_center;
+  RealVect m_radius;
+  Real m_mag;
+public:
+  GaussianFunction(RealVect a_center, const RealVect& a_radius, Real a_mag)
+    : m_center(a_center),m_radius(a_radius), m_mag(a_mag)
+  {;}
+
+  Real operator()(const RealVect& x)
+  {
+    RealVect loc(x);
+    loc -= m_center;
+    loc /= m_radius;
+    Real radSqr = D_TERM(loc[0]*loc[0],+loc[1]*loc[1],+loc[2]*loc[2]);
+    
+    Real r =  m_mag*exp(-radSqr);
+    
+    return r;
+
+  }
+
+};
+
+/// 1D Gaussian hump
+class GaussianFunctionX : public RealFunction<RealVect>
+{
+  Real m_center;
+  Real m_radius;
+  Real m_mag;
+public:
+  GaussianFunctionX(Real a_center, const Real& a_radius, Real a_mag)
+    : m_center(a_center),m_radius(a_radius), m_mag(a_mag)
+  {;}
+
+  Real operator()(const RealVect& x)
+  {
+    RealVect loc(x);
+    loc -= m_center;
+    loc /= m_radius;
+    Real radSqr = loc[0]*loc[0];
+    
+    Real r =  m_mag*exp(-radSqr);
+    
+    return r;
+
+  }
+
+};
+
+
 /// allow flowline data to be read from an hdf5 file
 /// Flowline is parallel to the x axis
 /// Data must contain n values f_i, where f_i = f(dx * (i + 1/2))

@@ -119,6 +119,12 @@ public:
 		     RefCountedPtr<RealFunction<RealVect > > a_bedrockFunction,
 		     const Real& a_seaLevel);
 
+
+  // Vector of bedrockFunctions allows for simple composition to create geometries
+  void setParameters(RefCountedPtr<RealFunction<RealVect > > a_thicknessFunction,
+		     Vector<RefCountedPtr<RealFunction<RealVect > > > a_bedrockFunction,
+		     const Real& a_seaLevel);
+
   // /// set parameters : inclined plane geomety
   // void setParameters(const Real& a_thickness,
   // 		     const Real& a_originElevation,
@@ -248,7 +254,7 @@ public:
 
 protected:
 
-  RefCountedPtr<RealFunction<RealVect> > m_bedrockFunction;
+  Vector<RefCountedPtr<RealFunction<RealVect> > > m_bedrockFunction;
   RefCountedPtr<RealFunction<RealVect> > m_thicknessFunction;
 
   RealVect m_slope;

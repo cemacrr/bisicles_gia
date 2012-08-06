@@ -169,6 +169,17 @@ MarineIBC::setParameters(RefCountedPtr<RealFunction<RealVect > > a_thicknessFunc
 			 RefCountedPtr<RealFunction<RealVect > > a_bedrockFunction,
 			 const Real& a_seaLevel)
 {
+  Vector< RefCountedPtr<RealFunction<RealVect > > > bedrockFuncVect(1, a_bedrockFunction);
+  
+  setParameters(a_thicknessFunction, bedrockFuncVect, a_seaLevel);
+
+}
+
+void
+MarineIBC::setParameters(RefCountedPtr<RealFunction<RealVect > > a_thicknessFunction,
+			 Vector<RefCountedPtr<RealFunction<RealVect > > > a_bedrockFunction,
+			 const Real& a_seaLevel)
+{
   m_bedrockFunction = a_bedrockFunction;
   m_thicknessFunction = a_thicknessFunction;
   m_seaLevel = a_seaLevel;
@@ -486,6 +497,7 @@ MarineIBC::regridIceGeometry(LevelSigmaCS& a_coords,
     for (dit.begin(); dit.ok(); ++dit)
     { 
       FArrayBox& zB = levelZb[dit];
+      zB.setVal(0.0);
       BoxIterator bit(zB.box());
       for (bit.begin(); bit.ok(); ++bit)
         {
@@ -493,7 +505,10 @@ MarineIBC::regridIceGeometry(LevelSigmaCS& a_coords,
           RealVect x(iv);
           x += 0.5*RealVect::Unit;
           x *= dx;
-          zB(iv,0) = (*m_bedrockFunction)(x);
+          for (int i=0; i<m_bedrockFunction.size(); i++)
+            {
+              zB(iv,0) += (*(m_bedrockFunction[i]))(x);
+            }
         } 
     } // end loop over boxes
  }
@@ -525,6 +540,8 @@ MarineIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
     { 
       FArrayBox& zB = levelZb[dit];
       FArrayBox& H = levelH[dit];
+      
+      zB.setVal(0.0);
 
       BoxIterator bit(zB.box());
       for (bit.begin(); bit.ok(); ++bit)
@@ -534,7 +551,10 @@ MarineIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
           x += 0.5*RealVect::Unit;
           x *= dx;
 
-          zB(iv,0) = (*m_bedrockFunction)(x);
+          for (int i=0; i<m_bedrockFunction.size(); i++)
+            {              
+              zB(iv,0) += (*m_bedrockFunction[i])(x);
+            }
 
 	   if (SpaceDim == 2){
 	     //a little perturbations to encourage instabilities to happen away 

@@ -564,7 +564,7 @@ int main(int argc, char* argv[]) {
 	std::string thicknessType = "constant";
 	mPP.query("thickness_type",thicknessType);
 	RefCountedPtr<RealFunction<RealVect> > thicknessFunction;
-	RefCountedPtr<RealFunction<RealVect> > bedrockFunction;
+	Vector<RefCountedPtr<RealFunction<RealVect> > > bedrockFunction(1);
 	if (thicknessType == "constant")
 	  {
 	    Real thickness;
@@ -603,8 +603,35 @@ int main(int argc, char* argv[]) {
 
 	   
 	    RefCountedPtr<RealFunction<RealVect> > ptr(new InclinedPlaneFunction(originElevation, basalSlope));
-	    bedrockFunction =  ptr;
+	    bedrockFunction[0] =  ptr;
 	  }
+        else if (geometry == "regroundingTest")
+          {
+	    //inclined plane geometry with a Gaussian bump
+            bedrockFunction.resize(2);
+
+	    RealVect basalSlope;
+	    Vector<Real> vect(SpaceDim);
+	    mPP.getarr("basal_slope", vect, 0, SpaceDim);
+	    basalSlope = RealVect(D_DECL(vect[0], vect[1], vect[2]));
+	    Real originElevation;
+	    mPP.get("originElevation", originElevation);
+
+            // compose flat plane with Gaussian hump
+	    RefCountedPtr<RealFunction<RealVect> > ptr1(new InclinedPlaneFunction(originElevation, basalSlope));
+	    bedrockFunction[0] =  ptr1;
+            
+            Real bumpCenter;
+            Real bumpRad;
+            Real bumpMag;
+            
+            mPP.get("bumpCenter", bumpCenter);
+            mPP.get("bumpRad", bumpRad);
+            mPP.get("bumpMag",bumpMag);
+            RefCountedPtr<RealFunction<RealVect> > ptr2(new GaussianFunctionX(bumpCenter, bumpRad, bumpMag));
+
+	    bedrockFunction[1] =  ptr2;
+          }
 	else if (geometry == "Schoof")
 	  {
 	    //geometry of Schoof, 2007
@@ -626,7 +653,7 @@ int main(int argc, char* argv[]) {
 										  schoofCoeff2, schoofCoeff4, 
 										  schoofCoeff6));
 
-	    bedrockFunction = ptr;
+	    bedrockFunction[0] = ptr;
 	   
 
 	  }
@@ -658,7 +685,7 @@ int main(int argc, char* argv[]) {
 										schoofCoeff2, schoofCoeff4, 
 										schoofCoeff6));
 
-	    bedrockFunction = ptr;
+	    bedrockFunction[0] = ptr;
 	  
 
 	  }
