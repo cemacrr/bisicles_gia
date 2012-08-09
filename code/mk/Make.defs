@@ -35,6 +35,10 @@ endif
 
 #python includes and libs - don't define unless that makes sense
 
+ifeq ($(UNAMEN),athos.ggy.bris.ac.uk)
+PYTHON_VERSION=2.4
+endif
+
 ifeq ($(UNAMEN),stephmbp)
 PYTHON_VERSION=2.7
 endif
