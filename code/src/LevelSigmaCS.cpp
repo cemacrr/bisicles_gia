@@ -780,13 +780,13 @@ LevelSigmaCS::computeSurface(const LevelSigmaCS* a_crseCoords,
 	  // 		       CHF_CONST_REAL(thresh),
 	  // 		       CHF_BOX(m_grids[dit]));
 	  //   }
-	  FORT_ODESTROYSCFI(CHF_FRA1(H,0),
-	  		   CHF_FIA1(mask,0),
-	  		   CHF_INT(destroyed),
-	  		   CHF_CONST_INT(xDir),
-	  		   CHF_CONST_INT(yDir),
-	  		   CHF_CONST_REAL(thresh),
-	  		   CHF_BOX(m_grids[dit]));
+	  // FORT_ODESTROYSCFI(CHF_FRA1(H,0),
+	  // 		   CHF_FIA1(mask,0),
+	  // 		   CHF_INT(destroyed),
+	  // 		   CHF_CONST_INT(xDir),
+	  // 		   CHF_CONST_INT(yDir),
+	  // 		   CHF_CONST_REAL(thresh),
+	  // 		   CHF_BOX(m_grids[dit]));
 
 	    }
     }
