@@ -36,7 +36,7 @@
 #include "PiecewiseLinearFlux.H"
 #include "SurfaceFlux.H"
 #ifdef HAVE_PYTHON
-#include "Python.h"
+#include "PythonInterface.H"
 #endif
 //#include "LevelDataSurfaceFlux.H"
 #include "LoadBalance.H"
@@ -776,6 +776,22 @@ int main(int argc, char* argv[]) {
 	 LevelDataIBC* ptr = new LevelDataIBC(levelThck,levelTopg,levelDx);
 	 thicknessIBC = static_cast<IceThicknessIBC*>( ptr);
        }
+#ifdef HAVE_PYTHON
+     else if (problem_type == "Python")
+       {
+	 
+	 ParmParse pyPP("PythonIBC");
+	 std::string module;
+	 pyPP.get("module",module);
+	 std::string thckFuncName = "thickness";
+	 pyPP.query("thicknessFunction",thckFuncName);
+	 std::string topgFuncName = "topography";
+	 pyPP.query("topographyFunction",topgFuncName);
+
+	 PythonInterface::PythonIBC* ptr = new PythonInterface::PythonIBC(module, thckFuncName, topgFuncName);
+	 thicknessIBC = static_cast<IceThicknessIBC*>( ptr);
+       }
+#endif
      else 
        {
          MayDay::Error("bad problem type");
