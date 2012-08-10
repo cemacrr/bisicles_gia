@@ -450,6 +450,61 @@ void PythonInterface::PythonSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBo
     }
 }
 
+PythonInterface::PythonBasalFriction::PythonBasalFriction
+(const std::string& a_pyModuleName,
+ const std::string& a_pyFuncName)
+{
+  InitializePythonModule(&m_pModule,  a_pyModuleName);
+  InitializePythonFunction(&m_pFunc, m_pModule,  a_pyFuncName);
+}
+
+PythonInterface::PythonBasalFriction::~PythonBasalFriction()
+{
+  Py_DECREF(m_pModule);
+  Py_DECREF(m_pFunc);
+}
+
+BasalFriction* PythonInterface::PythonBasalFriction::new_basalFriction() const
+{
+  PythonBasalFriction* ptr = new PythonBasalFriction(m_pModule, m_pFunc);
+  return static_cast<BasalFriction*>(ptr);
+}
+
+
+void PythonInterface::PythonBasalFriction::setBasalFriction
+(LevelData<FArrayBox>& a_C,
+ LevelSigmaCS& a_coordSys,
+ Real a_time,
+ Real a_dt)
+{
+
+  Vector<Real> args(SpaceDim + 3);
+  Vector<Real> rval;
+  
+  const DisjointBoxLayout& grids = a_C.disjointBoxLayout();
+  for (DataIterator dit(grids);dit.ok();++dit)
+    {
+      a_C[dit].setVal(0.0);
+      const Box& b = a_C[dit].box();//grids[dit];
+      for (BoxIterator bit(b);bit.ok();++bit)
+	{
+	  const IntVect& iv = bit();
+	  int i = 0;
+	  for (int dir=0; dir < SpaceDim; dir++)
+	    {
+	      args[i] = (Real(iv[dir]) + 0.5)*a_coordSys.dx()[dir];
+	      i++;
+	    }
+	  args[i] = a_time;i++;
+	  args[i] = a_coordSys.getH()[dit](iv);i++;
+	  args[i] = a_coordSys.getTopography()[dit](iv);i++;
+	  PythonEval(m_pFunc, rval,  args);
+	  a_C[dit](iv) =  rval[0];
+	  
+	}
+    }
+}
+
 
 
 #include "NamespaceFooter.H"

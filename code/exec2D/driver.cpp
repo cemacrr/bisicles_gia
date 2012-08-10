@@ -486,7 +486,19 @@ int main(int argc, char* argv[]) {
 	 basalFrictionPtr = static_cast<BasalFriction*>
 	   (new LevelDataBasalFriction(levelC,levelDx));
        }
+#ifdef HAVE_PYTHON
+    else if (beta_type == "Python")
+      {
+	ParmParse pyPP("PythonBasalFriction");
+	std::string module;
+	pyPP.get("module",module);
+	std::string funcName = "friction";
+	pyPP.query("function",funcName);
+	basalFrictionPtr = static_cast<BasalFriction*>
+	  (new PythonInterface::PythonBasalFriction(module, funcName));
 
+      }
+#endif
     else 
       {
         MayDay::Error("undefined beta_type in inputs");
