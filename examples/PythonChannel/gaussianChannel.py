@@ -19,3 +19,20 @@ def topography(x,y):
     topography = slope(x) + 1.0e+3 - 1.0e+3 * math.exp(-(y/w * y/w))
     
     return topography
+
+
+def accumulation(x,y,t,thck,topg):
+    acc = -1000.0
+    surface = 300.0 + slope(x)
+    if ((x < 80.0e+3) & (surface > topg)):
+        acc = 0.5 - 0.5 * x / 70e+3
+    
+    return acc
+
+def friction(x,y,t,thck,topg):
+    friction = 1.0e+6
+    surface = 300.0 + slope(x)
+    if (  surface > topg ):
+        friction = 1.0e+3
+        
+    return friction

@@ -19,8 +19,12 @@ PythonIBC.module = gaussianChannel
 PythonIBC.thicknessFunction = thickness
 PythonIBC.topographyFunction = topography	
 
-geometry.beta_type = constantBeta
-geometry.betaValue = 1000.0
+#geometry.beta_type = constantBeta
+#geometry.betaValue = 1000.0
+
+geometry.beta_type = Python
+PythonBasalFriction.module = gaussianChannel
+PythonBasalFriction.function = friction
 
 temperature.type = constant
 temperature.value = 268
@@ -35,8 +39,9 @@ BasalFrictionPowerLaw.includeEffectivePressure = true
 #physical constants
 constants.ice_density=918
 
-surfaceFlux.type = constantFlux
-surfaceFlux.flux_value = 0.5
+surfaceFlux.type = pythonFlux
+surfaceFlux.module = gaussianChannel
+surfaceFlux.function = accumulation 
 
 basalFlux.type = zeroFlux
 
@@ -101,6 +106,7 @@ amr.plot_prefix = plot.channel.1km.ssa.3lev.
 #amr.write_preSolve_plotfiles = true
 amr.write_solver_rhs = 1
 amr.write_viscous_tensor = true
+amr.write_thickness_sources = true
 
 #check points
 amr.check_interval = 100
