@@ -14,6 +14,7 @@
 #include "Python.h"
 #include "IceThicknessIBC.H"
 #include "SurfaceFlux.H"
+#include "BasalFriction.H"
 #include "NamespaceHeader.H"
 //
 // PythonInterface.H
@@ -188,68 +189,113 @@ namespace PythonInterface
 
   };
 
-/// Use a python function to evaluate the surface flux
-/** the user needs to provide a python function foo that
-    takes x,y,thickness,topography as args
-    and returns a single scalar (the flux)
-    def foo(x,y,thickness,topography):
-    ...
-    return flux
- */
-class PythonSurfaceFlux : public SurfaceFlux
-{
-  PyObject*  m_pModule;
-  PyObject*  m_pFunc;
+  /// Use a python function to evaluate the surface flux
+  /** the user needs to provide a python function foo that
+      takes x,y,thickness,topography as args
+      and returns a single scalar (the flux)
+      def foo(x,y,thickness,topography):
+      ...
+      return flux
+  */
+  class PythonSurfaceFlux : public SurfaceFlux
+  {
+    PyObject*  m_pModule;
+    PyObject*  m_pFunc;
  
-public:
-  PythonSurfaceFlux(const std::string& a_pyModule,
-		    const std::string& a_pyFunc);
+  public:
+    PythonSurfaceFlux(const std::string& a_pyModule,
+		      const std::string& a_pyFunc);
 
-  virtual ~PythonSurfaceFlux();
+    virtual ~PythonSurfaceFlux();
     
-  /// factory method
-  /** return a pointer to a new SurfaceFlux object
- */
-  virtual SurfaceFlux* new_surfaceFlux();
+    /// factory method
+    /** return a pointer to a new SurfaceFlux object
+     */
+    virtual SurfaceFlux* new_surfaceFlux();
 
-/// define source term for thickness evolution and place it in flux
-/** dt is included in case one needs integrals or averages over a
-    timestep. flux should be defined in meters/second in the current 
-    implementation. 
-*/
-  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIce& a_amrIce, 
-				    int a_level, Real a_dt);
+    /// define source term for thickness evolution and place it in flux
+    /** dt is included in case one needs integrals or averages over a
+	timestep. flux should be defined in meters/second in the current 
+	implementation. 
+    */
+    virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				      const AmrIce& a_amrIce, 
+				      int a_level, Real a_dt);
 
   
-private:
-  // Disallowed for all the usual reasons
-  void operator=(const CompositeFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
+  private:
+    // Disallowed for all the usual reasons
+    void operator=(const CompositeFlux& a_input)
+    {
+      MayDay::Error("invalid operator");
+    }
 
-  // Disallowed for all the usual reasons
-  PythonSurfaceFlux(const CompositeFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
+    // Disallowed for all the usual reasons
+    PythonSurfaceFlux(const CompositeFlux& a_input)
+    {
+      MayDay::Error("invalid operator");
+    }
 
-  PythonSurfaceFlux()
-  {
-    MayDay::Error("invalid operator");
-  }
+    PythonSurfaceFlux()
+    {
+      MayDay::Error("invalid operator");
+    }
 
-  PythonSurfaceFlux(PyObject*  a_pModule,  PyObject*  a_pFunc)
-  {
-    m_pModule = a_pModule;
-    m_pFunc = a_pFunc;
-    Py_XINCREF(m_pModule);
-    Py_XINCREF(m_pFunc);
-  }
+    PythonSurfaceFlux(PyObject*  a_pModule,  PyObject*  a_pFunc)
+    {
+      m_pModule = a_pModule;
+      m_pFunc = a_pFunc;
+      Py_XINCREF(m_pModule);
+      Py_XINCREF(m_pFunc);
+    }
   
 
-};
+  };
+
+  class PythonBasalFriction : public BasalFriction
+  {
+
+    PyObject*  m_pModule;
+    PyObject*  m_pFunc;
+ 
+  public:
+    PythonBasalFriction(const std::string& a_pyModule,
+			const std::string& a_pyFunc);
+
+    virtual ~PythonBasalFriction();
+
+    virtual BasalFriction* new_basalFriction() const;
+    
+    virtual void setBasalFriction(LevelData<FArrayBox>& a_C,
+				  LevelSigmaCS& a_coordSys,
+				  Real a_time,
+				  Real a_dt);
+  private:
+    void operator=(const PythonBasalFriction& a_input)
+    {
+      MayDay::Error("invalid operator");
+    }
+    
+    PythonBasalFriction(const PythonBasalFriction& a_input)
+    {
+      MayDay::Error("invalid operator");
+    }
+
+    PythonBasalFriction()
+    {
+
+    }
+
+    
+    PythonBasalFriction(PyObject*  a_pModule,  PyObject*  a_pFunc)
+    {
+      m_pModule = a_pModule;
+      m_pFunc = a_pFunc;
+      Py_XINCREF(m_pModule);
+      Py_XINCREF(m_pFunc);
+    }
+
+  };
 
 
 }
