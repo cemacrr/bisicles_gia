@@ -8,18 +8,27 @@
 */
 #endif
 #ifdef HAVE_PYTHON
-//
-//  PythonIBC.cpp
+
+// PythonInterface.cpp
 // ============
+// BISICLES embedded Python interface. Includes
 //
-// PhysIBC-derived class which stores initial topography and thickness data
-// and imposes either periodic or reflection boundary conditions
+// PythonInterface, a namespace for common parts of the interface
+//
+// PythonInterface::PythonIBC, a PhysIBC-derived class which allows the bedrock and topography to be set by
+// a user-defined python function. Reflection boundary conditions are imposed on
+// each edge. 
+//
+// PythonInterface::PythonSurfaceFlux , a SurfaceFlux derived class which allows a thickness source to be set
+// by a python function f(x,y,thickness,topography)
+
 
 #include "PythonInterface.H"
 #include "ReflectGhostCells.H"
 #include "FillFromReference.H"
 #include "CoarseAverage.H"
 #include "IceConstants.H"
+#include "AmrIce.H"
 #include "signal.h"
 #include "NamespaceHeader.H"
 
@@ -319,7 +328,7 @@ void  PythonInterface::PythonIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 
   
   Vector<Real> args(SpaceDim);
-  Vector<Real> rc;
+  Vector<Real> rval;
   const DisjointBoxLayout& grids = a_coords.grids();
   for (DataIterator dit(grids); dit.ok(); ++dit)
     {
@@ -333,10 +342,10 @@ void  PythonInterface::PythonIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 	     {
 	       args[i] = (Real(iv[dir]) + 0.5)*a_dx[dir];
 	       i++;
-	       PythonEval(m_pFuncThck, rc,  args);
-	       thck(iv) = rc[0];
-	       PythonEval(m_pFuncTopg, rc,  args);
-	       topg(iv) = rc[0]; 	 
+	       PythonEval(m_pFuncThck, rval,  args);
+	       thck(iv) = rval[0];
+	       PythonEval(m_pFuncTopg, rval,  args);
+	       topg(iv) = rval[0]; 	 
 	     }
 	}
     }
@@ -355,7 +364,7 @@ void  PythonInterface::PythonIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 {
   
   Vector<Real> args(SpaceDim);
-  Vector<Real> rc;
+  Vector<Real> rval;
   const DisjointBoxLayout& grids = a_coords.grids();
   for (DataIterator dit(grids); dit.ok(); ++dit)
     {
@@ -369,8 +378,8 @@ void  PythonInterface::PythonIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 	       args[i] = (Real(iv[dir]) + 0.5)*a_dx[dir];
 	       i++;
 	       
-	       PythonEval(m_pFuncTopg, rc,  args);
-	       topg(iv) = rc[0]; 	 
+	       PythonEval(m_pFuncTopg, rval,  args);
+	       topg(iv) = rval[0]; 	 
 	     }
 	}
     }
@@ -384,6 +393,64 @@ IceThicknessIBC*  PythonInterface::PythonIBC::new_thicknessIBC()
   PythonIBC* retval = new PythonIBC( m_pModule, m_pFuncThck, m_pFuncTopg);
   return static_cast<IceThicknessIBC*>(retval);
 }
+
+
+PythonInterface::PythonSurfaceFlux::PythonSurfaceFlux(const std::string& a_pyModuleName,
+						      const std::string& a_pyFuncName)
+{
+  InitializePythonModule(&m_pModule,  a_pyModuleName);
+  InitializePythonFunction(&m_pFunc, m_pModule,  a_pyFuncName);
+}
+
+PythonInterface::PythonSurfaceFlux::~PythonSurfaceFlux()
+{
+  Py_DECREF(m_pModule);
+  Py_DECREF(m_pFunc);
+}
+
+SurfaceFlux* PythonInterface::PythonSurfaceFlux::new_surfaceFlux()
+{
+
+
+  PythonSurfaceFlux* ptr = new PythonSurfaceFlux(m_pModule, m_pFunc);
+  return static_cast<SurfaceFlux*>( ptr);
+}
+
+
+void PythonInterface::PythonSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+							      const AmrIce& a_amrIce, 
+							      int a_level, Real a_dt)
+{
+  
+  Vector<Real> args(SpaceDim + 3);
+  Vector<Real> rval;
+  const RefCountedPtr<LevelSigmaCS> levelCS = a_amrIce.geometry(a_level);
+
+  const DisjointBoxLayout& grids = a_flux.disjointBoxLayout();
+  for (DataIterator dit(grids);dit.ok();++dit)
+    {
+      a_flux[dit].setVal(0.0);
+      const Box& b = a_flux[dit].box();//grids[dit];
+      for (BoxIterator bit(b);bit.ok();++bit)
+	{
+	  const IntVect& iv = bit();
+	  int i = 0;
+	  for (int dir=0; dir < SpaceDim; dir++)
+	    {
+	      args[i] = (Real(iv[dir]) + 0.5)*levelCS->dx()[dir];
+	      i++;
+	    }
+	  args[i] = a_amrIce.time();i++;
+	  args[i] = levelCS->getH()[dit](iv);i++;
+	  args[i] = levelCS->getTopography()[dit](iv);i++;
+	  PythonEval(m_pFunc, rval,  args);
+	  a_flux[dit](iv) =  rval[0];
+
+	}
+    }
+}
+
+
 
 #include "NamespaceFooter.H"
 

@@ -13,6 +13,7 @@
 
 #include "Python.h"
 #include "IceThicknessIBC.H"
+#include "SurfaceFlux.H"
 #include "NamespaceHeader.H"
 //
 // PythonInterface.H
@@ -22,9 +23,14 @@
 // PythonInterface, a namespace for common parts of the interface
 //
 // PythonInterface::PythonIBC, a PhysIBC-derived class which allows the bedrock and topography to be set by
-// a user-defined python function. Reflection boundary conditions are imposed on
+// a user-defined python function f(x,y) . Reflection boundary conditions are imposed on
 // each edge. 
 //
+// PythonInterface::PythonSurfaceFlux , a SurfaceFlux derived class which allows a thickness source to be set
+// by a python function f(x,y,thickness,topography)
+
+class AmrIce;
+
 namespace PythonInterface
 {
   void InitializePythonModule(PyObject **a_pModule,
@@ -181,6 +187,70 @@ namespace PythonInterface
     }
 
   };
+
+/// Use a python function to evaluate the surface flux
+/** the user needs to provide a python function foo that
+    takes x,y,thickness,topography as args
+    and returns a single scalar (the flux)
+    def foo(x,y,thickness,topography):
+    ...
+    return flux
+ */
+class PythonSurfaceFlux : public SurfaceFlux
+{
+  PyObject*  m_pModule;
+  PyObject*  m_pFunc;
+ 
+public:
+  PythonSurfaceFlux(const std::string& a_pyModule,
+		    const std::string& a_pyFunc);
+
+  virtual ~PythonSurfaceFlux();
+    
+  /// factory method
+  /** return a pointer to a new SurfaceFlux object
+ */
+  virtual SurfaceFlux* new_surfaceFlux();
+
+/// define source term for thickness evolution and place it in flux
+/** dt is included in case one needs integrals or averages over a
+    timestep. flux should be defined in meters/second in the current 
+    implementation. 
+*/
+  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				    const AmrIce& a_amrIce, 
+				    int a_level, Real a_dt);
+
+  
+private:
+  // Disallowed for all the usual reasons
+  void operator=(const CompositeFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  // Disallowed for all the usual reasons
+  PythonSurfaceFlux(const CompositeFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  PythonSurfaceFlux()
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  PythonSurfaceFlux(PyObject*  a_pModule,  PyObject*  a_pFunc)
+  {
+    m_pModule = a_pModule;
+    m_pFunc = a_pFunc;
+    Py_XINCREF(m_pModule);
+    Py_XINCREF(m_pFunc);
+  }
+  
+
+};
+
 
 }
 

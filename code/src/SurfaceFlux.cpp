@@ -11,6 +11,9 @@
 #include "SurfaceFlux.H"
 #include "LevelDataSurfaceFlux.H"
 #include "GroundingLineLocalizedFlux.H"
+#ifdef HAVE_PYTHON
+#include "PythonInterface.H"
+#endif
 #include "IceConstants.H"
 #include "FineInterp.H"
 #include "CoarseAverage.H"
@@ -654,7 +657,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
     pp.get("module",module);
     std::string function;
     pp.get("function",function);
-    PythonSurfaceFlux pythonFlux(module, function);
+    PythonInterface::PythonSurfaceFlux pythonFlux(module, function);
     ptr = static_cast<SurfaceFlux*>(pythonFlux.new_surfaceFlux());
 
   }
@@ -667,124 +670,6 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
 #ifdef HAVE_PYTHON
 #include "signal.h"
 
-PythonSurfaceFlux::PythonSurfaceFlux(const std::string& a_pyModule,
-				     const std::string& a_pyFunc)
-{
-  
-  //initialize Python without overriding SIGINT  
-  PyOS_sighandler_t sigint = PyOS_getsig(SIGINT);
-  Py_Initialize();
-  sigint =  PyOS_setsig(SIGINT, sigint);
-  
-  PyObject* pName = PyString_FromString(a_pyModule.c_str());
-  m_pModule =  PyImport_Import(pName);
 
-  if (m_pModule == NULL)
-    {
-      pout() << "failed to import Python module " << a_pyModule << endl;
-      CH_assert(m_pModule != NULL);
-      MayDay::Error("failed to import Python module ");
-    }
-  char* t = const_cast<char*>(a_pyFunc.c_str());
-  m_pFunc = PyObject_GetAttrString(m_pModule,t);
-  
-  if (m_pFunc == NULL)
-    {
-      pout() << "failed to initialize Python function " << a_pyFunc << endl;
-      CH_assert(m_pFunc != NULL);
-      MayDay::Error("failed to initialize Python function");
-    }
-
-  if (!PyCallable_Check(m_pFunc))
-    {
-      pout() << "Python function " << a_pyFunc << " not callable " <<  endl;
-      CH_assert(PyCallable_Check(m_pFunc));
-      MayDay::Error("Python function not callable");
-    }
-
-
-}
-
-PythonSurfaceFlux::~PythonSurfaceFlux()
-{
-  Py_DECREF(m_pModule);
-  Py_DECREF(m_pFunc);
-}
-
-SurfaceFlux* PythonSurfaceFlux::new_surfaceFlux()
-{
-
-
-  PythonSurfaceFlux* ptr = new PythonSurfaceFlux(m_pModule, m_pFunc);
-  return static_cast<SurfaceFlux*>( ptr);
-}
-
-
-void PythonSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					     const AmrIce& a_amrIce, 
-					     int a_level, Real a_dt)
-{
-  
-  PyObject *pArgs, *pValue;
-  Vector<Real> args(SpaceDim + 3);
-
-  const RefCountedPtr<LevelSigmaCS> levelCS = a_amrIce.geometry(a_level);
-
-  const DisjointBoxLayout& grids = a_flux.disjointBoxLayout();
-  for (DataIterator dit(grids);dit.ok();++dit)
-    {
-      a_flux[dit].setVal(0.0);
-      const Box& b = a_flux[dit].box();//grids[dit];
-      for (BoxIterator bit(b);bit.ok();++bit)
-	{
-	  const IntVect& iv = bit();
-	  int i = 0;
-	  for (int dir=0; dir < SpaceDim; dir++)
-	    {
-	      args[i] = (Real(iv[dir]) + 0.5)*levelCS->dx()[dir];
-	      i++;
-	    }
-	  args[i] = a_amrIce.time();i++;
-	  args[i] = levelCS->getH()[dit](iv);i++;
-	  args[i] = levelCS->getTopography()[dit](iv);i++;
-	  
-	  //construct a python tuple of args
-	  pArgs = PyTuple_New(args.size());
-	  for (int j = 0; j < args.size(); ++j)
-	    {
-	      pValue = PyFloat_FromDouble(args[j]);
-	      if (!pValue)
-		{
-		  pout() << "PythonSurfaceFlux::surfaceThicknessFlux failed to construct Python args" << endl;
-		  CH_assert(pValue != NULL);
-		  MayDay::Error("PythonSurfaceFlux::surfaceThicknessFlux failed to construct Python args");
-		}
-	      PyTuple_SetItem(pArgs, j, pValue);
-	    }
-	  pValue = PyObject_CallObject(m_pFunc, pArgs);
-	  Py_DECREF(pArgs);
-	  if (!pValue)
-	    {
-	      pout() << "PythonSurfaceFlux::surfaceThicknessFlux python call failed" << endl;
-	      PyErr_Print();
-	      CH_assert(pValue != NULL);
-	      MayDay::Error("PythonSurfaceFlux::surfaceThicknessFlux python call failed");
-	    }
-	  
-	  if (PyFloat_CheckExact(pValue))
-	    {
-	      a_flux[dit](iv) =  PyFloat_AS_DOUBLE(pValue);
-	    }
-	  else
-	    {
-	      Py_DECREF(pValue);
-	      CH_assert(PyFloat_CheckExact(pValue));
-	      MayDay::Error("PythonSurfaceFlux::surfaceThicknessFlux python return value is not a float");
-	    }
-
-
-	}
-    }
-}
 #endif
 #include "NamespaceFooter.H"
