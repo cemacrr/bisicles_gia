@@ -1,0 +1,48 @@
+<html>
+<head>
+  <title>BISICLES Python Interface</title>
+</head>
+<body>
+<h1>BISICLES Python Interface</h1>
+<p>
+<strong>The Python Interface is new and might change. You might need 
+change your python function prototypes as it evolves.</strong>
+</p>
+
+<p>BISICLES' python interface is intended to make some of less performance intensive
+parts of BISICLES easier to program. It is fairly crude : at certain points during a run BISICLES 
+will use an embedded python intpreter to evaulate various fields. At the moment, it is possible to
+specify the <a href='#ibc'>initial geometry</a> (topography and thickness), <a href='#flux'>surface 
+fluxes</a> (that is, accumulation and melting), and the <a href='#btrc'>basal traction coefficient</a>. 
+The most likely application of the Python
+interface is in defining idealized problems, where the use of the <a href='leveldatainterface'>LevelData interface</a>
+would lead to undesirable numerical error</p> 
+
+<p>You should have included the python interface when <a href='readme.html'>building BISICLES</a>, otherwise
+you will need to do so. You will need to run the appropriate <a href='readme.html#makeclean'>make clean</a></p>
+
+<h2><a name='ibc'>Initial Geometry</a></h2>
+
+<h2><a name='flux'>Surface Fluxes</a></h2>
+
+It is possible to specify a <a href='surfaceflux.html'>surface flux</a> through a python function. You need to write
+a python function that takes five scalar arguments (x,y,t,thickness,topography).
+Let's say that you have created a file my.py
+<pre>
+#file my.py
+def myflux(x,y,t,thck,topg):
+    return 1.0e-3 * (thck + topg)
+</pre>
+then you would include lines like
+<pre>
+surfaceFlux.type = pythonFlux
+surfaceFlux.module = my.py
+surfaceFlux.function = myflux
+</pre>
+in the input file.
+
+
+<h2><a name='btrc'>Basal Friction Coefficient</a></h2>
+
+</body>
+</html>

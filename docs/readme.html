@@ -11,6 +11,7 @@ To build (and run) BISICLES you need to
   <li> <a href='#svnco'>Check out</a> the source code</li>
   <li> Set up some third party <a href='#deps'>dependencies</a></li>
   <li> <a href='#chombo'> Configure Chombo</a> by editing some definitions in a makefile</li>
+  <li> <a href='#python'> Configure the (optional) python interface</a> by editing some definitions in a makefile</li>
   <li> <a href='#bisicles'> Compile driver</a>, the main standalone BISICLES executable.</li>
   <li> <a href='#example'> Run driver on a simple problem </a> to ensure that it works</li>
 </ol>
@@ -279,6 +280,25 @@ so that Chombo sees Make.defs.local in the place it expects
 >ln -s $BISICLES_HOME/Make.defs.local $BISICLES_HOME/Chombo/lib/mk/Make.defs.local
 </pre>
 
+<h2><a name="python">Configuring the Python interface</a></h2>
+<p>
+To make use of the <a href='pythoninterface.html'>python interface</a>, you need to ensure that you have a suitable
+python installation. This is usually straightfoward in modern GNU/linux distributions,
+since Python is so widespread. Before you can compile BISICLES with Python support, 
+find out <ol>
+<li>where the header file &quot;Python.h&quot; lives; /usr/include/python2.6, for example</li>
+<li>what linker flags you need, for example -lpython2.6
+</ol>
+Now, edit the file
+<pre>
+$BISICLES_HOME/BISICLES/code/mk/Make.defs
+</pre>
+to define the variables PYTHON_INC and PYTHON_LIBS. There are several examples in the file already.
+</p>
+
+<p>when you come to compile BISICLES, you should see flags like -DHAVE_PYTHON included in the compilation</p>
+
+
 <h2><a name="bisicles">Building stand-alone BISICLES</a></h2>
 
 <p>Now we are ready to build one or more BISICLES executables. If you plan to do developement
@@ -308,6 +328,18 @@ For serious runs, this is the one you need. Even on workstations with a few proc
 Finally, should you feel the urge, you can have a non-optimized parallel version, which can bu used for hunting down low-level
 bugs that crop up in parallel operation but not in serial operation. 
 </p>
+
+<h2><a name="makeclean">Make clean</a></h2>
+<p>On occasion it might be necessary to rebuild BISICLES entirely, rather than just those parts where a file
+has changed. To do so, run
+<pre>make clean</pre>
+for unoptmized, serial builds, 
+<pre>make clean OPT=TRUE</pre>
+for optimized serial builds, and
+<pre>make clean OPT=TRUE MPI=TRUE</pre>
+for optmized parallel builds</p>
+
+
 <h2><a name="example">Running BISICLES on a simple problem</a></h2>
 <p>
 All the data to run <a href='http://homepages.ulb.ac.be/~fpattyn/mismip3d/welcome.html'>Frank Pattyn's MISMIP3D P075 experiment</a> is already

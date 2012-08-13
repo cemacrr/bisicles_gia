@@ -24,7 +24,7 @@ the new style described below</strong>
 
 <h2>surfaceFlux and basalFlux</h2>
 <p>
-There can be two relevant sections the inputs file, entries that
+There can be two relevant sections in the inputs file, entries that
 begin 
 <pre> 
 surfaceFlux.
@@ -135,6 +135,25 @@ the 1980 file would be loaded. This is useful if you ran some kind of spinup, st
 at year 0, and decided to use the 54 year checkpoint file to 
 initialize some production runs. However, all your files are named according
 to a real year, and you would like to see real years in the plot files.
+
+<h3>PythonSurfaceFlux</h3>
+
+Provided that the <a href='pythoninterface.html'>Python interface</a> has be compiled, it is
+possible to specify a surface flux through a python function. You need to write
+a python function that takes five scalar arguments (x,y,t,thickness,topography).
+Let's say that you have created a file my.py
+<pre>
+#file my.py
+def myflux(x,y,t,thck,topg):
+    return 1.0e-3 * (thck + topg)
+</pre>
+then you would include lines like
+<pre>
+surfaceFlux.type = pythonFlux
+surfaceFlux.module = my.py
+surfaceFlux.function = myflux
+</pre>
+in the input file.
 
 <h2>Derived fluxes</h2>
 
