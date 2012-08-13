@@ -68,27 +68,27 @@ void BennCalvingModel::endTimeStepModifyState
 	  const int& minus_i = iv[0]-1;
 	  const int& plus_j = iv[1]+1;
 	  const int& minus_j = iv[1]-1;
-	  const IntVect& iv_plus_i = IntVect::IntVect(plus_i, iv[1]);
-	  const IntVect& iv_minus_i = IntVect::IntVect(minus_i, iv[1]);
-	  const IntVect& iv_plus_i_plus_j = IntVect::IntVect(plus_i,plus_j);
-	  const IntVect& iv_plus_i_minus_j = IntVect::IntVect(plus_i,minus_j);
-	  const IntVect& iv_minus_i_plus_j = IntVect::IntVect(minus_i,plus_j);
-	  const IntVect& iv_minus_i_minus_j = IntVect::IntVect(minus_i,minus_j);
-	  const IntVect& iv_plus_j = IntVect::IntVect(iv[0], plus_j);
-	  const IntVect& iv_minus_j = IntVect::IntVect(iv[0], minus_j);
+	  const IntVect iv_plus_i(plus_i, iv[1]);
+	  const IntVect iv_minus_i (minus_i, iv[1]);
+	  const IntVect iv_plus_i_plus_j (plus_i,plus_j);
+	  const IntVect iv_plus_i_minus_j (plus_i,minus_j);
+	  const IntVect iv_minus_i_plus_j (minus_i,plus_j);
+	  const IntVect iv_minus_i_minus_j (minus_i,minus_j);
+	  const IntVect iv_plus_j (iv[0], plus_j);
+	  const IntVect iv_minus_j (iv[0], minus_j);
 
 	  const int& plus_2i = iv[0]+2;
 	  const int& minus_2i = iv[0]-2;
 	  const int& plus_2j = iv[1]+2;
 	  const int& minus_2j = iv[1]-2;
-	  const IntVect& iv_plus_2i = IntVect::IntVect(plus_2i, iv[1]);
-	  const IntVect& iv_minus_2i = IntVect::IntVect(minus_2i, iv[1]);
-	  const IntVect& iv_plus_2j = IntVect::IntVect(iv[0], plus_2j);
-	  const IntVect& iv_minus_2j = IntVect::IntVect(iv[0], minus_2j);
-	  const IntVect& iv_plus_2i_plus_2j = IntVect::IntVect(plus_2i,plus_2j);
-	  const IntVect& iv_plus_2i_minus_2j = IntVect::IntVect(plus_2i,minus_2j);
-	  const IntVect& iv_minus_2i_plus_2j = IntVect::IntVect(minus_2i,plus_2j);
-	  const IntVect& iv_minus_2i_minus_2j = IntVect::IntVect(minus_2i,minus_2j);
+	  const IntVect iv_plus_2i (plus_2i, iv[1]);
+	  const IntVect iv_minus_2i (minus_2i, iv[1]);
+	  const IntVect iv_plus_2j (iv[0], plus_2j);
+	  const IntVect iv_minus_2j(iv[0], minus_2j);
+	  const IntVect iv_plus_2i_plus_2j(plus_2i,plus_2j);
+	  const IntVect iv_plus_2i_minus_2j (plus_2i,minus_2j);
+	  const IntVect iv_minus_2i_plus_2j (minus_2i,plus_2j);
+	  const IntVect iv_minus_2i_minus_2j (minus_2i,minus_2j);
 
 	  
 
