@@ -9,7 +9,7 @@ LDFLAGS = -g
 OBJS = mgrelax.o friction.o
 
 all: $(OBJS)
-	$(FC) $(FFLAGS) mgrelax.o friction.o $(LIBFLAGS)
+	$(FC) $(FFLAGS) -o friction mgrelax.o friction.o $(LIBFLAGS)
 
 %.o : %.f90 
 	$(FC) $(FFLAGS) -c  $< -o $@

@@ -7,7 +7,7 @@
 <body>
   <H1>BISICLES Pine Island Glacier application</H1>
   <p> These instructions assume that you have working BISICLES executable, including both driver 
-     and nctoamr. If that is not the case, there are some <a href='../../../readme.html'>BISICLES build instructions</a>
+     and nctoamr. If that is not the case, there are some <a href='readme.html'>BISICLES build instructions</a> to follow.
      Anne Le Brocq has provided us with the data for this application - thanks Anne.
   </p> 
   <p>
@@ -50,13 +50,14 @@
     mgrelax.f90. mgrelax.f90 just provides a simple multigrid solver that we use to smooth data, so most of the
     work is in friction.f90. To compile this program, change into the appropriate directory 
     <pre>
-      > cd $BISICLES_HOME/BISICLES/PineIslandGlacier
+      > cd $BISICLES_HOME/BISICLES/examples/PineIslandGlacier
     </pre>
-    then edit the file 'GNUMakefile' to have the correct NETCDF_HOME ($BISICLES_HOME/netcdf/serial/). 
+    then, if your netcdf is not installed at $BISICLES_HOME/netcdf, 
+    edit the file 'GNUMakefile' to give the correct value for NETCDF_HOME. 
     Then  make and execute, like so
     <pre>
       > make
-      > ./a.out
+      > ./friction
     </pre>
     Some text will be written to standard output, and the end result is a file containing 'pig-bisicles-1km.nc'.
     You can have a quick look at the contents by running
@@ -117,7 +118,7 @@ data:
     <li>beta : the basal traction coefficient</li>
     <li>tempXXXXXX : temperatures at the mid-point of layer XXXXXX</li>
     </ol>
-    The reminder are only needed by the <a href='control.html'>control problem</a>
+    The remainder are only needed by the <a href='pineislandcontrol.html'>control problem</a>
     In fact, only thk,topg, and beta are essential : it is easy enough to specify either a constant rate 
     factor A, or a constant ice temperature, in BISICLES configuration file. If you are starting
     a new problem, it is likely easiest to start with thk, topg, and beta (possibly a constant beta, though
@@ -127,7 +128,7 @@ data:
   BISICLES cannot (yet) read  netCDF data directly, instead we must use the nctoamr tool to 
   convert it into a Chombo AMR hierachy stored in an .hdf5 file. Run
   <pre>
-    $BISICLES_HOME/BISCLES/code/filetools/nctoamr2d.Linux.64.g++.gfortran.DEBUG.ex pig-bisicles-1km.nc pig-bisicles-1km.2d.hdf5 thk topg beta temp000000 temp000001 temp000002 temp000003 temp000004 temp000005 temp000006 temp000007 temp000008 temp000009  xvel yvel velc divuh divuhc
+    $BISICLES_HOME/BISICLES/code/filetools/nctoamr2d.Linux.64.g++.gfortran.DEBUG.ex pig-bisicles-1km.nc pig-bisicles-1km.2d.hdf5 thk topg beta temp000000 temp000001 temp000002 temp000003 temp000004 temp000005 temp000006 temp000007 temp000008 temp000009  xvel yvel velc divuh divuhc
   </pre>
   and you should end up with a file called pig-bisicles-1km.2d.hdf5 that has the same data as pig-bisicles-1km.nc.
   You can inspect the contents of this file with the h5ls and h5dump programs, but it won't be pretty. Instead,
@@ -157,8 +158,8 @@ amr.is_periodic = 0 0 0
 First, we have a comment, beginning with #.
 Next three quantities are given for the domain size, the third of which is ignored for now.
 Also notice that amr.num_cells is repeated; the last occurrence overrides the others.
-The fiest two numbers specify up  base resolution, and because the data level sits on a  256 x 384
-grid, the base level, the choice of a 64 x 96 grid means that the data on the base grid
+The fiest two numbers specify the base resolution, and because the data level sits on a  256 x 384
+grid, the choice of a 64 x 96 grid means that the data on the base grid
 will be coarsened by a factor of 4 from the input data. The third number is the number of vertical layers,
 which remains the same one every grid.
 </p>
@@ -227,38 +228,36 @@ constants.ice_density=918
 Surface mass balance is chosen in the next section.
 <pre>
 #surface fluxes
-main.surface_flux_type = constantFlux
-constFlux.flux_value = 0.3
+SurfaceFlux.type = constantFlux
+SurfaceFlux.flux_value = 0.3
 
-main.basal_flux_type = maskedFlux
-basalMaskedFlux.grounded_flux_type = zeroFlux
-basalMaskedFlux.floating_flux_type = piecewiseLinearFlux
-floatingBasalPWLFlux.n = 2
-floatingBasalPWLFlux.abscissae = 50.0 500.0
-floatingBasalPWLFlux.ordinates = 0 -50.0
+BasalFlux.type =  maskedFlux
+BasalFlux.grounded.type = zeroFlux
+BasalFlux.floating.type = piecewiseLinearFlux
+BasalFlux.floating.n = 2
+BasalFlux.floating.abscissae = 50.0 500.0
+BasalFlux.floating.ordinates = 0 -50.0
 </pre>
 Here, we have chosen a constant rate of accumulation at the upper surface.
-At the low surface, we have used the maskedFlux option tin order to 
+At the low surface, we have used the maskedFlux option in order to 
 select no flux in the grounded region, and a piecewise linear relation between
-melting and thickness beneath the ice shelves 
+melting and thickness beneath the ice shelves. 
 </p>
 
 <p>
 Next up is the calving law
 <pre>
 #calving model
-amr.calving_model_type = DeglaciationCalvingModelA
-DeglaciationCalvingModelA.min_thickness = 1.0
-DeglaciationCalvingModelA.calving_thickness = 100.0
-DeglaciationCalvingModelA.calving_depth = 10800.0
+CalvingModel.type = FixedFrontCalvingModel
+CalvingModel.min_thickness = 1.0
 </pre>
-We have only one slightly sensible calving law for now, DeglaciationCalvingModelA,
-which forbids the calving front from advancing.
-It  will also remove any part of the shelf where the ocean beneath the
-shelf is deeper that DeglaciationCalvingModelA.calving_depth and the
-shelf itself is thinner than DeglaciationCalvingModelA.calving_thickness.
-Here we have picked a large number for DeglaciationCalvingModelA.calving_depth = 10800.0,
-so such removals never occur.
+DeglaciationCalvingModelA maintains zero ice thickness in regions that initially have no ice
+and also prevents ice thickness from dropping below min_thickness. In effect, it works to maintain
+a fixed calving front (though a large region of ice only 1m thick might as well not be present at
+all, so something like a retreating calving front is possible). It is
+OK to set CalvingModel.min_thickness = 0.0, in which case the Calving front can retreat, and
+is irreversible. However, that can result in regions of floating ice unconnected to grounded ice,
+in which case the stress-balance equations become ill-posed.
 </p>
 
 <p>
@@ -273,6 +272,7 @@ amr.do_initial_velocity_guess = 1
 amr.do_initial_velocity_solve = 1
 amr.initial_velocity_guess_type = 1 # linear PDE
 amr.initial_velocity_guess_const_mu = 1.0e+6
+amr.initial_velocity_guess_solver_type = 1 # use JFNK solver's linear mode
 
 #JFNK parameters
 JFNKSolver.vtopSafety = 0.95
@@ -295,8 +295,8 @@ JFNKSolver.switchRate = 2.0
 #JFNKSolver.muMin = 1.0e+4
 #JFNKSolver.uMaxAbs = 1.0e+6
 </pre>
-We will not say much about these, expect that if JFNKSolver.writeResiduals = true is present
-(not commented, as it is above), a file named 'jknkopres.k.2d.hdf5' will be written to disk
+We will not say much about these, except that if JFNKSolver.writeResiduals = true is present
+(not commented, as it is above), a file named 'jknkopres.XXXXXX.2d.hdf5' will be written to disk
 on every evaluation of the stress-balance equation's residuals, containing velocity and residual data.
 These are useful when trying to understand solver failures.
 </p>
@@ -426,7 +426,7 @@ nohup mpirun -np 4 $BISICLES_HOME/BISICLES/code/exec2D/driver2d.Linux.64.mpic++.
 </pre>
 On a serial computer, run a simulation with 2 or 3 levels of refinement. e.g
 <pre>
-> $BISICLES_HOME/BISICLES/code/exec2D/driver2d.Linux.64.mpic++.gfortran.DEBUG.OPT.ex inputs.pigv5.1km.l1l2.l2 > sout.0 2>err.0 &
+> $BISICLES_HOME/BISICLES/code/exec2D/driver2d.Linux.64.g++.gfortran.DEBUG.OPT.ex inputs.pigv5.1km.l1l2.l2 > sout.0 2>err.0 &
 </pre>
 In both cases, you can view the resulting plot*2d.hdf5 files in visit. You should see
 the grounding line of Pine Island Glacier retreat rather rapidly in either case, and the
