@@ -3,7 +3,7 @@
   <title>BISICLES user level documentation</title>
 <style type="text/css">
 ol { counter-reset: item }
-li { display: block }
+li { display: block; padding: 0.5em; }
 li:before { content: counters(item, ".") " "; counter-increment: item }
 </style>
 </head>
@@ -16,11 +16,33 @@ select run-time options.
 <ol>
 <li><a href='readme.html'>Building and running BISICLES</a></li>
 <li>
-Example applications
-<ol>
-<li>Frank Pattyn's <a href='readme.html#example'>MISMIP3D</a></li>
-<li>A <a href='pineisland.html'>Pine Island Glacier</a> example which uses real topography and thickness data</li>
-</ol>
+  BISICLES executables
+  <ol>
+    <li>
+      <a href='driver.html'>driver</a> - used to run ice sheet simulations
+    </li>
+    <li>
+      <a href='control.html'>control</a>, used to solve BISICLES' inverse problem.
+    </li>
+    <li>
+      <a href='filetools.html'>file tools</a>, used to perform miscellaneous actions on BISICLES hdf5 files
+    </li>
+  </ol>
+</li>
+<li>
+  Run-time options
+  <ol>
+     <li><a href='surfaceflux.html'>Surface fluxes</a> (accumulation and melting) </li>
+    <li> <a href='leveldatainterface.html'>LevelData interface</a> (used to load meshed data, for example thickness and topography) </li>
+    <li> <a href='pythoninterface.html'>Python interface</a> </li>
+  </ol>
+</li>
+<li>
+  Example applications
+  <ol>
+    <li>Frank Pattyn's <a href='readme.html#example'>MISMIP3D</a></li>
+    <li>A <a href='pineisland.html'>Pine Island Glacier</a> example which uses real topography and thickness data</li>
+  </ol>
 </li>
 </ol>
 

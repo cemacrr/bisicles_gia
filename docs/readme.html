@@ -3,6 +3,9 @@
   <title>BISICLES build instructions</title>
 </head>
 <body>
+
+<a href='index.html'>User documentation index<a/>
+
 <h1>BISICLES build instructions</h1>
 
 To build (and run) BISICLES you need to
@@ -17,13 +20,15 @@ To build (and run) BISICLES you need to
 </ol>
 <p> Optionally, you might also
 <ol>
-  <li> visualize BISICLES output using <a href='https://wci.llnl.gov/codes/visit/home.html'>VisIt</a></li>
-  <li> <a href='#nctoamr'> Compile nctoamr</a>, a tool to convert NetCDF files into hdf5 files that BISICLES can read.</li>
+  <!--<li> visualize BISICLES output using <a href='https://wci.llnl.gov/codes/visit/home.html'>VisIt</a></li>!-->
+  <li> <a href='#nctoamr'> Compile the filetools</a>, including nctoamr, a tool to convert NetCDF files into hdf5 files that BISICLES can read.</li>
   <li> <a href='#control'> Compile control</a>, which can be used to solve an inverse problem (or control problem)</li>
-  <li> Look at an example application, <a href='pineisland.html'>Pine Island Glacier</a>, to 
+  <!--<li> <li> Look at an example application, <a href='pineisland.html'>Pine Island Glacier</a>, to 
   see how to load topography, thickness, basal traction coefficient, and temperature</li>
-  <li> Specify <a href='surfaceflux.html'>surface thickness fluxes</a>, that is, accumulation and melt rates</li>
+  <li> Specify <a href='surfaceflux.html'>surface thickness fluxes</a>, that is, accumulation and melt rates</li>!-->
 </ol>
+
+
 
 <h2><a name="sysreq"> System requirements.</a></h2>
 <p> 
@@ -386,21 +391,12 @@ and eventually, you will get a series of plot*2d.hdf5 files that you can view in
 These vary somewhat, so the instructions below are for the clusters we have experience with. If you
 would like to add to the list, mail <a mailto='s.l.cornford@bris.ac.uk'>s.l.cornford@bris.ac.uk</a>.
  
-<h3><a name='nctoamr'>Compling and using nctoamr</a></h3>
+<h3><a name='nctoamr'>Compiling and using the file tools</a></h3>
 <p>
-To compile nctoamr you need edit the file $BISICLES_HOME/BISICLES/code/filetools/GNUmakefile.
-Find the lines that read
-<pre>
-CPPFLAGS+=-I$(NETCDF_HOME)/include                                                                                                                         
-LIBFLAGS+=-L$(NETCDF_HOME)/lib -lnetcdf
-</pre> 
-and immediately <strong>above</strong> add lines like: 
-<pre>
-BISICLES_HOME=/local/ggslc/BISICLES 
-NETCDF_HOME=$(BISICLES_HOME)/netcdf/serial
-</pre>  
-setting BISICLES_HOME correctly. At some point, we'll make this a bit more elegant.
-There is no point in building parallel (or even optimized) nctoamr, so type
+To compile the file tools you might need to edit file $BISICLES_HOME/BISICLES/code/mk/Make.defs. 
+If you have installed BISICLES (and netcdf in particular) following this guide, there should be no need, but otherwise
+make sure that the variable NETCDF_HOME points to the parent directrory of the netcdf include and lib directories.
+There is little point in building parallel file tools, so type
 <pre>
 make all
 </pre>
@@ -411,6 +407,7 @@ $BISICLES_HOME/BISICLES/code/filetools/nctoamr2d.Linux.64.g++.gfortran.DEBUG.ex 
 </pre>  
 to obtain a file called data.2d.hdf5 that BISICLES can read as (say) thickness and topography data. 
 </p>
+There are a number of other <a href='filetools.html'>file tools</a>.
 
 <h3><a name='control'>Compling the control problem code</a></h3>
 <p>
