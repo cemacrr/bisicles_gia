@@ -188,6 +188,13 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
       ptr = new DomainEdgeCalvingModel
 	(frontLo, frontHi,preserveSea,preserveLand);
     }
+  else if (type == "FixedFrontCalvingModel")
+    {
+      Real minThickness = 0.0;
+      pp.get("min_thickness", minThickness );
+      ptr = new DeglaciationCalvingModelA
+	(0.0,  1.0e+10, minThickness, -1.2345678e+300, 1.2345678e+300);
+    }
   else if (type == "DeglaciationCalvingModelA")
     {  
       Real minThickness = 0.0;
