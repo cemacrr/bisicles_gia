@@ -319,8 +319,11 @@ class GLCorrection
 	     
 	     int j = i - 1;
 	     
-	     rhs[j] = -(cS[j] - cS[j-1]) *
+	     double testrhs = -(cS[j] - cS[j-1]) *
 	       ((1.0-a) * cH[j-1] + (a)* cH[j]) * coeff;
+
+	     //if (std::abs(rhs[j]) > std::abs( testrhs))
+	       rhs[j] =  testrhs;
 	     
 	     
 	   }
@@ -331,8 +334,11 @@ class GLCorrection
 	     
 	     int j = i + 1;
 	     
-	     rhs[j] = -(cS[j+1] - cS[j]) *
+	     
+	     double testrhs = -(cS[j+1] - cS[j]) *
 	       ((1.0-a) * cH[j+1] + (a)* cH[j]) * coeff;
+	     //if (std::abs(rhs[j]) > std::abs( testrhs))
+	       rhs[j] = testrhs;
 	     
  
 	   }
@@ -1416,7 +1422,7 @@ void PicardSolver::solve(const VelocityModel& vModel,
 
   TDMAPoissonSolver poissonSolver(nx, periodic);
   valarray<double> fGradU(0.0,nx+1);
-  std::cout << "residual norms:"; 
+  //std::cout << "residual norms:"; 
 
   do {
     
@@ -1448,7 +1454,7 @@ void PicardSolver::solve(const VelocityModel& vModel,
 
     double resNorm = poissonSolver.residualNorm(cU);
     //double resNorm = poissonSolver.maxNorm(cU);
-    std::cout << resNorm << ":" ; 
+    //std::cout << resNorm << ":" ; 
 
     MY_ASSERT(isfinite(resNorm))
 
@@ -1465,7 +1471,7 @@ void PicardSolver::solve(const VelocityModel& vModel,
     iter++;
 
   } while(!done);
-  std::cout << std::endl;
+  //std::cout << std::endl;
 }
 
 
@@ -1518,7 +1524,7 @@ void computeVelocity
 	{
 	  if (first)
 	    {
-	      std::cout << " first floating cell is " << i << std::endl;
+	      //std::cout << " first floating cell is " << i << std::endl;
 	      first = false;
 	    }
 
@@ -1942,7 +1948,7 @@ void advanceThickness(double n, double m, double L,
 
     dt = std::pow(2.0, std::floor(std::log(dt)/std::log(2.0)));
     t += dt;
-    std::cout << " t = " << t << " dt = " << dt  << " umax = "  << umax <<  std::endl;
+    //std::cout << " t = " << t << " dt = " << dt  << " umax = "  << umax <<  std::endl;
     MY_ASSERT(umax < 10000);
     {
       int nx = cUb.size();
@@ -2389,16 +2395,16 @@ int main(int argc, char* argv[]){
 #else
 #define ext "txt"
 #endif
-   double dt = 100.0;
+   double dt = 1000.0;
    double t = 0;
-   for (int i =0; i < 600; ++i)
+   for (int i =0; i < 50; ++i)
    {
      advanceThickness(n,m,L,t,t+dt, cfl, cR , fA, ca, cC, cC0, 
 		      cHstart , cHend, cUb, fUs, fUa, 
-		      cS, DIVIDE, MARINE, model, 20, 1e-3, 1e-3,
+		      cS, DIVIDE, MARINE, model, 5, 1e-6, 1e-6,
 		      glCorrection,0.0);
      t += dt;
-     std::cout << " nx = " << nx << " t = " << dt << std::endl; 
+     std::cout << " nx = " << nx << " t = " << t << std::endl; 
      // stringstream ss; ss << modelname << "." << nx << "." << acabmm << "mm." << ext;;
      fout(fnamout,ccs,cc);
 
@@ -2650,7 +2656,7 @@ int main(int argc, char* argv[]){
      fL = fS - fH;
      int r = wnc("ssa.a049.nc",ny,-50.0e+3,50.0e+3, fX, fR, fS, fL, fH,  cC);
      if (r != 0)
-       std::cout << "error writing netdcf file" << std::endl;
+       //std::cout << "error writing netdcf file" << std::endl;
      
      cHstart = cHend;
      advanceThickness(n,m,L,100.0, cR , fA, ca, cC, 
@@ -2670,7 +2676,7 @@ int main(int argc, char* argv[]){
      fL = fS - fH;
      int r = wnc("l1l2.a049.nc",ny,-50.0e+3,50.0e+3, fX, fR, fS, fL, fH,  cC);
      if (r != 0)
-       std::cout << "error writing netdcf file" << std::endl;
+       //std::cout << "error writing netdcf file" << std::endl;
      
      cHstart = cHend;
      advanceThickness(n,m,L,100, cR , fA, ca, cC, 
