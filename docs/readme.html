@@ -345,7 +345,7 @@ for optmized parallel builds</p>
 All the data to run <a href='http://homepages.ulb.ac.be/~fpattyn/mismip3d/welcome.html'>Frank Pattyn's MISMIP3D P075 experiment</a> is already
 present. Change to the MISMIP3D subdirectory, and generate some input files from a template.
 <pre>
-> cd $BISICLES_HOME/BISICLES/code/exec2D/MISMIP3D
+> cd $BISICLES_HOME/BISICLES/examples/MISMIP3D
 > sh make_inputs.sh
 </pre>
 then we are ready to go.
@@ -354,7 +354,7 @@ then we are ready to go.
 On a serial machine, try the 3 AMR level problem (which will have
 a resolution of 800 m at the grouding line, and 6.25 km far from it).
 <pre>
-../driver2d.Linux.64.mpic++.gfortran.DEBUG.OPT.ex inputs.mismip3D.p075.l1l2.l3 > sout.0 2>err.0 &
+$BISICLES_HOME/BISICLES/code/exec2D/driver2d.Linux.64.g++.gfortran.DEBUG.OPT.ex  inputs.mismip3D.p075.l1l2.l3 > sout.0 2>err.0 &
 </pre>
 You can watch progress by typing
 <pre>
@@ -367,7 +367,7 @@ and eventually, you will get a series of plot*2d.hdf5 files that you can view in
 If you have a parallel machine, run the 5 AMR level problem (which will have
 a resolution of 200 m at the grouding line, and 6.25 km far from it).
 <pre>
-> nohup mpirun -np 4 ../driver2d.Linux.64.mpic++.gfortran.DEBUG.OPT.MPI.ex inputs.mismip3D.p075.l1l2.l5 &
+> nohup mpirun -np 4 $BISICLES_HOME/BISICLES/code/exec2D/driver2d.Linux.64.mpic++.gfortran.DEBUG.OPT.MPI.ex inputs.mismip3D.p075.l1l2.l5 &
 </pre>
 replace -np 4 with the appropriate count for your machine: this is usually <strong>not</strong> the number
 of CPU cores because these will typically share some resources. A good guess is 

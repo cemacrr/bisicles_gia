@@ -29,13 +29,18 @@ ifeq ($(UNAMEN),loren)
 NETCDF_HOME =/home/loren/users/dmartin/util/netcdf/netcdf-4.1.2
 endif
 
-ifeq ($(UNAMEN),geog-bsq92.ggy.bris.ac.uk)
-NETCDF_HOME = /local/GlimmerBisicles/netcdf
-endif
-
 #python includes and libs - don't define unless that makes sense
 
 ifeq ($(UNAMEN),athos.ggy.bris.ac.uk)
+PYTHON_VERSION=2.4
+endif
+ifeq ($(UNAMEN),porthos.ggy.bris.ac.uk)
+PYTHON_VERSION=2.4
+endif
+ifeq ($(UNAMEN),dartagnan.ggy.bris.ac.uk)
+PYTHON_VERSION=2.4
+endif
+ifeq ($(UNAMEN),geog-bsq92.ggy.bris.ac.uk)
 PYTHON_VERSION=2.4
 endif
 
