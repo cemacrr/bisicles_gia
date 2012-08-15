@@ -175,7 +175,14 @@ int main(int argc, char* argv[]) {
     // ---------------------------------------------
 
     SurfaceFlux* surf_flux_ptr = SurfaceFlux::parseSurfaceFlux("surfaceFlux");
+    if (surf_flux_ptr == NULL)
+      {
+	const std::string err("failed to parse surfaceFlux (maybe you have the old style surface_flux_type?");
+	pout() << err << endl;
+	MayDay::Error(err.c_str());
+      }
 
+#if 0
     if (surf_flux_ptr == NULL)
       {
 	// chunk for compatiblity with older input files
@@ -204,7 +211,7 @@ int main(int argc, char* argv[]) {
       {
 	MayDay::Error("invalid surface flux type");
       }
-
+#endif
     amrObject.setSurfaceFlux(surf_flux_ptr);
   
 
@@ -213,9 +220,18 @@ int main(int argc, char* argv[]) {
     // ---------------------------------------------
     
     SurfaceFlux* basal_flux_ptr = SurfaceFlux::parseSurfaceFlux("basalFlux");
-    
     if (basal_flux_ptr == NULL)
       {
+	const std::string err("failed to parse basalFlux (maybe you have the old style basal_flux_type?");
+	pout() << err << endl;
+	MayDay::Error(err.c_str());
+      }
+
+
+#if 0    
+    if (basal_flux_ptr == NULL)
+      {
+
 	//chunk for compatiblity with older input files
 	MayDay::Warning("trying to parse old style basal_flux_type");
 	std::string basalFluxType = "zeroFlux";
@@ -306,8 +322,9 @@ int main(int argc, char* argv[]) {
 	    delete opensea_basal_flux_ptr;
 	    delete openland_basal_flux_ptr;
 	  }
+
       }
-    
+#endif    
     if (basal_flux_ptr == NULL)
       {
 	MayDay::Error("invalid basal flux type");
