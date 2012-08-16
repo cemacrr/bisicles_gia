@@ -13,10 +13,10 @@ constRate.A =  3.1536e-18 #1e25 * (365 * 24 * 3600 =  seconds per year)
 main.basalFrictionRelation = powerLaw
 BasalFrictionPowerLaw.m = 0.333
   
-main.surface_flux_type = constantFlux
-constFlux.flux_value = 0.5
+surfaceFlux.type = constantFlux
+surfaceFlux.flux_value = 0.5
 
-main.basal_flux_type = zeroFlux
+basalFlux.type = zeroFlux
 
 amr.calving_model_type = DomainEdgeCalvingModel
 DomainEdgeCalvingModel.front_lo = 0 0
