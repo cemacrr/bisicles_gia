@@ -5653,7 +5653,7 @@ void AmrIce::updateViscousTensor() const
       	      Real factor = dx[dir] * rgr;
       	      FORT_SETFRONTFACEVT(CHF_FRA1(facevt,dir),
       				  CHF_CONST_FRA1(thck,0),
-      				  CHF_CONST_FRA1(dsdx,dir),
+      				  CHF_CONST_FRA1(usrf,dir),
       				  CHF_CONST_FIA1(mask,0),
       				  CHF_CONST_INT(dir),
       				  CHF_CONST_REAL(factor),
