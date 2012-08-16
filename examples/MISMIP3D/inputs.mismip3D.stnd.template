@@ -18,13 +18,9 @@ surfaceFlux.flux_value = 0.5
 
 basalFlux.type = zeroFlux
 
-#amr.calving_model_type = DeglaciationCalvingModelA
-#DeglaciationCalvingModelA.min_thickness = 1.0
-#DeglaciationCalvingModelA.calving_thickness = 1000.0
-#DeglaciationCalvingModelA.calving_depth = 750.0
-amr.calving_model_type = DomainEdgeCalvingModel
-DomainEdgeCalvingModel.front_lo = 0 0
-DomainEdgeCalvingModel.front_hi = 1 0
+CalvingModel.type = DomainEdgeCalvingModel
+CalvingModel.front_lo = 0 0
+CalvingModel.front_hi = 1 0
 
 main.domain_size = 800.0e+3 100.0e+3 1.0e+3
 geometry.problem_type = marineIceSheet
