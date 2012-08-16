@@ -394,10 +394,11 @@ c ----------------------------------------------------
             if ( (rmask.eq.SH).or.(rmask.eq.OS) ) then
 c     LI | SH (this cell) | SH or OS
                tmprhs =  halfOnDx * (sr-sc) * (hr+hc)
-               if ( (tmprhs.lt.zero) .and. 
-     &              (tmprhs.gt.rhs(CHF_AUTOIX[i]) ) ) then
+c               if ( (tmprhs.lt.zero)) then
+c .and. 
+c     &              (tmprhs.gt.rhs(CHF_AUTOIX[i]) ) ) then
                   rhs(CHF_AUTOIX[i]) = tmprhs
-               end if
+c               end if
             else
 c     LI | SH (this cell) | LI (a bad place to be)
                rhs(CHF_AUTOIX[i]) = zero
@@ -406,10 +407,10 @@ c     LI | SH (this cell) | LI (a bad place to be)
             if ( (lmask.eq.SH).or.(lmask.eq.OS) ) then
 c     SH or OS | SH (this cell) | LI
                tmprhs =   halfOnDx * (sc-sl) * (hc+hl)
-               if ( (tmprhs.gt.zero) .and. 
-     &              (tmprhs.lt. rhs(CHF_AUTOIX[i]) ) ) then
+c               if ( (tmprhs.gt.zero) .and. 
+c     &              (tmprhs.lt. rhs(CHF_AUTOIX[i]) ) ) then
                   rhs(CHF_AUTOIX[i]) = tmprhs
-               end if
+c               end if
             else
 c     LI | SH (this cell) | LI (a bad place to be)
                rhs(CHF_AUTOIX[i]) = zero
