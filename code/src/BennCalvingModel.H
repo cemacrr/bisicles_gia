@@ -30,10 +30,7 @@ public:
   
   virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
 				  const AmrIce& a_amrIce,
-				  int a_level)
-  {
-  
-  }
+				  int a_level);
 
 
   virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
@@ -44,14 +41,26 @@ public:
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 					  const AmrIce& a_amrIce,
 					  int a_level,
-					  Real a_dt)
-  {
+					  Real a_dt);
 
+
+  BennCalvingModel (const Real& a_waterDepth,
+		    const Vector<int>& a_frontLo,
+		    const Vector<int>& a_frontHi,
+		    bool a_preserveSea, 
+		    bool a_preserveLand)
+    : m_waterDepth(a_waterDepth),
+      m_domainEdgeCalvingModel(a_frontLo,a_frontHi, 
+			       a_preserveSea, a_preserveLand)
+  {
+    
   }
 
+private:
+  Real m_waterDepth;
+  DomainEdgeCalvingModel(m_domainEdgeCalvingModel);
 
-  BennCalvingModel (){}
-
+  //BennCalvingModel() : 
 };
 
 #include "NamespaceFooter.H"

@@ -5638,7 +5638,7 @@ void AmrIce::updateViscousTensor() const
       	{
 
       	  const FArrayBox& thck = m_vect_coordSys[lev]->getH()[dit];
-      	  const FArrayBox& dsdx = m_vect_coordSys[lev]->getGradSurface()[dit];
+      	  //const FArrayBox& dsdx = m_vect_coordSys[lev]->getGradSurface()[dit];
 	  const FArrayBox& usrf = m_vect_coordSys[lev]->getSurfaceHeight()[dit];
       	  const BaseFab<int>& mask = m_vect_coordSys[lev]->getFloatingMask()[dit];
       	  const Real& rhoi = m_vect_coordSys[lev]->iceDensity();

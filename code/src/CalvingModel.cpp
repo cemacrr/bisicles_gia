@@ -60,7 +60,7 @@ void DomainEdgeCalvingModel::endTimeStepModifyState
   const ProblemDomain domain = grids.physDomain();
   const LevelData<BaseFab<int> >& levelMask = levelCoords.getFloatingMask();
   const IntVect ghost = a_thickness.ghostVect();
-  
+  //const LevelData<FArrayBox>& vt  = *a_amrIce.viscousTensor(a_level);
   DataIterator dit = grids.dataIterator();
   for (dit.begin(); dit.ok(); ++dit)
     {
@@ -126,6 +126,7 @@ void ProximityCalvingModel::endTimeStepModifyState
 
   Real time = a_amrIce.time();
   bool calvingActive = (time >= m_startTime && time < m_endTime);
+  calvingActive = false;
   pout() << " time = " << time 
 	 << " m_startTime = " <<  m_startTime
 	 << " m_endTime = " <<  m_endTime
@@ -156,11 +157,59 @@ void ProximityCalvingModel::endTimeStepModifyState
 		{
 		   thck(iv) = 0.0;
 		}
+	      if (mask(iv) == FLOATINGMASKVAL)
+		{
+		  thck(iv) = max(thck(iv),1.0);
+		}
 	    }
 	}
     }
 }
 
+
+
+void ProximityCalvingModel::modifySurfaceThicknessFlux
+(LevelData<FArrayBox>& a_flux,
+ const AmrIce& a_amrIce,
+ int a_level,
+ Real a_dt)
+{
+
+  Real time = a_amrIce.time();
+  bool calvingActive = (time >= m_startTime && time < m_endTime);
+  pout() << " time = " << time 
+	 << " m_startTime = " <<  m_startTime
+	 << " m_endTime = " <<  m_endTime
+	 << " calvingActive = " << calvingActive
+	 << std::endl;
+  if (calvingActive)
+    {
+      const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
+      const LevelData<FArrayBox>& proximity = *a_amrIce.groundingLineProximity(a_level);
+      const LevelData<FArrayBox>& velocity = *a_amrIce.velocity(a_level);
+      
+      for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
+	{
+	  const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+	  FArrayBox& flux = a_flux[dit];
+	  const FArrayBox& prox = proximity[dit];
+	  const FArrayBox& vel = velocity[dit];
+	  const FArrayBox& thck = levelCoords.getH()[dit];
+	  Box b = flux.box();b &= prox.box();
+	  for (BoxIterator bit(b); bit.ok(); ++bit)
+	    {
+	      const IntVect& iv = bit();
+	      Real vmod = std::sqrt(vel(iv,0)*vel(iv,0) + vel(iv,1)*vel(iv,1));
+	      if (prox(iv) < m_proximity && calvingActive && vmod > m_velocity)
+	  	{
+	  	  flux(iv) -= 0.95 * thck(iv)/a_dt;
+	  	}
+	    }
+	}
+    }
+
+  
+}
 
 
 CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
@@ -224,7 +273,18 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
     }
   else if (type == "BennCalvingModel")
     {
-      ptr = new BennCalvingModel();
+
+      Real waterDepth = 0.0;
+      pp.get("waterDepth",waterDepth);
+      Vector<int> frontLo(2,false); 
+      pp.getarr("front_lo",frontLo,0,frontLo.size());
+      Vector<int> frontHi(2,false);
+      pp.getarr("front_hi",frontHi,0,frontHi.size());
+      bool preserveSea = false;
+      pp.query("preserveSea",preserveSea);
+      bool preserveLand = false;
+      pp.query("preserveLand",preserveLand);
+      ptr = new BennCalvingModel(waterDepth, frontLo, frontHi,preserveSea,preserveLand);
     }
 //   else
 //     {

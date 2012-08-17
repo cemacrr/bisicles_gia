@@ -1,3 +1,4 @@
+
 #ifdef CH_LANG_CC
 /*
 *      _______              __
@@ -34,14 +35,6 @@ public:
 				      const AmrIce& a_amrIce,
 				      int a_level) = 0;
 
-
-  // //alter the geometry and velocity fields after 
-  // //thickness has ben updated but before 
-  // //a_coordSys.recomputeGeometry() is called.
-  // virtual void postUpdateThickness(LevelSigmaCS& a_coordSys,
-  // 				   LevelData<FArrayBox>& a_vel,
-  // 				   const Real& a_time) =0;
-
   //modify a thickness flux
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 					  const AmrIce& a_amrIce,
@@ -69,7 +62,6 @@ public:
   {
 
   }
-
 
   
   virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
@@ -129,7 +121,6 @@ public:
   }
 
 
-
   DeglaciationCalvingModelA(const Real& a_calvingThickness,
 			    const Real& a_calvingOceanDepth,
 			    const Real& a_minThickness, 
@@ -171,6 +162,8 @@ public:
   virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
 				      const AmrIce& a_amrIce,
 				      int a_level);
+
+
 
   //modify a thickness flux
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
@@ -233,13 +226,11 @@ public:
 				      const AmrIce& a_amrIce,
 				      int a_level);
 
+
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 					  const AmrIce& a_amrIce,
 					  int a_level,
-					  Real a_dt)
-  {
-
-  }
+					  Real a_dt);
 
 
 };
