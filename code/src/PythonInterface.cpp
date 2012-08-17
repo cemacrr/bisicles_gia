@@ -294,6 +294,7 @@ void  PythonInterface::PythonIBC::setSurfaceHeightBCs(LevelData<FArrayBox>& a_zS
 	  ReflectGhostCells(a_zSurface, a_domain, dir, Side::Hi);
 	}
     }
+  a_zSurface.exchange();
 }
 
 /// set non-periodic ghost cells for thickness & topography
@@ -311,6 +312,8 @@ void  PythonInterface::PythonIBC::setGeometryBCs(LevelSigmaCS& a_coords,
 	ReflectGhostCells(a_coords.getTopography(), a_domain, dir, Side::Hi);
       }
     }
+  a_coords.getTopography().exchange();
+  a_coords.getH().exchange();
 }
 
 void  PythonInterface::PythonIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
@@ -320,7 +323,7 @@ void  PythonInterface::PythonIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 					 const LevelSigmaCS* a_crseCoords,
 					 const int a_refRatio)
 {
-
+  CH_TIME("PythonInterface::PythonIBC::initializeIceGeometry");
   if (m_verbose)
     {
       pout() << " PythonIBC::initializeIceGeometry" << endl;
@@ -334,6 +337,8 @@ void  PythonInterface::PythonIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
     {
       FArrayBox& topg = a_coords.getTopography()[dit];
       FArrayBox& thck = a_coords.getH()[dit];
+
+
       for (BoxIterator bit(grids[dit]);bit.ok();++bit)
 	{
 	   IntVect iv = bit();
@@ -362,7 +367,7 @@ void  PythonInterface::PythonIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 				     const LevelSigmaCS* a_crseCoords,
 				     const int a_refRatio)
 {
-  
+  CH_TIME("PythonInterface::PythonIBC::regridIceGeometry");
   Vector<Real> args(SpaceDim);
   Vector<Real> rval;
   const DisjointBoxLayout& grids = a_coords.grids();
@@ -384,7 +389,7 @@ void  PythonInterface::PythonIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 	}
     }
   Real dt = 0.0;
-  setGeometryBCs(a_coords, grids.physDomain(), a_dx, a_time, dt);
+  //setGeometryBCs(a_coords, grids.physDomain(), a_dx, a_time, dt);
 }
 
 
@@ -421,7 +426,8 @@ void PythonInterface::PythonSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBo
 							      const AmrIce& a_amrIce, 
 							      int a_level, Real a_dt)
 {
-  
+   CH_TIME("PythonInterface::PythonSurfaceFlux::surfaceThicknessFlux");
+ 
   Vector<Real> args(SpaceDim + 3);
   Vector<Real> rval;
   const RefCountedPtr<LevelSigmaCS> levelCS = a_amrIce.geometry(a_level);
@@ -477,7 +483,7 @@ void PythonInterface::PythonBasalFriction::setBasalFriction
  Real a_time,
  Real a_dt)
 {
-
+  CH_TIME("PythonInterface::PythonBasalFriction::setBasalFriction");
   Vector<Real> args(SpaceDim + 3);
   Vector<Real> rval;
   
