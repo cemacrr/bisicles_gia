@@ -5642,15 +5642,15 @@ void AmrIce::updateViscousTensor() const
 	  const FArrayBox& usrf = m_vect_coordSys[lev]->getSurfaceHeight()[dit];
       	  const BaseFab<int>& mask = m_vect_coordSys[lev]->getFloatingMask()[dit];
       	  const Real& rhoi = m_vect_coordSys[lev]->iceDensity();
-      	  const Real& rhoo = m_vect_coordSys[lev]->waterDensity();
+      	  //const Real& rhoo = m_vect_coordSys[lev]->waterDensity();
       	  const Real& gravity = m_vect_coordSys[lev]->gravity();
-      	  const Real rgr = rhoi * gravity * (1.0-rhoi/rhoo);
-      	  const RealVect& dx = m_vect_coordSys[lev]->dx();
+      	  //const Real rgr = rhoi * gravity * (1.0-rhoi/rhoo);
+      	  //const RealVect& dx = m_vect_coordSys[lev]->dx();
 
       	  for (int dir = 0; dir < SpaceDim; dir++)
       	    {
       	      FArrayBox& facevt = (*m_viscousTensorFace[lev])[dit][dir];
-      	      Real factor = dx[dir] * rgr;
+      	      Real factor = rhoi * gravity;
       	      FORT_SETFRONTFACEVT(CHF_FRA1(facevt,dir),
       				  CHF_CONST_FRA1(thck,0),
       				  CHF_CONST_FRA1(usrf,0),
