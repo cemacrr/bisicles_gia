@@ -1,0 +1,23 @@
+BennCalvingModel examples:
+
+1. Free floating ice shelf
+--------------------------
+files used: mimsip3D.py, inputs.mismip3D.Benn.spinup , inputs.mismip3D.Benn.calve
+
+First, run with inputs.mismip3D.Benn.spinup, which has
+
+CalvingModel.type = BennCalvingModel
+CalvingModel.waterDepth = 0.0
+CalvingModel.front_hi = 1 0
+CalvingModel.front_lo = 0 0
+
+Once is it complete, run with
+
+inputs.mismip3D.Benn.calve, which has
+
+CalvingModel.type = BennCalvingModel
+CalvingModel.waterDepth = 25.0
+CalvingModel.front_hi = 1 0
+CalvingModel.front_lo = 0 0
+
+The shelf should retreat from the domain edge to a position about 50 km downstream from the grounding line
