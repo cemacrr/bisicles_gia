@@ -20,4 +20,6 @@ CalvingModel.waterDepth = 25.0
 CalvingModel.front_hi = 1 0
 CalvingModel.front_lo = 0 0
 
+amr.restart_file = 
+
 The shelf should retreat from the domain edge to a position about 50 km downstream from the grounding line

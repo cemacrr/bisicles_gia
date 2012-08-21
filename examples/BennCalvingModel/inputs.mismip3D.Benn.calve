@@ -75,7 +75,7 @@ JFNKSolver.switchRate = 5.0
 #JFNKSolver.uMaxAbs = 1.0e+6
 
 #time stepping
-main.maxTime = 35000.0  # maximum time to run to
+main.maxTime = 28500.0  # maximum time to run to
 main.maxStep = 100000   # maximum number of steps to runx
 amr.temporal_accuracy = 1
 amr.cfl = 0.5 
@@ -86,7 +86,7 @@ amr.time_step_ticks = 1
 #plotting options
 #amr.plot_interval = 1
 amr.plot_time_interval = 1
-amr.plot_prefix = plot.mismip3D.Benn.ssa.0lev.
+amr.plot_prefix = plot.mismip3D.Benn.calve.ssa.0lev.
 #amr.write_preSolve_plotfiles = true
 amr.write_solver_rhs = 1
 amr.write_viscous_tensor = true
@@ -94,7 +94,7 @@ amr.write_thickness_sources = true
 
 #check points
 amr.check_interval = 100
-amr.check_prefix = chk.mismip3D.Benn.ssa.0lev.
+amr.check_prefix = chk.mismip3D.Benn.calve.ssa.0lev.
 amr.check_overwrite = 0
 amr.verbosity = 5
 
@@ -126,3 +126,5 @@ amr.grounding_line_tagging_min_vel = 0
 
 #misc options
 amr.verbosity = 5
+
+amr.restart_file = chk.mismip3D.Benn.ssa.0lev.013000.2d.hdf5
