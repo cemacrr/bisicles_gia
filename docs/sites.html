@@ -1,0 +1,40 @@
+<html>
+<head>
+  <title>BISICLES site specific notes</title>
+</head>
+<body>
+
+<a href='index.html'>User documentation index<a/>
+
+<h1>BISICLES site specific notes</h1>
+
+<ol>
+  <li><a href='#uob'>University of Bristol</a></li>
+</ol>
+
+
+<h2><a name='uob'>University of Bristol</a></h2>
+
+<h3>Glaciology servers</h3>
+<p>
+On the Bristol glaciology machines (dartagnan,athos,porthos) include
+<pre>
+  > module add openmpi/gnu_fc_gfortran
+</pre>
+in .bashrc.
+<p>
+
+<p>
+  porthos and athos do best with six processes (mpirun -np 6), dartagnan with 4 (mpirun -np 4)
+</p>
+
+<h3>Blue Crystal Phase 2</h3>
+On Blue Crystal II, include
+<pre>
+  > module add ofed/openmpi/gcc/
+</pre>
+in .bashrc
+</p>
+
+</body>
+</html>

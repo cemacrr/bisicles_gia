@@ -36,19 +36,12 @@ To build (and run) BISICLES you need to
   but we never do that), plus both C++ and FORTRAN compilers, a GNU-compatible make, and Perl.
   On the whole, life is easiest with gcc (including g++ and gfortran), and we shall assume that
   is what will be used. To build the parallel version, you need an MPI environment, which provides 
-  the mpicc and mpicxx  (or equivalents). On the Bristol glaciology machines (dartagnan,athos,porthos),
-  run
-  <pre>
-    > module add openmpi/gnu_fc_gfortran
-  </pre>
-  (assuming that we will use openmpi).
-  On Blue Crystal II, run
-  <pre>
-    > module add ofed/openmpi/gcc/
-  </pre>
-  to the same end. 
+  the mpicc and mpicxx  (or equivalents). You will also need 
+  <a href='https://wci.llnl.gov/codes/visit/home.html'>VisIt</a></li> to view the data BISICLES 
+produces (other programs can be put to use, but VisIt is by far the most convenient)</p>
+<p>
+  There are some <a href='sites.html'>site specific notes</a> 
 </p>
-
 <h2><a name="svnco"> Check out the source code.</a> </h2>
 <p> Since this readme file lives in the source code repository, you might have already checked the source code
   out. There are two source trees, Chombo, and BISICLES, and the rest of this guide assumes that you
@@ -69,15 +62,17 @@ To build (and run) BISICLES you need to
 <h2><a name="deps"> Dependencies.</a> </h2>
 <p>
   Chombo requires the hdf5 libraries. The current version of hdf5 is 1.8. However, Chombo was written to build against version 1.6, which has a somewhat different interface than 1.8. Luckily, the hdf5 developers took this into account and provided a backwards compatible 1.6 interface in the current release. Two approaches to hdf5 will work:
-<li> One could simply download the older 1.6 version of hdf5 and build against that one. 
-<li> Alternatively, the current 1.8 release may be used as long as the compilation flag "-DH5_USE_16_API" is added. 
+<ul>
+<li> One could simply download the older 1.6 version of hdf5 and build against that one. </li>
+<li> Alternatively, the current 1.8 release may be used as long as the compilation flag "-DH5_USE_16_API" is added.</li>
+</ul> 
 
 <p>The rest of the instructions in this document employ the first approach, but the compatibility flag is included in the provided Makefile setup, so one can also use hdf5 1.8 if that is more convenient (and is recommended if using a shared resource which may already have an up-to-date hdf5 installation.)
 
 <p>  Glimmer-CISM also requires netcdf, and in a non-standard configuration to boot. BISICLES
-  also includes some complementary tools which require netcdf. So, while you could use the
-  version installed on your system (e.g hdf5 1.8 can be configured in a 1.6 compatible mode), 
-  it is often simpler to compile these from source.
+  includes some complementary tools which require netcdf. So, while you could use the
+  version installed on your system 
+  it is often simpler to compile netCDF from source.
 </p>
 <p>
   There should be a script, download_dependencies.sh that will get the (version 1.6) hdf5 sources and  
@@ -379,10 +374,14 @@ a resolution of 200 m at the grounding line, and 6.25 km far from it).
 </pre>
 replace -np 4 with the appropriate count for your machine: this is usually <strong>not</strong> the number
 of CPU cores because these will typically share some resources. A good guess is 
-the number of memory buses (4 on dartagnan, 6 on porthos). Ideally, do a series of scaling experiments
+the number of memory buses. Ideally, do a series of scaling experiments
 to come up with a graph like this one 
 </p>
 <img src="porthos.png" alt='scaling with CPU count on porthos.ggy.bris.ac.uk, 5 level MISMIP3D problem'/>
+<p>
+See also the <a href='sites.html'>Site specific notes</a>
+</p>
+
 <p>
 You can watch progress by typing
 <pre>
@@ -391,9 +390,9 @@ You can watch progress by typing
 and eventually, you will get a series of plot*2d.hdf5 files that you can view in visit
 </p>
 <h3>Running on a cluster</h3>
-These vary somewhat, so the instructions below are for the clusters we have experience with. If you
-would like to add to the list, mail <a mailto='s.l.cornford@bris.ac.uk'>s.l.cornford@bris.ac.uk</a>.
- 
+
+See the <a href='sites.html'>Site specific notes</a>
+
 <h3><a name='nctoamr'>Compiling and using the file tools</a></h3>
 <p>
 To compile the file tools you might need to edit file $BISICLES_HOME/BISICLES/code/mk/Make.defs. 
