@@ -124,13 +124,13 @@ USE_64        = TRUE
 #USE_EB        =
 #USE_CCSE      =
 USE_HDF       = TRUE
-#make sure BISICLES_HOME_PARENT is correct
-BISICLES_HOME_PARENT=/local/BISICLES
-HDFINCFLAGS   = -I$(BISICLES_HOME_PARENT)/hdf5/serial/include -DH5_USE_16_API 
-HDFLIBFLAGS   = -L$(BISICLES_HOME_PARENT)/hdf5/serial/lib -lhdf5 -lz
+#make sure BISICLES_HOME is correct
+BISICLES_HOME=/local/BISICLES
+HDFINCFLAGS   = -I$(BISICLES_HOME)/hdf5/serial/include -DH5_USE_16_API 
+HDFLIBFLAGS   = -L$(BISICLES_HOME)/hdf5/serial/lib -lhdf5 -lz
 ## Note: don't set the HDFMPI* variables if you don't have parallel HDF installed
-HDFMPIINCFLAGS= -I$(BISICLES_HOME_PARENT)/hdf5/parallel/include -DH5_USE_16_API
-HDFMPILIBFLAGS= -L$(BISICLES_HOME_PARENT)/hdf5/parallel/lib -lhdf5 -lz
+HDFMPIINCFLAGS= -I$(BISICLES_HOME)/hdf5/parallel/include -DH5_USE_16_API
+HDFMPILIBFLAGS= -L$(BISICLES_HOME)/hdf5/parallel/lib -lhdf5 -lz
 #USE_MF        =
 #USE_MT        =
 #USE_SETVAL    =
@@ -156,6 +156,6 @@ foptflags     = -O3
 #ldprofflags   =
 syslibflags   = -lgfortran
 
-unexport BISICLES_HOME_PARENT
+unexport BISICLES_HOME
 #end  -- dont change this line
 
