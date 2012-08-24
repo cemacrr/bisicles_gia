@@ -28,6 +28,37 @@ in .bashrc.
   porthos and athos do best with six processes (mpirun -np 6), dartagnan with 4 (mpirun -np 4)
 </p>
 
+<h3>Blue Crystal Phase 1, GNU compilers</h3>
+
+<h3>Blue Crystal Phase 1, Portland Group compilers</h3>
+To use the Portland Group (pgi,PG) compilers on Blue Crystal I, include
+<pre>
+  >module add pgi/64/11.10 openmpi/pgi/64/1.4.4
+</pre>
+in .bashrc. Compilers (for serial builds) are
+</p>
+<pre>
+CC=pgcc
+CXX=pgCC
+FC=pgf90
+</pre>
+and for parallel builds the mpi wrappers are
+<pre>
+CC=mpicc
+CXX=mpiCC
+FC=mpif90
+</pre>
+Make.defs.local needs
+<pre>
+CXX           = pgCC
+FC            = pgf90
+XTRALDFLAGS   = -pgf90libs
+MPICXX        = mpiCC
+CPP           = $(CXX) -E
+</pre>
+
+
+
 <h3>Blue Crystal Phase 2</h3>
 On Blue Crystal II, include
 <pre>
