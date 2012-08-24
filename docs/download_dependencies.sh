@@ -1,4 +1,4 @@
-cd $BISICLES_HOME_PARENT
+cd $BISICLES_HOME
 echo `pwd`
 
 #get hdf5 sources
