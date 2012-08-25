@@ -10,6 +10,7 @@
 
 <ol>
   <li><a href='#uob'>University of Bristol</a></li>
+  <li><a href='#nersc'>NERSC</a></li>
 </ol>
 
 
@@ -66,6 +67,55 @@ On Blue Crystal II, include
 </pre>
 in .bashrc
 </p>
+
+<h2><a name='nersc'>NERSC</a></h2>
+The US DOE-run National Energy Research Supercomputing Center ( <a href='http://www.nersc.gov'>NERSC</a>) has several machines which BISICLES users may find useful. 
+
+<h3>Hopper -- GNU compilers</h3>
+We have used <a href='http://www.nersc.gov/systems/hopper-cray-xe6/'> hopper.nersc.gov </a> extensively, particularly using the GNU compilers. BISICLES has been compiled against the PGI and CRAY compilers as well, but seems to be less stable; in particular, we have occasionally observed segfaults in PGI-compiled codes which do not occur when running identical problems with GNU builds.
+
+<p> To build on Hopper, first load the appropriate modules. The following are the modules we currently use (as of August 24, 2012) in conjunction with BISICLES: 
+
+<pre>
+d/dmartin> module list
+Currently Loaded Modulefiles:
+  1) modules/3.2.6.6
+  2) xtpe-network-gemini
+  3) cray-mpich2/5.5.2
+  4) atp/1.5.0
+  5) xt-asyncpe/5.12
+  6) xe-sysroot/4.0.46
+  7) xpmem/0.1-2.0400.31280.3.1.gem
+  8) gni-headers/2.1-1.0400.4351.3.1.gem
+  9) dmapp/3.2.1-1.0400.4255.2.159.gem
+ 10) pmi/3.0.1-1.0000.9101.2.26.gem
+ 11) ugni/2.3-1.0400.4374.4.88.gem
+ 12) udreg/2.3.1-1.0400.4264.3.1.gem
+ 13) cray-libsci/11.1.00
+ 14) gcc/4.7.1
+ 15) eswrap/1.0.10
+ 16) xtpe-mc12
+ 17) cray-shmem/5.5.2
+ 18) torque/2.5.9
+ 19) moab/6.1.8
+ 20) PrgEnv-gnu/4.0.46
+ 21) hdf5-parallel/1.8.8
+</pre>
+
+Then, use the <pre>Make.defs.hopper.gnu</pre> file included in the Chombo release:
+
+<pre>
+cd Chombo/lib/mk/
+ln -s local/Make.defs.hopper.gnu Make.defs.local
+</pre>
+
+(note that we recommend using symbolic links in this case to ensure that any changes to the released version of Make.defs.hopper.gnu (due to changes in hopper's configuration) are seamlessly included in your build process.
+
+Finally, build the BISICLES driver:
+<pre>
+cd BISICLES/code/exec2D
+gmake driver MPI=TRUE OPT=TRUE DEBUG=FALSE
+</pre>
 
 </body>
 </html>

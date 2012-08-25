@@ -126,6 +126,11 @@ USE_64        = TRUE
 USE_HDF       = TRUE
 #make sure BISICLES_HOME is correct
 BISICLES_HOME=/local/BISICLES
+#note that HDFINCFLAGS and HDFLIBFLAGS must also currently be defined 
+# for parallel builds (due to a Chombo build-system ideosyncracy which 
+# will be fixed in an upcoming Chombo release). If no serial hdf5 build 
+# is present, duplicate the values in HDFMPIINCFLAGS and HDFMPILIBFLAGS
+ 
 HDFINCFLAGS   = -I$(BISICLES_HOME)/hdf5/serial/include -DH5_USE_16_API 
 HDFLIBFLAGS   = -L$(BISICLES_HOME)/hdf5/serial/lib -lhdf5 -lz
 ## Note: don't set the HDFMPI* variables if you don't have parallel HDF installed
