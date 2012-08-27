@@ -5016,10 +5016,22 @@ AmrIce::computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVel,
 			    Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel,
 			    Vector<LevelData<FArrayBox>* >& a_layerSFaceXYVel) 
 {
+  CH_assert(m_constitutiveRelation != NULL)
+
   for (int lev = 0; lev <= m_finest_level; lev++)
     {
       LevelData<FArrayBox>* crseVelPtr = (lev > 0)?m_velocity[lev-1]:NULL;
       int nRefCrse = (lev > 0)?m_refinement_ratios[lev-1]:1;
+
+      CH_assert(a_faceVel[lev] != NULL);	
+      CH_assert(a_layerXYFaceXYVel[lev] != NULL);
+      CH_assert(a_layerSFaceXYVel[lev] != NULL);
+      CH_assert(m_velocity[lev] != NULL);
+      CH_assert(m_vect_coordSys[lev] != NULL);
+      CH_assert(m_A[lev] != NULL);
+      CH_assert(m_sA[lev] != NULL);
+      CH_assert(m_bA[lev] != NULL);
+      
       IceVelocity::computeFaceVelocity
 	(*a_faceVel[lev], *a_layerXYFaceXYVel[lev], *a_layerSFaceXYVel[lev],
 	 *m_velocity[lev],  *m_vect_coordSys[lev],  
