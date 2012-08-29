@@ -26,7 +26,6 @@
 #include "FillFromReference.H"
 #include "LoadBalance.H"
 #include "BRMeshRefine.H"
-#include "SolveControlProblem.H"
 #include "LevelDataIBC.H"
 #include "LevelDataTemperatureIBC.H"
 #include "AMRIceControl.H"
