@@ -15,24 +15,17 @@
 #include "IceThicknessIBC.H"
 #include "NamespaceHeader.H"
 
-#if BISICLES_Z == BISICLES_LAYERED
 
+#if BISICLES_Z == BISICLES_LAYERED
 /// class which encapsulates the L1L2 constitutive relation for ice
 /** 
     Described by Schoof, C and Hindmarsh, R C A, ...
-    Like its base, this class computes \f$\mu_{AS}\f$ such that (stress =
-    \f$\mu_{AS}*strainrate )\f$ assuming that \f$\mu_{AS} = mu(vel,theta)\f$.
+    Like GlensFlowRelation, this class computes \f$\mu_{AS}\f$ such that (stress =
+    \f$\mu_{AS}\f$*strainrate ) assuming that \f$\mu_{AS} = \mu(u,\theta)\f$.
     But mu is now found by solving a nonlinear problem 
-    \f$1 - 2 \mu A (4 \mu ^2 \epsilon^2 + \tor^2)^((n-1)/2) = 0$
+    \f$1 - 2 \mu A (4 \mu ^2 \epsilon^2 + \tau^2)^((n-1)/2) = 0 \f$
     numerically for mu at each point and integrating vertically.
     Although an analytic solution does exist when n = 3, it is expensive/unreliable to compute
-   
-   
-    There is some ineffciency here, because the calculations require
-    \f$ \rho g H \nabla s\f$. For now,
-    it is recomputed each time computeMu is called. FIX THIS 
-
-
 */
 class L1L2ConstitutiveRelation : public ConstitutiveRelation
 {
@@ -100,7 +93,7 @@ public:
 				  const ProblemDomain& a_domain,
 				  const IntVect& a_ghostVect = IntVect::Zero) const;
   
-  // computes face-centered \f$\mu_{AS}\f$ based on cell-centered velocity
+  /// computes face-centered \f$\mu_{AS}\f$ based on cell-centered velocity
   /** \param a_mu: face-centered mu_{AS} based on the local velocity field.
       \param a_vel: Cell-centered velocity field.
       \param a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
@@ -121,7 +114,7 @@ public:
                              const IntVect& a_ghostVect = IntVect::Zero) const;
 
   
-  //override method from ConstitutiveRelation
+  ///override method from ConstitutiveRelation
   virtual void computeFaceFluxVelocity(const LevelData<FArrayBox>& a_cellVel,
                                        const LevelData<FArrayBox>* a_crseVelPtr,
                                        int a_nRefCrse,
@@ -251,6 +244,8 @@ private:
                                           int a_faceDir) const;
 
   Real m_solverTol;
+
+
 
 };
 #endif 
