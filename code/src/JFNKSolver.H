@@ -312,7 +312,8 @@ protected:
 
 public:
 
-  virtual ~IceJFNKstate(){};
+  ~IceJFNKstate();
+  
 
   IceJFNKstate(const Vector<DisjointBoxLayout>& a_grids,
 	       const Vector<int>& a_refRatio,

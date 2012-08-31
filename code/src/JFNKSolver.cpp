@@ -279,7 +279,10 @@ void JFNKOp::preCond(Vector<LevelData<FArrayBox>*>& a_cor,
   //CH_assert(norm(a_cor,0) < HUGE_NORM);
 }
 
-
+IceJFNKstate::~IceJFNKstate()
+{
+  delete m_bcPtr;
+}
 IceJFNKstate::IceJFNKstate
 (const Vector<DisjointBoxLayout>& a_grids,
  const Vector<int>& a_refRatio,
