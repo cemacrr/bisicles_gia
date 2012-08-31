@@ -517,7 +517,14 @@ AmrIce::~AmrIce()
         }
     }
 
-
+  for (int lev=0; lev < m_diffusivity.size(); lev++)
+    {
+      if (m_diffusivity[lev] != NULL)
+	{
+	  delete m_diffusivity[lev];
+	  m_diffusivity[lev] = NULL;
+	}
+    }
 
   // clean up surface thickness storage if appropriate
   for (int lev=0; lev < m_surfaceThicknessSource.size(); lev++)
