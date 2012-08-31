@@ -80,7 +80,9 @@ namespace IceVelocity
 
 
   void computeFaceVelocity
-  (LevelData<FluxBox>& a_faceVel,
+  (LevelData<FluxBox>& a_faceVelAdvection,
+   LevelData<FluxBox>& a_faceVelTotal,
+   LevelData<FluxBox>& a_diffusivity,
 #if BISCICLES_Z == BISICLES_LAYERED
    LevelData<FluxBox>& a_layerXYFaceXYVel,
    LevelData<FArrayBox>& a_layerSFaceXYVel,

@@ -441,6 +441,10 @@ AmrIce::setDefaults()
 
 AmrIce::~AmrIce()
 {
+  if (s_verbosity > 4)
+    {
+      pout() << "AmrIce::~AmrIce()" << endl;
+    }
 
   // clean up memory
   for (int lev=0; lev<m_velocity.size(); lev++)
@@ -493,15 +497,28 @@ AmrIce::~AmrIce()
     }
 
 
-  // clean up face velocity storage if appropriate
-  for (int lev=0; lev < m_faceVel.size(); lev++)
+  // clean up face advection velocity storage if appropriate
+  for (int lev=0; lev < m_faceVelAdvection.size(); lev++)
     {
-      if (m_faceVel[lev] != NULL)
+      if (m_faceVelAdvection[lev] != NULL)
         {
-          delete m_faceVel[lev];
-          m_faceVel[lev] = NULL;
+          delete m_faceVelAdvection[lev];
+          m_faceVelAdvection[lev] = NULL;
         }
     }
+  
+  // clean up face total velocity storage if appropriate
+  for (int lev=0; lev < m_faceVelTotal.size(); lev++)
+    {
+      if (m_faceVelTotal[lev] != NULL)
+        {
+          delete m_faceVelTotal[lev];
+          m_faceVelTotal[lev] = NULL;
+        }
+    }
+
+
+
   // clean up surface thickness storage if appropriate
   for (int lev=0; lev < m_surfaceThicknessSource.size(); lev++)
     {
@@ -564,13 +581,6 @@ AmrIce::~AmrIce()
           delete m_A[lev];
           m_A[lev] = NULL;
         }
-      
-      if (m_sA[lev] != NULL)
-        {
-          delete m_sA[lev];
-          m_sA[lev] = NULL;
-        }
-
     }
 #if BISCICLES_Z == BISICLES_LAYERED
 
@@ -582,6 +592,7 @@ AmrIce::~AmrIce()
           m_sA[lev] = NULL;
         }
     }
+ 
   for (int lev=0; lev < m_sTemperature.size(); lev++)
     {
       if (m_sTemperature[lev] != NULL)
@@ -1398,7 +1409,8 @@ AmrIce::initialize()
       // now set up data holders
       m_old_thickness.resize(m_max_level+1, NULL);
       m_velocity.resize(m_max_level+1, NULL);
-      m_faceVel.resize(m_max_level+1, NULL);
+      m_faceVelAdvection.resize(m_max_level+1, NULL);
+      m_faceVelTotal.resize(m_max_level+1, NULL);
       m_diffusivity.resize(m_max_level+1);
       m_velBasalC.resize(m_max_level+1,NULL);
       m_cellMuCoef.resize(m_max_level+1,NULL);
@@ -1419,13 +1431,13 @@ AmrIce::initialize()
         {
           m_old_thickness[lev] = new LevelData<FArrayBox>;
           m_velocity[lev] = new LevelData<FArrayBox>;
-	  m_faceVel[lev] = new LevelData<FluxBox>;
+	  m_faceVelAdvection[lev] = new LevelData<FluxBox>;
+	  m_faceVelTotal[lev] = new LevelData<FluxBox>;
 	  m_velBasalC[lev] = new LevelData<FArrayBox>;
 	  m_cellMuCoef[lev] = new LevelData<FArrayBox>;
 	  m_faceMuCoef[lev] = new LevelData<FluxBox>;
 	  m_velRHS[lev] = new LevelData<FArrayBox>;
-	  m_diffusivity[lev] = 
-	    RefCountedPtr<LevelData<FluxBox> >(new LevelData<FluxBox>);
+	  m_diffusivity[lev] = new LevelData<FluxBox>;
 	  m_temperature[lev] = new LevelData<FArrayBox>;
 
 #if BISICLES_Z == BISICLES_LAYERED
@@ -1875,9 +1887,7 @@ AmrIce::timeStep(Real a_dt)
           
           // loop over grids on this level and compute H-Half
           const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-          LevelSigmaCS& levelCoordSys = *(m_vect_coordSys[lev]);
-          //LevelData<FArrayBox>& levelVel = *m_velocity[lev];
-          LevelData<FluxBox>& levelFaceVel = *m_faceVel[lev];
+          LevelData<FluxBox>& levelFaceVel = *m_faceVelAdvection[lev];
           LevelData<FArrayBox>& levelOldThickness = *m_old_thickness[lev];
           LevelData<FluxBox>& levelHhalf = *H_half[lev];
 
@@ -1893,26 +1903,12 @@ AmrIce::timeStep(Real a_dt)
 
 	  m_calvingModelPtr->modifySurfaceThicknessFlux(levelBTS, *this, lev, a_dt);
 
+	  // compute a diffusive source term div(D grad H))
+	  if (m_diffusionTreatment == IMPLICIT)
+	    {
+	      MayDay::Error("m_diffusionTreatment == IMPLICIT imcomplete");
+	    }
 
-	  // modify face velocity, removing the diffusive component,
-          // -D/H grad(H) and compute a source term div(D grad H))
-    
-	  // LevelData<FArrayBox> levelDiffusionSrc;
-	  // if (m_diffusionTreatment == IMPLICIT)
-	  //   { 
-	  //     levelDiffusionSrc.define(levelGrids,1,IntVect::Zero);
-	  //     LevelData<FluxBox> levelDiffusionVel(levelGrids,levelFaceVel.nComp(),IntVect::Unit);
-	  //     computeDiffusionTerms(levelDiffusionVel,levelDiffusionSrc,lev);
-	  //     levelDiffusionVel.exchange();
-
-	  //     for (DataIterator dit(levelGrids); dit.ok(); ++dit)
-	  // 	{
-	  // 	  for (int dir = 0; dir < SpaceDim; ++dir)
-	  // 	    {
-	  // 	      levelFaceVel[dit][dir] -= levelDiffusionVel[dit][dir];
-	  // 	    }
-	  // 	}
-	  //   }
 	  LevelData<FArrayBox> levelCCVel(levelGrids, SpaceDim, IntVect::Unit);
 	  EdgeToCell( levelFaceVel, levelCCVel);
           
@@ -1928,11 +1924,13 @@ AmrIce::timeStep(Real a_dt)
 	      FArrayBox advectiveSource(levelSTS[dit].box(),1);
 	      advectiveSource.copy(levelSTS[dit]);
 	      advectiveSource.plus(levelBTS[dit]);
-	      // if (m_diffusionTreatment == IMPLICIT)
-	      // 	{
-	      // 	  advectiveSource.minus(levelDiffusionSrc[dit]);
-	      // 	}
-              patchGod->computeWHalf(levelHhalf[dit],
+	      
+	      if (m_diffusionTreatment == IMPLICIT)
+	       	{
+		  MayDay::Error("m_diffusionTreatment == IMPLICIT imcomplete");
+	       	}
+              
+	      patchGod->computeWHalf(levelHhalf[dit],
                                      levelOldThickness[dit],
                                      advectiveSource,
                                      a_dt,
@@ -2048,7 +2046,7 @@ AmrIce::timeStep(Real a_dt)
       
       for (int lev=0; lev<=finestTimestepLevel(); lev++)
         {
-          LevelData<FluxBox>& levelFaceVel = *m_faceVel[lev];
+          LevelData<FluxBox>& levelFaceVel = *m_faceVelAdvection[lev];
           LevelData<FluxBox>& levelFaceH = *H_half[lev];
           // if we're doing AMR, we'll need to average these fluxes
           // down to coarser levels. As things stand now, 
@@ -2073,38 +2071,9 @@ AmrIce::timeStep(Real a_dt)
                   flux[dir].copy(faceH[dir], faceBox);
                   flux[dir].mult(faceVel[dir], faceBox, 0, 0, 1);
                 }
-#ifdef FO_UPWIND
-	      const FArrayBox& H = m_vect_coordSys[lev]->getH()[dit];
-              for (int dir=0; dir < SpaceDim; dir++)
-                {
-                  Box faceBox(gridBox);
-                  faceBox.surroundingNodes(dir);
-                  for (BoxIterator bit(faceBox); bit.ok(); ++bit)
-                    {
-                      const IntVect& iv = bit();
-                      if (faceVel[dir](iv) > 0.0)
-                        {
-                          flux[dir](iv) = H(iv-BASISV(dir));
-                        }
-                      else
-                        {
-                          flux[dir](iv) = H(iv);
-                        }
-                    }
-                  flux[dir].mult(faceVel[dir], faceBox, 0, 0, 1);
-		  CH_assert( flux[dir].norm(0) < 1.0e+8);
-                }
-#endif      
-
             }
         } // end loop over levels
-
-      if (m_diffusionTreatment == IMPLICIT)
-      	{
-      	  //remove diffusive flux, if any, from vectFluxes
-      	  subtractDiffusiveFlux(vectFluxes);
-      	}
-
+      
       // average fine fluxes down to coarse levels
       for (int lev=finestTimestepLevel(); lev>0; lev--)
         {
@@ -2249,8 +2218,11 @@ AmrIce::timeStep(Real a_dt)
 
       //include any diffusive fluxes
       if (m_evolve_thickness && m_diffusionTreatment == IMPLICIT)
-	implicitThicknessCorrection(a_dt,  m_surfaceThicknessSource, m_basalThicknessSource);
-
+	{
+	  MayDay::Error("m_diffusionTreatment == IMPLICIT no yet implemented");
+	  //implicit thickness correction
+	}
+      
       // average down thickness to coarser levels and fill in ghost cells
       // before calling recomputeGeometry. 
       int Hghost = 2;
@@ -2795,7 +2767,7 @@ AmrIce::regrid()
 	      LevelData<FArrayBox>* old_velDataPtr = m_velocity[lev];
 	      LevelData<FArrayBox>* old_tempDataPtr = m_temperature[lev];
 
-	      RefCountedPtr<LevelData<FluxBox> > old_diffDataPtr = m_diffusivity[lev];
+	      
 	     
 	      LevelData<FArrayBox>* new_oldDataPtr = 
 		new LevelData<FArrayBox>(newDBL, 1, m_old_thickness[0]->ghostVect());
@@ -2809,9 +2781,7 @@ AmrIce::regrid()
 	      //since the temperature data has changed
 	      m_A_valid = false;
 
-	      RefCountedPtr<LevelData<FluxBox> > new_diffDataPtr 
-		(new LevelData<FluxBox>(newDBL, m_diffusivity[0]->nComp(), 
-					m_diffusivity[0]->ghostVect()));
+
 	      
 #if BISICLES_Z == BISICLES_LAYERED
 	      LevelData<FArrayBox>* old_sTempDataPtr = m_sTemperature[lev];
@@ -3077,19 +3047,10 @@ AmrIce::regrid()
 	      }
 #endif
 
-	      // now copy old-grid data into new holder
-	      if (old_diffDataPtr != NULL && oldDBL.isClosed())
-		{
-		  
-		  (*old_diffDataPtr).copyTo(*new_diffDataPtr);
-		  //old data will be destroyed when  old_diffDataPtr goes out of scope
-		  
-		}
-	      
+
 	      // now copy new holders into multilevel arrays
 	      m_old_thickness[lev] = new_oldDataPtr;
 	      m_velocity[lev] = new_velDataPtr;
-	      m_diffusivity[lev] = new_diffDataPtr;
 	      m_temperature[lev] = new_tempDataPtr;
 #if BISICLES_Z == BISICLES_LAYERED
 	      m_sTemperature[lev] = new_sTempDataPtr;
@@ -3122,12 +3083,25 @@ AmrIce::regrid()
 	      m_velRHS[lev] = new LevelData<FArrayBox>(newDBL, 2, 
 						       IntVect::Zero);
 
-	      if (m_faceVel[lev] != NULL)
+	      if (m_faceVelAdvection[lev] != NULL)
 		{
-		  delete m_faceVel[lev];
+		  delete m_faceVelAdvection[lev];
 		}
-	      m_faceVel[lev] = new LevelData<FluxBox>
-		(newDBL, 1, IntVect::Unit);
+	      m_faceVelAdvection[lev] = new LevelData<FluxBox>(newDBL, 1, IntVect::Unit);
+
+	       if (m_faceVelTotal[lev] != NULL)
+		{
+		  delete m_faceVelTotal[lev];
+		}
+	      m_faceVelTotal[lev] = new LevelData<FluxBox>(newDBL, 1, IntVect::Unit);
+
+
+	      if (m_diffusivity[lev] != NULL)
+		{
+		  delete m_diffusivity[lev];
+		}
+	      m_diffusivity[lev] = new LevelData<FluxBox>(newDBL, 1, IntVect::Unit);
+
 
 	      if (m_surfaceThicknessSource[lev] != NULL)
 		{
@@ -4016,29 +3990,37 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
       }
     } // end interpolate/copy new velocity
 
+  levelAllocate(&m_faceVelAdvection[a_level] ,a_grids,1,IntVect::Unit);
+  //m_faceVelAdvection[a_level] = new LevelData<FluxBox>(a_grids,1,IntVect::Unit);
+  levelAllocate(&m_faceVelTotal[a_level],a_grids,1,IntVect::Unit);
+  //m_faceVelTotal[a_level] = new LevelData<FluxBox>(a_grids,1,IntVect::Unit);
+  levelAllocate(&m_diffusivity[a_level],a_grids, 1, IntVect::Zero);
+  //m_diffusivity[a_level] = new LevelData<FluxBox>(a_grids, 1, IntVect::Zero);
 
-  m_faceVel[a_level] = new LevelData<FluxBox>(a_grids,1,IntVect::Unit);
 #if BISICLES_Z == BISICLES_LAYERED
-  m_layerXYFaceXYVel[a_level] = new LevelData<FluxBox>(a_grids, m_nLayers, IntVect::Unit);
-  m_layerSFaceXYVel[a_level] = new LevelData<FArrayBox>(a_grids, SpaceDim*(m_nLayers + 1), IntVect::Unit);
+  levelAllocate(&m_layerXYFaceXYVel[a_level] ,a_grids, m_nLayers, IntVect::Unit);
+  //m_layerXYFaceXYVel[a_level] = new LevelData<FluxBox>(a_grids, m_nLayers, IntVect::Unit);
+  levelAllocate(&m_layerSFaceXYVel[a_level], a_grids, SpaceDim*(m_nLayers + 1), IntVect::Unit);
+  //m_layerSFaceXYVel[a_level] = new LevelData<FArrayBox>(a_grids, SpaceDim*(m_nLayers + 1), IntVect::Unit);
 #endif
 
-  m_velBasalC[a_level] = new LevelData<FArrayBox>(a_grids, 1, ghostVect);
-  m_cellMuCoef[a_level] = new LevelData<FArrayBox>(a_grids, 1, ghostVect);
-  m_faceMuCoef[a_level] = new LevelData<FluxBox>(a_grids, 1, ghostVect);
-
-  m_diffusivity[a_level] = RefCountedPtr<LevelData<FluxBox> >
-    (new LevelData<FluxBox>(a_grids, 1, IntVect::Zero));
-
-  m_velRHS[a_level] = new LevelData<FArrayBox>(a_grids, 2, 
-					 IntVect::Zero);
- 
-  m_surfaceThicknessSource[a_level] = 
-    new LevelData<FArrayBox>(a_grids,   1, IntVect::Unit) ;
-  m_basalThicknessSource[a_level] = 
-    new LevelData<FArrayBox>(a_grids,   1, IntVect::Unit) ;
-  m_balance[a_level] = 
-    new LevelData<FArrayBox>(a_grids,   1, IntVect::Zero) ;
+  levelAllocate(&m_velBasalC[a_level],a_grids, 1, ghostVect);
+  //m_velBasalC[a_level] = new LevelData<FArrayBox>(a_grids, 1, ghostVect);
+  levelAllocate(&m_cellMuCoef[a_level],a_grids, 1, ghostVect);
+  //m_cellMuCoef[a_level] = new LevelData<FArrayBox>(a_grids, 1, ghostVect);
+  levelAllocate(&m_faceMuCoef[a_level],a_grids, 1, ghostVect);
+  //m_faceMuCoef[a_level] = new LevelData<FluxBox>(a_grids, 1, ghostVect);
+  levelAllocate(&m_velRHS[a_level],a_grids, 2,  IntVect::Zero);
+  //m_velRHS[a_level] = new LevelData<FArrayBox>(a_grids, 2,  IntVect::Zero);
+  levelAllocate(&m_surfaceThicknessSource[a_level], a_grids,   1, IntVect::Unit) ;
+  //m_surfaceThicknessSource[a_level] = 
+  //  new LevelData<FArrayBox>(a_grids,   1, IntVect::Unit) ;
+  levelAllocate(&m_basalThicknessSource[a_level], a_grids,  1, IntVect::Unit) ;
+  //m_basalThicknessSource[a_level] = 
+  //  new LevelData<FArrayBox>(a_grids,   1, IntVect::Unit) ;
+  levelAllocate(&m_balance[a_level],a_grids,   1, IntVect::Zero) ;
+  //m_balance[a_level] = 
+  //  new LevelData<FArrayBox>(a_grids,   1, IntVect::Zero) ;
 
   // probably eventually want to do this differently
   RealVect dx = m_amrDx[a_level]*RealVect::Unit;
@@ -4049,24 +4031,29 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
   m_vect_coordSys[a_level] = RefCountedPtr<LevelSigmaCS >(new LevelSigmaCS(a_grids, 
                                                                      dx,
                                                                      sigmaCSGhost));
-  
-#if BISICLES_Z == BISICLES_LAYERED
-  //in poor-man's multidim mode, use one FArrayBox component per layer
-  //to hold the 3D temperature field
-  m_temperature[a_level] = new LevelData<FArrayBox>(a_grids, m_nLayers, 
-					      thicknessGhostVect);
-  // plus base and surface temperatures
-  m_sTemperature[a_level] = new LevelData<FArrayBox>(a_grids, 1, 
-					       thicknessGhostVect);
-  m_bTemperature[a_level] = new LevelData<FArrayBox>(a_grids, 1, 
-					       thicknessGhostVect);
-  
-  m_vect_coordSys[a_level]->setFaceSigma(getFaceSigma());
   m_vect_coordSys[a_level]->setIceDensity(m_iceDensity);
   m_vect_coordSys[a_level]->setWaterDensity(m_seaWaterDensity);
   m_vect_coordSys[a_level]->setGravity(m_gravity);
+
+#if BISICLES_Z == BISICLES_LAYERED
+  //in poor-man's multidim mode, use one FArrayBox component per layer
+  //to hold the 3D temperature field
+  levelAllocate(&m_temperature[a_level],a_grids, m_nLayers,thicknessGhostVect);
+  //m_temperature[a_level] = new LevelData<FArrayBox>(a_grids, m_nLayers, 
+  //					      thicknessGhostVect);
+  // plus base and surface temperatures
+  levelAllocate(&m_sTemperature[a_level], a_grids, 1, thicknessGhostVect);
+  //m_sTemperature[a_level] = new LevelData<FArrayBox>(a_grids, 1, 
+  //					       thicknessGhostVect);
+  levelAllocate(&m_bTemperature[a_level], a_grids, 1, thicknessGhostVect);
+  //m_bTemperature[a_level] = new LevelData<FArrayBox>(a_grids, 1, 
+  //					       thicknessGhostVect);
+  
+  m_vect_coordSys[a_level]->setFaceSigma(getFaceSigma());
+
 #elif BISICLES_Z == BISICLES_FULLZ
-  m_temperature[a_level] = new LevelData<FArrayBox>(a_grids, 1, thicknessGhostVect);	
+  levelAllocate(&m_temperature[a_level],a_grids, 1, thicknessGhostVect);
+  //m_temperature[a_level] = new LevelData<FArrayBox>(a_grids, 1, thicknessGhostVect);	
 #endif
 
 
@@ -4463,15 +4450,8 @@ AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
       }
     }
 
-  // set the thickness diffusivity: not really part
-  // of the velocity solver but does depend on beta
-  if (m_diffusionTreatment == IMPLICIT || m_diffusionTreatment == EXPLICIT)
-    setThicknessDiffusivity(vectC);
-
-
-  //calculate the face centred (flux) velocity 
-  computeFaceVelocity(m_faceVel, m_layerXYFaceXYVel, m_layerSFaceXYVel);
-
+  //calculate the face centred (flux) velocity and diffusion coefficients
+  computeFaceVelocity(m_faceVelAdvection,m_faceVelTotal,m_diffusivity,m_layerXYFaceXYVel, m_layerSFaceXYVel);
   
 
   for (int lev=0; lev<=m_finest_level; lev++)
@@ -5012,7 +4992,9 @@ AmrIce::subtractDiffusiveFlux(Vector<LevelData<FluxBox>*>& a_vectFluxes) const
 }
 /// given the current cell centred velocity field, compute a face centred velocity field
 void 
-AmrIce::computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVel, 
+AmrIce::computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVelAdvection, 
+			    Vector<LevelData<FluxBox>* >& a_faceVelTotal,
+			    Vector<LevelData<FluxBox>* >& a_diffusivity,
 			    Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel,
 			    Vector<LevelData<FArrayBox>* >& a_layerSFaceXYVel) 
 {
@@ -5023,7 +5005,9 @@ AmrIce::computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVel,
       LevelData<FArrayBox>* crseVelPtr = (lev > 0)?m_velocity[lev-1]:NULL;
       int nRefCrse = (lev > 0)?m_refinement_ratios[lev-1]:1;
 
-      CH_assert(a_faceVel[lev] != NULL);	
+      CH_assert(a_faceVelAdvection[lev] != NULL);
+      CH_assert(a_faceVelTotal[lev] != NULL);
+      CH_assert(a_diffusivity[lev] != NULL);
       CH_assert(a_layerXYFaceXYVel[lev] != NULL);
       CH_assert(a_layerSFaceXYVel[lev] != NULL);
       CH_assert(m_velocity[lev] != NULL);
@@ -5032,11 +5016,11 @@ AmrIce::computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVel,
       CH_assert(m_sA[lev] != NULL);
       CH_assert(m_bA[lev] != NULL);
       
-      IceVelocity::computeFaceVelocity
-	(*a_faceVel[lev], *a_layerXYFaceXYVel[lev], *a_layerSFaceXYVel[lev],
-	 *m_velocity[lev],  *m_vect_coordSys[lev],  
-	 *m_A[lev], *m_sA[lev], *m_bA[lev], crseVelPtr, nRefCrse,
-	 m_constitutiveRelation, m_additionalVelocity);
+       IceVelocity::computeFaceVelocity
+       	(*a_faceVelAdvection[lev], *a_faceVelTotal[lev], *a_diffusivity[lev],
+       	 *a_layerXYFaceXYVel[lev], *a_layerSFaceXYVel[lev],*m_velocity[lev],  
+       	 *m_vect_coordSys[lev], *m_A[lev], *m_sA[lev], *m_bA[lev], crseVelPtr, nRefCrse,
+       	 m_constitutiveRelation, m_additionalVelocity);
     }
 }
 
@@ -5224,24 +5208,10 @@ AmrIce::computeDt()
   Real dt = 1.0e50;
   for (int lev=0; lev<= finestTimestepLevel(); lev++)
     {
-      // Real dtLev = dt;
-      // const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
 
-      // //slc : this doesn't include any L1L2 contribution for now.
-      // LevelData<FArrayBox>& levelVel = *m_velocity[lev];
-      // DataIterator levelDit = levelVel.dataIterator();
-      // for (levelDit.reset(); levelDit.ok(); ++levelDit)
-      //   {
-      //     int p = 0;
-      //     Real maxVel = levelVel[levelDit].norm(levelGrids[levelDit],
-      //                                           p, 0, 2);
-      //     Real localDt = m_amrDx[lev]/maxVel;
-      //     dtLev = min(dtLev, localDt);
-      //   }
       Real dtLev = dt;
       const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-      //since we now compute m_faceVel immediately after m_velocity, use that
-      const LevelData<FluxBox>& levelVel = *m_faceVel[lev]; 
+      const LevelData<FluxBox>& levelVel = *m_faceVelAdvection[lev]; 
       DataIterator levelDit = levelVel.dataIterator();
       for (levelDit.reset(); levelDit.ok(); ++levelDit)
       {
@@ -5868,12 +5838,6 @@ void AmrIce::eliminateRemoteIce()
       averager.averageToCoarse(*phi[lev-1],*phi[lev]);
     }
 
-  //std::string file("connectivity.2d.hdf5");
-  //Real dt = 0.0; //Real time = 0.0;
-  //Vector<std::string> names(1,"conn");
-  //WriteAMRHierarchyHDF5(file ,grids, phi ,names, m_amrDomains[0].domainBox(),
-  //			m_amrDx[0], dt, m_time, m_refinement_ratios, phi.size());
-  //MayDay::Error("stopping after connectivity.2d.hdf5");
 
 
   Real threshold = -0.99;
@@ -5888,7 +5852,7 @@ void AmrIce::eliminateRemoteIce()
 	{
 	  const FArrayBox& thisPhi = levelPhi[dit];
 	  FArrayBox& thisH = levelCS.getH()[dit];
-	  FArrayBox& thisU = (*m_velocity[lev])[dit];
+
 	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
 	  for (BoxIterator bit(levelGrids[dit]); bit.ok(); ++bit)
 	    {
@@ -5977,7 +5941,7 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 	  //	  H[lev] = &levelCoords.getH();
 	  H[lev] = new LevelData<FArrayBox>(levelGrids, 1, IntVect::Unit);
 
-	  D[lev] = m_diffusivity[lev];
+	  D[lev] = RefCountedPtr<LevelData<FluxBox> >(m_diffusivity[lev]);
 
 	  rhs[lev] = new LevelData<FArrayBox>(levelGrids, 1, IntVect::Unit);
 
@@ -6547,7 +6511,7 @@ AmrIce::writePlotFile()
               for (int dir = 0; dir < SpaceDim; ++dir)
                 {
                   
-                  const FArrayBox& thisVel = (*m_faceVel[lev])[dit][dir];
+                  const FArrayBox& thisVel = (*m_faceVelTotal[lev])[dit][dir];
                   for (BoxIterator bit(gridBox); bit.ok(); ++bit)
                     {
                       const IntVect& iv = bit();
@@ -7194,7 +7158,8 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   m_velBasalC.resize(m_max_level+1,NULL);
   m_cellMuCoef.resize(m_max_level+1,NULL);
   m_faceMuCoef.resize(m_max_level+1,NULL);
-  m_faceVel.resize(m_max_level+1,NULL);
+  m_faceVelAdvection.resize(m_max_level+1,NULL);
+  m_faceVelTotal.resize(m_max_level+1,NULL);
   m_temperature.resize(m_max_level+1,NULL);
 #if BISCICLES_Z == BISICLES_LAYERED
   m_sTemperature.resize(m_max_level+1,NULL);
@@ -7298,7 +7263,8 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
           m_velocity[lev] = new LevelData<FArrayBox>(levelDBL, 2, 
                                                      ghostVect);
 
-	  m_faceVel[lev] = new LevelData<FluxBox>(m_amrGrids[lev], 1, IntVect::Unit);
+	  m_faceVelAdvection[lev] = new LevelData<FluxBox>(m_amrGrids[lev], 1, IntVect::Unit);
+	  m_faceVelTotal[lev] = new LevelData<FluxBox>(m_amrGrids[lev], 1, IntVect::Unit);
 #if BISICLES_Z == BISICLES_LAYERED
 	  m_layerXYFaceXYVel[lev] = new LevelData<FluxBox>
 	    (m_amrGrids[lev], m_nLayers, IntVect::Unit);
@@ -7310,16 +7276,10 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	  m_cellMuCoef[lev] = new LevelData<FArrayBox>(levelDBL, 1, ghostVect);
 	  m_faceMuCoef[lev] = new LevelData<FluxBox>(levelDBL, 1, ghostVect);
 	  m_velRHS[lev] = new LevelData<FArrayBox>(levelDBL, 2, IntVect::Zero);
-
-
-	  m_surfaceThicknessSource[lev] = 
-	    new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
-	  m_basalThicknessSource[lev] = 
-	    new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
-	  m_balance[lev] = 
-	    new LevelData<FArrayBox>(levelDBL,   1, IntVect::Zero) ;
-	  m_diffusivity[lev] =  RefCountedPtr<LevelData<FluxBox> >
-	    (new LevelData<FluxBox>(levelDBL, 1,  ghostVect));
+	  m_surfaceThicknessSource[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
+	  m_basalThicknessSource[lev] = new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
+	  m_balance[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Zero) ;
+	  m_diffusivity[lev] = new LevelData<FluxBox>(levelDBL, 1, IntVect::Zero);
 
           // read this level's data
 	  

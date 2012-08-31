@@ -877,7 +877,9 @@ void AMRIceControl::computeObjectiveAndGradient
       int nLayer = m_A[lev]->nComp();
       LevelData<FArrayBox> layerSFaceXYVel(m_grids[lev],SpaceDim*(nLayer+1), IntVect::Unit);
       LevelData<FluxBox> layerXYFaceXYVel(m_grids[lev],nLayer, IntVect::Unit);
-      LevelData<FluxBox> faceVel(m_grids[lev],1, IntVect::Unit);
+      LevelData<FluxBox> faceVelAdvection(m_grids[lev],1, IntVect::Unit);
+      LevelData<FluxBox> faceVelTotal(m_grids[lev],1, IntVect::Unit);
+      LevelData<FluxBox> diffusivity(m_grids[lev],1, IntVect::Unit);
       LevelData<FArrayBox> sA(m_grids[lev],1, IntVect::Unit);
       //m_A[lev]->copyTo(Interval(0,0),sA,Interval(0,0));
       LevelData<FArrayBox> bA(m_grids[lev],1, IntVect::Unit);
@@ -891,7 +893,7 @@ void AMRIceControl::computeObjectiveAndGradient
 	}
 
       IceVelocity::computeFaceVelocity
-	(faceVel,  layerXYFaceXYVel, layerSFaceXYVel,
+	(faceVelAdvection, faceVelTotal, diffusivity,  layerXYFaceXYVel, layerSFaceXYVel,
 	 *m_velb[lev], *m_coordSys[lev],*m_A[lev], sA, bA,
 	 (lev > 0)?m_velb[lev-1]:NULL,
 	 (lev > 0)?m_refRatio[lev-1]:1,

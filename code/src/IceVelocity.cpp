@@ -303,23 +303,25 @@ void IceVelocity::addWallDrag(FArrayBox& a_drag,
     }
 }
 
-void IceVelocity::computeFaceVelocity(LevelData<FluxBox>& a_faceVel,
+void IceVelocity::computeFaceVelocity
+(LevelData<FluxBox>& a_faceVelAdvection,
+ LevelData<FluxBox>& a_faceVelTotal,
+ LevelData<FluxBox>& a_diffusivity,
 #if BISCICLES_Z == BISICLES_LAYERED
-			 LevelData<FluxBox>& a_layerXYFaceXYVel,
-			 LevelData<FArrayBox>& a_layerSFaceXYVel,
+ LevelData<FluxBox>& a_layerXYFaceXYVel,
+ LevelData<FArrayBox>& a_layerSFaceXYVel,
 #endif
-			 const LevelData<FArrayBox>& a_velocity,
-			 const LevelSigmaCS& a_coordSys,
-			 const LevelData<FArrayBox>& a_A,
+ const LevelData<FArrayBox>& a_velocity,
+ const LevelSigmaCS& a_coordSys,
+ const LevelData<FArrayBox>& a_A,
 #if BISCICLES_Z == BISICLES_LAYERED
-			 const LevelData<FArrayBox>& a_sA,
-			 const LevelData<FArrayBox>& a_bA,
+ const LevelData<FArrayBox>& a_sA,
+ const LevelData<FArrayBox>& a_bA,
 #endif			 
-			 const LevelData<FArrayBox>* a_crseVelocity,
-			 const int a_nRefCrse,
-			 const ConstitutiveRelation* a_constitutiveRelation,
-			 const bool a_additionalVelocity)
-  
+ const LevelData<FArrayBox>* a_crseVelocity,
+ const int a_nRefCrse,
+ const ConstitutiveRelation* a_constitutiveRelation,
+ const bool a_additionalVelocity) 
 {			   
   
   //We need to copy the cell-centered velocity onto
@@ -358,11 +360,11 @@ void IceVelocity::computeFaceVelocity(LevelData<FluxBox>& a_faceVel,
   grownVel.exchange();
       
   //default calculation : average to faces 
-  CellToEdge(grownVel, a_faceVel);
+  CellToEdge(grownVel, a_faceVelAdvection);
 #if BISCICLES_Z == BISICLES_LAYERED
   //for layered models (SSA,L1L2) assume du/dz = 0
   for (int j = 0; j < a_layerXYFaceXYVel.nComp(); ++j)
-    a_faceVel.copyTo(Interval(0,0), a_layerXYFaceXYVel, Interval(j,j));
+    a_faceVelAdvection.copyTo(Interval(0,0), a_layerXYFaceXYVel, Interval(j,j));
   
   for (int j = 0; j < a_layerSFaceXYVel.nComp(); j+=SpaceDim)
     grownVel.copyTo(Interval(0,SpaceDim-1), a_layerSFaceXYVel,Interval(j,j+SpaceDim-1)); 
@@ -393,7 +395,7 @@ void IceVelocity::computeFaceVelocity(LevelData<FluxBox>& a_faceVel,
 	  Box faceBox = grids[dit];
 	  faceBox.surroundingNodes(dir);
 	    
-	  FArrayBox& faceVel = a_faceVel[dit][dir];
+	  FArrayBox& faceVel = a_faceVelAdvection[dit][dir];
 	  CH_assert(faceVel.box().contains(faceBox));
 	  const FArrayBox& cellVel = grownVel[dit];
 	  const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
@@ -405,15 +407,24 @@ void IceVelocity::computeFaceVelocity(LevelData<FluxBox>& a_faceVel,
 			      CHF_BOX(faceBox));
 	  //pout() << "FORT_EXTRAPTOMARGIN" << std::endl;
 	  CH_assert(faceVel.norm(faceBox,0) < HUGE_NORM);
+
+	  FArrayBox& faceVelTotal = a_faceVelTotal[dit][dir];
+	  faceVelTotal.copy(faceVel);
 	}
     }
     
+  
+  
+
+
 #if BISCICLES_Z == BISICLES_LAYERED
   //copy the basal velocity into the vertically varying velocities.
   {
     
     for (DataIterator dit(grids); dit.ok(); ++dit)
       {
+
+	
 
 	FArrayBox& SFaceXYVel = a_layerSFaceXYVel[dit];
 	const FArrayBox& cellVel = grownVel[dit];
@@ -424,7 +435,7 @@ void IceVelocity::computeFaceVelocity(LevelData<FluxBox>& a_faceVel,
 
 	for (int dir = 0; dir < SpaceDim; ++dir)
 	  {
-	    const FArrayBox& faceVel = a_faceVel[dit][dir];
+	    const FArrayBox& faceVel = a_faceVelAdvection[dit][dir];
 	    FArrayBox& XYFaceXYVel = a_layerXYFaceXYVel[dit][dir];
 	    
 	    for (int ic = 0; ic < XYFaceXYVel.nComp(); ic++)
@@ -444,11 +455,12 @@ void IceVelocity::computeFaceVelocity(LevelData<FluxBox>& a_faceVel,
 	{
 	  L1L2Ptr->computeFaceFluxVelocity(grownVel, a_crseVelocity, a_nRefCrse, a_coordSys, 
 					   grids,  grids.physDomain(), a_A, a_sA, a_bA,
-					   a_faceVel ,a_layerXYFaceXYVel, a_layerSFaceXYVel);
+					   a_faceVelTotal ,a_layerXYFaceXYVel, a_layerSFaceXYVel);
 	}
     }
   
-  a_faceVel.exchange();
+  a_faceVelAdvection.exchange();
+  a_faceVelTotal.exchange();
 #if BISCICLES_Z == BISICLES_LAYERED
   a_layerXYFaceXYVel.exchange();
   a_layerSFaceXYVel.exchange();

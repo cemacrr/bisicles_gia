@@ -258,7 +258,9 @@ protected:
 			Vector<LevelData<FluxBox>* >& a_faceMuCoef);
 
   /// given the current cell centred velocity field, compute a face centred velocity field
-  void computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVel,
+  void computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVelAdvection,
+			   Vector<LevelData<FluxBox>* >& a_faceVelTotal,
+			   Vector<LevelData<FluxBox>* >& a_diffusivity,
 			   Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel,
 			   Vector<LevelData<FArrayBox>* >& a_layerSFaceXYVel);
 
@@ -685,10 +687,6 @@ protected:
   /// velocity solve RHS (in case we want to save it)
   Vector<LevelData<FArrayBox>* > m_velRHS;
 
-  // thickness diffusion coefficient
-  Vector<RefCountedPtr<LevelData<FluxBox> > > m_diffusivity;
-  Real m_additionalDiffusivity;
-
   // coeffient of |u|^m-1 u in the basal traction
   Vector<LevelData<FArrayBox>* > m_velBasalC; 
 
@@ -696,12 +694,18 @@ protected:
   Vector<LevelData<FArrayBox>* > m_cellMuCoef;
   Vector<LevelData<FluxBox>* > m_faceMuCoef;
 
+  // thickness diffusion coefficient
+  Vector<LevelData<FluxBox>* > m_diffusivity;
+  Real m_additionalDiffusivity;
+  
   //face velocities
-  Vector<LevelData<FluxBox>* > m_faceVel;
+  Vector<LevelData<FluxBox>* > m_faceVelAdvection;
+  Vector<LevelData<FluxBox>* > m_faceVelTotal; // m_faceVelTotal = m_faceVelAdvection - m_diffusivity * grad(H)
 #if BISCICLES_Z == BISICLES_LAYERED
   Vector<LevelData<FArrayBox>* > m_layerSFaceXYVel;
   Vector<LevelData<FluxBox>* > m_layerXYFaceXYVel;
 #endif
+
 
   // SigmaCS mapping
   Vector<RefCountedPtr<LevelSigmaCS > > m_vect_coordSys;
@@ -903,7 +907,16 @@ protected:
   bool m_additionalVelocity;
 
 #endif
-
+private: 
+  template <class T>
+  void levelAllocate(LevelData<T>** a_ptrPtr, const DisjointBoxLayout& a_grids, 
+		     int a_nComp, const IntVect& a_ghost)
+  {
+    CH_assert(a_ptrPtr != NULL);
+    if (*a_ptrPtr != NULL)
+      delete *a_ptrPtr;
+    *a_ptrPtr = new LevelData<T>(a_grids, a_nComp, a_ghost);
+  }
 
 };  
   
