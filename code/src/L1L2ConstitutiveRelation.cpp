@@ -17,8 +17,8 @@
 #include "BoxIterator.H"
 #include "ExtrapBCF_F.H"
 #include "ExtrapGhostCells.H"
-//#include "amrIceF_F.H"
-//#include "SigmaCSF_F.H"
+#include "EdgeToCell.H"
+#include "CellToEdge.H"
 #include "MayDay.H"
 #include "NamespaceHeader.H"
 #if BISICLES_Z == BISICLES_LAYERED
@@ -679,6 +679,123 @@ L1L2ConstitutiveRelation::computeFaceFluxVelocity(LevelData<FArrayBox>& a_vel,
 
 
 
+void
+L1L2ConstitutiveRelation::modifyTransportCoefficients
+(const LevelData<FArrayBox>& a_cellVel,
+ const LevelData<FArrayBox>* a_crseVelPtr,
+ int a_nRefCrse,
+ const LevelSigmaCS& a_coordSys,
+ const DisjointBoxLayout& a_grids,
+ const ProblemDomain& a_domain,
+ const LevelData<FArrayBox>& a_A,
+ const LevelData<FArrayBox>& a_sA,
+ const LevelData<FArrayBox>& a_bA,
+ LevelData<FluxBox>& a_faceVelAdvection,
+ LevelData<FluxBox>& a_faceVelTotal,
+ LevelData<FluxBox>& a_faceDiffusivity,
+ LevelData<FluxBox>& a_layerXYFaceXYVel,
+ LevelData<FArrayBox>& a_layerSFaceXYVel) const
+{
+  CH_TIME("L1L2ConstitutiveRelation::modifyTransportCoefficients");
+
+  //assumes that the usual interpolation of the base velocity to cell faces has been done
+  //so that a_faceVelAdvection and a_faceVelTotal contain a_cellVel averaged to faces
+  
+    IntVect grownGhost = IntVect::Zero;
+  grownGhost += 2*IntVect::Unit;
+  LevelData<FArrayBox> sigmaFaceA(a_grids,a_coordSys.getFaceSigma().size(),grownGhost);
+  LevelData<FArrayBox> grownThickness(a_grids, 1, grownGhost);
+  const LevelData<FArrayBox>& H = a_coordSys.getH();
+
+  // (DFM) if cellVel's ghosting is greater than grownGhost, we can 
+  // skip this copy, but putting it here for now for simplicity..
+  LevelData<FArrayBox> grownCellVel(a_grids, SpaceDim, grownGhost);
+  // do fab-by-fab copies to preserve ghosting
+  DataIterator dit = a_grids.dataIterator();
+  for (dit.begin(); dit.ok(); ++dit)
+    {
+      grownThickness[dit].copy(H[dit]);
+      grownCellVel[dit].copy(a_cellVel[dit]);
+      //a_cellVel.copyTo(grownCellVel);
+    }
+  
+  //followed by L1L2 corrections
+  for (DataIterator dit(a_grids) ; dit.ok(); ++dit)
+    {
+      int nLayer = a_coordSys.getSigma().size();
+      //ice surface
+      sigmaFaceA[dit].copy(a_sA[dit],0,0);
+      for (int l = 1; l < nLayer; ++l)
+	{
+	  //interior : average mid-layer flow law coefficient (Glenn's A)s to layer interfaces
+	  sigmaFaceA[dit].copy(a_A[dit],l-1,l);
+	  sigmaFaceA[dit].plus(a_A[dit],l,l);
+	  sigmaFaceA[dit].mult(0.5,l);
+	}
+      //ice base
+      sigmaFaceA[dit].copy(a_bA[dit],0,nLayer);
+    }
+  
+ 
+  RealVect dx = a_coordSys.dx();
+  IntVect ghostVect = IntVect::Zero;
+
+  LevelData<FluxBox> vertAverageVelFace(a_grids, 1 , IntVect::Zero);
+  for (DataIterator dit(a_grids);dit.ok();++dit)
+    for (int dir = 0; dir < SpaceDim; dir++)
+      vertAverageVelFace[dit][dir].setVal(0.0);
+  
+  //find u' = u(z) - u(z=b) and its vertiscal average \bar{u'}
+  computeFaceFluxVelocity(grownCellVel, a_crseVelPtr, a_nRefCrse,
+			  sigmaFaceA, grownThickness, dx,  
+			  vertAverageVelFace, a_layerXYFaceXYVel,  a_layerSFaceXYVel,
+			  a_coordSys, a_domain, ghostVect);
+
+
+  //leave u_advection = u_base, set D = \bar{u'}H / grad(H),  u_total = u_base - D grad(H)
+  LevelData<FArrayBox> cellDiffusivity(a_grids, SpaceDim , IntVect::Unit);
+  
+
+  for (DataIterator dit(a_grids);dit.ok();++dit)
+    {
+      FArrayBox& D = cellDiffusivity[dit];
+      D.setVal(0.0);
+      FluxBox& uvavg = vertAverageVelFace[dit];
+     
+      FORT_L1L2COMPUTEDIFFUSIVITY(CHF_FRA1(D,0),
+				  CHF_CONST_FRA1(uvavg[0],0),
+				  CHF_CONST_FRA1(uvavg[1],0),
+				  CHF_CONST_FRA1(H[dit],0),
+				  CHF_CONST_INT(SpaceDim),
+				  CHF_CONST_REAL(dx[0]),
+				  CHF_CONST_REAL(dx[1]),
+				  CHF_BOX(a_grids[dit]));
+
+    }
+  cellDiffusivity.exchange();
+  //CellToEdge(cellDiffusivity, a_faceDiffusivity);
+  for (DataIterator dit(a_grids);dit.ok();++dit)
+    {
+      FArrayBox& Dcell = cellDiffusivity[dit];
+      for (int dir = 0; dir < SpaceDim; dir++)
+	{
+	  FArrayBox& Dface = a_faceDiffusivity[dit][dir];
+	  Box fbox = a_grids[dit].surroundingNodes(dir);
+	  FORT_L1L2CELLTOFACEHARMONIC(CHF_CONST_FRA1(Dface,0),
+				      CHF_CONST_FRA1(Dcell,0),
+				      CHF_CONST_INT(dir),
+				      CHF_BOX(fbox));
+				      
+	}
+    }
+
+
+ 
+}
+
+
+
+//original implementation
 void 
 L1L2ConstitutiveRelation::computeFaceFluxVelocity(const LevelData<FArrayBox>& a_cellVel,
                                                   const LevelData<FArrayBox>* a_crseVelPtr,
@@ -758,6 +875,7 @@ L1L2ConstitutiveRelation::computeFaceFluxVelocity(const LevelData<FArrayBox>& a_
                           a_coordSys, a_domain, ghostVect);
   
 }
+
 
 void 
 L1L2ConstitutiveRelation::modifyThicknessDiffusivity(const LevelData<FArrayBox>& a_cellVel,

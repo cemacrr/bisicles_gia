@@ -504,3 +504,79 @@ c-------------------------------------------------
       end subroutine
 
 
+c-------------------------------------------------
+c compute diffusivity D from vertically averaged velocity u
+c through D = - u H / grad(H). D and u are face-centered
+c and H is cell-centeres. Also compute utotal 
+c------------------------------------------------- 
+
+      subroutine L1L2COMPUTEDIFFUSIVITY(CHF_FRA1[D],
+     &     CHF_CONST_FRA1[ux],
+     &     CHF_CONST_FRA1[uy],
+     &     CHF_CONST_FRA1[thck],
+     &     CHF_CONST_INT[dir],
+     &     CHF_CONST_REAL[dx],
+     &     CHF_CONST_REAL[dy],
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      integer CHF_AUTODECL[ix]
+      integer CHF_AUTODECL[iy]
+      REAL_T oneOnDx, uxc,uyc, uc, dhx, dhy, dh
+
+      oneOnDx = one/dx
+
+      CHF_DTERM[
+      ix0 = CHF_ID(0,0);
+      ix1 = CHF_ID(0,1);
+      ix2 = CHF_ID(0,2)
+      ]
+
+      CHF_DTERM[
+      iy0 = CHF_ID(1,0);
+      iy1 = CHF_ID(1,1);
+      iy2 = CHF_ID(1,2)
+      ]
+  
+
+          
+      CHF_AUTOMULTIDO[box ; i]
+      uxc = half * (ux(CHF_AUTOIX[i])+ux(CHF_OFFSETIX[i;+ix]))
+      uyc = half * (uy(CHF_AUTOIX[i])+uy(CHF_OFFSETIX[i;+iy]))
+      uc = (uxc**2 + uyc**2)**half
+      dhx = half*(thck(CHF_OFFSETIX[i;+ix])
+     &     -thck(CHF_OFFSETIX[i;-ix]))/dx
+      dhy = half*(thck(CHF_OFFSETIX[i;+iy])
+     &     -thck(CHF_OFFSETIX[i;-iy]))/dy
+      dh = (dhx**2 + dhy**2)**half + 1.0e-10
+      
+      D(CHF_AUTOIX[i]) = thck(CHF_AUTOIX[i]) * uc / dh
+      
+      CHF_ENDDO
+
+      return 
+      end
+c-------------------------------------------------
+c cell to face harmonic average (must exist elsewhere, surely)
+c------------------------------------------------- 
+
+      subroutine L1L2CELLTOFACEHARMONIC(CHF_FRA1[face],
+     &     CHF_CONST_FRA1[cell],
+     &     CHF_CONST_INT[dir],
+     &     CHF_BOX[fbox])
+      integer CHF_AUTODECL[i]
+      integer CHF_AUTODECL[ii]
+
+      CHF_DTERM[
+      ii0 = CHF_ID(dir,0);
+      ii1 = CHF_ID(dir,1);
+      ii2 = CHF_ID(dir,2)]
+      
+      CHF_AUTOMULTIDO[fbox ; i]
+      face(CHF_AUTOIX[i]) = half * 
+     &     cell(CHF_AUTOIX[i]) * cell (CHF_OFFSETIX[i;-ii]) /
+     &     (cell(CHF_AUTOIX[i]) + cell (CHF_OFFSETIX[i;-ii]))
+      CHF_ENDDO
+
+      return
+      end

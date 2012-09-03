@@ -130,7 +130,22 @@ public:
 				       ) const;
 
 
-  
+  virtual void modifyTransportCoefficients
+  (const LevelData<FArrayBox>& a_cellVel,
+   const LevelData<FArrayBox>* a_crseVelPtr,
+   int a_nRefCrse,
+   const LevelSigmaCS& a_coordSys,
+   const DisjointBoxLayout& a_grids,
+   const ProblemDomain& a_domain,
+   const LevelData<FArrayBox>& a_A,
+   const LevelData<FArrayBox>& a_sA,
+   const LevelData<FArrayBox>& a_bA,
+   LevelData<FluxBox>& a_faceVelAdvection,
+   LevelData<FluxBox>& a_faceVelTotal,
+   LevelData<FluxBox>& a_faceDiffusivity,
+   LevelData<FluxBox>& a_layerXYFaceXYVel,
+   LevelData<FArrayBox>& a_layerSFaceXYVel) const;
+    
   virtual void modifyThicknessDiffusivity(const LevelData<FArrayBox>& a_cellVel,
                                           const LevelData<FArrayBox>* a_crseVelPtr,
                                           int a_nRefCrse,

@@ -1061,7 +1061,6 @@ AmrIce::initialize()
   ppAmr.query("diffusion_treatment", diffusionTreatment);
   if (diffusionTreatment == "implicit")
     {
-      MayDay::Error("implicit diffusion invalid for now");
       m_diffusionTreatment = IMPLICIT;
     }
   else if (diffusionTreatment == "explicit")
@@ -1913,7 +1912,7 @@ AmrIce::timeStep(Real a_dt)
 	  // compute a diffusive source term div(D grad H))
 	  if (m_diffusionTreatment == IMPLICIT)
 	    {
-	      MayDay::Error("m_diffusionTreatment == IMPLICIT imcomplete");
+	      MayDay::Warning("m_diffusionTreatment == IMPLICIT imcomplete - diffusive source not done yet");
 	    }
 
 	  LevelData<FArrayBox> levelCCVel(levelGrids, SpaceDim, IntVect::Unit);
@@ -1934,7 +1933,7 @@ AmrIce::timeStep(Real a_dt)
 	      
 	      if (m_diffusionTreatment == IMPLICIT)
 	       	{
-		  MayDay::Error("m_diffusionTreatment == IMPLICIT imcomplete");
+		  MayDay::Warning("m_diffusionTreatment == IMPLICIT imcomplete (Source term)");
 	       	}
               
 	      patchGod->computeWHalf(levelHhalf[dit],
@@ -2226,8 +2225,9 @@ AmrIce::timeStep(Real a_dt)
       //include any diffusive fluxes
       if (m_evolve_thickness && m_diffusionTreatment == IMPLICIT)
 	{
-	  MayDay::Error("m_diffusionTreatment == IMPLICIT no yet implemented");
+	  //MayDay::Error("m_diffusionTreatment == IMPLICIT no yet implemented");
 	  //implicit thickness correction
+	  implicitThicknessCorrection(a_dt, m_surfaceThicknessSource,  m_basalThicknessSource);
 	}
       
       // average down thickness to coarser levels and fill in ghost cells
@@ -5966,6 +5966,10 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 	      (*rhs[lev])[dit].copy( (*H[lev])[dit] , 0 , 0, 1);
 	      (*rhs[lev])[dit].plus(levelSTS[dit],a_dt);
 	      (*rhs[lev])[dit].plus(levelBTS[dit],a_dt); 
+
+	      //(*D[lev])[dit][0].setVal(1.0e+6);
+	      //(*D[lev])[dit][1].setVal(1.0e+6);
+
 	      (*D[lev])[dit][0].plus(m_additionalDiffusivity);
 	      (*D[lev])[dit][1].plus(m_additionalDiffusivity);
 	      
@@ -5984,30 +5988,7 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 	  H[lev]->exchange();
 	}
       
-#if 0   
-      //BiCGstab
-      RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > > opFactory
-	= RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > >(poissonOpFactory);
-      BiCGStabSolver<Vector<LevelData<FArrayBox>* > > krylovSolver;
-      MultilevelLinearOp<FArrayBox> mlOp;
-      Vector<RealVect> dx(m_amrDx.size());
-      for (int i = 0; i < dx.size(); ++i)
-	{
-	  for (int dir =0; dir < SpaceDim; ++dir)
-	    {
-	      dx[i][dir] = m_amrDx[i];
-	    }
-	}
-      mlOp.m_num_mg_smooth = 8 + 4 * m_finest_level ;
-      mlOp.define(grids,m_refinement_ratios,m_amrDomains,dx,opFactory,0);
-      krylovSolver.define(&mlOp , false);
-      krylovSolver.m_verbosity = s_verbosity - 1;
-      krylovSolver.m_reps = 1.0e-10;
-      krylovSolver.m_imax = 50;
-      krylovSolver.m_normType = 2;
-      krylovSolver.solve(H, rhs);
 
-#else
       //Plain MG
       BiCGStabSolver<LevelData<FArrayBox> > bottomSolver;
       AMRMultiGrid<LevelData<FArrayBox> > mgSolver;
@@ -6016,7 +5997,7 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
       mgSolver.m_eps = 1.0e-10;
       mgSolver.m_normThresh = 1.0e-10;
     
-      int numMGSmooth = 8 + 16 * m_finest_level ;
+      int numMGSmooth = 4;
       mgSolver.m_pre = numMGSmooth;
       mgSolver.m_post = numMGSmooth;
       mgSolver.m_bottom = numMGSmooth;
@@ -6029,7 +6010,7 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
       // 					    m_amrDomains[lev],levelDx, m_time, m_dt);
       // 	}
       // mgSolver.m_eps = 1.0e-10;
-#endif
+
 
       for (int lev=0; lev <= finestTimestepLevel()  ; ++lev)
 	{

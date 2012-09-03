@@ -453,9 +453,15 @@ void IceVelocity::computeFaceVelocity
       const L1L2ConstitutiveRelation* L1L2Ptr = dynamic_cast<const L1L2ConstitutiveRelation*>(a_constitutiveRelation);
       if (L1L2Ptr != NULL)
 	{
-	  L1L2Ptr->computeFaceFluxVelocity(grownVel, a_crseVelocity, a_nRefCrse, a_coordSys, 
-					   grids,  grids.physDomain(), a_A, a_sA, a_bA,
-					   a_faceVelTotal ,a_layerXYFaceXYVel, a_layerSFaceXYVel);
+	  //L1L2Ptr->computeFaceFluxVelocity(grownVel, a_crseVelocity, a_nRefCrse, a_coordSys, 
+	  //				   grids,  grids.physDomain(), a_A, a_sA, a_bA,
+	  //				   a_faceVelTotal ,a_layerXYFaceXYVel, a_layerSFaceXYVel);
+
+	  L1L2Ptr->modifyTransportCoefficients(grownVel, a_crseVelocity, a_nRefCrse, a_coordSys, 
+					       grids,  grids.physDomain(), a_A, a_sA, a_bA,
+					       a_faceVelAdvection, a_faceVelTotal, a_diffusivity,
+					       a_layerXYFaceXYVel, a_layerSFaceXYVel);
+
 	}
     }
   
