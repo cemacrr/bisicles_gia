@@ -69,11 +69,9 @@ control.massImbalanceCoefficient = 0.0e+2
 control.gradCsqRegularization = 1.0e+5
 control.gradMuCoefsqRegularization = 1.0e+5
 
-control.restart = 29
-
 control.initialMu = 1.0e+6
 
-control.CGmaxIter = 500
+control.CGmaxIter = 32
 control.CGtol = 1.0e-6
 control.CGsecantParameter = 1.0e-8
 control.CGsecantMaxIter = 20
