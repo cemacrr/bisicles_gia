@@ -133,6 +133,7 @@ public:
   virtual void modifyTransportCoefficients
   (const LevelData<FArrayBox>& a_cellVel,
    const LevelData<FArrayBox>* a_crseVelPtr,
+   const LevelData<FArrayBox>* a_crseDiffusivityPtr,
    int a_nRefCrse,
    const LevelSigmaCS& a_coordSys,
    const DisjointBoxLayout& a_grids,
@@ -143,6 +144,7 @@ public:
    LevelData<FluxBox>& a_faceVelAdvection,
    LevelData<FluxBox>& a_faceVelTotal,
    LevelData<FluxBox>& a_faceDiffusivity,
+   LevelData<FArrayBox>& a_cellDiffusivity,
    LevelData<FluxBox>& a_layerXYFaceXYVel,
    LevelData<FArrayBox>& a_layerSFaceXYVel) const;
     

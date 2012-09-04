@@ -14,6 +14,7 @@
 #include "L1L2ConstitutiveRelationF_F.H"
 #include "BisiclesF_F.H"
 #include "IceConstants.H"
+#include "FineInterp.H"
 #include "BoxIterator.H"
 #include "ExtrapBCF_F.H"
 #include "ExtrapGhostCells.H"
@@ -683,6 +684,7 @@ void
 L1L2ConstitutiveRelation::modifyTransportCoefficients
 (const LevelData<FArrayBox>& a_cellVel,
  const LevelData<FArrayBox>* a_crseVelPtr,
+ const LevelData<FArrayBox>* a_crseDiffusivityPtr,
  int a_nRefCrse,
  const LevelSigmaCS& a_coordSys,
  const DisjointBoxLayout& a_grids,
@@ -693,6 +695,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
  LevelData<FluxBox>& a_faceVelAdvection,
  LevelData<FluxBox>& a_faceVelTotal,
  LevelData<FluxBox>& a_faceDiffusivity,
+ LevelData<FArrayBox>& a_cellDiffusivity,
  LevelData<FluxBox>& a_layerXYFaceXYVel,
  LevelData<FArrayBox>& a_layerSFaceXYVel) const
 {
@@ -753,12 +756,16 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 
 
   //leave u_advection = u_base, set D = \bar{u'}H / grad(H),  u_total = u_base - D grad(H)
-  LevelData<FArrayBox> cellDiffusivity(a_grids, SpaceDim , IntVect::Unit);
-  
+  //LevelData<FArrayBox> cellDiffusivity(a_grids, SpaceDim , IntVect::Unit);
+  if (a_crseDiffusivityPtr != NULL)
+    {
+      FineInterp  interpolator(a_grids, 1, a_nRefCrse, a_domain);
+      interpolator.interpToFine(a_cellDiffusivity, *a_crseDiffusivityPtr);
+    }
 
   for (DataIterator dit(a_grids);dit.ok();++dit)
     {
-      FArrayBox& D = cellDiffusivity[dit];
+      FArrayBox& D = a_cellDiffusivity[dit];
       D.setVal(0.0);
       FluxBox& uvavg = vertAverageVelFace[dit];
      
@@ -772,11 +779,11 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 				  CHF_BOX(a_grids[dit]));
 
     }
-  cellDiffusivity.exchange();
+  a_cellDiffusivity.exchange();
   //CellToEdge(cellDiffusivity, a_faceDiffusivity);
   for (DataIterator dit(a_grids);dit.ok();++dit)
     {
-      FArrayBox& Dcell = cellDiffusivity[dit];
+      FArrayBox& Dcell = a_cellDiffusivity[dit];
       for (int dir = 0; dir < SpaceDim; dir++)
 	{
 	  FArrayBox& Dface = a_faceDiffusivity[dit][dir];

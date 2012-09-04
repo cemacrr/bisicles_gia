@@ -82,7 +82,8 @@ namespace IceVelocity
   void computeFaceVelocity
   (LevelData<FluxBox>& a_faceVelAdvection,
    LevelData<FluxBox>& a_faceVelTotal,
-   LevelData<FluxBox>& a_diffusivity,
+   LevelData<FluxBox>& a_faceDiffusivity,
+   LevelData<FArrayBox>& a_cellDiffusivity,
 #if BISCICLES_Z == BISICLES_LAYERED
    LevelData<FluxBox>& a_layerXYFaceXYVel,
    LevelData<FArrayBox>& a_layerSFaceXYVel,
@@ -95,10 +96,10 @@ namespace IceVelocity
    const LevelData<FArrayBox>& a_bA,
 #endif			 
    const LevelData<FArrayBox>* a_crseVelocity,
+   const LevelData<FArrayBox>* a_crseDiffusivity,
    const int a_nRefCrse,
    const ConstitutiveRelation* a_constitutiveRelation,
-   const bool a_additionalVelocity);
-
+   const bool a_additionalVelocity); 
 
 }
 

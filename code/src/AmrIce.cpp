@@ -5005,13 +5005,23 @@ AmrIce::computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVelAdvection,
 			    Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel,
 			    Vector<LevelData<FArrayBox>* >& a_layerSFaceXYVel) 
 {
-  CH_assert(m_constitutiveRelation != NULL)
+  CH_assert(m_constitutiveRelation != NULL);
+
+  LevelData<FArrayBox>* cellDiffusivity = NULL;
 
   for (int lev = 0; lev <= m_finest_level; lev++)
     {
       LevelData<FArrayBox>* crseVelPtr = (lev > 0)?m_velocity[lev-1]:NULL;
       int nRefCrse = (lev > 0)?m_refinement_ratios[lev-1]:1;
 
+      
+
+      LevelData<FArrayBox>* crseCellDiffusivityPtr = 
+	(lev > 0)?cellDiffusivity:NULL;
+
+      cellDiffusivity = new LevelData<FArrayBox>(m_amrGrids[lev],1,IntVect::Unit);
+      
+      CH_assert(cellDiffusivity != NULL);
       CH_assert(a_faceVelAdvection[lev] != NULL);
       CH_assert(a_faceVelTotal[lev] != NULL);
       CH_assert(a_diffusivity[lev] != NULL);
@@ -5025,10 +5035,18 @@ AmrIce::computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVelAdvection,
       
        IceVelocity::computeFaceVelocity
        	(*a_faceVelAdvection[lev], *a_faceVelTotal[lev], *a_diffusivity[lev],
-       	 *a_layerXYFaceXYVel[lev], *a_layerSFaceXYVel[lev],*m_velocity[lev],  
-       	 *m_vect_coordSys[lev], *m_A[lev], *m_sA[lev], *m_bA[lev], crseVelPtr, nRefCrse,
-       	 m_constitutiveRelation, m_additionalVelocity);
+	 *cellDiffusivity,*a_layerXYFaceXYVel[lev], *a_layerSFaceXYVel[lev],
+	 *m_velocity[lev],*m_vect_coordSys[lev], *m_A[lev], *m_sA[lev], *m_bA[lev], 
+	 crseVelPtr,crseCellDiffusivityPtr, nRefCrse, 
+	 m_constitutiveRelation, m_additionalVelocity);
+
+       if (crseCellDiffusivityPtr != NULL)
+	 delete crseCellDiffusivityPtr;
+
     }
+
+  if (cellDiffusivity != NULL)
+    delete cellDiffusivity;
 }
 
 

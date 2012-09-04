@@ -306,7 +306,8 @@ void IceVelocity::addWallDrag(FArrayBox& a_drag,
 void IceVelocity::computeFaceVelocity
 (LevelData<FluxBox>& a_faceVelAdvection,
  LevelData<FluxBox>& a_faceVelTotal,
- LevelData<FluxBox>& a_diffusivity,
+ LevelData<FluxBox>& a_faceDiffusivity,
+ LevelData<FArrayBox>& a_cellDiffusivity,
 #if BISCICLES_Z == BISICLES_LAYERED
  LevelData<FluxBox>& a_layerXYFaceXYVel,
  LevelData<FArrayBox>& a_layerSFaceXYVel,
@@ -319,6 +320,7 @@ void IceVelocity::computeFaceVelocity
  const LevelData<FArrayBox>& a_bA,
 #endif			 
  const LevelData<FArrayBox>* a_crseVelocity,
+ const LevelData<FArrayBox>* a_crseDiffusivity,
  const int a_nRefCrse,
  const ConstitutiveRelation* a_constitutiveRelation,
  const bool a_additionalVelocity) 
@@ -457,10 +459,10 @@ void IceVelocity::computeFaceVelocity
 	  //				   grids,  grids.physDomain(), a_A, a_sA, a_bA,
 	  //				   a_faceVelTotal ,a_layerXYFaceXYVel, a_layerSFaceXYVel);
 
-	  L1L2Ptr->modifyTransportCoefficients(grownVel, a_crseVelocity, a_nRefCrse, a_coordSys, 
+	  L1L2Ptr->modifyTransportCoefficients(grownVel, a_crseVelocity, a_crseDiffusivity, a_nRefCrse, a_coordSys, 
 					       grids,  grids.physDomain(), a_A, a_sA, a_bA,
-					       a_faceVelAdvection, a_faceVelTotal, a_diffusivity,
-					       a_layerXYFaceXYVel, a_layerSFaceXYVel);
+					       a_faceVelAdvection, a_faceVelTotal, a_faceDiffusivity,
+					       a_cellDiffusivity, a_layerXYFaceXYVel, a_layerSFaceXYVel);
 
 	}
     }

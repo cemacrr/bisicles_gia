@@ -872,6 +872,9 @@ void AMRIceControl::computeObjectiveAndGradient
   solveForwardProblem(m_velb,false,m_rhs,m_C,m_C0,m_A,m_faceMuCoef);
 #if BISCICLES_Z == BISICLES_LAYERED
   //compute the surface velocity
+
+  LevelData<FArrayBox>* cellDiffusivity = NULL;
+
   for (int lev = 0; lev <= m_finestLevel ;lev++)
     {
       int nLayer = m_A[lev]->nComp();
@@ -879,7 +882,13 @@ void AMRIceControl::computeObjectiveAndGradient
       LevelData<FluxBox> layerXYFaceXYVel(m_grids[lev],nLayer, IntVect::Unit);
       LevelData<FluxBox> faceVelAdvection(m_grids[lev],1, IntVect::Unit);
       LevelData<FluxBox> faceVelTotal(m_grids[lev],1, IntVect::Unit);
-      LevelData<FluxBox> diffusivity(m_grids[lev],1, IntVect::Unit);
+      LevelData<FluxBox> faceDiffusivity(m_grids[lev],1, IntVect::Unit);
+       
+      LevelData<FArrayBox>* crseCellDiffusivityPtr = 
+	(lev > 0)?cellDiffusivity:NULL;
+      
+      cellDiffusivity = new LevelData<FArrayBox>(m_grids[lev],1,IntVect::Unit);
+      CH_assert(cellDiffusivity != NULL);
       LevelData<FArrayBox> sA(m_grids[lev],1, IntVect::Unit);
       //m_A[lev]->copyTo(Interval(0,0),sA,Interval(0,0));
       LevelData<FArrayBox> bA(m_grids[lev],1, IntVect::Unit);
@@ -893,14 +902,22 @@ void AMRIceControl::computeObjectiveAndGradient
 	}
 
       IceVelocity::computeFaceVelocity
-	(faceVelAdvection, faceVelTotal, diffusivity,  layerXYFaceXYVel, layerSFaceXYVel,
+	(faceVelAdvection, faceVelTotal, faceDiffusivity, *cellDiffusivity, 
+	 layerXYFaceXYVel,  layerSFaceXYVel,
 	 *m_velb[lev], *m_coordSys[lev],*m_A[lev], sA, bA,
 	 (lev > 0)?m_velb[lev-1]:NULL,
+	 crseCellDiffusivityPtr,
 	 (lev > 0)?m_refRatio[lev-1]:1,
 	 m_constRelPtr, true);
       
+      if (crseCellDiffusivityPtr != NULL)
+	delete crseCellDiffusivityPtr;
+
       layerSFaceXYVel.copyTo(Interval(0,1),*m_vels[lev],Interval(0,1));
     }
+  if (cellDiffusivity != NULL)
+    delete cellDiffusivity;
+
 #endif
 
   //this might not be necessary, but it makes the plotted fields look better
