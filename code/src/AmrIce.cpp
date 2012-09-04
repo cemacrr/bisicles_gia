@@ -5924,8 +5924,6 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 				    )
 {
 
-  
- 
   if  (m_temporalAccuracy == 1)
     {  
       //implicit Euler : solve (I - dt P) H = H_pred + dt * S
@@ -5933,16 +5931,6 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
       //slc: at the moment, I'm setting eveything up every time-step,
       //pretending that diffusion is constant in time, and using the multi-grid
       //solver only. All these things are to be improved 
-      
-      //VCAMRPoissonOp2Factory opf;
-      //RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > > opfPtr 
-      //	= RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > >(new VCAMRPoissonOp2Factory());
-      //VCAMRPoissonOp2Factory& vcpFactory = static_cast<VCAMRPoissonOp2Factory> (*opfPtr);
-
-      //BCHolder bc(doNothingBC); 
-      // strictly, periodic problems only for now
-      // although in many non-periodic cases there will no boundary
-      // grad(H) and so no diffusive flux
 
       //Natural boundary conditions - OK for now, but ought to get 
       //moved into subclasses of IceThicknessIBC
@@ -5963,10 +5951,10 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 	  I[lev] = RefCountedPtr<LevelData<FArrayBox> >
 	    (new LevelData<FArrayBox>(levelGrids, 1, IntVect::Unit));
 
-	  //	  H[lev] = &levelCoords.getH();
 	  H[lev] = new LevelData<FArrayBox>(levelGrids, 1, IntVect::Unit);
 
 	  D[lev] = RefCountedPtr<LevelData<FluxBox> >(m_diffusivity[lev]);
+	  D[lev].neverDelete();
 
 	  rhs[lev] = new LevelData<FArrayBox>(levelGrids, 1, IntVect::Unit);
 
@@ -5984,10 +5972,6 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 	      (*rhs[lev])[dit].copy( (*H[lev])[dit] , 0 , 0, 1);
 	      (*rhs[lev])[dit].plus(levelSTS[dit],a_dt);
 	      (*rhs[lev])[dit].plus(levelBTS[dit],a_dt); 
-
-	      //(*D[lev])[dit][0].setVal(1.0e+6);
-	      //(*D[lev])[dit][1].setVal(1.0e+6);
-
 	      (*D[lev])[dit][0].plus(m_additionalDiffusivity);
 	      (*D[lev])[dit][1].plus(m_additionalDiffusivity);
 	      
@@ -5998,19 +5982,14 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 	  I[lev]->exchange();
 	}
 
-      VCAMRPoissonOp2Factory* poissonOpFactory = new VCAMRPoissonOp2Factory;
-      poissonOpFactory->define(m_amrDomains[0], grids , m_refinement_ratios,
-      		       m_amrDx[0], bc, 1.0, I,  a_dt, D);
-      for (int lev=0; lev <= finestTimestepLevel(); ++lev)
-	{
-	  H[lev]->exchange();
-	}
-      
-
+      VCAMRPoissonOp2Factory poissonOpFactory;//= new VCAMRPoissonOp2Factory;
+      poissonOpFactory.define(m_amrDomains[0], grids , m_refinement_ratios,
+			      m_amrDx[0], bc, 1.0, I,  a_dt, D);
+    
       //Plain MG
       BiCGStabSolver<LevelData<FArrayBox> > bottomSolver;
       AMRMultiGrid<LevelData<FArrayBox> > mgSolver;
-      mgSolver.define(m_amrDomains[0], *poissonOpFactory , &bottomSolver, finestTimestepLevel()+1);
+      mgSolver.define(m_amrDomains[0], poissonOpFactory , &bottomSolver, finestTimestepLevel()+1);
       //parse these
       mgSolver.m_eps = 1.0e-10;
       mgSolver.m_normThresh = 1.0e-10;
@@ -6021,15 +6000,7 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
       mgSolver.m_bottom = numMGSmooth;
       
       mgSolver.solve(H, rhs, finestTimestepLevel(), 0,  false);
-      // for (int lev=0; lev <= finestTimestepLevel()  ; ++lev)
-      // 	{
-      // 	  RealVect levelDx = m_amrDx[lev]*RealVect::Unit;
-      // 	  m_thicknessIBCPtr->setGeometryBCs(*m_vect_coordSys[lev],
-      // 					    m_amrDomains[lev],levelDx, m_time, m_dt);
-      // 	}
-      // mgSolver.m_eps = 1.0e-10;
-
-
+   
       for (int lev=0; lev <= finestTimestepLevel()  ; ++lev)
 	{
 	  const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
@@ -6040,7 +6011,6 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 	    {
 	      Real maxNorm = (*H[lev])[dit].norm(0,0,1);
 	      CH_assert(maxNorm < HUGE_THICKNESS);
-	      //CH_assert((*H[lev])[dit].min() > 1.0);
 	      levelCoord_H[dit].copy( (*H[lev])[dit], 0, 0, 1);
 
 	      //put sensible values into the corners.
@@ -6052,8 +6022,16 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 
 	    }
 
-	  delete rhs[lev];
-	  delete H[lev];
+	  if (rhs[lev] != NULL)
+	    {
+	      delete rhs[lev];
+	      rhs[lev] = NULL;
+	    }
+	  if (H[lev] != NULL)
+	    {
+	      delete H[lev];
+	      H[lev] = NULL;
+	    }
 	}
     }
   else 
