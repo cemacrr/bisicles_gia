@@ -63,7 +63,7 @@ void CGOptimize(O& a_F, X& a_x,
     {
       
       pout() << "CGOptimize iteration " << iter << " ||f'(x)||^2 = " 
-	     << deltaNew << " f(x) = " << f << std::endl;
+	     << deltaNew << " ||f(x)||^2 = " << f << std::endl;
 
 
       //secant line search
