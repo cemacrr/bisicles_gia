@@ -113,15 +113,6 @@ public:
   void setMuCoefficient(const MuCoefficient* a_muCoefficientPtr)
   {m_muCoefficientPtr = a_muCoefficientPtr->new_muCoefficient();}
 
-  /// set thickness diffusivity
-  void setThicknessDiffusivity(const Vector<LevelData<FArrayBox>*>& a_beta);
-
-  //remove the diffusive part (- D grad(H)) from a_vectFluxes
-  void subtractDiffusiveFlux(Vector<LevelData<FluxBox>*>& a_vectFluxes) const;
-
-  // compute diffusive velocity (- D/H grad(H)) and source div(D grad H)
-  void computeDiffusionTerms(LevelData<FluxBox>& a_diffVel,LevelData<FArrayBox>& a_diffSrc, int a_lev) const;
-
   /// advance solution until either max_time or max_step are reached
   /**
    */
