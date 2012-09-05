@@ -46,6 +46,7 @@ using std::endl;
 #include "CoarseAverage.H"
 #include "CellToEdge.H"
 #include "EdgeToCell.H"
+#include "DerivativesF_F.H"
 #include "DivergenceF_F.H"
 #include "computeSum.H"
 #include "CONSTANTS.H"
@@ -1909,12 +1910,6 @@ AmrIce::timeStep(Real a_dt)
 
 	  m_calvingModelPtr->modifySurfaceThicknessFlux(levelBTS, *this, lev, a_dt);
 
-	  // compute a diffusive source term div(D grad H))
-	  if (m_diffusionTreatment == IMPLICIT)
-	    {
-	      MayDay::Warning("m_diffusionTreatment == IMPLICIT imcomplete - diffusive source not done yet");
-	    }
-
 	  LevelData<FArrayBox> levelCCVel(levelGrids, SpaceDim, IntVect::Unit);
 	  EdgeToCell( levelFaceVel, levelCCVel);
           
@@ -1926,14 +1921,32 @@ AmrIce::timeStep(Real a_dt)
                                            &(levelFaceVel[dit]));
               
 	    
-	      
+	     
 	      FArrayBox advectiveSource(levelSTS[dit].box(),1);
 	      advectiveSource.copy(levelSTS[dit]);
 	      advectiveSource.plus(levelBTS[dit]);
-	      
+	       
+	      // add a diffusive source term div(D grad H)) to  advectiveSource
 	      if (m_diffusionTreatment == IMPLICIT)
 	       	{
-		  MayDay::Warning("m_diffusionTreatment == IMPLICIT imcomplete (Source term)");
+		  for (int dir=0; dir<SpaceDim; dir++)
+		    {
+		      Box faceBox = levelGrids[dit].surroundingNodes(dir);
+		      FArrayBox flux(faceBox,1);
+		      FORT_FACEDERIV(CHF_FRA1(flux,0),
+				     CHF_CONST_FRA1(levelOldThickness[dit],0),
+				     CHF_BOX(faceBox),
+				     CHF_CONST_REAL(dx(lev)[dir]),
+				     CHF_INT(dir),
+				     CHF_INT(dir));
+		      flux *= (*m_diffusivity[lev])[dit][dir];
+
+		      FORT_DIVERGENCE(CHF_CONST_FRA(flux),
+				      CHF_FRA(advectiveSource),
+				      CHF_BOX(levelGrids[dit]),
+				      CHF_CONST_REAL(dx(lev)[dir]),
+				      CHF_INT(dir));
+		    }
 	       	}
               
 	      patchGod->computeWHalf(levelHhalf[dit],
