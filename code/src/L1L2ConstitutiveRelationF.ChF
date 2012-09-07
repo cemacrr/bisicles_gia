@@ -548,7 +548,7 @@ c-------------------------------------------------
      &     -thck(CHF_OFFSETIX[i;-ix]))/dx
       dhy = half*(thck(CHF_OFFSETIX[i;+iy])
      &     -thck(CHF_OFFSETIX[i;-iy]))/dy
-      dh = (dhx**2 + dhy**2)**half + 1.0e-10
+      dh = (dhx**2 + dhy**2)**half + 1.0e-6
       
       D(CHF_AUTOIX[i]) = thck(CHF_AUTOIX[i]) * uc / dh
       

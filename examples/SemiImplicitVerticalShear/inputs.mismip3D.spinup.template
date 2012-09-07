@@ -9,6 +9,7 @@ main.rateFactor = constRate
 constRate.epsSqr0 = 1.0e-12
 constRate.A =  3.1536e-18 #1e25 * (365 * 24 * 3600 =  seconds per year)
 
+amr.additional_velocity = true
 amr.diffusion_treatment = @METHOD
 
 #geometry,temperarture & basal friction input data

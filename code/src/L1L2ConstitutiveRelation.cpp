@@ -777,7 +777,8 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 				  CHF_CONST_REAL(dx[0]),
 				  CHF_CONST_REAL(dx[1]),
 				  CHF_BOX(a_grids[dit]));
-
+      
+      //CH_assert(D.norm(0) < HUGE_NORM);
     }
   a_cellDiffusivity.exchange();
   //CellToEdge(cellDiffusivity, a_faceDiffusivity);
@@ -792,6 +793,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 				      CHF_CONST_FRA1(Dcell,0),
 				      CHF_CONST_INT(dir),
 				      CHF_BOX(fbox));
+	  CH_assert(Dface.norm(0) < HUGE_NORM);
 				      
 	}
     }

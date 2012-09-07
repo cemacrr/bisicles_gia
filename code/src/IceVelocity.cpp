@@ -337,6 +337,9 @@ void IceVelocity::computeFaceVelocity
     {
       grownVel[dit].setVal(0.0);
       grownVel[dit].copy(a_velocity[dit], a_velocity[dit].box());
+      a_cellDiffusivity[dit].setVal(0.0);
+      for (int dir = 0; dir < SpaceDim; dir++)
+	a_faceDiffusivity[dit][dir].setVal(0.0);
     }
   
   if (a_crseVelocity != NULL)

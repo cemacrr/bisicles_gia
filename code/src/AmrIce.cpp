@@ -1946,9 +1946,12 @@ AmrIce::timeStep(Real a_dt)
 				      CHF_BOX(levelGrids[dit]),
 				      CHF_CONST_REAL(dx(lev)[dir]),
 				      CHF_INT(dir));
+		      CH_assert(flux.norm(0) < HUGE_NORM);
 		    }
 	       	}
               
+	      
+
 	      patchGod->computeWHalf(levelHhalf[dit],
                                      levelOldThickness[dit],
                                      advectiveSource,
@@ -5701,6 +5704,12 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 				    const Vector<LevelData<FArrayBox>* >& a_bts
 				    )
 {
+
+   CH_TIME("AmrIce::implicitThicknessCorrection");
+   if (s_verbosity > 3)
+     {
+       pout() << "AmrIce::implicitThicknessCorrection" << std::endl;
+     }
 
   if  (m_temporalAccuracy == 1)
     {  
