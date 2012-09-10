@@ -9,6 +9,8 @@ l1l2.solverTolerance = 1.0e-8
 
 main.domain_size = 40960 40960 1000.0
 
+CalvingModel.type = NoCalvingModel
+
 surfaceFlux.type = zeroFlux
 basalFlux.type = zeroFlux
 #constFlux.flux_value = 0.0
