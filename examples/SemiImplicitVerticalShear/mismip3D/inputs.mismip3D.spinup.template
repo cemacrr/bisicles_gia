@@ -1,6 +1,6 @@
 #domain details
 main.domain_size = 800.0e+3 100.0e+3 1.0e+3
-amr.num_cells = 128 16 11
+amr.num_cells = @BASEX @BASEY 11
 amr.is_periodic = 0 1 0
 
 #bulk constitutive relation and parameters
@@ -9,7 +9,7 @@ main.rateFactor = constRate
 constRate.epsSqr0 = 1.0e-12
 constRate.A =  3.1536e-18 #1e25 * (365 * 24 * 3600 =  seconds per year)
 
-amr.additional_velocity = true
+amr.additional_velocity = @ADDVEL
 amr.diffusion_treatment = @METHOD
 
 #geometry,temperarture & basal friction input data
@@ -62,7 +62,7 @@ JFNKSolver.absTol = 10.0e+0
 JFNKSolver.relTol = 1.0e-4
 JFNKSolver.solverType = 0 #Relax solver
 JFNKSolver.RelaxRelTol = 2.0e-3
-JFNKSolver.RelaxHang = 0.975
+JFNKSolver.RelaxHang = 0.9
 JFNKSolver.maxRelaxIter = 10
 JFNKSolver.normType = 0
 JFNKSolver.verbosity = 5
@@ -87,8 +87,8 @@ amr.time_step_ticks = 1
 
 #plotting options
 #amr.plot_interval = 1
-amr.plot_time_interval = 1000
-amr.plot_prefix = plot.mimsip3D.spinup.@METHOD.@SMOD.@MAXLEVELlev.
+amr.plot_time_interval = 100
+amr.plot_prefix = plot.mimsip3D.spinup.@METHOD.@SMOD.@BASEX.@MAXLEVELlev.
 #amr.write_preSolve_plotfiles = true
 amr.write_solver_rhs = 1
 amr.write_viscous_tensor = true
@@ -96,7 +96,7 @@ amr.write_thickness_sources = true
 
 #check points
 amr.check_interval = 1000
-amr.check_prefix = chk.mimsip3D.spinup.@METHOD.@SMOD.@MAXLEVELlev.
+amr.check_prefix = chk.mimsip3D.spinup.@METHOD.@SMOD.@BASEX.@MAXLEVELlev.
 amr.check_overwrite = 0
 amr.verbosity = 5
 
@@ -115,7 +115,7 @@ amr.n_tag_subset_boxes = 1
 amr.tag_subset_boxes = 8 0 119 16
 
 amr.interpolate_zb = 0 #go back to the IBC to regrid geometry
-amr.max_box_size = 32 # largest box length allowed
+amr.max_box_size = 32 # largest box length allowed 
 
 #AMR tagging
 amr.tag_on_grad_velocity = 0
