@@ -118,23 +118,27 @@ public:
 			     const ProblemDomain& a_domain,
                              const IntVect& a_ghostVect = IntVect::Zero) const;
 
-  
-  // ///override method from ConstitutiveRelation
-  // virtual void computeFaceFluxVelocity(const LevelData<FArrayBox>& a_cellVel,
-  //                                      const LevelData<FArrayBox>* a_crseVelPtr,
-  //                                      int a_nRefCrse,
-  // 				       const LevelSigmaCS& a_coordSys,
-  // 				       const DisjointBoxLayout& a_grids,
-  // 				       const ProblemDomain& a_domain,
-  // 				       const LevelData<FArrayBox>& a_A,
-  // 				       const LevelData<FArrayBox>& a_surfaceA,
-  // 				       const LevelData<FArrayBox>& a_baseA,
-  // 				       LevelData<FluxBox>& a_faceVel,
-  // 				       LevelData<FluxBox>& a_layerXYFaceXYVel,
-  // 				       LevelData<FArrayBox>& a_layerSFaceXYVel
-  // 				       ) const;
 
 
+  /// modify 2D thickness advection velocity and diffusion coefficients, also 3D ice velocity
+  /**
+     \param a_cellVel : cell-centered basal velocity field \f$u(z=b)\f$
+     \param a_crseVelPtr :  coarser level cell-centered velocity field (NULL if no coarser level)
+     \param a_crseVelPtr :  coarser level cell-centered diffusivity field (NULL if no coarser level)
+     \param a_nRefCrse : refinement ratio to next coarser level 
+     \param a_coordSys: LevelSigmaCS object containing the geometry.
+     \param a_grids : DisjointBoxLayout of grids for the level
+     \param a_domain : ProblemDomain for the level
+     \param a_A: (x,y,sigma) cell-centered flow law coefficient (Glenn's A) field
+     \param a_sA: (x,y) cell-centered A field at the ice surface (\f$\sigma = 0\f$)
+     \param a_bA: (x,y) cell-centered A field at the ice base ( \f$\sigma = 1\f$)
+     \param faceVelAdvection : face-centered vertically averaged advection velocity. Should contain the velocity at the ice base on entry. 
+     \param a_faceVelTotal : face-centered vertically averaged total velocity (including diffusion). Should contain the velocity at the ice base on entry
+     \param a_faceDiffusivity: face-centered vertically thickness diffusivity. 
+     \parama_cellDiffusivity: cell-centered vertically thickness diffusivity.
+     \param a_layerXYFaceXYVel : (x,y) face-centered, sigma cell-centered 3D x and y velocity
+     \param a_layerSFaceXYVel : (x,y) cell-centered, sigma face centered 3D x and y velocity
+   */
   virtual void modifyTransportCoefficients
   (const LevelData<FArrayBox>& a_cellVel,
    const LevelData<FArrayBox>* a_crseVelPtr,
@@ -153,13 +157,6 @@ public:
    LevelData<FluxBox>& a_layerXYFaceXYVel,
    LevelData<FArrayBox>& a_layerSFaceXYVel) const;
     
-  // virtual void modifyThicknessDiffusivity(const LevelData<FArrayBox>& a_cellVel,
-  //                                         const LevelData<FArrayBox>* a_crseVelPtr,
-  //                                         int a_nRefCrse,
-  // 					  const LevelSigmaCS& a_coordSys,
-  // 					  const DisjointBoxLayout& a_grids,
-  // 					  const LevelData<FluxBox>& a_faceA,
-  // 					  LevelData<FluxBox>& a_diffusivity) const;
 
   /// sets tolerance for secant solve
   void solverTolerance(Real a_solverTol) 

@@ -48,7 +48,7 @@ L1L2ConstitutiveRelation::parseParameters()
   ParmParse ppL1L2("l1l2");
   ppL1L2.query("solverTolerance", m_solverTol);
   ppL1L2.query("additionalVelocitySIAGradSLimit", m_additionalVelocitySIAGradSLimit);
-  ppL1L2.query("additionalVelocitySIAOnly", m_additionalVelocitySIAGradSLimit);
+  ppL1L2.query("additionalVelocitySIAOnly", m_additionalVelocitySIAOnly);
 }
 
 void
@@ -715,7 +715,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
   //assumes that the usual interpolation of the base velocity to cell faces has been done
   //so that a_faceVelAdvection and a_faceVelTotal contain a_cellVel averaged to faces
   
-    IntVect grownGhost = IntVect::Zero;
+  IntVect grownGhost = IntVect::Zero;
   grownGhost += 2*IntVect::Unit;
   LevelData<FArrayBox> sigmaFaceA(a_grids,a_coordSys.getFaceSigma().size(),grownGhost);
   LevelData<FArrayBox> grownThickness(a_grids, 1, grownGhost);
@@ -766,7 +766,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 			  a_coordSys, a_domain, ghostVect);
 
 
-  //leave u_advection = u_base, set D = \bar{u'}H / grad(H),  u_total = u_base - D grad(H)
+  //leave u_advection = u_base, set D = \bar{u'}H / grad(H),  u_total = u_base + \bar{u'}
   //LevelData<FArrayBox> cellDiffusivity(a_grids, SpaceDim , IntVect::Unit);
   if (a_crseDiffusivityPtr != NULL)
     {
@@ -788,6 +788,8 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 				  CHF_CONST_REAL(dx[0]),
 				  CHF_CONST_REAL(dx[1]),
 				  CHF_BOX(a_grids[dit]));
+
+      
       
       //CH_assert(D.norm(0) < HUGE_NORM);
     }
@@ -805,7 +807,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 				      CHF_CONST_INT(dir),
 				      CHF_BOX(fbox));
 	  
-				      
+	  a_faceVelTotal[dit][dir] += vertAverageVelFace[dit][dir];			      
 	}
     }
 
