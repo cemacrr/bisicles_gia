@@ -230,8 +230,10 @@ int main(int argc, char* argv[]) {
       }
     else if (constRelType == "L1L2")
       {
-        constRelPtr = new L1L2ConstitutiveRelation;
-	gfrPtr = (dynamic_cast<L1L2ConstitutiveRelation*>(constRelPtr))->getGlensFlowRelationPtr();
+	L1L2ConstitutiveRelation* l1l2ptr = new L1L2ConstitutiveRelation;
+	l1l2ptr->parseParameters();
+	gfrPtr = l1l2ptr->getGlensFlowRelationPtr();
+        constRelPtr = l1l2ptr;
       }
     else 
       {

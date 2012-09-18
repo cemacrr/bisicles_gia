@@ -373,6 +373,36 @@ c--------------------------------------------------
       end subroutine
 
 c------------------------------------------------
+c limit each cell in fab such that 
+c sum (fab(IntVect i,n)**2) .le. lim**2 
+c------------------------------------------------
+
+      subroutine L1L2MODLIMIT(
+     &     CHF_FRA[fab],
+     &     CHF_CONST_REAL[lim],
+     &     CHF_BOX[box],
+     &     CHF_CONST_INT[ncomp])
+
+      REAL_T limsq,t
+      integer CHF_AUTOIX[i], icomp
+
+      limsq = lim**two;
+      CHF_AUTOMULTIDO[box; i]
+      t = zero
+      do icomp = 0, ncomp-1
+         t = t + fab(CHF_AUTOIX[i],icomp)**two
+      end do
+      if (t .gt. limsq) then
+         t = lim * t**(-half)
+         do icomp = 0, ncomp-1
+            fab(CHF_AUTOIX[i],icomp) = t * fab(CHF_AUTOIX[i],icomp) 
+         end do
+      end if
+      CHF_ENDDO
+      return
+      end
+
+c------------------------------------------------
 c increment phi(icomp) by - sigma * H * G(icomp)
 c------------------------------------------------
 
@@ -469,39 +499,6 @@ c------------------------------------------------
       CHF_ENDDO
       return
       end
-
-c-------------------------------------------------
-c isothermal thickness diffusivity
-c-------------------------------------------------
-
-      subroutine L1L2THICKDIFF(CHF_FRA1[D],
-     &     CHF_CONST_FRA1[A],
-     &     CHF_CONST_FRA1[H],
-     &     CHF_CONST_FRA[grads],
-     &     CHF_CONST_REAL[n],
-     &     CHF_CONST_REAL[rhog],
-     &     CHF_CONST_INT[ncomp],
-     &     CHF_BOX[box])
-
-      integer CHF_AUTOIX[i]
-
-      Real rn, G
-      rn = two*rhog**n / (n + two)
-
-      CHF_AUTOMULTIDO[box; i]
-      G = grads(CHF_AUTOIX[i],0)**2;
-      if (ncomp .gt. 1) then 
-         G = G + grads(CHF_AUTOIX[i],1)**2
-      end if
-     
-      D(CHF_AUTOIX[i]) = rn * H(CHF_AUTOIX[i])**(n+two)
-     &     * A (CHF_AUTOIX[i]) * G**((n-one)/(two))
-
-      CHF_ENDDO
-
-
-      return 
-      end subroutine
 
 
 c-------------------------------------------------

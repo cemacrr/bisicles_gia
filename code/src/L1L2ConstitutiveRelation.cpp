@@ -21,6 +21,7 @@
 #include "EdgeToCell.H"
 #include "CellToEdge.H"
 #include "MayDay.H"
+#include "ParmParse.H"
 #include "NamespaceHeader.H"
 #if BISICLES_Z == BISICLES_LAYERED
 #define L1L2_DEFAULT_NLAYER 8
@@ -31,6 +32,8 @@ L1L2ConstitutiveRelation::getNewConstitutiveRelation() const
 
   L1L2ConstitutiveRelation* newPtr = new L1L2ConstitutiveRelation;
   newPtr->m_solverTol = m_solverTol;
+  newPtr->m_additionalVelocitySIAGradSLimit = m_additionalVelocitySIAGradSLimit;
+  newPtr->m_additionalVelocitySIAOnly = m_additionalVelocitySIAOnly;
   GlensFlowRelation* gfr =  newPtr->getGlensFlowRelationPtr();
   gfr->setParameters(glensFlowRelation.m_n, 
 		     glensFlowRelation.m_rateFactor->getNewRateFactor(), 
@@ -39,6 +42,14 @@ L1L2ConstitutiveRelation::getNewConstitutiveRelation() const
 
 }
 
+void
+L1L2ConstitutiveRelation::parseParameters()
+{
+  ParmParse ppL1L2("l1l2");
+  ppL1L2.query("solverTolerance", m_solverTol);
+  ppL1L2.query("additionalVelocitySIAGradSLimit", m_additionalVelocitySIAGradSLimit);
+  ppL1L2.query("additionalVelocitySIAOnly", m_additionalVelocitySIAGradSLimit);
+}
 
 void
 L1L2ConstitutiveRelation::computeMu(LevelData<FArrayBox>& a_mu,
@@ -168,8 +179,8 @@ L1L2ConstitutiveRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
           //  thisMu[faceDir].plus(mu[dit][faceDir], s ,l ,0 );
           //  thisMu[faceDir].plus(mu[dit][faceDir], s ,l+1 ,0 );
 	  //}
+
 	  //midpoint rule inegration over sigma to find integral(mu,dz)/H
-	  
 	  for (int l = 0; l < nLayer; l++)
 	    {
 	      Real s =  a_coordSys.getDSigma()[l];
@@ -212,8 +223,8 @@ L1L2ConstitutiveRelation::computeMuZ(LevelData<FArrayBox>& a_mu,
       muBox.grow(a_ghostVect);
       muBox &= domBox;
       
-      computeEitherMuZ(a_mu[dit], a_sigma,  G[dit], a_epsSqr[dit], 
-                       a_A[dit], H[dit] ,a_coordSys.iceDensity()*a_coordSys.gravity(), muBox);
+      computeEitherMuZ(a_mu[dit], a_sigma,  G[dit], a_epsSqr[dit], a_A[dit], 
+		       H[dit] ,a_coordSys.iceDensity()*a_coordSys.gravity(), muBox);
     }
 
   a_mu.exchange();
@@ -330,6 +341,7 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
 	//calling FORT_COMPUTEL1L2MU with sigma = 0.0 will 
         //get us Glen's mu 
 	Real sigma0 = 0.0;
+	
 	FORT_COMPUTEL1L2MU(CHF_FRA1(a_mu,l),
 			   CHF_FRA1(res,0),
 			   CHF_CONST_FRA1(A, 0),
@@ -463,120 +475,118 @@ L1L2ConstitutiveRelation::computeFaceFluxVelocity(LevelData<FArrayBox>& a_vel,
        outerCellBox.grow(1);
        
        CH_assert(SpaceDim == 2);//ought to work for 3(2) and 2(1) at some point
-       
-       // // noisy gradVel is a problem
-       // for (int comp = 0; comp < gradVel.nComp(); ++comp){
-       //   Real maxGradVel = 1.0e-1;
-       //   // FORT_L1L2SUPRESSFAB(CHF_FRA1(gradVel[dit],comp),
-       //   //                     CHF_BOX(outerCellBox),
-       //   //                     CHF_CONST_REAL(maxGradVel));
-       // }
-       
-       
-       
+      
        for (int faceDir=0; faceDir<SpaceDim; faceDir++)
          {
            Box faceBox = cellBox;
            faceBox.surroundingNodes(faceDir);
-           
-           // z-derivative of (non-gravitational) phi_zi at the i cell face
-           FArrayBox dphi(faceBox, SpaceDim*sigma.size());
-           dphi.setVal(0.0);
-           const RealVect& dx = a_dx;
+	   // vertical part of the stress tensor T, phi_zi 
+	   // at the i = a_faceDir cell face
+	   // dir runs faster than layer
 
-           const int nn = derivComponent(faceDir,faceDir);
-           int transDir = (faceDir + 1)%SpaceDim;
-           const int tt = derivComponent(transDir,transDir);
-           const int nt = derivComponent(faceDir,transDir);
-           const int tn = derivComponent(transDir,faceDir);
-
-           const FArrayBox& thisGradVel = gradVel[dit];
-           const FArrayBox& thisMu = mu[dit];
-
-           for (int l = 0; l < sigma.size(); ++l)
-             {
-               FArrayBox ldphi; // dphi at this sigma
-               ldphi.define(Interval(SpaceDim*l,SpaceDim*l+SpaceDim-1),dphi);
-       
-               //this should probably go into a FORTRAN kernel.
-               for (BoxIterator bit(faceBox); bit.ok(); ++bit)
-                 {
-                   const IntVect& i = bit(); 
-                   IntVect iw = i - BASISV(faceDir);
-                   if (true){
-                     
-                     ldphi(i,faceDir) = 4.0/dx[faceDir] * 
-                       ( thisMu(i,l) * thisGradVel(i,nn)  - 
-                         thisMu(iw,l) * thisGradVel(iw,nn));
-                   }
-                   
-                   if (true && SpaceDim == 2)
-                     {
-                       
-                       ldphi(i,faceDir) += 2.0/dx[faceDir] * 
-                         (thisMu(i,l) * thisGradVel(i,tt)  - 
-                          thisMu(iw,l) * thisGradVel(iw,tt));
-                       
-                       
-                       IntVect inw = iw + BASISV(transDir);
-                       IntVect isw = iw - BASISV(transDir);
-                       IntVect in = i + BASISV(transDir);
-                       IntVect is = i - BASISV(transDir);
-                       
-                       ldphi(i,faceDir) += 0.25/dx[faceDir] * 
-                         (thisMu(in,l) * (thisGradVel(in,nt)+thisGradVel(in,tn))
-                          + thisMu(inw,l) * (thisGradVel(inw,nt)+thisGradVel(inw,tn))
-                          -thisMu(is,l) * (thisGradVel(is,nt)+thisGradVel(is,tn))
-                          - thisMu(isw,l) * (thisGradVel(isw,nt)+thisGradVel(isw,tn)));
-                       
-                       
-                       ldphi(i,transDir) =  1.0/dx[faceDir] * 
-                         ( thisMu(i,l) * (thisGradVel(i,nt) + thisGradVel(i,tn))   - 
-                           thisMu(iw,l) * (thisGradVel(iw,nt) + thisGradVel(iw,tn)));
-                       
-                       ldphi(i,transDir) += 1.0/dx[faceDir] * 
-                         (thisMu(in,l) * thisGradVel(in,nn)
-                          + thisMu(inw,l) * thisGradVel(inw,nn)
-                          -thisMu(is,l) * thisGradVel(is,nn) 
-                          -  thisMu(isw,l) * thisGradVel(isw,nn));
-                       
-                       ldphi(i,transDir) += 0.5/dx[faceDir] * 
-                         (thisMu(in,l) * thisGradVel(in,tt)
-                          + thisMu(inw,l) * thisGradVel(inw,tt)
-                          -thisMu(is,l) * thisGradVel(is,tt) 
-                          - thisMu(isw,l) * thisGradVel(isw,tt));
-                       
-                     }
-                   
-                 }
-               const FArrayBox& thisFaceHDir = thisFaceH[faceDir];
-               ldphi.mult(thisFaceHDir, 0, faceDir);
-               ldphi.mult(thisFaceHDir, 0, transDir);
-               // (DFM) -- comment this line out to silence unused variable warnings
-               //Real ln = ldphi.norm(0);
-               
-             }
-         
-           // vertical part of the stress tensor T, phi_zi 
-           // at the i = a_faceDir cell face
-           // dir runs faster than layer
-           FArrayBox phi(faceBox, SpaceDim * sigma.size());
-           // use the trapezium rule to integrate dphi
+	   FArrayBox phi(faceBox, SpaceDim * sigma.size());
            phi.setVal(0.0);
+	   
+	   if (!m_additionalVelocitySIAOnly)
+	     {
+	       // z-derivative of (non-gravitational) phi_zi at the i cell face
+	       FArrayBox dphi(faceBox, SpaceDim*sigma.size());
+	       dphi.setVal(0.0);
+	       const RealVect& dx = a_dx;
+	       
+	       const int nn = derivComponent(faceDir,faceDir);
+	       int transDir = (faceDir + 1)%SpaceDim;
+	       const int tt = derivComponent(transDir,transDir);
+	       const int nt = derivComponent(faceDir,transDir);
+	       const int tn = derivComponent(transDir,faceDir);
+	       
+	       const FArrayBox& thisGradVel = gradVel[dit];
+	       const FArrayBox& thisMu = mu[dit];
+	       
+	       for (int l = 0; l < sigma.size(); ++l)
+		 {
+		   FArrayBox ldphi; // dphi at this sigma
+		   ldphi.define(Interval(SpaceDim*l,SpaceDim*l+SpaceDim-1),dphi);
+		   
+		   //this should probably go into a FORTRAN kernel.
+		   for (BoxIterator bit(faceBox); bit.ok(); ++bit)
+		     {
+		       const IntVect& i = bit(); 
+		       IntVect iw = i - BASISV(faceDir);
+		       if (true){
+			 
+			 ldphi(i,faceDir) = 4.0/dx[faceDir] * 
+			   ( thisMu(i,l) * thisGradVel(i,nn)  - 
+			     thisMu(iw,l) * thisGradVel(iw,nn));
+		       }
+                   
+		       if (true && SpaceDim == 2)
+			 {
+			   
+			   ldphi(i,faceDir) += 2.0/dx[faceDir] * 
+			     (thisMu(i,l) * thisGradVel(i,tt)  - 
+			      thisMu(iw,l) * thisGradVel(iw,tt));
+                       
+			   
+			   IntVect inw = iw + BASISV(transDir);
+			   IntVect isw = iw - BASISV(transDir);
+			   IntVect in = i + BASISV(transDir);
+			   IntVect is = i - BASISV(transDir);
+			   
+			   ldphi(i,faceDir) += 0.25/dx[faceDir] * 
+			     (thisMu(in,l) * (thisGradVel(in,nt)+thisGradVel(in,tn))
+			      + thisMu(inw,l) * (thisGradVel(inw,nt)+thisGradVel(inw,tn))
+			      -thisMu(is,l) * (thisGradVel(is,nt)+thisGradVel(is,tn))
+                          - thisMu(isw,l) * (thisGradVel(isw,nt)+thisGradVel(isw,tn)));
+			   
+                       
+			   ldphi(i,transDir) =  1.0/dx[faceDir] * 
+			     ( thisMu(i,l) * (thisGradVel(i,nt) + thisGradVel(i,tn))   - 
+			       thisMu(iw,l) * (thisGradVel(iw,nt) + thisGradVel(iw,tn)));
+			   
+			   ldphi(i,transDir) += 1.0/dx[faceDir] * 
+			     (thisMu(in,l) * thisGradVel(in,nn)
+			      + thisMu(inw,l) * thisGradVel(inw,nn)
+			      -thisMu(is,l) * thisGradVel(is,nn) 
+			      -  thisMu(isw,l) * thisGradVel(isw,nn));
+                       
+			   ldphi(i,transDir) += 0.5/dx[faceDir] * 
+			     (thisMu(in,l) * thisGradVel(in,tt)
+			      + thisMu(inw,l) * thisGradVel(inw,tt)
+			      -thisMu(is,l) * thisGradVel(is,tt) 
+			      - thisMu(isw,l) * thisGradVel(isw,tt));
+                       
+			 }
+		       
+		     }
+		   const FArrayBox& thisFaceHDir = thisFaceH[faceDir];
+		   ldphi.mult(thisFaceHDir, 0, faceDir);
+		   ldphi.mult(thisFaceHDir, 0, transDir);
+		   
+		 }
+	    
+	       // use the trapezium rule to integrate dphi
+	       for (int l = 1; l < sigma.size(); ++l){
+		 Real s = 0.5 * (sigma[l] - sigma[l-1]);
+		 phi.plus(dphi, s , SpaceDim*(l - 1), SpaceDim * l , SpaceDim);
+		 phi.plus(dphi, s , SpaceDim*(l), SpaceDim * l , SpaceDim);
+		 phi.plus(phi, 1.0, SpaceDim*(l - 1), SpaceDim * l , SpaceDim);
+	       }
+           
+	     } // end if !m_additionalVelocitySIAOnly
 
-           for (int l = 1; l < sigma.size(); ++l){
-             Real s = 0.5 * (sigma[l] - sigma[l-1]);
-             phi.plus(dphi, s , SpaceDim*(l - 1), SpaceDim * l , SpaceDim);
-             phi.plus(dphi, s , SpaceDim*(l), SpaceDim * l , SpaceDim);
-             phi.plus(phi, 1.0, SpaceDim*(l - 1), SpaceDim * l , SpaceDim);
-           }
-           
-           
            // now add rho*g*ds/dx[i] to phi_zi
-           const FArrayBox& faceGdir = thisFaceG[faceDir];
+           FArrayBox faceGdir(faceBox, SpaceDim);
+	   faceGdir.copy(thisFaceG[faceDir],0,0,SpaceDim);
+	   if (m_additionalVelocitySIAGradSLimit > 0.0)
+	     {
+	       FORT_L1L2MODLIMIT(CHF_FRA(faceGdir),
+				 CHF_CONST_REAL(m_additionalVelocitySIAGradSLimit),
+				 CHF_BOX(faceBox),
+				 CHF_CONST_INT(SpaceDim));
+	     }
            const FArrayBox& faceHdir = thisFaceH[faceDir];
-           
-   
+
            for (int l = 0; l < sigma.size(); ++l){
              Real rgSigma =  a_coordSys.iceDensity() * a_coordSys.gravity() * sigma[l];
              FArrayBox lphi;
@@ -592,7 +602,7 @@ L1L2ConstitutiveRelation::computeFaceFluxVelocity(LevelData<FArrayBox>& a_vel,
            }
            
            //can now fill dphi with du[dir]/dz
-           FArrayBox& du = dphi;
+           FArrayBox du(faceBox, SpaceDim*sigma.size());
            du.setVal(0.0);
            for (int l = nLayer; l >= 0; --l){
              FArrayBox ldu; 
@@ -626,10 +636,11 @@ L1L2ConstitutiveRelation::computeFaceFluxVelocity(LevelData<FArrayBox>& a_vel,
              vel.plus(vel, 1.0 , SpaceDim*(l + 1), SpaceDim * l , SpaceDim);
            }
 
-	   Real maxVel = 1.0e+6;
-	   FORT_ABSLIMITFAB(CHF_FRA(vel), 
-			    CHF_CONST_REAL(maxVel), 
-			    CHF_BOX(vel.box()));
+	   // Real maxVel = 1.0e+6;
+	   // FORT_L1L2MODLIMIT(CHF_FRA(vel), 
+	   // 		     CHF_CONST_REAL(maxVel), 
+	   // 		     CHF_BOX(vel.box()),
+	   // 		     CHF_CONST_INT(vel.nComp()));
 
 	   //a_layerSFaceXYVel contains the basal velocity at cell centers
 	   //on entry, so average u - u_base from cell faces and add
@@ -793,7 +804,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 				      CHF_CONST_FRA1(Dcell,0),
 				      CHF_CONST_INT(dir),
 				      CHF_BOX(fbox));
-	  CH_assert(Dface.norm(0) < HUGE_NORM);
+	  
 				      
 	}
     }
@@ -804,242 +815,5 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 
 
 
-//original implementation
-void 
-L1L2ConstitutiveRelation::computeFaceFluxVelocity(const LevelData<FArrayBox>& a_cellVel,
-                                                  const LevelData<FArrayBox>* a_crseVelPtr,
-                                                  int a_nRefCrse,
-                                                  const LevelSigmaCS& a_coordSys,
-                                                  const DisjointBoxLayout& a_grids,
-                                                  const ProblemDomain& a_domain,
-						  const LevelData<FArrayBox>& a_A,
-						  const LevelData<FArrayBox>& a_sA,
-						  const LevelData<FArrayBox>& a_bA,
-						  LevelData<FluxBox>& a_faceVel,
-                                                  LevelData<FluxBox>& a_layerXYFaceXYVel,
-						  LevelData<FArrayBox>& a_layerSFaceXYVel) const
-{
-  CH_TIME("L1L2ConstitutiveRelation::computeFaceFluxVelocity");
-
-  //we now assume the usual interpolation of the base velocity to cell faces has been done
-  // //usual interpolation of the base velocity to cell faces, these will be incremented
-  // CellToEdge(a_cellVel, a_faceVel);
-
-  // //also copy the base velocity into all the layers; again, these will be incremented
-  // for (int j = 0; j < a_layerXYFaceXYVel.nComp(); ++j)
-  //   {
-  //     a_faceVel.copyTo(Interval(0,0), a_layerXYFaceXYVel, Interval(j,j));
-  //   }
-  
-  // for (int j = 0; j < a_layerSFaceXYVel.nComp(); j+=SpaceDim)
-  //   {
-  //     a_cellVel.copyTo(Interval(0,SpaceDim-1), a_layerSFaceXYVel, Interval(j,j+1));
-  //   }
-   
-  //return;
-  // (DFM) this mirrors the original implementation, in terms of ghosting...
-  //IntVect grownGhost = a_ghostVect;
-  IntVect grownGhost = IntVect::Zero;
-  grownGhost += 2*IntVect::Unit;
-  LevelData<FArrayBox> sigmaFaceA(a_grids,a_coordSys.getFaceSigma().size(),grownGhost);
-  LevelData<FArrayBox> grownThickness(a_grids, 1, grownGhost);
-  const LevelData<FArrayBox>& H = a_coordSys.getH();
-
-  // (DFM) if cellVel's ghosting is greater than grownGhost, we can 
-  // skip this copy, but putting it here for now for simplicity..
-  LevelData<FArrayBox> grownCellVel(a_grids, SpaceDim, grownGhost);
-  // do fab-by-fab copies to preserve ghosting
-  DataIterator dit = a_grids.dataIterator();
-  for (dit.begin(); dit.ok(); ++dit)
-    {
-      grownThickness[dit].copy(H[dit]);
-      grownCellVel[dit].copy(a_cellVel[dit]);
-      //a_cellVel.copyTo(grownCellVel);
-    }
-  
-  //followed by L1L2 corrections
-  for (DataIterator dit(a_grids) ; dit.ok(); ++dit)
-    {
-      int nLayer = a_coordSys.getSigma().size();
-      //ice surface
-      sigmaFaceA[dit].copy(a_sA[dit],0,0);
-      for (int l = 1; l < nLayer; ++l)
-	{
-	  //interior : average mid-layer flow law coefficient (Glenn's A)s to layer interfaces
-	  sigmaFaceA[dit].copy(a_A[dit],l-1,l);
-	  sigmaFaceA[dit].plus(a_A[dit],l,l);
-	  sigmaFaceA[dit].mult(0.5,l);
-	}
-      //ice base
-      sigmaFaceA[dit].copy(a_bA[dit],0,nLayer);
-    }
-  
- 
-  RealVect dx = a_coordSys.dx();
-  IntVect ghostVect = IntVect::Zero;
-
-  computeFaceFluxVelocity(grownCellVel, a_crseVelPtr, a_nRefCrse,
-                          sigmaFaceA, grownThickness, dx, 
-                          a_faceVel,a_layerXYFaceXYVel, a_layerSFaceXYVel,
-                          a_coordSys, a_domain, ghostVect);
-  
-}
-
-
-void 
-L1L2ConstitutiveRelation::modifyThicknessDiffusivity(const LevelData<FArrayBox>& a_cellVel,
-                                                     const LevelData<FArrayBox>* a_crseVelPtr,
-                                                     int a_nRefCrse,
-                                                     const LevelSigmaCS& a_coordSys,
-                                                     const DisjointBoxLayout& a_grids,
-						     const LevelData<FluxBox>& a_faceA,
-                                                     LevelData<FluxBox>& a_diffusivity) const
-{
-  
-  CH_TIME("L1L2ConstitutiveRelation::modifyThicknessDiffusivity");
-  const LevelData<FArrayBox>& thickness =  a_coordSys.getH();
-  const LevelData<FArrayBox>& bedrock = a_coordSys.getBaseHeight();
-
- 
-  
-  const LevelData<FluxBox>& faceThickness = a_coordSys.getFaceH();
-  const LevelData<FluxBox>& faceGradSurface = a_coordSys.getGradSurfaceFace();
-  const LevelData<BaseFab<int> >& floatingMask = a_coordSys.getFloatingMask();
-  const LayoutData<bool>& anyFloating = a_coordSys.anyFloating();
- 
-  for (DataIterator dit(a_grids); dit.ok(); ++dit)
-    {
-      const Box& cellBox = a_grids[dit]; 
-      
-      for (int faceDir = 0; faceDir < SpaceDim; ++faceDir) 
-  	{
-	  const FArrayBox& faceA = a_faceA[dit][faceDir];
-	  Box faceBox = cellBox;
-	  faceBox.surroundingNodes(faceDir);
-	  CH_assert(a_diffusivity[dit][faceDir].min() >= 0.0);
-
-  	  modifyThicknessDiffusivity(a_cellVel[dit],
-				     faceA,
-				     thickness[dit], 
-				     bedrock[dit], 
-				     faceThickness[dit][faceDir],
-                                     faceGradSurface[dit][faceDir],
-				     floatingMask[dit], 
-				     anyFloating[dit],
-				     a_coordSys.seaLevel(), 
-				     a_coordSys.iceDensity(),
-				     a_coordSys.waterDensity(),a_coordSys.gravity(),
-				     a_coordSys.getSigma(), a_coordSys.getDSigma(),
-				     cellBox, 
-				     a_diffusivity[dit][faceDir],faceDir);
-
-	  CH_assert(a_diffusivity[dit][faceDir].min() >= 0.0);
-	  
-
-  	}
-
-    }
-  a_diffusivity.exchange();
-
-}
-
-void 
-L1L2ConstitutiveRelation::modifyThicknessDiffusivity(const FArrayBox& a_vel,
-                                                     const FArrayBox& a_faceA,
-                                                     const FArrayBox& a_thickness,
-                                                     const FArrayBox& a_bedrock,
-                                                     const FArrayBox& a_faceThickness,
-                                                     const FArrayBox& a_faceGradSurface,
-                                                     const BaseFab<int>& a_floatingMask,
-                                                     const bool& a_anyFloating,
-                                                     const Real a_seaLevel,
-						     const Real a_iceDensity,
-						     const Real a_seaWaterDensity,
-						     const Real a_gravity,
-						     const Vector<Real>& a_sigma,
-						     const Vector<Real>& a_dSigma,
-                                                     const Box& a_cellBox,
-                                                     FArrayBox& a_diffusivity,
-                                                     int a_faceDir) const
-{
-  CH_TIME("L1L2ConstitutiveRelation::modifyThicknessDiffusivity");
-  // A varies in z : we can use the formula 
-  //D = 2 (rhog)^n * |grad(S)|^n-1 H^(n+2) * integral(sigma^n+1 A, dsigma)
-  CH_assert(a_faceA.nComp() == a_sigma.size());
-  CH_assert(a_faceA.nComp() == a_dSigma.size());
-
-
-  const FArrayBox& faceH = a_faceThickness; 
-  const FArrayBox& faceG = a_faceGradSurface;
-  Box faceBox = a_cellBox;
-  faceBox.surroundingNodes(a_faceDir);
-  
-  FArrayBox faceD(faceBox , 1);
-  const Real& rhog = a_iceDensity * a_gravity;
-  faceD.setVal(0.0);
-
-  FArrayBox integral(a_faceA.box(),1);
-  integral.setVal(0.0);
-  for (int layer = 0; layer < a_faceA.nComp(); ++layer)
-    {
-      Real s = a_dSigma[layer] * 
-	std::pow(a_sigma[layer],glensFlowRelation.m_n + 1.0);
-      integral.plus(a_faceA,s,layer,0,1);
-    }
-
-  FORT_L1L2DIFFFACTOR(CHF_FRA1(faceD,0),
-		      CHF_CONST_FRA1(faceH,0),
-		      CHF_CONST_FRA(faceG),
-		      CHF_CONST_REAL(glensFlowRelation.m_n),
-		      CHF_CONST_REAL(rhog),
-		      CHF_BOX(faceBox));
-
-  CH_assert(faceD.min() >= 0.0);
-  faceD *= integral;
-
-  //FArrayBox tmpD(faceBox,1);
-  //FArrayBox tmpA(faceBox,1);
-  //tmpA.setVal(1.0e-16);
-  //int ncomp = faceG.nComp();
-  // FORT_L1L2THICKDIFF(CHF_FRA1(tmpD,0),
-  //  		     CHF_CONST_FRA1(tmpA,0),
-  //  		     CHF_CONST_FRA1(faceH,0),
-  //  		     CHF_CONST_FRA(faceG),
-  //  		     CHF_CONST_REAL(glensFlowRelation.m_n),
-  //  		     CHF_CONST_REAL(rhog),
-  //  		     CHF_CONST_INT(ncomp),
-  //  		     CHF_BOX(faceBox));
-  //faceD.setVal(0.0);
-  //Real d = tmpD.norm(0);
-  //tmpD-=faceD;
-  //CH_assert(tmpD.norm(0)/d < 1.0e-3);
-
-  Box grownBox = a_cellBox;
-  grownBox.grow(1);
-  
-  if (a_anyFloating == 1){
-    Real f = 1.0 - a_iceDensity/a_seaWaterDensity ;
-    for (BoxIterator bit(faceBox); bit.ok(); ++bit)
-      {
-  	const IntVect& iv = bit();
-  	IntVect ivm = iv - BASISV(a_faceDir);
-	if (a_cellBox.contains(ivm))
-	  {
-	    if (a_floatingMask(iv) == FLOATINGMASKVAL 
-		&& a_floatingMask(ivm) == FLOATINGMASKVAL )
-	      {
-		faceD(iv) *= f;
-	      }
-	  }
-	else
-	  {
-	    if (a_floatingMask(iv) == FLOATINGMASKVAL)
-	      faceD(iv) *= f;
-	  }
-      }
-  }
-  faceD.setVal(0.0);
-  a_diffusivity.plus(faceD);
-}
 #endif
 #include "NamespaceFooter.H"

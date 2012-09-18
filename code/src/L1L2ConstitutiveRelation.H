@@ -34,8 +34,13 @@ class L1L2ConstitutiveRelation : public ConstitutiveRelation
 
 public:
   ///
-  L1L2ConstitutiveRelation() :m_solverTol(1.0e-4) {;}
+  L1L2ConstitutiveRelation() 
+    :m_solverTol(1.0e-6),m_additionalVelocitySIAGradSLimit(1.0e-2),m_additionalVelocitySIAOnly(true) 
+  {;}
   ///
+  
+  void parseParameters();
+
   virtual ~L1L2ConstitutiveRelation() {;}
 
   GlensFlowRelation* getGlensFlowRelationPtr()
@@ -114,20 +119,20 @@ public:
                              const IntVect& a_ghostVect = IntVect::Zero) const;
 
   
-  ///override method from ConstitutiveRelation
-  virtual void computeFaceFluxVelocity(const LevelData<FArrayBox>& a_cellVel,
-                                       const LevelData<FArrayBox>* a_crseVelPtr,
-                                       int a_nRefCrse,
-				       const LevelSigmaCS& a_coordSys,
-				       const DisjointBoxLayout& a_grids,
-				       const ProblemDomain& a_domain,
-				       const LevelData<FArrayBox>& a_A,
-				       const LevelData<FArrayBox>& a_surfaceA,
-				       const LevelData<FArrayBox>& a_baseA,
-				       LevelData<FluxBox>& a_faceVel,
-				       LevelData<FluxBox>& a_layerXYFaceXYVel,
-				       LevelData<FArrayBox>& a_layerSFaceXYVel
-				       ) const;
+  // ///override method from ConstitutiveRelation
+  // virtual void computeFaceFluxVelocity(const LevelData<FArrayBox>& a_cellVel,
+  //                                      const LevelData<FArrayBox>* a_crseVelPtr,
+  //                                      int a_nRefCrse,
+  // 				       const LevelSigmaCS& a_coordSys,
+  // 				       const DisjointBoxLayout& a_grids,
+  // 				       const ProblemDomain& a_domain,
+  // 				       const LevelData<FArrayBox>& a_A,
+  // 				       const LevelData<FArrayBox>& a_surfaceA,
+  // 				       const LevelData<FArrayBox>& a_baseA,
+  // 				       LevelData<FluxBox>& a_faceVel,
+  // 				       LevelData<FluxBox>& a_layerXYFaceXYVel,
+  // 				       LevelData<FArrayBox>& a_layerSFaceXYVel
+  // 				       ) const;
 
 
   virtual void modifyTransportCoefficients
@@ -148,13 +153,13 @@ public:
    LevelData<FluxBox>& a_layerXYFaceXYVel,
    LevelData<FArrayBox>& a_layerSFaceXYVel) const;
     
-  virtual void modifyThicknessDiffusivity(const LevelData<FArrayBox>& a_cellVel,
-                                          const LevelData<FArrayBox>* a_crseVelPtr,
-                                          int a_nRefCrse,
-					  const LevelSigmaCS& a_coordSys,
-					  const DisjointBoxLayout& a_grids,
-					  const LevelData<FluxBox>& a_faceA,
-					  LevelData<FluxBox>& a_diffusivity) const;
+  // virtual void modifyThicknessDiffusivity(const LevelData<FArrayBox>& a_cellVel,
+  //                                         const LevelData<FArrayBox>* a_crseVelPtr,
+  //                                         int a_nRefCrse,
+  // 					  const LevelSigmaCS& a_coordSys,
+  // 					  const DisjointBoxLayout& a_grids,
+  // 					  const LevelData<FluxBox>& a_faceA,
+  // 					  LevelData<FluxBox>& a_diffusivity) const;
 
   /// sets tolerance for secant solve
   void solverTolerance(Real a_solverTol) 
@@ -223,7 +228,7 @@ private:
       The L1L2 constutive relation implies a z-varying
       velocity field, which is constructed from a 2D velocity
       field computed at the ice base. 
-  */  
+  */ 
   
 
   virtual void computeFaceFluxVelocity(LevelData<FArrayBox>& a_vel,
@@ -233,35 +238,20 @@ private:
                                        const LevelData<FArrayBox>& a_thickness,
                                        const RealVect& a_dx,
                                        LevelData<FluxBox>& a_fluxVel,
-				       LevelData<FluxBox>& a_layerXYFaceXYVel,
-				       LevelData<FArrayBox>& a_layerSFaceXYVel,
+  				       LevelData<FluxBox>& a_layerXYFaceXYVel,
+  				       LevelData<FArrayBox>& a_layerSFaceXYVel,
                                        const LevelSigmaCS& a_coordSys,
-				       const ProblemDomain& a_domain,
+  				       const ProblemDomain& a_domain,
                                        const IntVect& a_cellGhost = IntVect::Zero) const;
 
-  
-
-  /// thickness diffusivity at one face 
-  virtual void modifyThicknessDiffusivity(const FArrayBox& a_vel,
-                                          const FArrayBox& a_A,
-                                          const FArrayBox& a_thickness,
-                                          const FArrayBox& a_bedrock,
-                                          const FArrayBox& a_faceThickness,
-                                          const FArrayBox& a_faceGradSurface,
-                                          const BaseFab<int>& a_floatingMask,
-                                          const bool& a_anyFloating,
-                                          const Real a_seaLevel,
-					  const Real a_iceDensity,
-					  const Real a_seaWaterDensity,
-					  const Real a_gravity,
-					  const Vector<Real>& a_sigma,
-					  const Vector<Real>& a_dSigma,
-                                          const Box& a_cellBox,
-                                          FArrayBox& a_diffusivity,
-                                          int a_faceDir) const;
-
+ 
+  // tolerance for the secant solve when computing mu
   Real m_solverTol;
-
+  // if > 0, limit the magnitude of grad(s) when computing the SIA part of u(z) - u(z=base)
+  Real m_additionalVelocitySIAGradSLimit; 
+  // neglect non SIA contribution to u(z) - u(z=base)  
+  bool m_additionalVelocitySIAOnly; 
+  
 
 
 };

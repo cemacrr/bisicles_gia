@@ -124,16 +124,9 @@ int main(int argc, char* argv[]) {
     else if (constRelType == "L1L2")
       {
         L1L2ConstitutiveRelation* l1l2Ptr = new L1L2ConstitutiveRelation;
-        ParmParse ppL1L2("l1l2");
-
-        // set L1L2 internal solver tolerance
-        // default matches original hardwired value
-        Real tol = 1.0e-6;
-        ppL1L2.query("solverTolerance", tol);
-        l1l2Ptr->solverTolerance(tol);
+	l1l2Ptr->parseParameters();
 	gfrPtr = l1l2Ptr->getGlensFlowRelationPtr();
         constRelPtr = l1l2Ptr;
-
       }
     else 
       {
