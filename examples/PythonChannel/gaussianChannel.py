@@ -3,6 +3,18 @@ import math
 def slope(x):
     return 50.0 - 4.0 * x / 1.0e+3
 
+def width(x):
+    return 4.0e+3 + 16.0e+3 * math.exp(-x/16.0e+3)
+
+def tag(x,y,dx,thck,topg):
+    w = width(x) + 1.0e+2
+    y = y - 32.0e+3
+    tag = -1.0 #don't tag unless...
+    if ((dx > 250.0) & ((abs(y) - dx/2) < w)):
+        tag = 1.0
+        
+    return tag
+
 def thickness(x,y):
     thickness = 0.0
   
@@ -14,7 +26,7 @@ def thickness(x,y):
     return thickness
 
 def topography(x,y):
-    w = 4.0e+3 + 16.0e+3 * math.exp(-x/16.0e+3)
+    w = width(x)
     y = y - 32.0e+3
     topography = slope(x) + 1.0e+3 - 1.0e+3 * math.exp(-(y/w * y/w))
     

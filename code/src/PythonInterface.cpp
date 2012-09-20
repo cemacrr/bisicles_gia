@@ -347,11 +347,11 @@ void  PythonInterface::PythonIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 	     {
 	       args[i] = (Real(iv[dir]) + 0.5)*a_dx[dir];
 	       i++;
-	       PythonEval(m_pFuncThck, rval,  args);
-	       thck(iv) = rval[0];
-	       PythonEval(m_pFuncTopg, rval,  args);
-	       topg(iv) = rval[0]; 	 
 	     }
+	   PythonEval(m_pFuncThck, rval,  args);
+	   thck(iv) = rval[0];
+	   PythonEval(m_pFuncTopg, rval,  args);
+	   topg(iv) = rval[0]; 	   
 	}
     }
   a_coords.getTopography().exchange();
@@ -382,10 +382,10 @@ void  PythonInterface::PythonIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 	     {
 	       args[i] = (Real(iv[dir]) + 0.5)*a_dx[dir];
 	       i++;
-	       
-	       PythonEval(m_pFuncTopg, rval,  args);
-	       topg(iv) = rval[0]; 	 
 	     }
+	   
+	   PythonEval(m_pFuncTopg, rval,  args);
+	   topg(iv) = rval[0]; 
 	}
     }
   Real dt = 0.0;

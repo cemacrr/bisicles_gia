@@ -64,6 +64,10 @@ using std::endl;
 #include "CH_HDF5.H"
 #include "IceVelocity.H"
 #include "LevelMappedDerivatives.H"
+#ifdef HAVE_PYTHON
+#include "PythonInterface.H"
+#endif
+
 #include "NamespaceHeader.H"
 
 // small parameter defining when times are equal
@@ -355,7 +359,12 @@ AmrIce::setDefaults()
   m_tagAllIce  = false;
   m_groundingLineTaggingMinVel = 200.0;
   m_groundingLineTaggingMaxBasalFrictionCoef = 1.2345678e+300;
-  
+#ifdef HAVE_PYTHON
+  m_tagPython = false;
+  m_tagPythonModule = NULL;
+  m_tagPythonFunction = NULL;
+#endif
+
   m_tags_grow = 1;
   m_cfl = 0.25;
   m_max_dt_grow = 1.5;
@@ -769,6 +778,13 @@ AmrIce::~AmrIce()
       m_basalFrictionPtr = NULL;
     }
 
+#ifdef HAVE_PYTHON
+  if (m_tagPythonFunction != NULL)
+    Py_DECREF(m_tagPythonFunction);
+  if (m_tagPythonModule != NULL)
+    Py_DECREF(m_tagPythonModule);
+#endif
+
   // that should be it!
 
 }
@@ -977,6 +993,20 @@ AmrIce::initialize()
       ppAmr.query("grounding_line_tagging_max_basal_friction_coef", m_groundingLineTaggingMaxBasalFrictionCoef);
     }
   
+#ifdef HAVE_PYTHON
+  ppAmr.query("tag_python", m_tagPython);
+  isThereATaggingCriterion |= m_tagPython;
+  if (m_tagPython)
+    {
+      std::string s;
+      ppAmr.get("tag_python_module", s);
+      PythonInterface::InitializePythonModule
+	(&m_tagPythonModule,  s);
+      ppAmr.get("tag_python_function",s);
+      PythonInterface::InitializePythonFunction
+	(&m_tagPythonFunction, m_tagPythonModule , s);
+    }
+#endif
   
   ppAmr.query("tag_ice_margin", m_tagMargin);
   isThereATaggingCriterion |= m_tagMargin;
@@ -3641,6 +3671,34 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
             } // end bit loop
         } // end loop over boxes
     } // end if tag all ice
+
+#ifdef HAVE_PYTHON
+  if (m_tagPython)
+    {
+      //tag via a python function f(x,y,dx,dy,H) (more args to come)
+      
+      Vector<Real> args(SpaceDim + 3);
+      Vector<Real> rval;
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+	  for (BoxIterator bit(levelGrids[dit]); bit.ok(); ++bit)
+	    {
+	      const IntVect& iv = bit();
+	      int i = 0;
+	      for (int dir=0; dir < SpaceDim; dir++)
+		{
+		  args[i++] = (Real(iv[dir]) + 0.5)*m_amrDx[a_level];
+		}
+	      args[i++]  = m_amrDx[a_level];
+	      args[i++] = levelCS.getH()[dit](iv,0);
+	      args[i++] = levelCS.getTopography()[dit](iv,0);				    
+	      PythonInterface::PythonEval(m_tagPythonFunction, rval,  args);
+	      if (rval[0] > 0.0)
+		local_tags |= iv;
+	    } // end bit loop
+	} // end loop over boxes
+    } // end if tag via python
+#endif
 
   // now buffer tags
   local_tags.grow(m_tags_grow); 

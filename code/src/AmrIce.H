@@ -24,6 +24,9 @@
 #include "IceTemperatureIBC.H"
 #include "CalvingModel.H"
 #include "MuCoefficient.H"
+#ifdef HAVE_PYTHON
+#include "PythonInterface.H"
+#endif
 #include "NamespaceHeader.H"
 
 /// class to manage non-subcycled AMR ice-sheet model
@@ -607,6 +610,12 @@ protected:
   /// tag any cell with ice in it
   bool m_tagAllIce;
   
+#ifdef HAVE_PYTHON
+  /// tag cells according to a python function
+  bool m_tagPython;
+  PyObject* m_tagPythonModule;
+  PyObject* m_tagPythonFunction;
+#endif
   /// amount to buffer tags used in regridding
   int m_tags_grow;
 
