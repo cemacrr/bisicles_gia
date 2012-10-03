@@ -26,6 +26,7 @@
 
 #include "bike_driver.H"
 
+using std::string;
 
 static int maxStep;
 static Real maxTime;
@@ -411,7 +412,8 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         FortranInterfaceIBC* ibcPtr = new FortranInterfaceIBC;
         // need to set thickness and topography
 
-        Vector<int> nGhost(SpaceDim, 0);
+        // default is that CISM is using 2 ghost cells 
+        Vector<int> nGhost(SpaceDim, 2);
         interfacePP.queryarr("numGhost", nGhost, 0, SpaceDim);
         {
           ghostVect = IntVect(D_DECL(nGhost[0], nGhost[1], nGhost[2]));
