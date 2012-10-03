@@ -21,6 +21,7 @@ using std::cout;
 using std::cin;
 using std::cerr;
 using std::endl;
+using std::string;
 
 
 #include "Box.H"

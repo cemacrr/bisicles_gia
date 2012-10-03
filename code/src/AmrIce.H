@@ -891,7 +891,6 @@ public:
 protected:
   void setLayers(const Vector<Real>& a_sigma)
   {
-    CH_assert(!m_sigmaSet);
     if (m_sigmaSet)
       MayDay::Error("AmrIce::SetLayers should only be called once");
     m_faceSigma = a_sigma;
