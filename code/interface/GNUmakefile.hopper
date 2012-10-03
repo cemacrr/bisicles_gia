@@ -5,7 +5,7 @@
 #CHOMBO_HOME = /home/ranken/util/Chombo/lib
 CHOMBO_HOME = $(PWD)/../../../Chombo/lib
 
-CISM_HOME = $(PWD)/../../../glimmer-cism2/branches/seacism
+CISM_HOME = $(PWD)/../../../seacism
 
 #LIBDYCORE = libdycore
 LIBDYCORE = $(CISM_HOME)/libdycore
@@ -20,8 +20,8 @@ include $(CHOMBO_HOME)/mk/Make.defs.config
 
 
 #FC = gfortran
-FC = f95
-CC = CC
+#FC = f95
+#CC = CC
 
 # link arguments used in Chombo makefile
 # LINK_ARGS = -Wno-long-long -Wno-sign-compare -Wno-deprecated -ftemplate-depth-25 -m64
@@ -86,7 +86,8 @@ libs: bisiclesObjects libBisicles.a libChomboLibs.a
 # so far, it seems to do the trick (DFM -- 7/9/12)
 libBisicles.a: bike_driver.o ../exec2D/o/$(config) libChomboLibs.a
 	if test -f libBisicles.a; then rm libBisicles.a; fi
-	cp -rp ../exec2D/o/$(config)  o
+	mkdir -p o/$(config) 
+	cp -rp ../exec2D/o/$(config)  o/
 	cp bike_driver.o  o/$(config)
 	if test -f o/$(config)/driver.o; then \
            mv o/$(config)/driver.o o/$(config)/driver.o.tmp; \
@@ -104,7 +105,7 @@ driver.o: driver.cpp
 	$(CC) -c -g driver.cpp -I $(CHOMBO_HOME)/include -I ../src \
 	-DCH_SPACEDIM=2 -DCH_USE_DOUBLE -DCH_Linux -DCH_LANG_CC \
 	-DCH_USE_SETVAL -DCH_USE_COMPLEX -DUSE_MEMORY_TRACKING \
-	-DCH_USE_64
+	-DCH_USE_64 -DCH_MPI
 
 
 bike_driver_call: bike_driver_call.o
@@ -126,7 +127,7 @@ bike_driver.o: bike_driver.cpp
 	-I $(LIBDYCORE) \
 	-DCH_SPACEDIM=2 -DCH_USE_DOUBLE -DCH_Linux -DCH_LANG_CC \
 	-DCH_USE_SETVAL -DCH_USE_COMPLEX -DUSE_MEMORY_TRACKING \
-	-DCH_USE_64
+	-DCH_USE_64 -DCH_MPI
 
 #libBisicles.a: bike_driver.o
 #	if test -f libBisicles.a; then rm libBisicles.a; fi
