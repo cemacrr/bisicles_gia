@@ -539,7 +539,7 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 
 	dimInfo = btg_ptr -> getLongVar("dimInfo","velocity");
         
-        int * dimInfoVelo = new int[dimInfo[0]+1];
+        dimInfoVelo = new int[dimInfo[0]+1];
     
         for (i=0;i<=dimInfo[0];i++) dimInfoVelo[i] = dimInfo[i];      
         
