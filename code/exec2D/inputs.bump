@@ -5,10 +5,19 @@ main.constitutiveRelation = GlensLaw
 
 main.domain_size = 10.0 10.0 10.0 
 
+CalvingModel.type = NoCalvingModel
+
+surfaceFlux.type = zeroFlux
+basalFlux.type = zeroFlux
+
 geometry.problem_type = basic
 #geometry.basal_type = xInclineZb
 geometry.basal_type = constantZb
 geometry.thickness_type = singleSinBump
+
+geometry.beta_type = constantBeta
+geometry.betaValue = 1000.0
+
 
 amr.maxLevel = 0   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2

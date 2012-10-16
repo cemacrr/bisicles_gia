@@ -3,10 +3,13 @@ main.maxTime = 20e11  # maximum time to run to
 main.maxStep = 200   # maximum number of steps to run
 main.constitutiveRelation = GlensLaw
 
+CalvingModel.type = NoCalvingModelx
+
 # surface flux type (default is no surface flux)
-main.surface_flux_type = zeroFlux
-main.surface_flux_type = constantFlux
-constFlux.flux_value = 1.0
+surfaceFlux.type = zeroFlux
+surfaceFlux.type = constantFlux
+surfaceFlux.flux_value = 1.0
+basalFlux.type = zeroFlux
 
 main.domain_size = 10000.0 10000.0 10000.0 
 
@@ -16,6 +19,7 @@ geometry.basal_type = constantZb
 geometry.thickness_type = constantThickness1km
 
 # beta value is in Pa a /m
+geometry.beta_type = constantBeta
 geometry.betaValue = 1000
 geometry.basalSlope = 0.001 0.00
 geometry.betaEps = 0.001

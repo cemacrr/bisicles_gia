@@ -8,6 +8,11 @@ constRate.A = 1.0e-16
 
 main.domain_size = 160000.0 160000.0 160000.0 
 
+CalvingModel.type = NoCalvingModel
+
+surfaceFlux.type = zeroFlux
+basalFlux.type = zeroFlux
+
 geometry.problem_type = basic
 geometry.basal_type = pattynAZb
 geometry.thickness_type = pattynAH

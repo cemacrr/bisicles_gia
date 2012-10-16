@@ -10,6 +10,11 @@ geometry.problem_type = basic
 geometry.basal_type = constantZb
 geometry.thickness_type = constantThickness1km
 
+CalvingModel.type = NoCalvingModel
+
+surfaceFlux.type = zeroFlux
+basalFlux.type = zeroFlux
+
 # beta value is in Pa a /m
 geometry.beta_type = constantBeta
 geometry.betaValue = 1000
