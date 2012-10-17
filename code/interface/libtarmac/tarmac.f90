@@ -33,6 +33,8 @@ module glunnamed
   real(kind=8),parameter :: pmlt = 9.7456d-8         !*FD Factor for dependence of melting point on pressure (K Pa$^{-1}$)
   real(kind=8),parameter :: trpt = 273.15d0          !*FD Triple point of water (K)
 
+  integer, parameter :: groundedmaskval = 1, floatingmaskval = 2, openseamaskval = 4, openlandmaskval = 8
+
   contains
 
     real(kind=8) function fo_upwind(u,sminus,splus)
@@ -78,7 +80,7 @@ module glunnamed
     end subroutine tdmasolve
 
     subroutine sigma_advect(rhs, temp, stemp, btemp, usig , lthck, & 
-         fsig, dt, flot, n)
+         fsig, dt, mask, n)
       !increment rhs with interlayer advection
       !TODO : replace first order upwind fluxes with something nice
       integer :: n
@@ -87,7 +89,7 @@ module glunnamed
       real(kind=8), dimension(1:n+1), intent(in) :: usig ! u^{\sigma}
       real(kind=8), dimension(1:n+1), intent(in) :: fsig ! sigma at layer faces
       real(kind=8), intent(in) :: stemp, btemp, dt ! surface & basal temperature, time step
-      logical, intent(in) :: flot
+      integer, intent(in) :: mask
       !locals
       integer l
       real(kind=8) flux
@@ -103,9 +105,11 @@ module glunnamed
       end do
 
       !flux across the base
-      if (flot) then
+      if (mask.eq.floatingmaskval) then
          ! Dirichlett condition
-         flux = dt * (fo_upwind(usig(n+1) ,temp(n),btemp) )
+         !flux = dt * (fo_upwind(usig(n+1) ,temp(n),btemp) )
+         flux = dt * (fo_upwind(usig(n+1) ,temp(n),temp(n)) )
+         
       else
          ! no advection flux
          flux =  0.0
@@ -115,7 +119,7 @@ module glunnamed
     end subroutine sigma_advect
 
     subroutine fo_diffusive_advance(temp,stemp,btemp,bflux,rhs,chi, &
-         thckold,thcknew,fsig,dt,flot,n)
+         thckold,thcknew,fsig,dt,mask,n)
       ! solve the equation 
       ! H_nT_n - dt * 1/H * \chi * d^2 T_n / dsigma^2 = H_To + rhs
       ! with Robin boundary conditions 
@@ -126,7 +130,7 @@ module glunnamed
       real(kind=8), dimension(1:n), intent(in) :: rhs
       real(kind=8), dimension(1:n), intent(inout) :: temp
       real(kind=8), dimension(1:n+1), intent(in) :: fsig ! sigma at layer faces
-      logical, intent(in) :: flot
+      integer, intent(in) :: mask
       !locals
       real(kind=8), dimension(1:n) :: a,c,b,r ! TDMA coefficients
       real(kind=8), dimension(1:n) :: cdsig
@@ -163,9 +167,11 @@ module glunnamed
       ! bottom layer
       eps = 1.0e-12 ! hold temperature eps K below the pressure melting point
       tpmp = trpt - pmlt * rhoi * grav * thcknew - eps
-      diric = (flot .or. (btemp .ge. tpmp))
-
-      if (btemp .ge. tpmp) then 
+      !diric = ((mask.eq.floatingmaskval) .or. (btemp .ge. tpmp))
+      
+      diric = .false.
+      if ((btemp .ge. tpmp))  then 
+         diric = .true.
          btemp = tpmp 
          !compute basal melt rate
          dtempdz = temp(n) + pmlt * rhoi * grav * thcknew * 0.5*(fsig(i) + fsig(i+1))
@@ -175,7 +181,7 @@ module glunnamed
       end if
 
       if (diric) then
-         ! floating ice and/or ice at pressure melting point 
+         ! ice at pressure melting point 
          ! Dirichlett condition, temp = btemp
          a(n) =  - chistar / (cdsig(n)*fdsig(n+1))
          b(n) = thcknew + 3. * chistar / (cdsig(n)*fdsig(n+1))
@@ -183,7 +189,7 @@ module glunnamed
          r(n) =  thckold * temp(n) +  rhs(n) + &
               2. * btemp * chistar / (cdsig(n)*fdsig(n))
       else
-         !grounded ice above pressure melting point, 
+         !ice above pressure melting point, 
          !heat flux condition
          a(n) =  - chistar / (cdsig(n)*fdsig(n+1))
          b(n) = thcknew - a(n)
@@ -203,7 +209,7 @@ module glunnamed
 
        do i = 1, n
            tpmp = trpt - pmlt * rhoi * grav * thcknew * 0.5*(fsig(i) + fsig(i+1)) - eps
-           if (temp(n) .ge. tpmp) temp(n) = tpmp 
+           if (temp(i) .ge. tpmp) temp(i) = tpmp 
        end do
 
 
@@ -214,7 +220,7 @@ end module glunnamed
 
 
 
-subroutine tarmac_update_temperature(temp, stemp, btemp, flot, &
+subroutine tarmac_update_temperature(temp, stemp, btemp, mask, &
      bflux, rhs, thckold, thcknew, usig, fsig, dsig, time, dt, n)
 
   !update the mid-layer temperarures temp, surface temparature
@@ -232,22 +238,29 @@ subroutine tarmac_update_temperature(temp, stemp, btemp, flot, &
   real(kind=8), dimension(1:n+1), intent(inout) :: usig,fsig
   real(kind=8), intent(inout) :: stemp,btemp
   real(kind=8), intent(in) :: time,dt,thckold,thcknew,bflux
-  logical, intent(in) :: flot
+  integer, intent(in) :: mask
   !locals
   real(kind=8), dimension(1:n+1) :: lthck
   real(kind=8) :: chi
   
   integer l
  
-  chi = coni/(shci * rhoi) *  scyr 
-  lthck(1:n) = 0.5*(thcknew+thckold) * dsig(1:n)
-  lthck(1:n) = dsig(1:n)
-  !modify rhs to include interlayer advection across constant sigma faces
-  call sigma_advect(rhs, temp, stemp, btemp, usig , &
-       lthck, fsig, dt, flot,  n)
-  !compute vertical diffusion & update the basal temperature
-  call fo_diffusive_advance(temp, stemp, btemp, bflux, rhs, chi, &
-       thckold, thcknew,fsig,dt,flot,n)
+  if ((mask.eq.groundedmaskval).or.(mask.eq.floatingmaskval)) then
+     chi = coni/(shci * rhoi) *  scyr 
+     lthck(1:n) = 0.5*(thcknew+thckold) * dsig(1:n)
+     lthck(1:n) = dsig(1:n)
+     !modify rhs to include interlayer advection across constant sigma faces
+     call sigma_advect(rhs, temp, stemp, btemp, usig , &
+          lthck, fsig, dt, mask,  n)
+     !compute vertical diffusion & update the basal temperature
+     !chi = 0.0d0;
+     call fo_diffusive_advance(temp, stemp, btemp, bflux, rhs, chi, &
+          thckold, thcknew,fsig,dt,mask,n)
+  else
+     !no ice
+     temp = stemp
+     btemp = stemp
+  end if
 
 end subroutine tarmac_update_temperature
 
@@ -286,11 +299,13 @@ subroutine tarmac_compute_zvel(uz,uzs,usig,ux,uy, divhu, &
   gft(1:n+1) = (dst-fsig(1:n+1)*dht)
 
   !velocity at the base
-  uz(n+1) = gft(n+1) + ux(n+1)*gfx(n+1) + uy(n+1)*gfy(n+1) - bmb
-  usig(n+1) =  + bmb - gft(n+1)
+  uz(n+1) =  gft(n+1) + ux(n+1)*gfx(n+1) + uy(n+1)*gfy(n+1) + bmb
+  usig(n+1) =  - bmb + gft(n+1)
 
   !velocity at the surface
   uzs = dst + ux(1)*dsx + uy(1)*dsy - smb
+
+  
 
   !integration
   do i = n , 1, -1
@@ -300,6 +315,7 @@ subroutine tarmac_compute_zvel(uz,uzs,usig,ux,uy, divhu, &
      
      !u^{\sigma}
      usig(i) =  usig(i+1) + (divhu(i) + dht)*dsig(i)
+     
   end do
- 
+  
 end subroutine tarmac_compute_zvel

@@ -2269,6 +2269,7 @@ AmrIce::timeStep(Real a_dt)
         } // end loop over levels
       
 
+
       //include any diffusive fluxes
       if (m_evolve_thickness && m_diffusionTreatment == IMPLICIT)
 	{
@@ -2277,6 +2278,10 @@ AmrIce::timeStep(Real a_dt)
 	  implicitThicknessCorrection(a_dt, m_surfaceThicknessSource,  m_basalThicknessSource);
 	}
       
+
+      
+
+
       // average down thickness to coarser levels and fill in ghost cells
       // before calling recomputeGeometry. 
       int Hghost = 2;
@@ -2412,21 +2417,13 @@ AmrIce::timeStep(Real a_dt)
 	  levelCoords.recomputeGeometry(crseCoords, refRatio);            
         }
      
-      
 
-
-      // updateSurfaceGradient(m_vect_coordSys, m_amrGrids, 
-      // 			    m_amrDomains, m_refinement_ratios, 
-      // 			    m_amrDx, m_basalSlope, m_time, m_dt,
-      // 			    (m_limitVelRHS)?m_gradLimitRadius:0,
-      // 			    0, m_finest_level, m_thicknessIBCPtr);
-
+      //original location
       if (!m_isothermal)
-	updateTemperature(layerTH_half, layerH_half, m_layerXYFaceXYVel,
-			  m_layerSFaceXYVel,  a_dt, m_time,
-			  m_vect_coordSys, vectCoords_old, 
-			  m_surfaceThicknessSource, m_basalThicknessSource);
-      
+      	updateTemperature(layerTH_half, layerH_half, m_layerXYFaceXYVel,
+      			  m_layerSFaceXYVel,  a_dt, m_time,
+      			  m_vect_coordSys, vectCoords_old, 
+      			  m_surfaceThicknessSource, m_basalThicknessSource);
 
       // clean up temp storage
       for (int lev=0; lev<=m_finest_level; lev++)
@@ -7706,21 +7703,40 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 {
 
   //update the temperature fields, 2D case
+#ifdef TARMAC
   Vector<LevelData<FluxBox>* > vectLayerFluxes(m_finest_level+1, NULL);
+  Vector<LevelData<FluxBox>* > vectLayerThicknessFluxes(m_finest_level+1, NULL);
+  Vector<LevelData<FArrayBox>* > vectUSigma(m_finest_level+1, NULL);
+  Vector<LevelData<FArrayBox>* > vectDivUHxy(m_finest_level+1, NULL);
+
   for (int lev=0; lev<=m_finest_level; lev++)
     {
       LevelData<FluxBox>& levelXYFaceXYVel = *a_layerXYFaceXYVel[lev];
       LevelData<FluxBox>& levelFaceTH = *a_layerTH_half[lev];
-      
+      LevelData<FluxBox>& levelFaceH = *a_layerH_half[lev];
       IntVect ghostVect = IntVect::Unit;//CoarseAverageFace requires a ghost cell
+
+      vectUSigma[lev] = new LevelData<FArrayBox>
+	(m_amrGrids[lev], m_nLayers + 1 , IntVect::Zero);
+       
+      vectDivUHxy[lev] = new LevelData<FArrayBox>
+	(m_amrGrids[lev], m_nLayers + 1 , ghostVect);
+     
       vectLayerFluxes[lev] = new LevelData<FluxBox>
 	(m_amrGrids[lev], levelXYFaceXYVel.nComp() , ghostVect);
+
+      vectLayerThicknessFluxes[lev] = new LevelData<FluxBox>
+	(m_amrGrids[lev], levelXYFaceXYVel.nComp() , ghostVect);
+
       const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
       for (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	{
 	  FluxBox& faceVel = levelXYFaceXYVel[dit];
 	  FluxBox& faceTH = levelFaceTH[dit];
+	  FluxBox& faceH = levelFaceH[dit];
 	  FluxBox& flux = (*vectLayerFluxes[lev])[dit];
+	  FluxBox& thicknessFlux = (*vectLayerThicknessFluxes[lev])[dit];
+
 	  const Box& gridBox = levelGrids[dit];
 	  for (int dir=0; dir<SpaceDim; dir++)
 	    {
@@ -7729,6 +7745,10 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	      flux[dir].copy(faceTH[dir], faceBox);
 	      flux[dir].mult(faceVel[dir], faceBox, 0, 0, faceVel[dir].nComp());
 	      CH_assert(flux[dir].norm(faceBox,0) < HUGE_NORM);
+
+	      thicknessFlux[dir].copy(faceH[dir],faceBox);
+	      thicknessFlux[dir].mult(faceVel[dir], faceBox, 0, 0, faceVel[dir].nComp());
+	      CH_assert(thicknessFlux[dir].norm(faceBox,0) < HUGE_NORM);
 	    }
 	}
     }
@@ -7738,38 +7758,20 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
       CoarseAverageFace faceAverager(m_amrGrids[lev],
 				     vectLayerFluxes[lev]->nComp(), m_refinement_ratios[lev-1]);
       faceAverager.averageToCoarse(*vectLayerFluxes[lev-1], *vectLayerFluxes[lev]);
+      faceAverager.averageToCoarse(*vectLayerThicknessFluxes[lev-1], *vectLayerThicknessFluxes[lev]);
     }
+ 
 
-      
-
-  // compute rhs =a_dt *(H*dissipation - div(u H T)) and update solution
-  for (int lev=0; lev<= m_finest_level; lev++)
+     
+  //vertical and cross-layer velocity components (u[z] and u^sigma)
+  for (int lev=0; lev <= m_finest_level; lev++)
     {
-	  
       DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-      LevelData<FluxBox>& levelFlux = *vectLayerFluxes[lev];
+     
       LevelSigmaCS& levelCoordsNew = *(a_coordSysNew[lev]);
       LevelSigmaCS& levelCoordsOld = *(a_coordSysOld[lev]);
-      LevelData<FArrayBox>& levelOldT = *m_temperature[lev];
-      LevelData<FArrayBox> dissipation(levelGrids,m_nLayers,IntVect::Zero);
-      //dissipation.define(levelOldT);
-      //we really ought to compute this with T_half, but for now..
-      LevelData<FArrayBox>* crseVelPtr = NULL;
-      int nRefCrse = -1;
-      if (lev > 0)
-        {
-          crseVelPtr = m_velocity[lev-1];
-          nRefCrse = m_refinement_ratios[lev-1];
-        }
-      m_constitutiveRelation->computeDissipation
-	(dissipation,*m_velocity[lev],  crseVelPtr,
-	 nRefCrse, *m_A[lev],
-	 levelCoordsOld , m_amrDomains[lev], IntVect::Zero);
-						 
+      const Vector<Real>& dSigma = levelCoordsNew.getDSigma();
 
-      // grad(H) will be needed to evaulate metric terms Hg^{i\sigma},
-      // perhaps this ought to live in LevelSigmaCS
-	  
       LevelData<FArrayBox> levelGradHNew(m_amrGrids[lev], SpaceDim, IntVect::Zero);
       computeCCDerivatives(levelGradHNew, levelCoordsNew.getH(), levelCoordsNew,
 			   Interval(0,0),Interval(0,SpaceDim-1));
@@ -7777,284 +7779,286 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
       computeCCDerivatives(levelGradHOld, levelCoordsOld.getH(), levelCoordsOld,
 			   Interval(0,0),Interval(0,SpaceDim-1));
 
-      const RealVect& dx = levelCoordsNew.dx(); 
+
       for (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	{
+	  const Box& box = levelGrids[dit];
+	   
+	  // this copy perhaps indicates layer should run faster than
+	  // dir in sFaceXYVel, but for now ...
+	  const FArrayBox& sFaceXYVel = (*a_layerSFaceXYVel[lev])[dit];
+	  FArrayBox uX(box, m_nLayers+1);
+	  FArrayBox uY(box, m_nLayers+1);
+	  
+	  for (int l = 0; l < m_nLayers+1; l++)
+	    {
+	      uX.copy(sFaceXYVel, l*SpaceDim, l);
+	      uY.copy(sFaceXYVel, l*SpaceDim + 1, l);
+	    }
+
+	  FArrayBox& oldH = levelCoordsOld.getH()[dit];
+	  FArrayBox& newH = levelCoordsNew.getH()[dit];
+	  //cell centered thickness at t + dt/2
+	  FArrayBox Hhalf(box, 1);
+	  Hhalf.copy(oldH);
+	  Hhalf.plus(newH);
+	  Hhalf *= 0.5;
+
+	  //cell centered grad(thickness) at t + dt/2
+	  FArrayBox gradH(box, SpaceDim);
+	  gradH.copy(levelGradHNew[dit]);
+	  gradH.plus(levelGradHOld[dit]);
+	  gradH*=0.5;
+
+	  //cell centered grad(surface) at t + dt/2
+	  FArrayBox gradS(box, SpaceDim);
+	  gradS.copy(levelCoordsOld.getGradSurface()[dit]);
+	  gradS.plus(levelCoordsNew.getGradSurface()[dit]);
+	  gradS*=0.5;
+
+	   //horizontal contribution to div(Hu) at cell centres, 
+	  // viz d(Hu_x)/dx' + d(Hu_y)/dy'
+	  FArrayBox divUHxy(box, m_nLayers);
+	  {
+	    divUHxy.setVal(0.0);
+	    const FluxBox& thisU = (*a_layerXYFaceXYVel[lev])[dit];
+	    const FluxBox& faceHNew =levelCoordsNew.getFaceH()[dit];
+	    const FluxBox& faceHOld =levelCoordsOld.getFaceH()[dit];
+	    const RealVect& dx = levelCoordsNew.dx(); 
+	    for (int dir =0; dir < SpaceDim; dir++)
+	      {
+		// FArrayBox uH(thisU[dir].box(),m_nLayers);
+		// for (int l = 0; l < m_nLayers; ++l)
+		//   {
+		//     uH.copy( (*a_layerH_half[lev])[dit][dir],l,l);
+		//   }
+
+		// uH *= thisU[dir];
+		const FArrayBox& uH = (*vectLayerThicknessFluxes[lev])[dit][dir];
+		FORT_DIVERGENCE(CHF_CONST_FRA(uH),
+				CHF_FRA(divUHxy),
+				CHF_BOX(box),
+				CHF_CONST_REAL(dx[dir]),
+				CHF_INT(dir));
+	      }
+	  }
+
+	  //dH / dt
+	  FArrayBox dHdt(box,1);  
+	  dHdt.copy(newH);
+	  dHdt.plus(oldH,-1.0,0,0,1);
+	  dHdt *= 1.0/a_dt;
+	    
+	  //calculation of dS/dt assumes surface elevation is up to date
+	  //in LevelSigmaCS
+	  FArrayBox dSdt(box,1); 
+	  dSdt.copy(levelCoordsNew.getSurfaceHeight()[dit]);
+	  dSdt -= levelCoordsOld.getSurfaceHeight()[dit];
+	  dSdt *= 1.0/a_dt;
+
+	  //basal thickness source
+	  const FArrayBox& bts = (*a_basalThicknessSource[lev])[dit];
+	  //surface thickness source
+	  const FArrayBox& sts = (*a_surfaceThicknessSource[lev])[dit];
+
+	  // z-component of velocity at layer faces
+	  FArrayBox uZ(box,m_nLayers + 1); 
+	  // sigma-componnet of velocity at layer faces
+	  FArrayBox& uSigma = (*vectUSigma[lev])[dit]; 
+	  // z-component of velocity at surface 
+	  FArrayBox uZs(box, 1);
+	  //divUHxy.setVal(0.0);
+	  int nLayers = m_nLayers;
+	  uSigma.setVal(0.0);
+	  FORT_COMPUTEZVEL(CHF_FRA(uZ),
+			   CHF_FRA1(uZs,0),
+			   CHF_FRA(uSigma),
+			   CHF_CONST_FRA(uX),
+			   CHF_CONST_FRA(uY),
+			   CHF_CONST_FRA(divUHxy),
+			   CHF_CONST_VR(levelCoordsNew.getFaceSigma()),
+			   CHF_CONST_VR(levelCoordsNew.getSigma()),
+			   CHF_CONST_VR(dSigma),
+			   CHF_CONST_FRA1(Hhalf,0),
+			   CHF_CONST_FRA1(gradS,0), 
+			   CHF_CONST_FRA1(gradH,0),
+			   CHF_CONST_FRA1(gradS,1), 
+			   CHF_CONST_FRA1(gradH,1),
+			   CHF_CONST_FRA1(dSdt,0), 
+			   CHF_CONST_FRA1(dHdt,0),
+			   CHF_CONST_FRA1(sts,0),
+			   CHF_CONST_FRA1(bts,0),
+			   CHF_CONST_INT(nLayers),
+			   CHF_BOX(box));
+
+	  CH_assert(uSigma.norm(0) < HUGE_NORM);
+
+	} //end compute vertical velocity loop over boxes
+
+      vectUSigma[lev]->exchange();
+
+    }//end compute vertical velocity loop over levels
+
+
+  // compute rhs =a_dt *(H*dissipation - div(u H T)) and update solution
+  for (int lev=0; lev <= m_finest_level; lev++)
+    {
+      DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+      LevelData<FluxBox>& levelFlux = *vectLayerFluxes[lev];
+      LevelSigmaCS& levelCoordsOld = *(a_coordSysOld[lev]);
+      LevelSigmaCS& levelCoordsNew = *(a_coordSysNew[lev]);
+      const Vector<Real>& dSigma = levelCoordsNew.getDSigma();
+      //caculate dissipation due to internal stresses
+      LevelData<FArrayBox> dissipation(levelGrids,m_nLayers,IntVect::Zero);
+      {
+	LevelData<FArrayBox>* crseVelPtr = NULL;
+	int nRefCrse = -1;
+	if (lev > 0)
+	  {
+	    crseVelPtr = m_velocity[lev-1];
+	    nRefCrse = m_refinement_ratios[lev-1];
+	  }
+	m_constitutiveRelation->computeDissipation
+	  (dissipation,*m_velocity[lev],  crseVelPtr,
+	   nRefCrse, *m_A[lev],
+	   levelCoordsOld , m_amrDomains[lev], IntVect::Zero);
+      }
+      
+      for (DataIterator dit(levelGrids); dit.ok(); ++dit)
+	{
+	  const Box& box = levelGrids[dit];
+	  const FArrayBox& oldH = levelCoordsOld.getH()[dit];
+	  const FArrayBox& newH = levelCoordsNew.getH()[dit];
+	  FArrayBox& T = (*m_temperature[lev])[dit];
+	  FArrayBox& sT = (*m_sTemperature[lev])[dit];	
+	  FArrayBox& bT = (*m_bTemperature[lev])[dit];
+
 
 	  // first, do the ordinary fluxes : if we just had
 	  // horizontal advection and grad(H) = grad(S) = 0., 
 	  // this would be the lot
 	       
-	  const Box& gridBox = levelGrids[dit];
-	  FArrayBox& oldT = levelOldT[dit];
-	  FArrayBox& oldH = levelCoordsOld.getH()[dit];
-	  FArrayBox& newH = levelCoordsNew.getH()[dit];
-	  FArrayBox Hhalf(gridBox, 1);
-	  Hhalf.copy(oldH);
-	  Hhalf.plus(newH);
-	  Hhalf *= 0.5;
-
-	  FArrayBox rhs(gridBox, oldT.nComp());
+	  FArrayBox rhs(box, m_nLayers);
 	  rhs.setVal(0.0);
-
-	  // horizontal fluxes across faces with constant x or y (usual terms)
-	  FluxBox& thisFlux = levelFlux[dit];
 	  for (int dir=0; dir<SpaceDim; dir++)
 	    {
-	      FORT_DIVERGENCE(CHF_CONST_FRA(thisFlux[dir]),
+	      const Real& dx = levelCoordsOld.dx()[dir];              
+
+	      FORT_DIVERGENCE(CHF_CONST_FRA(levelFlux[dit][dir]),
 			      CHF_FRA(rhs),
-			      CHF_BOX(gridBox),
-			      CHF_CONST_REAL(dx[dir]),
-			      CHF_INT(dir));
-	     
-		
+			      CHF_BOX(box),
+			      CHF_CONST_REAL(dx),
+			      CHF_INT(dir));	
 	    }
-	  CH_assert(rhs.norm(0) < HUGE_NORM);
 	  for (int layer = 0; layer < dissipation.nComp(); ++layer)
 	    {
 	      dissipation[dit].mult(newH,0,layer,1);
-	      dissipation[dit].mult(1.0/(iceheatcapacity * levelCoordsNew.iceDensity()));
-	      //CH_assert(dissipation[dit].norm(0) < 10.0);
-	      //pout() << dissipation[dit].max(layer) 
-	      //	     << " > H Phi > " 
-	      //	     << dissipation[dit].min(layer) << std::endl;
+	      dissipation[dit].mult(1.0/(iceheatcapacity * levelCoordsOld.iceDensity()));
 	    } 
-
 	  rhs -= dissipation[dit]; 
 	  rhs *= -a_dt;
-	  CH_assert(rhs.norm(0) < HUGE_NORM);
-#ifdef TARMAC
-	  {
-	    CH_assert(SpaceDim == 2); // we'll probably never care about 1D
 
-	    FArrayBox gradH(rhs.box(), SpaceDim);
-	    gradH.copy(levelGradHNew[dit]);
-	    gradH.plus(levelGradHOld[dit]);
-	    gradH*=0.5;
-	    
-	    FArrayBox gradS(rhs.box(), SpaceDim);
-	    gradS.copy(levelCoordsOld.getGradSurface()[dit]);
-	    gradS.plus(levelCoordsNew.getGradSurface()[dit]);
-	    gradS*=0.5;
-	    
-	    const FArrayBox& sFaceXYVel = (*a_layerSFaceXYVel[lev])[dit];
-		 
-	    // this copy perhaps indicates layer should run faster than
-	    // dir in sFaceXYVel, but for now ...
-	    FArrayBox uX(rhs.box(), m_nLayers+1);
-	    FArrayBox uY(rhs.box(), m_nLayers+1);
-		 
-	    for (int l = 0; l < m_nLayers+1; l++)
-	      {
-		uX.copy(sFaceXYVel, l*SpaceDim, l);
-		uY.copy(sFaceXYVel, l*SpaceDim + 1, l);
-	      }
-
-	    const Vector<Real>& dSigma = levelCoordsNew.getDSigma();
-	    FArrayBox& sT = (*m_sTemperature[lev])[dit];
-	    FArrayBox& bT = (*m_bTemperature[lev])[dit];
-	    Real time = a_time; Real dt = a_dt;
-	    int n = m_nLayers;
-		 
-	   
-
-	    //horizontal contribution to div(Hu) at cell centres, 
-            // viz d(Hu_x)/dx' + d(Hu_y)/dy'
-	    FArrayBox divUHxy(rhs.box(), m_nLayers);
-	    divUHxy.setVal(0.0);
-	   
-	    
-	    const FluxBox& thisU = (*a_layerXYFaceXYVel[lev])[dit];
-	    const FluxBox& faceHNew =levelCoordsNew.getFaceH()[dit];
-	    const FluxBox& faceHOld =levelCoordsOld.getFaceH()[dit];
-	      
-	    for (int dir =0; dir < SpaceDim; dir++)
-	      {
-		FArrayBox uH(thisU[dir].box(),m_nLayers);
-		for (int l = 0; l < m_nLayers; ++l)
-		  {
-		    uH.copy( (*a_layerH_half[lev])[dit][dir],l,l);
-		    
-		    //uH.copy(faceHOld[dir],0,l);
-		    //uH.plus(faceHNew[dir],0,l);
-		  }
-		//uH *= 0.5;
-		uH *= thisU[dir];
-		FORT_DIVERGENCE(CHF_CONST_FRA(uH),
-				CHF_FRA(divUHxy),
-				CHF_BOX(rhs.box()),
-				CHF_CONST_REAL(dx[dir]),
-				CHF_INT(dir));
-		
-	
-	      }
 	  
-	    
+	  //compute heat flux across base due to basal dissipation
+	  FArrayBox basalHeatFlux(rhs.box(),1);
+	  m_basalFrictionRelation->computeDissipation
+	    (basalHeatFlux , (*m_velocity[lev])[dit] , levelCoordsOld.getThicknessOverFlotation()[dit],
+	     (*m_velBasalC[lev])[dit], levelCoordsNew.getFloatingMask()[dit],rhs.box());
+	  basalHeatFlux /= (iceheatcapacity * levelCoordsNew.iceDensity());
 
-	    //basal thickness source
-	    FArrayBox& bts = (*a_basalThicknessSource[lev])[dit];
-	    //surface thickness source
-	    const FArrayBox& sts = (*a_surfaceThicknessSource[lev])[dit];
+	  // \todo add geothermal heat here
 
-	    FArrayBox sumdivUH(rhs.box(),1);
-	   
-	    sumdivUH.setVal(0.0);
-	   
-	    for (int l = 0; l < m_nLayers; ++l){
-	      sumdivUH.plus(divUHxy,dSigma[l],l,0,1);
-	      
-	    }
-	    
+	  //solve H(t+dt)T(t+dt) + vertical transport terms = H(t)T(t) - rhs(t+/dt)
+          //with a Dirichlett boundary condition at the upper surface and a flux condition at base
+	 
+	  Real halftime = time() + 0.5*a_dt;
+	  int nLayers = m_nLayers;
+	  FORT_UPDATETEMPERATURE
+	       (CHF_FRA(T), 
+		CHF_FRA1(sT,0), 
+		CHF_FRA1(bT,0),
+		CHF_CONST_FRA1(basalHeatFlux,0),
+		CHF_CONST_FIA1(levelCoordsOld.getFloatingMask()[dit],0),
+		CHF_CONST_FIA1(levelCoordsNew.getFloatingMask()[dit],0),
+		CHF_CONST_FRA(rhs),
+		CHF_CONST_FRA1(oldH,0),
+		CHF_CONST_FRA1(newH,0),
+		CHF_CONST_FRA((*vectUSigma[lev])[dit]),
+		CHF_CONST_VR(levelCoordsOld.getFaceSigma()),
+		CHF_CONST_VR(dSigma),
+		CHF_CONST_REAL(halftime), 
+		CHF_CONST_REAL(a_dt),
+		CHF_CONST_INT(nLayers),
+		CHF_BOX(box));
+	  
+	  
+	} // end update temperature loop over grids
+    } // end update temperature loop over levels
+  
 
-	     
-	    FArrayBox dHdta(rhs.box(),1);  
-	    dHdta.copy(newH);
-	    dHdta.plus(oldH,-1.0,0,0,1);
-	    dHdta *= 1.0/a_dt;
-
-	    //sumdivUH += dHdt;
-	    
-	    
-	    FArrayBox dHdtb(rhs.box(),1); 
-	    dHdtb.copy(sumdivUH);
-	    dHdtb*=-1;
-	    dHdtb+=sts;
-	    dHdtb+=bts;
-	      
-	    FArrayBox tmp(rhs.box(),1);
-	    tmp.copy(dHdta);
-	    tmp -= dHdtb;
-
-	    pout() << "err dHdt = " <<  tmp.norm(0) << std::endl;
-
-	    //calculation of dSdt assumes surface elevation is up to date
-            //in LevelSigmaCS
-	    FArrayBox dSdt(rhs.box(),1); 
-	    dSdt.copy(levelCoordsNew.getSurfaceHeight()[dit]);
-	    dSdt -= levelCoordsOld.getSurfaceHeight()[dit];
-	    dSdt *= 1.0/a_dt;
-
-	    // z-component of velocity at layer faces
-	    FArrayBox uZ(rhs.box(),m_nLayers + 1); 
-	    // sigma-component of velocity at layer faces
-	    FArrayBox uSigma(rhs.box(),m_nLayers + 1); 
-	    // z-component of velocity at surface (by bc)
-	    FArrayBox uZs(rhs.box(), 1);
-
-	    FORT_COMPUTEZVEL(CHF_FRA(uZ),
-			     CHF_FRA1(uZs,0),
-			     CHF_FRA(uSigma),
-			     CHF_CONST_FRA(uX),
-			     CHF_CONST_FRA(uY),
-			     CHF_CONST_FRA(divUHxy),
-			     CHF_CONST_VR(levelCoordsNew.getFaceSigma()),
-			     CHF_CONST_VR(levelCoordsNew.getSigma()),
-			     CHF_CONST_VR(dSigma),
-			     CHF_CONST_FRA1(Hhalf,0),
-			     CHF_CONST_FRA1(gradS,0), 
-			     CHF_CONST_FRA1(gradH,0),
-			     CHF_CONST_FRA1(gradS,1), 
-			     CHF_CONST_FRA1(gradH,1),
-			     CHF_CONST_FRA1(dSdt,0), 
-			     CHF_CONST_FRA1(dHdta,0),
-			     CHF_CONST_FRA1(sts,0),
-			     CHF_CONST_FRA1(bts,0),
-			     CHF_INT(n),
-			     CHF_BOX(rhs.box()));
-
-	    
-	     if (s_verbosity > 3)
-	       {
-		 FArrayBox differ(rhs.box(), 1);
-		 differ.copy(uZs);
-		 differ.minus(uZ,0,0,1);
-		 pout() 
-		   << " max | u_z( integrated)| = " 
-		   << uZ.norm(0)
-		   << " max | u_z(surface, integrated) - u_z(surface, bc)| = " 
-		   << differ.norm(0) 
-		   << " max | u^sigma( integrated)| = " 
-		   << uSigma.norm(0)
-		   << std::endl;
-	       }
-
-	     //compute heat flux across base due to basal dissipation & geothermal heat 
-	     FArrayBox basalHeatFlux(rhs.box(),1);
-	     m_basalFrictionRelation->computeDissipation
-	       (basalHeatFlux , (*m_velocity[lev])[dit] , (*m_velBasalC[lev])[dit], rhs.box());
-	     CH_assert(0.0 <=  basalHeatFlux.min() &&  basalHeatFlux.max() < HUGE_NORM);
-	     basalHeatFlux /= (iceheatcapacity * levelCoordsNew.iceDensity());
-	     pout() << basalHeatFlux.max() << " > bflux > " << basalHeatFlux.min() << std::endl;
-	     // update the layer, surface, and base temperature 
-	     FORT_UPDATETEMPERATURE(CHF_FRA(oldT), 
-				    CHF_FRA1(sT,0), 
-				    CHF_FRA1(bT,0),
-				    CHF_FRA1(basalHeatFlux,0),
-				    CHF_CONST_FIA1(levelCoordsNew.getFloatingMask()[dit],0),
-				    CHF_CONST_FRA(rhs),
-				    CHF_CONST_FRA1(oldH,0),
-				    CHF_CONST_FRA1(newH,0),
-				    CHF_CONST_FRA(uSigma),
-				    CHF_CONST_VR(levelCoordsNew.getFaceSigma()),
-				    CHF_CONST_VR(dSigma),
-				    CHF_REAL(time), 
-				    CHF_REAL(dt),
-				    CHF_INT(n),
-				    CHF_BOX(rhs.box()));
-
-	     CH_assert(0.0 < oldT.min(rhs.box()) &&  oldT.max(rhs.box()) < triplepoint); 
-
-
-	  }
-#endif
-
-	}
-    }
- 
-   if ( m_basalLengthScale > TINY_NORM ){
-  //smoothing...
-     helmholtzSolve(m_temperature,Real(1.0),std::pow(m_basalLengthScale,2));
-   }
+  
+  if ( m_basalLengthScale > TINY_NORM ){
+    //smoothing...
+    helmholtzSolve(m_temperature,Real(1.0),std::pow(m_basalLengthScale,2));
+  }
      
    //coarse average from finer levels & exhange
-   for (int lev = m_finest_level; lev >= 0 ; --lev)
-   {
-     if (lev > 0)
-       {
-	 CoarseAverage an(m_amrGrids[lev],
-			  m_temperature[lev]->nComp(),
-			  m_refinement_ratios[lev-1]);
-	 
-	 an.averageToCoarse(*m_temperature[lev-1], *m_temperature[lev]);
-	 
-	 CoarseAverage aone(m_amrGrids[lev],
-			    1,m_refinement_ratios[lev-1]);
-
-	 aone.averageToCoarse(*m_sTemperature[lev-1], *m_sTemperature[lev]);
-	 aone.averageToCoarse(*m_bTemperature[lev-1], *m_bTemperature[lev]);
-
-       }
-
-
-     m_temperature[lev]->exchange();
-     m_sTemperature[lev]->exchange();
-     m_bTemperature[lev]->exchange();
-   }
-
+  for (int lev = m_finest_level; lev >= 0 ; --lev)
+    {
+      if (lev > 0)
+	{
+	  CoarseAverage avN(m_amrGrids[lev],
+			    m_amrGrids[lev-1],
+			    m_temperature[lev]->nComp(),
+			    m_refinement_ratios[lev-1], 
+			    IntVect::Zero);
+	  
+	  
+	  
+	  avN.averageToCoarse(*m_temperature[lev-1], *m_temperature[lev]);
+	
+	  
+	  CoarseAverage avOne(m_amrGrids[lev],m_amrGrids[lev-1],
+			      1,m_refinement_ratios[lev-1], IntVect::Zero);
+	  
+	  avOne.averageToCoarse(*m_sTemperature[lev-1], *m_sTemperature[lev]);
+	  avOne.averageToCoarse(*m_bTemperature[lev-1], *m_bTemperature[lev]);
+	  
+	}
+      
+      
+      m_temperature[lev]->exchange();
+      m_sTemperature[lev]->exchange();
+      m_bTemperature[lev]->exchange();
+    }
+  
   for (int lev = 0; lev < vectLayerFluxes.size(); ++lev)
     {
-      
+      if (vectUSigma[lev] != NULL)
+	{
+	  delete vectUSigma[lev]; vectUSigma[lev] = NULL;
+	}
+
+      if (vectDivUHxy[lev] != NULL)
+	{
+	  delete  vectDivUHxy[lev]; vectDivUHxy[lev] = NULL;
+	}
 
       if (vectLayerFluxes[lev] != NULL)
 	{
-	  delete vectLayerFluxes[lev];
-	  vectLayerFluxes[lev] = NULL;
+	  delete vectLayerFluxes[lev];vectLayerFluxes[lev] = NULL;
 	}
+
+      if (vectLayerThicknessFluxes[lev] != NULL)
+	{
+	  delete vectLayerThicknessFluxes[lev];vectLayerThicknessFluxes[lev] = NULL;
+	}
+
     }
 
   //finally, A is no longer valid 
   m_A_valid = false;
-  
+#endif
 
 }
 #endif

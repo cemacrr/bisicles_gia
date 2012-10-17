@@ -14,7 +14,7 @@ $(OBJS): %.o : %.f90
 	$(FC) $(FFLAGS) -c $< -o $@
 
 $(LIB): $(OBJS)
-	ar crus $@ $< && rm -f ../../exec2D/driver2d*ex
+	ar crus $@ $< 
 
 .PHONY: all clean
 

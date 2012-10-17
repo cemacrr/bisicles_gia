@@ -18,7 +18,14 @@ TARMACDIR=../interface/libtarmac
 XTRALIBFLAGS += -L$(TARMACDIR) -ltarmac
 XTRACPPFLAGS += -DTARMAC
 endif
-
+ifeq ($(TARMAC),TRUE)
+all:  $(TARMACDIR)/libtarmac.a all-example
+$(TARMACDIR)/libtarmac.a: $(TARMACDIR)/tarmac.f90
+	$(RM) $(patsubst %,%$(config).ex,$(ebase)); \
+	echo $(TARMACDIR)
+	cd $(TARMACDIR); \
+	$(MAKE) all
+endif
 ##
 ## names of Chombo libraries needed by this program, in order of search.
 ##
@@ -46,13 +53,7 @@ LIBFLAGS+=$(PYTHON_LIBS)
 endif
 
 
-ifeq ($(TARMAC),TRUE)
-all:  $(TARMACDIR)/libtarmac.a all-example
-$(TARMACDIR)/libtarmac.a: $(TARMACDIR)/tarmac.f90
-	$(RM) $(patsubst %,%$(config).ex,$(ebase)); \
-	cd $(TARMACDIR); \
-	$(MAKE) all
-endif
+
 
 ifeq ($(DEBUG), TRUE)
 # petermc, 12 Oct 2007:  never set XTRACPPFLAGS in makefile

@@ -727,7 +727,7 @@ c -------------------------------------------------------------
      &     CHF_CONST_FRA1[dht],     
      &     CHF_CONST_FRA1[smb],
      &     CHF_CONST_FRA1[bmb],
-     &     CHF_INT[nlay],
+     &     CHF_CONST_INT[nlay],
      &     CHF_BOX[box])
 
       Real_T coldivuhxy(0:nlay-1)
@@ -777,17 +777,18 @@ c ---------------------------------------------------------------
      &     CHF_FRA[temp],
      &     CHF_FRA1[stemp],
      &     CHF_FRA1[btemp],
-     &     CHF_FRA1[bflux],
-     &     CHF_CONST_FIA1[floatingMask],
+     &     CHF_CONST_FRA1[bflux],
+     &     CHF_CONST_FIA1[floatingMaskOld],
+     &     CHF_CONST_FIA1[floatingMaskNew],
      &     CHF_CONST_FRA[rhs],
      &     CHF_CONST_FRA1[thckold],
      &     CHF_CONST_FRA1[thcknew],
      &     CHF_CONST_FRA[usig], 
      &     CHF_CONST_VR[sigma],
      &     CHF_CONST_VR[dsigma],     
-     &     CHF_REAL[time],
-     &     CHF_REAL[dt],
-     &     CHF_INT[nlay],
+     &     CHF_CONST_REAL[time],
+     &     CHF_CONST_REAL[dt],
+     &     CHF_CONST_INT[nlay],
      &     CHF_BOX[box])
           
       Real_T coltemp(0:nlay-1), colrhs(0:nlay-1)
@@ -795,7 +796,7 @@ c ---------------------------------------------------------------
 
       integer CHF_AUTODECL[i]
       integer layer
-      logical flot
+      integer mask
 
       CHF_AUTOMULTIDO[box; i]
 c     this is pretty inefficient, but needed because spatial indices run fastest in FABS
@@ -808,10 +809,15 @@ c     this is pretty inefficient, but needed because spatial indices run fastest
       end do
       
 c     call ice floating if it is nor grounded (ie open sea or floating)
-      flot = (floatingMask(CHF_AUTOIX[i]) .ne. GROUNDEDMASKVAL)
+      mask = floatingMaskOld(CHF_AUTOIX[i])
+
+      if (floatingMaskNew(CHF_AUTOIX[i]).eq.FLOATINGMASKVAL) then
+         mask = FLOATINGMASKVAL
+      end if
 
       call tarmac_update_temperature(coltemp, stemp(CHF_AUTOIX[i]),
-     &     btemp(CHF_AUTOIX[i]), flot, bflux(CHF_AUTOIX[i]), colrhs, 
+     &     btemp(CHF_AUTOIX[i]), mask,
+     &     bflux(CHF_AUTOIX[i]), colrhs,  
      &     thckold(CHF_AUTOIX[i]),  thcknew(CHF_AUTOIX[i]),
      &     colusig, sigma, dsigma, time, dt, nlay)   
 
