@@ -19,7 +19,7 @@
 #define _LEVELDATATEMPERATUREIBC_H_
 
 #include "IceTemperatureIBC.H"
-
+#include "ParmParse.H"
 #include "NamespaceHeader.H"
 
 /// Physical/domain initial and boundary conditions
@@ -29,12 +29,20 @@
 class LevelDataTemperatureIBC : public IceTemperatureIBC
 {  
   RefCountedPtr<LevelData<FArrayBox> > m_temp;
+#if BISICLES_Z == BISICLES_LAYERED
+  RefCountedPtr<LevelData<FArrayBox> > m_surfaceTemp ;
+  RefCountedPtr<LevelData<FArrayBox> > m_basalTemp ;
+#endif
   RealVect m_dx;
 public:
   /// Constructor
   /**
    */
   LevelDataTemperatureIBC(RefCountedPtr<LevelData<FArrayBox> > a_temp, 
+#if BISICLES_Z == BISICLES_LAYERED
+			  RefCountedPtr<LevelData<FArrayBox> > a_surfaceT,
+			  RefCountedPtr<LevelData<FArrayBox> > a_basalT,
+#endif
 			  const RealVect& a_dx);
 
   /// Destructor
@@ -67,6 +75,9 @@ public:
   virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T,
 					const LevelSigmaCS& a_coordSys);
 #endif
+
+
+  static LevelDataTemperatureIBC* parse(ParmParse& a_pp);
 
 private:
   

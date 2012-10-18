@@ -35,6 +35,7 @@
 #include "LevelDataBasalFriction.H"
 #include "PiecewiseLinearFlux.H"
 #include "SurfaceFlux.H"
+#include "IceConstants.H"
 #ifdef HAVE_PYTHON
 #include "PythonInterface.H"
 #endif
@@ -835,23 +836,8 @@ int main(int argc, char* argv[]) {
     else if (tempType == "LevelData")
       {
 	ParmParse ildPP("inputLevelData");
-	std::string infile;
-	ildPP.get("temperatureFile",infile);
-	std::string temperatureName = "temp000000";
-	ildPP.query("temperatureName",temperatureName);
-	RefCountedPtr<LevelData<FArrayBox> > levelTemp
-	  (new LevelData<FArrayBox>());
-	Vector<RefCountedPtr<LevelData<FArrayBox> > > vectData;
-	vectData.push_back(levelTemp);
-	Vector<std::string> names(1);
-	names[0] = temperatureName;
-	Real dx;
-	ParmParse ppAmr ("amr");
-	Vector<int> ancells(3); 
-	ppAmr.getarr("num_cells", ancells, 0, ancells.size());
-	readLevelData(vectData,dx,infile,names,ancells[2]);
-	RealVect levelDx = RealVect::Unit * dx;
-	LevelDataTemperatureIBC* ptr = new LevelDataTemperatureIBC(levelTemp,levelDx);
+	LevelDataTemperatureIBC* ptr = NULL;
+	CH_assert( (ptr = LevelDataTemperatureIBC::parse(ildPP)) != NULL);
 	temperatureIBC  = static_cast<IceTemperatureIBC*>(ptr);
       }
     else 
