@@ -694,16 +694,6 @@ c -----------------------------------------------------------
       end 
 
 #ifdef TARMAC 
-c -----------------------------------------------------------
-c calculation of the basal mass balance
-c -----------------------------------------------------------
-      subroutine COMPUTEBMB(CHF_FRA1[bmb],
-     &     CHF_CONST_FRA[temp], 
-     &     CHF_BOX[box])
-      
-      return
-      end 
-
 c -------------------------------------------------------------
 c calculation of the vertical velocity from div(u) = 0
 c plus surface / basal mass balance, surface and thickness gradients
@@ -735,6 +725,8 @@ c -------------------------------------------------------------
       Real_T coluz(0:nlay), colusig(0:nlay)
       integer layer
       integer CHF_AUTODECL[i]
+
+
 
       CHF_AUTOMULTIDO[box; i]
 c     this is pretty inefficient, but needed because spatial indices run fastest in FABS 
@@ -788,6 +780,9 @@ c ---------------------------------------------------------------
      &     CHF_CONST_VR[dsigma],     
      &     CHF_CONST_REAL[time],
      &     CHF_CONST_REAL[dt],
+     &     CHF_CONST_REAL[rhoi],
+     &     CHF_CONST_REAL[rhoo],
+     &     CHF_CONST_REAL[grav], 
      &     CHF_CONST_INT[nlay],
      &     CHF_BOX[box])
           
@@ -797,6 +792,12 @@ c ---------------------------------------------------------------
       integer CHF_AUTODECL[i]
       integer layer
       integer mask
+
+      
+      call tarmac_set_constants( secondsperyear , 
+     &     rhoi , rhoo, grav , iceheatcapacity, 
+     &     icelatentheat, iceconductivity , 
+     &     icepmeltfactor, triplepoint)
 
       CHF_AUTOMULTIDO[box; i]
 c     this is pretty inefficient, but needed because spatial indices run fastest in FABS

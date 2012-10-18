@@ -7973,6 +7973,9 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	 
 	  Real halftime = time() + 0.5*a_dt;
 	  int nLayers = m_nLayers;
+	  const Real& rhoi = levelCoordsNew.iceDensity();
+	  const Real& rhoo = levelCoordsNew.waterDensity();
+	  const Real& gravity = levelCoordsNew.gravity();
 	  FORT_UPDATETEMPERATURE
 	       (CHF_FRA(T), 
 		CHF_FRA1(sT,0), 
@@ -7988,6 +7991,9 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 		CHF_CONST_VR(dSigma),
 		CHF_CONST_REAL(halftime), 
 		CHF_CONST_REAL(a_dt),
+		CHF_CONST_REAL(rhoi),
+		CHF_CONST_REAL(rhoo),
+		CHF_CONST_REAL(gravity),
 		CHF_CONST_INT(nLayers),
 		CHF_BOX(box));
 	  

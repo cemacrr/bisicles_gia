@@ -1,37 +1,17 @@
-!A collection of subroutines which are entirely ignorant
-!of the horizontal mesh
-
+!tarmac.f90 : A collection of subroutines which are entirely ignorant
+!of the horizontal mesh. 
+! Copyright (C) 2012 BISICLES contributors
+!
+! Please refer to Copyright.txt, in Chombo's root directory.
+!
 module glunnamed
   implicit none
 
-
-  ! a bunch of constants copied from glimmer_physcon
-  real(kind=8),parameter :: scyr = 31556926.0d0      !*FD Number of seconds in a year (s). Note
-                                                 !*FD that this is for a 365.242 day year, and might
-                                                 !*FD need changing.
-  real(kind=8),parameter :: pi = 3.1415926535897d0   !*FD Value of $\pi$.
-  real(kind=8),parameter :: rhoi = 910.0d0           !*FD The density of ice (kg m$^{-3}$)
-  real(kind=8),parameter :: rhom = 3300.0d0          !*FD The density of magma(?) (kg m$^{-3}$)
-  real(kind=8),parameter :: rhoo = 1028.0d0          !*FD The density of the ocean (kg m$^{-3}$)
-  real(kind=8),parameter :: rhow = 1000.0d0          !*FD The density of fresh water (kg m$^{-3}$)
-  real(kind=8),parameter :: rhos = 2600.0d0          !*FD The density of solid till (kg m$^{-3}$)
-  real(kind=8),parameter :: f = - rhoo / rhoi
-  real(kind=8),parameter :: grav = 9.81d0            !*FD The acceleration due to gravity (m s$^{-2}$)
-  integer, parameter :: gn = 3                   !*FD The power dependency of Glenn's flow law.
-  real(kind=8),parameter :: arrmlh = 1.733d3         !*FD Constant of proportionality in Arrhenius relation
-                                                 !*FD in \texttt{patebudd}, for $T^{*}\geq263$K.
-                                                 !*FD (Pa$^{-3}$ s$^{-1}$) 
-  real(kind=8),parameter :: arrmll = 3.613d-13       !*FD Constant of proportionality in Arrhenius relation
-                                                 !*FD in \texttt{patebudd}, for $T^{*}<263$K.
-                                                 !*FD (Pa$^{-3}$ s$^{-1}$) 
-  real(kind=8),parameter :: gascon = 8.314d0         !*FD The gas ideal constant $R$ (J mol$^{-1}$ K$^{-1}$)
-  real(kind=8),parameter :: actenh = 139.0d3         !*FD Activation energy in Glenn's flow law for $T^{*}\geq263$K. (J mol$^{-1}$)
-  real(kind=8),parameter :: actenl = 60.0d3          !*FD Activation energy in Glenn's flow law for $T^{*}<263$K. (J mol$^{-1}$)
-  real(kind=8),parameter :: shci = 2009.0d0          !*FD Specific heat capacity of ice (J kg$^{-1}$ K$^{-1}$)
-  real(kind=8),parameter :: lhci = 335.0d3           !*FD Latent heat of melting of ice (J kg$^{-1}$) 
-  real(kind=8),parameter :: coni = 2.1d0             !*FD Thermal conductivity of ice (W m$^{-1}$ K$^{-1}$)
-  real(kind=8),parameter :: pmlt = 9.7456d-8         !*FD Factor for dependence of melting point on pressure (K Pa$^{-1}$)
-  real(kind=8),parameter :: trpt = 273.15d0          !*FD Triple point of water (K)
+  !physical constants, all SI units
+  real(kind=8) scyr,  rhoi , rhoo,  grav , shci, lhci, coni , pmlt, trpt
+  ! seconds in a year, density of ice, density of water, acceleration due to gravity 
+  ! specific heat capacity of ice, latent heat of fusion of water, thermal conductivity of ice,  
+  ! factor for dependence of melting point on pressure, triple point of water (K)
 
   integer, parameter :: groundedmaskval = 1, floatingmaskval = 2, openseamaskval = 4, openlandmaskval = 8
 
@@ -177,7 +157,7 @@ module glunnamed
          dtempdz = temp(n) + pmlt * rhoi * grav * thcknew * 0.5*(fsig(i) + fsig(i+1))
          dtempdz = 2.0 / thcknew * (dtempdz - trpt) / cdsig(n)
          bmb = (coni * scyr * dtempdz + bflux * (shci*rhoi))/(rhoi * lhci)
-         !write(*,*) coni * scyr * dtempdz, bflux* (shci*rhoi),  bmb
+        
       end if
 
       if (diric) then
@@ -215,10 +195,39 @@ module glunnamed
 
     end subroutine fo_diffusive_advance
 
+    subroutine set_constants( ascyr , arhoi , arhoo, agrav , ashci, alhci, aconi , apmlt, atrpt)
+      
+      implicit none
+      real(kind=8) ascyr,  arhoi , arhoo,  agrav , ashci, alhci, aconi , apmlt, atrpt
+      scyr = ascyr
+      rhoi = arhoi 
+      rhoo = arhoo
+      grav = agrav 
+      shci = ashci
+      lhci = alhci
+      coni = aconi 
+      pmlt = apmlt
+      trpt = atrpt
+    end subroutine set_constants
+
 end module glunnamed
 
 
-
+subroutine tarmac_set_constants( ascyr , arhoi , arhoo, agrav , ashci, alhci, aconi , apmlt, atrpt)
+  use glunnamed
+  implicit none
+  real(kind=8) ascyr,  arhoi , arhoo,  agrav , ashci, alhci, aconi , apmlt, atrpt
+  !set_constants(scyr , rhoi , rhoo, grav , shci, lhci, coni , pmlt, trpt)
+    scyr = ascyr
+    rhoi = arhoi 
+    rhoo = arhoo
+    grav = agrav 
+    shci = ashci
+    lhci = alhci
+    coni = aconi 
+    pmlt = apmlt
+    trpt = atrpt
+end subroutine tarmac_set_constants
 
 subroutine tarmac_update_temperature(temp, stemp, btemp, mask, &
      bflux, rhs, thckold, thcknew, usig, fsig, dsig, time, dt, n)

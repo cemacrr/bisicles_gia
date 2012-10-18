@@ -39,6 +39,8 @@
 #define ICECONDUCTIVITY 2.1
 #define iceheatcapacity 2009.0
 #define ICEHEATCAPACITY 2009.0
+#define icelatentheat  334.0e+3
+#define ICELATENTHEAT  334.0e+3
 #define icepmeltfactor 9.7456e-8
 #define ICEPMELTFACTOR 9.7456e-8
 #define triplepoint 273.15
@@ -61,6 +63,8 @@
 #define ICECONDUCTIVITY 2.1d0
 #define iceheatcapacity 2009.0d0
 #define ICEHEATCAPACITY 2009.0d0
+#define icelatentheat  334.0d+3
+#define ICELATENTHEAT  334.0d+3
 #define icepmeltfactor 9.7456d-8
 #define ICEPMELTFACTOR 9.7456d-8
 #define triplepoint 273.15d0
