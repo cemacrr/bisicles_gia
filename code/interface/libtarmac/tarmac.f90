@@ -59,13 +59,13 @@ module glunnamed
 
     end subroutine tdmasolve
 
-    subroutine sigma_advect(rhs, temp, stemp, btemp, usig , lthck, & 
+    subroutine sigma_advect(rhs, temp, stemp, btemp, usig ,  & 
          fsig, dt, mask, n)
       !increment rhs with interlayer advection
       !TODO : replace first order upwind fluxes with something nice
       integer :: n
       real(kind=8), dimension(1:n), intent(inout) :: rhs
-      real(kind=8), dimension(1:n), intent(in) :: temp,lthck ! temperature, layer thickness
+      real(kind=8), dimension(1:n), intent(in) :: temp ! temperature
       real(kind=8), dimension(1:n+1), intent(in) :: usig ! u^{\sigma}
       real(kind=8), dimension(1:n+1), intent(in) :: fsig ! sigma at layer faces
       real(kind=8), intent(in) :: stemp, btemp, dt ! surface & basal temperature, time step
@@ -249,27 +249,28 @@ subroutine tarmac_update_temperature(temp, stemp, btemp, mask, &
   real(kind=8), intent(in) :: time,dt,thckold,thcknew,bflux
   integer, intent(in) :: mask
   !locals
-  real(kind=8), dimension(1:n+1) :: lthck
+  
   real(kind=8) :: chi
   
   integer l
  
   if ((mask.eq.groundedmaskval).or.(mask.eq.floatingmaskval)) then
      chi = coni/(shci * rhoi) *  scyr 
-     lthck(1:n) = 0.5*(thcknew+thckold) * dsig(1:n)
-     lthck(1:n) = dsig(1:n)
      !modify rhs to include interlayer advection across constant sigma faces
      call sigma_advect(rhs, temp, stemp, btemp, usig , &
-          lthck, fsig, dt, mask,  n)
+           fsig, dt, mask,  n)
      !compute vertical diffusion & update the basal temperature
-     !chi = 0.0d0;
      call fo_diffusive_advance(temp, stemp, btemp, bflux, rhs, chi, &
           thckold, thcknew,fsig,dt,mask,n)
+    
+
   else
      !no ice
      temp = stemp
      btemp = stemp
   end if
+
+  return
 
 end subroutine tarmac_update_temperature
 
@@ -327,4 +328,6 @@ subroutine tarmac_compute_zvel(uz,uzs,usig,ux,uy, divhu, &
      
   end do
   
+  return
+
 end subroutine tarmac_compute_zvel

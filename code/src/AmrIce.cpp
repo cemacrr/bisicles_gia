@@ -1396,7 +1396,8 @@ AmrIce::initialize()
 	  
 	  int normalPredOrder = 2;
 	  bool useFourthOrderSlopes = true;
-	  bool usePrimLimiting = true;
+	  bool usePrimLimiting = true; usePrimLimiting = false; 
+	  //when usePrimLimiting = true, I sometimes get an isolated two-cell oscillation. not sure why
 	  bool useCharLimiting = false;
 	  bool useFlattening = false;
 	  bool useArtificialViscosity = false;
@@ -7662,9 +7663,12 @@ void AmrIce::computeTHalf(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	      //H at half time and cell faces
 	      WGdnv.copy(levelOldThickness[dit]);
 	      FluxBox Hhalf(grownBox,1);
+	      //\todo compute layer thickness sources
+	      FArrayBox HSource(levelGrids[dit], 1);
+	      HSource.setVal(0.0);
 	      patchGoduTPtr->computeWHalf(Hhalf,
 					  WGdnv,
-					  heatSource,
+					  HSource,
 					  a_dt,
 					  levelGrids[dit]);
 	      for (int dir = 0; dir < SpaceDim; ++dir)
@@ -7976,6 +7980,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  const Real& rhoi = levelCoordsNew.iceDensity();
 	  const Real& rhoo = levelCoordsNew.waterDensity();
 	  const Real& gravity = levelCoordsNew.gravity();
+	 
 	  FORT_UPDATETEMPERATURE
 	       (CHF_FRA(T), 
 		CHF_FRA1(sT,0), 
@@ -7997,6 +8002,9 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 		CHF_CONST_INT(nLayers),
 		CHF_BOX(box));
 	  
+	  CH_assert(T.min() > 0.0);
+	  CH_assert(T.max() < triplepoint);
+
 	  
 	} // end update temperature loop over grids
     } // end update temperature loop over levels
