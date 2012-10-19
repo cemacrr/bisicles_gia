@@ -7957,8 +7957,9 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  for (int layer = 0; layer < dissipation.nComp(); ++layer)
 	    {
 	      dissipation[dit].mult(newH,0,layer,1);
-	      dissipation[dit].mult(1.0/(iceheatcapacity * levelCoordsOld.iceDensity()));
+	      
 	    } 
+	  dissipation[dit].mult(1.0/(iceheatcapacity * levelCoordsOld.iceDensity()));
 	  rhs -= dissipation[dit]; 
 	  rhs *= -a_dt;
 
