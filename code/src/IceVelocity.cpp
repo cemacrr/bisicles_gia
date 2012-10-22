@@ -433,9 +433,9 @@ void IceVelocity::computeFaceVelocity
 
 	FArrayBox& SFaceXYVel = a_layerSFaceXYVel[dit];
 	const FArrayBox& cellVel = grownVel[dit];
-	for (int ic = 0; ic < SFaceXYVel.nComp(); ic++)
+	for (int ic = 0; ic < SFaceXYVel.nComp()-1; ic+=SpaceDim)
 	  {
-	    SFaceXYVel.copy( cellVel , 0, ic, 1);
+	    SFaceXYVel.copy( cellVel , 0, ic, SpaceDim);
 	  }
 
 	for (int dir = 0; dir < SpaceDim; ++dir)
@@ -443,7 +443,7 @@ void IceVelocity::computeFaceVelocity
 	    const FArrayBox& faceVel = a_faceVelAdvection[dit][dir];
 	    FArrayBox& XYFaceXYVel = a_layerXYFaceXYVel[dit][dir];
 	    
-	    for (int ic = 0; ic < XYFaceXYVel.nComp(); ic++)
+	    for (int ic = 0; ic < XYFaceXYVel.nComp()-1; ic++)
 	      {
 		XYFaceXYVel.copy( faceVel , 0, ic, 1);
 	      }
@@ -461,7 +461,7 @@ void IceVelocity::computeFaceVelocity
 	  //L1L2Ptr->computeFaceFluxVelocity(grownVel, a_crseVelocity, a_nRefCrse, a_coordSys, 
 	  //				   grids,  grids.physDomain(), a_A, a_sA, a_bA,
 	  //				   a_faceVelTotal ,a_layerXYFaceXYVel, a_layerSFaceXYVel);
-
+	 
 	  L1L2Ptr->modifyTransportCoefficients(grownVel, a_crseVelocity, a_crseDiffusivity, a_nRefCrse, a_coordSys, 
 					       grids,  grids.physDomain(), a_A, a_sA, a_bA,
 					       a_faceVelAdvection, a_faceVelTotal, a_faceDiffusivity,
