@@ -759,7 +759,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
     for (int dir = 0; dir < SpaceDim; dir++)
       vertAverageVelFace[dit][dir].setVal(0.0);
   
-  //find u' = u(z) - u(z=b) and its vertiscal average \bar{u'}
+  //find u' = u(z) - u(z=b) and its vertical average \bar{u'}
   computeFaceFluxVelocity(grownCellVel, a_crseVelPtr, a_nRefCrse,
 			  sigmaFaceA, grownThickness, dx,  
 			  vertAverageVelFace, a_layerXYFaceXYVel,  a_layerSFaceXYVel,
