@@ -46,7 +46,7 @@ transect <- function(fx,fy,amrID,comp){
 
 pdf("ISMIP-HOM-C%d.pdf",width=7,height=5,onefile=TRUE)
 par(mfrow=c(2,3))
-par(mar=c(5,5,1,1))
+par(mar=c(5,5,5,1))
 
 #domain sizes
 L <- c(5,10,20,40,80,160)
@@ -83,6 +83,7 @@ for (i in 1:length(L)){
   umoda = sqrt(ua^2 + va^2)
   
   plot(xfl,umodb,type='l',xlab="x (km)",ylim=c(lower[i],upper[i]),
+       main=paste("ISMIP-HOM-C, ",L[i], " km"),
        ylab=expression( abs(u) * phantom(0) * (m * phantom(0)*a^{-1})))
   lines(xfl,umods,col="red")
   lines(xfl,umoda,col="blue")
