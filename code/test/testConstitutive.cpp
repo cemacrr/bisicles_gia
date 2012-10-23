@@ -271,31 +271,38 @@ Real pointEpsSqr(const RealVect& x, const RealVect& domainSize)
       dudx = (2*Pi/domainSize[0])*D_TERM(cos(2*Pi*x[0]/domainSize[0]),
                                          *sin(2*Pi*x[1]/domainSize[1]),
                                          *sin(2*Pi*x[2]/domainSize[2]));
-      
-      dudy = (2*Pi/domainSize[1])*D_TERM(sin(2*Pi*x[0]/domainSize[0]),
-                                         *cos(2*Pi*x[1]/domainSize[1]),
-                                         *sin(2*Pi*x[2]/domainSize[2]));
-      
-      dvdx = (2*Pi/domainSize[0])*D_TERM(cos(2*Pi*x[0]/domainSize[0]),
-                                         *sin(2*Pi*x[1]/domainSize[1]),
-                                         *sin(2*Pi*x[2]/domainSize[2]));
-      
-      dvdy = (2*Pi/domainSize[1])*D_TERM(sin(2*Pi*x[0]/domainSize[0]),
-                                         *cos(2*Pi*x[1]/domainSize[1]),
-                                         *sin(2*Pi*x[2]/domainSize[2]));
+
+      if (SpaceDim > 1)
+        {      
+          dudy = (2*Pi/domainSize[1])*D_TERM(sin(2*Pi*x[0]/domainSize[0]),
+                                             *cos(2*Pi*x[1]/domainSize[1]),
+                                             *sin(2*Pi*x[2]/domainSize[2]));
+          
+          dvdx = (2*Pi/domainSize[0])*D_TERM(cos(2*Pi*x[0]/domainSize[0]),
+                                             *sin(2*Pi*x[1]/domainSize[1]),
+                                             *sin(2*Pi*x[2]/domainSize[2]));
+          
+          dvdy = (2*Pi/domainSize[1])*D_TERM(sin(2*Pi*x[0]/domainSize[0]),
+                                             *cos(2*Pi*x[1]/domainSize[1]),
+                                             *sin(2*Pi*x[2]/domainSize[2]));
+        }
     }
   else
     {
       MayDay::Error("bad veltype for pointEpsSqr");
     }
       
-  if (SpaceDim == 2) 
+  if (SpaceDim == 1) 
+    {
+      epsSqr = dudx*dudx;
+    }
+  else if (SpaceDim == 2) 
     {
       //epsSqr = (dudx*dudx) +(dvdy*dvdy) +(dudx + dvdy)*(dudx + dvdy) +0.5*(dudy + dvdx)*(dudy + dvdx);
-
+      
       //slc: i think this is the correct strain rate invariant (see e.g MacAyeal 1996)
       epsSqr = dudx*dudx + dvdy*dvdy + dudx*dvdy + 0.25 * (dudy+dvdx)*(dudy+dvdx);
-
+      
     }
   else
     {
@@ -374,7 +381,10 @@ void initVel(LevelData<FArrayBox>& a_velocity,
           // note that velfab has 2 components regardless of
           // dimensionality, since it's the horizontal velocity          
           velfab(iv,0) = thisVel[0];
-          velfab(iv,1) = thisVel[1];
+          if (SpaceDim > 1)
+            {
+              velfab(iv,1) = thisVel[1];
+            }
         }
     } // end loop over boxes
 }
@@ -526,7 +536,8 @@ testConstitutive()
 
     LevelData<FArrayBox> theta(grids, 1, ghostVect);
     LevelData<FluxBox> faceTheta(grids, 1, ghostVect);
-    LevelData<FArrayBox> horizontalVel(grids, 2, ghostVect);
+    int numVelComps = min(SpaceDim, 2);
+    LevelData<FArrayBox> horizontalVel(grids, numVelComps, ghostVect);
     // for now, no coarser level
     LevelData<FArrayBox>* crseVelPtr = NULL;
     int nRefCrse = -1;
@@ -551,7 +562,8 @@ testConstitutive()
     // assuming theta = 238.15...
     //Real exactMu0 = 4.779690e-19;
     //Real exactMu0 = 1278989e-8;
-     Real exactMu0 = pow(4.779690e-19,-1.0/3.0);
+    Real epsSqrZero = 1e-30;
+     Real exactMu0 = pow(epsSqrZero,-1.0/3.0);
     // zero velocity field -- this is the effect of the
     // small parameter epsSqr_0
     Real exactMu = 0.5 * exactMu0*(1.0e10);
@@ -647,9 +659,10 @@ testConstitutive()
                          basalSlope);
       
       // set up data -- note that velocity is 2 components
-      // regardless of dimensionality, since it's only the horizontal 
+      // in 2- and 3-D, since it's only the horizontal 
       // velocity
-      LevelData<FArrayBox> vel(grids,2, ghostVect);
+      int numVelComp = min(SpaceDim, 2);
+      LevelData<FArrayBox> vel(grids,numVelComp, ghostVect);
       LevelData<FArrayBox> theta(grids, 1, ghostVect);
       // no coarse-level vel
       LevelData<FArrayBox>* crseVelPtr = NULL;
@@ -838,7 +851,7 @@ testConstitutive()
               //const FArrayBox& DeltaFactors = thisCS.deltaFactors();
               const FArrayBox& thisVel = vel[dit];
               //plotData[dit].copy(DeltaFactors,0,0,SpaceDim-1);
-              plotData[dit].copy(thisVel,0,0,2);
+              plotData[dit].copy(thisVel,0,0,thisVel.nComp());
               const FArrayBox& thisCCeps = ccEpsSqr[dit];
               plotData[dit].copy(thisCCeps,0,2,1);
               const FArrayBox& thisErr = ccError[dit];
