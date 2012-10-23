@@ -395,7 +395,7 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
     long * dimInfo;        
     int * dimInfoVelo;
     IntVect ghostVect = IntVect::Zero;
-    bool nodal;
+    bool nodalGeom;
 
     // ---------------------------------------------
     // set IBC -- this includes initial ice thickness, 
@@ -419,8 +419,8 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
           ghostVect = IntVect(D_DECL(nGhost[0], nGhost[1], nGhost[2]));
         }
 
-        nodal = true;
-        interfacePP.query("nodalInitialData", nodal);
+        nodalGeom = true;
+        interfacePP.query("nodalInitialData", nodalGeom);
         
         // this is about removing ice from regions which
         // don't affect the dynamics of the region, but which 
@@ -497,7 +497,7 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 
         CH_assert(SpaceDim == 2);
 #if 1
-        if (nodal)
+        if (nodalGeom)
           {
             // slc : thck and topg are defined at cell nodes on the glimmer grid,
             //       while bisicles needs them at cell centers. To get round this,
@@ -510,9 +510,9 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         domainSize[1] = dns*(dimInfoGeom[3]);     
                  
         ibcPtr->setThickness(thicknessDataPtr, dimInfoGeom, &dew, &dns, 
-                             ghostVect, nodal);                             
+                             ghostVect, nodalGeom);                             
         ibcPtr->setTopography(topographyDataPtr, dimInfoGeom, &dew, &dns, 
-                              ghostVect, nodal);
+                              ghostVect, nodalGeom);
 #else
 	domainSize[0] = dew*(dimInfoGeom[2]); 
 	domainSize[1] = dns*(dimInfoGeom[3]);	
@@ -547,40 +547,6 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         for (i=0;i<=dimInfoVelo[0];i++) cout << dimInfoVelo[i] << " ";
         cout << endl; 
 
-#if 0
-        // moved this in with the other basal friction choices
-	if (beta_type == "fortran")
-	  {
-	    cout << "setting up basal friction coefficient " << endl;
-	    double * basalTractionCoeffPtr = btg_ptr -> getDoubleVar("btrc","velocity"); 
-	    FortranInterfaceBasalFriction* fibfPtr = new FortranInterfaceBasalFriction();
-	    RealVect dx;
-	    dx[0] = dew;
-	    dx[1] = dns;
-
-	    bool bfnodal = false;
-	    interfacePP.query("nodalBasalFrictionData", bfnodal);
-        
-	    if (!bfnodal)
-	      {
-		// (DFM -- 6/19/11) -- friction is always cell-centered, 
-		// regardless of thickness centering
-		cout << "basal friction data is assumed to be cell-centered" << endl;
-		fibfPtr->setReferenceFAB(basalTractionCoeffPtr, dimInfoVelo, dx, 
-					 ghostVect, false);
-	      }
-	    else
-	      {
-		// (SLC -- 11/25/11) -- if we are taking glimmer's thickness to
-		// be cell-centered, then its friction must be node centered 
-		cout << "basal friction data will be averaged to cell-centers" << endl;
-		fibfPtr->setReferenceFAB(basalTractionCoeffPtr, dimInfoVelo, dx, 
-					 ghostVect, !nodal);
-	      }
-	    basalFrictionPtr = static_cast<BasalFriction*>(fibfPtr);
-	  }
-#endif
-      
         // get Glimmer surface mass balance
         double * surfMassBalPtr;
 
@@ -741,14 +707,15 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
          dx[0] = dew;
          dx[1] = dns;
          
-         bool bfnodal = false;
+         // presumption is that basal friction centering is opposite
+         // of thickness (can over-ride in inputs file if otherwise)
+         bool bfnodal = !nodalGeom;
          interfacePP.query("nodalBasalFrictionData", bfnodal);
          
          if (!bfnodal)
            {
-             // (DFM -- 6/19/11) -- friction is always cell-centered, 
-             // regardless of thickness centering
-             cout << "basal friction data is assumed to be cell-centered" << endl;
+             // friction is cell-centered...
+             cout << "cell-centered basal friction data" << endl;
              fibfPtr->setReferenceFAB(basalTractionCoeffPtr, dimInfoVelo, dx, 
                                       ghostVect, false);
            }
@@ -756,9 +723,9 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
            {
              // (SLC -- 11/25/11) -- if we are taking glimmer's thickness to
              // be cell-centered, then its friction must be node centered 
-             cout << "basal friction data will be averaged to cell-centers" << endl;
+             cout << "nodal basal friction data will be averaged to cell-centers" << endl;
              fibfPtr->setReferenceFAB(basalTractionCoeffPtr, dimInfoVelo, dx, 
-                                      ghostVect, !nodal);
+                                      ghostVect, bfnodal);
            }
          basalFrictionPtr = static_cast<BasalFriction*>(fibfPtr);
        }
