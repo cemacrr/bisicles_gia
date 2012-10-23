@@ -33,8 +33,11 @@
 // for now, BISICLES_FULLZ is the same as 3D, but
 // if we one day look at flow line models there could a 2D variant
 #define BISICLES_Z 1
-#else
-#error CH_SPACEDIM must be 2 or 3
+#elif CH_SPACEDIM == 1
+// for now, same as 2D
+// for now, BISICLES_LAYERED is the same as 2D, but
+// if we one day look at flow line models there could a 1D variant
+#define BISICLES_Z 0
 #endif
 
 /// Basic Sigma fourth-order coordinate system on an AMR level

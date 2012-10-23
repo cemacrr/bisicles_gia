@@ -419,8 +419,8 @@ AmrIce::setDefaults()
                                   // if m_initialGuessType = ConstMu
   m_initialGuessSolverType = Picard; 
   m_initialGuessConstVel = RealVect::Zero; // only needed if m_initialGuessType = ConstMu *and* the basal traction relation is nonlinear
-
-  m_basalFrictionDecay = -1.0 ; // set basal friction to zero wherever ioce is floating
+  m_reset_floating_friction_to_zero = true; // set basal friction to zero where ice is floating
+  m_basalFrictionDecay = -1.0 ; // set basal friction to zero wherever ice is floating
   m_basalLengthScale = 0.0; // don't mess about with the basal friction / rhs by default
   
   m_wallDrag = false; //by default, don't compute  additional drag due to contact with rocky walls
@@ -1103,6 +1103,7 @@ AmrIce::initialize()
   //option to advance thickness/temperature only on coarser levels
   ppAmr.query("finest_timestep_level",m_finest_timestep_level);
 
+  ppAmr.query("reset_floating_friction", m_reset_floating_friction_to_zero);
   ppAmr.query("basal_length_scale", m_basalLengthScale);
   ppAmr.query("basal_friction_decay",m_basalFrictionDecay);
 
@@ -4734,7 +4735,7 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 
 	    // this is also a good place to set C=0 where
           // ice is floating, 
-          if(anyFloating)
+          if(anyFloating && m_reset_floating_friction_to_zero)
             {
 	      
 	      const FArrayBox& thisTopography = levelCS.getBaseHeight()[dit];
@@ -5174,8 +5175,8 @@ void AmrIce::updateGroundingLineProximity() const
     }
 
   //Natural boundary conditions
-  BCHolder bc(ConstDiriNeumBC(IntVect(0,0), RealVect(0.0,0.0),
-  			      IntVect(0,0), RealVect(0.0,0.0)));
+  BCHolder bc(ConstDiriNeumBC(IntVect::Zero, RealVect::Zero,
+  			      IntVect::Zero, RealVect::Zero));
 
   //BCHolder bc(ConstDiriNeumBC(IntVect(0,0), RealVect(-1.0,-1.0),
   //			      IntVect(0,0), RealVect(1.0,1.0)));
@@ -5594,8 +5595,8 @@ void AmrIce::eliminateRemoteIce()
 {
   
   //Natural boundary conditions
-  BCHolder bc(ConstDiriNeumBC(IntVect(0,0), RealVect(0.0,0.0),
- 			      IntVect(0,0), RealVect(0.0,0.0)));
+  BCHolder bc(ConstDiriNeumBC(IntVect::Zero, RealVect::Zero,
+ 			      IntVect::Zero, RealVect::Zero));
   
   Vector<RefCountedPtr<LevelData<FArrayBox> > > C(m_finest_level + 1);
   Vector<RefCountedPtr<LevelData<FluxBox> > > D(m_finest_level + 1);
@@ -5778,8 +5779,8 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 
       //Natural boundary conditions - OK for now, but ought to get 
       //moved into subclasses of IceThicknessIBC
-      BCHolder bc(ConstDiriNeumBC(IntVect(0,0), RealVect(0.0,0.0),
-      				  IntVect(0,0), RealVect(0.0,0.0)));
+      BCHolder bc(ConstDiriNeumBC(IntVect::Zero, RealVect::Zero,
+      				  IntVect::Zero, RealVect::Zero));
 
       Vector<RefCountedPtr<LevelData<FArrayBox> > > I(finestTimestepLevel() + 1);
       Vector<RefCountedPtr<LevelData<FluxBox> > > D(finestTimestepLevel() + 1);
@@ -7364,8 +7365,8 @@ void AmrIce::helmholtzSolve
 
 
       //Natural boundary conditions
-      BCHolder bc(ConstDiriNeumBC(IntVect(0,0), RealVect(0.0,0.0),
-				  IntVect(0,0), RealVect(0.0,0.0)));
+      BCHolder bc(ConstDiriNeumBC(IntVect::Zero, RealVect::Zero,
+				  IntVect::Zero, RealVect::Zero));
       
       
       AMRPoissonOpFactory opf;

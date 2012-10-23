@@ -37,12 +37,17 @@ c
 c slc:i think this is the correct strain rate invariant (see e.g MacAyeal 1996)
 
       CHF_AUTOMULTIDO[box; i]
+#if (CH_SPACEDIM == 1)
+        epsSqr(CHF_AUTOIX[i]) = derivs(CHF_AUTOIX[i],dudxcomp)**2
+#elif (CH_SPACEDIM == 2)
         epsSqr(CHF_AUTOIX[i]) = derivs(CHF_AUTOIX[i],dudxcomp)**2
      &                         +derivs(CHF_AUTOIX[i],dvdycomp)**2
      &                         +(derivs(CHF_AUTOIX[i],dudxcomp)
      &                          *derivs(CHF_AUTOIX[i],dvdycomp))
      &                    +0.25*(derivs(CHF_AUTOIX[i],dudycomp)
      &                          +derivs(CHF_AUTOIX[i],dvdxcomp))**2
+#endif 
+
       CHF_ENDDO
 
 

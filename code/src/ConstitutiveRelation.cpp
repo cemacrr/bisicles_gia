@@ -114,7 +114,7 @@ ConstitutiveRelation::computeStrainRateInvariant(LevelData<FArrayBox>& a_epsilon
 
       
       // now compute strainInvariant
-      if (SpaceDim == 2)
+      if (SpaceDim != 3)
         {
           // this is a bit hokey, just do it to ensure that
           // we get the components correct. Eventually hardwire
@@ -253,7 +253,7 @@ ConstitutiveRelation::computeStrainRateInvariantFace(LevelData<FluxBox>& a_epsil
           Box faceBox = derivBox;
           faceBox.surroundingNodes(faceDir);
 
-            if (SpaceDim == 2)
+            if (SpaceDim != 3)
               {
                 // this is a bit hokey, just do it to ensure that
                 // we get the components correct. Eventually hardwire

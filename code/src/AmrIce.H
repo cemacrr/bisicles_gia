@@ -411,9 +411,16 @@ protected:
   RateFactor* m_rateFactor;
   /// basal Friction relation
   BasalFrictionRelation* m_basalFrictionRelation;
+
+  /// if false, don't reset basal friction for floating ice to zero (default is true)
+  /** This option exists primarly so that we can run the CISM circular 
+      shelf test problem
+  */
+  bool  m_reset_floating_friction_to_zero;
+
   /// decay rate for basal friction at base of floating ice
   Real m_basalFrictionDecay;
-    
+
   bool m_wallDrag;
   Real m_wallDragExtra;
 

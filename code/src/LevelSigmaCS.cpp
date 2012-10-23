@@ -67,7 +67,11 @@ LevelSigmaCS::define(const DisjointBoxLayout& a_grids,
   // in 2d, however, we just do x,y
 
   // define H grids
-  if (SpaceDim == 2)
+  if (SpaceDim == 1)
+    {
+      m_Hgrids = m_grids;
+    }
+  else if (SpaceDim == 2)
     {
       m_Hgrids = m_grids;
     }
@@ -103,7 +107,7 @@ LevelSigmaCS::define(const DisjointBoxLayout& a_grids,
   m_H.define(m_Hgrids, 1, Hghost);
   m_faceH.define(m_Hgrids, 1, Hghost);
 
-  CH_assert((SpaceDim == 2) | (SpaceDim ==3));
+  //CH_assert((SpaceDim == 2) | (SpaceDim ==3));
   m_deltaFactors.define(a_grids, 2, a_ghostVect);
   
   m_floatingMask.define(m_Hgrids, 1, Hghost);
@@ -171,7 +175,9 @@ LevelSigmaCS::realCoord(const RealVect& a_Xi, const DataIndex& a_index) const
   // in computational space in 3d, but 2d is regular (x,y)
   // first need to find H for this location -- note that we use the
   // 2D location
-#if CH_SPACEDIM == 2
+#if CH_SPACEDIM == 1
+  RealVect loc = a_Xi;
+#elif CH_SPACEDIM == 2
   //RealVect loc(a_Xi[1],z);
   RealVect loc = a_Xi;
 #elif CH_SPACEDIM == 3
