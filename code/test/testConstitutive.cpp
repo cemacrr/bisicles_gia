@@ -557,12 +557,12 @@ testConstitutive()
     // ConstitutiveRelation object
     GlensFlowRelation constitutiveRelation;
     ArrheniusRateFactor rateFactor;
-    constitutiveRelation.setParameters(3.0 , &rateFactor, 1.0e-30);
+    Real epsSqrZero = 1e-30;
+    constitutiveRelation.setParameters(3.0 , &rateFactor, epsSqrZero);
 
     // assuming theta = 238.15...
     //Real exactMu0 = 4.779690e-19;
     //Real exactMu0 = 1278989e-8;
-    Real epsSqrZero = 1e-30;
      Real exactMu0 = pow(epsSqrZero,-1.0/3.0);
     // zero velocity field -- this is the effect of the
     // small parameter epsSqr_0
