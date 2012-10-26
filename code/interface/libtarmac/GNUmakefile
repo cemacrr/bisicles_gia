@@ -4,6 +4,7 @@
 
 
 FFLAGS=-O3
+#FFLAGS=-O0 -g
 LIB=libtarmac.a
 OBJS=tarmac.o
 

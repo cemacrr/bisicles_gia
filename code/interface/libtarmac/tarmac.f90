@@ -114,7 +114,7 @@ module glunnamed
       !locals
       real(kind=8), dimension(1:n) :: a,c,b,r ! TDMA coefficients
       real(kind=8), dimension(1:n) :: cdsig
-      real(kind=8), dimension(1:n) :: fdsig
+      real(kind=8), dimension(1:n+1) :: fdsig
       real(kind=8) :: chistar, tpmp, eps, bmb, dtempdz
       logical :: diric
       integer :: i
