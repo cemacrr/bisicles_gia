@@ -191,36 +191,60 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
      {
        //interpolate data
        int nRef = (int)(refRatio + tolerance); 
-       
-       if (a_verbose)
+       bool coarsenable = destGrids.coarsenable(nRef);
+       //avoid attempting to refine with a ratio greater than block_factor by interpolating coarse data 
+       //in stages until nRef == block_factor
+       if (coarsenable)
 	 {
-	   pout() << " ...interpolating data with refinement ratio = " 
-		  << nRef << endl;
-	 }
-       
-       const ProblemDomain& fineDomain = destGrids.physDomain();
-       FineInterp interpolator(destGrids, a_destData.nComp(), nRef, fineDomain);
-       interpolator.interpToFine(a_destData, a_srcData);
-       
-       // now fill in ghost cells, using PiecewiseLinearFillPatch
-       IntVect ghostVect = a_destData.ghostVect();
-       if (ghostVect[0] != 0)
-        {
-	  if (a_verbose)
-	    {
-	      pout() << " ...interpolating " << ghostVect[0] 
-		     << " cells of ghost data along coarse-fine interfaces refinement ratio =  "
-		     << nRef << endl;
+	   if (a_verbose)
+	     {
+	       pout() << " ...interpolating data with refinement ratio = " 
+		      << nRef << endl;
 	     }
-	  ProblemDomain coarseDomain = fineDomain;
-	  coarseDomain.coarsen(nRef);
-	  //const ProblemDomain coarseDomain = srcGrids.physDomain();
-          PiecewiseLinearFillPatch pwl(destGrids, srcGrids, a_destData.nComp(), coarseDomain, nRef,  ghostVect[0]);
-	  Real time_interp_coeff = 0.0;
-          pwl.fillInterp(a_destData, a_srcData, a_srcData,time_interp_coeff, 0, 0, a_destData.nComp());
+	   
+	   const ProblemDomain& fineDomain = destGrids.physDomain();
+	   FineInterp interpolator(destGrids, a_destData.nComp(), nRef, fineDomain);
+	   interpolator.interpToFine(a_destData, a_srcData);
+	   
+	   // now fill in ghost cells, using PiecewiseLinearFillPatch
+	   IntVect ghostVect = a_destData.ghostVect();
+	   if (ghostVect[0] != 0)
+	     {
+	       if (a_verbose)
+		 {
+		   pout() << " ...interpolating " << ghostVect[0] 
+			  << " cells of ghost data along coarse-fine interfaces refinement ratio =  "
+			  << nRef << endl;
+		 }
+	       ProblemDomain coarseDomain = fineDomain;
+	       coarseDomain.coarsen(nRef);
+	       //const ProblemDomain coarseDomain = srcGrids.physDomain();
+	       PiecewiseLinearFillPatch pwl(destGrids, srcGrids, a_destData.nComp(), coarseDomain, nRef,  ghostVect[0]);
+	       Real time_interp_coeff = 0.0;
+	       pwl.fillInterp(a_destData, a_srcData, a_srcData,time_interp_coeff, 0, 0, a_destData.nComp());
+	     }
+	 }
+       else if (nRef%2 == 0)
+	 {
+	   if (a_verbose)
+	     {
+	       pout() << " ...interpolating data with refinement ratio = " 
+		      << nRef << endl
+		      << " ...recursively (potentially memory intensive as this refines entire coarse levels -  consider increasing amr.block_factor) " << endl;
+	     }
+ 
+	   DisjointBoxLayout stepGrids;
+	   refine(stepGrids,srcGrids,2);
+	   LevelData<FArrayBox> stepData(stepGrids,a_srcData.nComp(), a_srcData.ghostVect());
+	   FillFromReference(stepData,  a_srcData, a_srcDx * 0.5, a_srcDx, a_verbose);
+	   FillFromReference(a_destData, stepData, a_destDx, a_srcDx*0.5 , a_verbose);
 
 
-	}
+	 }
+       else
+	 {
+	   MayDay::Error("FillFromReference(LevelData<FarrayBox>& ,const LevelData<FarrayBox>&,... ) odd refinement ratio");
+	 }
      }
   else if (refRatio < 1-tolerance)
     {
