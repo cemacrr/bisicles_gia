@@ -85,7 +85,6 @@ picardSolver.linearSolver = BiCGStab
 JFNKSolver.vtopSafety = 0.9
 JFNKSolver.minPicardIterations = 2
 JFNKSolver.switchRate = 5.0
-#JFNKSolver.numMGSmooth = @NSMOOTH
 JFNKSolver.numMGSmooth = 8
 JFNKSolver.maxIter = 100
 
