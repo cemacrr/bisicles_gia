@@ -4657,8 +4657,7 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
               RealVect maxGradDir;
               maxGradDir[0] = maxGrad / dx[0];
               maxGradDir[1] = maxGrad / dx[1];
-              Box gridBoxPlus = gridBox;
-              gridBoxPlus.grow(1);
+             
 
               for (BoxIterator bit(gridBox); bit.ok(); ++bit)
                 {
@@ -4693,8 +4692,7 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 
 	 
 
-	  if(m_groundingLineCorrection && anyFloating == 1 
-	     && 0.0 * m_basalLengthScale < dx[0])
+	  if(m_groundingLineCorrection && anyFloating == 1)
 	    {
 	      Real rhog = iceDensity*gravity;
 	      CH_assert(SpaceDim != 3);
