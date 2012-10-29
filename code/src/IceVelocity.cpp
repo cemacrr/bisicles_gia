@@ -274,7 +274,7 @@ void IceVelocity::addWallDrag(FArrayBox& a_drag,
 			      const FArrayBox& a_topg,
 			      const FArrayBox& a_beta,
 			      const Real& a_extra, 
-			      const Real& a_dx,
+			      const RealVect& a_dx,
 			      const Box& a_box)
 {
   for (int dir = 0; dir < SpaceDim; ++dir)
@@ -294,7 +294,7 @@ void IceVelocity::addWallDrag(FArrayBox& a_drag,
 			std::min(a_thk(iv) * 0.5,  a_topg(ivp) - (a_usrf(iv)-a_thk(iv)));
 		      if (contact > 0.0)
 			{
-			  a_drag(iv) += (a_beta(iv) + a_extra) * contact / a_dx;
+			  a_drag(iv) += (a_beta(iv) + a_extra) * contact / a_dx[dir];
 			}
 		    }
 		}

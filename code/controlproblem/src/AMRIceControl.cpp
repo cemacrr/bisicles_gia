@@ -106,11 +106,11 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   m_maxBoxSize = 64;
   ppAMR.query("max_box_size",m_maxBoxSize);
   m_nestingRadius = 1;
-  ppAMR.query("nestingRadius",m_nestingRadius);
+  ppAMR.query("nesting_radius",m_nestingRadius);
   m_fillRatio = 0.85;
   ppAMR.query("fill_ratio",m_fillRatio);
   m_tagsGrow = 0;
-  ppAMR.query("tagsGrow",m_tagsGrow);
+  ppAMR.query("tags_grow",m_tagsGrow);
 
   m_maxFinestLevel = 0;
   ppAMR.query("max_level",m_maxFinestLevel);
@@ -720,11 +720,7 @@ void AMRIceControl::computeObjectiveAndGradient
     {
 
       const LevelData<FArrayBox>& levelX =  *a_x[lev];
-
-        //this might not be necessary, but it makes the plotted fields look better
-  
-
-
+      const LevelSigmaCS& levelCS =  *m_coordSys[lev];
       LevelData<FArrayBox>& levelC =  *m_C[lev];
       LevelData<FArrayBox>& levelCcopy =  *m_Ccopy[lev];
       LevelData<FArrayBox>& levelCOrigin =  *m_COrigin[lev];
@@ -742,9 +738,15 @@ void AMRIceControl::computeObjectiveAndGradient
 	  		    CHF_CONST_FRA1(levelX[dit],CCOMP),
 	  		    CHF_CONST_REAL(m_boundArgX0),
 	  		    CHF_BOX(box));
-	  // FORT_EXPCTRL(CHF_FRA1(thisC,0),
-	  // 	       CHF_CONST_FRA1(levelX[dit],CCOMP),
-	  // 	       CHF_BOX(box));
+
+	  // add drag due to ice in contact with ice-free rocky walls
+	  const Real wallDragExtra = 0.0;
+	  FArrayBox wallC(box,1);wallC.setVal(0.0);
+	  IceVelocity::addWallDrag(wallC, 
+				   levelCS.getFloatingMask()[dit], levelCS.getSurfaceHeight()[dit],
+				   levelCS.getH()[dit], levelCS.getBaseHeight()[dit], 
+				   thisC, wallDragExtra,m_dx[lev], box);
+	  thisC += wallC;
 	  
 	  FArrayBox& thisCcopy = levelCcopy[dit];
 	  thisCcopy.copy(thisC);
@@ -757,13 +759,11 @@ void AMRIceControl::computeObjectiveAndGradient
 	  		    CHF_CONST_REAL(m_boundArgX1),
 	  		    CHF_BOX(box));
 	  	  
-	  // FORT_EXPCTRL(CHF_FRA1(thisMuCoef,0),
-	  // 	       CHF_CONST_FRA1(levelX[dit],MUCOMP),
-	  // 	       CHF_BOX(box));
+
 	  if (m_muCoefLEQOne || m_muCoefLEQOneGround)
 	    {
 
-	      const LevelSigmaCS& levelCS =  *m_coordSys[lev];
+	      
 	      const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
 	      for (BoxIterator bit(thisMuCoef.box());bit.ok();++bit)
 		{
@@ -1485,7 +1485,7 @@ void AMRIceControl::CviscoustoCplastic(LevelData<FArrayBox>& a_Cplastic,
 	  if (mask(iv) == GROUNDEDMASKVAL)
 	    {
 	      Real usq = (D_TERM(u(iv,0)*u(iv,0), + u(iv,1)*u(iv,1), +0.0));
-	      usq = std::min(usq,1e+4);
+	      usq = std::min(usq,1e+8);
 	      Cp(iv) = Cv(iv) * std::pow(usq,1.0/3.0);
 	    }
 	}

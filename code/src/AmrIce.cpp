@@ -423,8 +423,8 @@ AmrIce::setDefaults()
   m_basalFrictionDecay = -1.0 ; // set basal friction to zero wherever ice is floating
   m_basalLengthScale = 0.0; // don't mess about with the basal friction / rhs by default
   
-  m_wallDrag = false; //by default, don't compute  additional drag due to contact with rocky walls
-  m_wallDragExtra = 0.0; // by default, assume wall drag proportional to basal drag
+  m_wallDrag = true; //compute additional drag due to contact with rocky walls 
+  m_wallDragExtra = 0.0; // assume wall drag proportional to basal drag
 
   m_groundingLineRegularization = 0.0;
   m_groundingLineCorrection = true;
@@ -4727,7 +4727,7 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 	  {
 	    IceVelocity::addWallDrag(thisC0, floatingMask, levelCS.getSurfaceHeight()[dit],
 				     thisH, levelCS.getBaseHeight()[dit], thisC, m_wallDragExtra,
-				     m_amrDx[lev], gridBox);
+				     RealVect::Unit*m_amrDx[lev], gridBox);
 	  }
 	  
 

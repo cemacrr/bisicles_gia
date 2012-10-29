@@ -24,7 +24,7 @@ namespace IceVelocity
 		   const FArrayBox& a_topg,
 		   const FArrayBox& a_beta,
 		   const Real& a_extra, 
-		   const Real& a_dx,
+		   const RealVect& a_dx,
 		   const Box& a_box);
 
   void defineRHS(Vector<LevelData<FArrayBox>* >& a_rhs,
