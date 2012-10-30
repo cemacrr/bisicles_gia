@@ -2862,6 +2862,7 @@ AmrIce::regrid()
 		m_vect_coordSys[lev]->setIceDensity(auxCoordSys->iceDensity());
 		m_vect_coordSys[lev]->setWaterDensity(auxCoordSys->waterDensity());
 		m_vect_coordSys[lev]->setGravity(auxCoordSys->gravity());
+		m_vect_coordSys[lev]->setBackgroundSlope(auxCoordSys->getBackgroundSlope());
 #if BISICLES_Z == BISICLES_LAYERED
 		m_vect_coordSys[lev]->setFaceSigma(auxCoordSys->getFaceSigma());
 #endif		
@@ -4713,7 +4714,7 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 
 	  
 	  CH_assert(thisRhs.norm(0,0,SpaceDim) < HUGE_NORM);
-
+	  
 	  
 	  FArrayBox& thisC = levelC[dit];
 	  FArrayBox& thisC0 = (*a_vectC0[lev])[dit];
@@ -4772,21 +4773,6 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 
     } // end loop over levels
 
-
-  
-  if ( m_basalLengthScale > TINY_NORM ){
-    if (s_verbosity > 1)
-      {
-	pout() << "Smoothing velocity basal C" << std::endl;
-      }
-    helmholtzSolve(m_velBasalC,Real(1.0),std::pow(m_basalLengthScale,2));
-        if (s_verbosity > 1)
-      {
-	pout() << "Smoothing velocity rhs" << std::endl;
-      }
-
-    helmholtzSolve(m_velRHS,Real(1.0),std::pow(m_basalLengthScale,2));
-  }
 
   // clean up
   for (int lev=0; lev<zSurf.size(); lev++)
@@ -7621,9 +7607,11 @@ void AmrIce::computeTHalf(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	    {
 	      const Box& box = levelTemperature[dit].box(); // grid box plus ghost cells
 	      
-	      FluxBox layerXYFaceXYVel(box,1);
+	      FluxBox layerXYFaceXYVel(box,1);layerXYFaceXYVel.setVal(0.0);
 	      for (int dir = 0; dir < SpaceDim; ++dir){
-		layerXYFaceXYVel[dir].copy(levelLayerXYFaceXYVel[dit][dir],layer,0,1);
+		Box faceBox(levelGrids[dit]); faceBox.surroundingNodes(dir);
+		layerXYFaceXYVel[dir].copy(levelLayerXYFaceXYVel[dit][dir],faceBox,layer,faceBox,0,1);
+		CH_assert(layerXYFaceXYVel[dir].norm(0) < HUGE_NORM);
 	      }
 
 	      FArrayBox layerCellXYVel(box,SpaceDim);

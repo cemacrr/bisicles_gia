@@ -669,6 +669,7 @@ L1L2ConstitutiveRelation::computeFaceFluxVelocity(LevelData<FArrayBox>& a_vel,
 	       a_layerXYFaceXYVel[dit][faceDir].copy(a_fluxVel[dit][faceDir],0,l);
 	       a_layerXYFaceXYVel[dit][faceDir].plus(vel,0.5,l*SpaceDim + faceDir,l,1);
 	       a_layerXYFaceXYVel[dit][faceDir].plus(vel,0.5,(l+1)*SpaceDim + faceDir,l,1);
+	       CH_assert(a_layerXYFaceXYVel[dit][faceDir].norm(faceBox,0,l,1) < HUGE_NORM);
 	     }
 	   
            for (int l = 0; l < nLayer; l++)
