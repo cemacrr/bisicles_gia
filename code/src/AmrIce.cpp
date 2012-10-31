@@ -7609,8 +7609,7 @@ void AmrIce::computeTHalf(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	      
 	      FluxBox layerXYFaceXYVel(box,1);layerXYFaceXYVel.setVal(0.0);
 	      for (int dir = 0; dir < SpaceDim; ++dir){
-		Box faceBox(levelGrids[dit]); faceBox.surroundingNodes(dir);
-		layerXYFaceXYVel[dir].copy(levelLayerXYFaceXYVel[dit][dir],faceBox,layer,faceBox,0,1);
+		layerXYFaceXYVel[dir].copy(levelLayerXYFaceXYVel[dit][dir],layer,0,1);
 		CH_assert(layerXYFaceXYVel[dir].norm(0) < HUGE_NORM);
 	      }
 
