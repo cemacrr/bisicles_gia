@@ -646,6 +646,7 @@ void JFNKSolver::setDefaultParameters()
   m_muMax = 1.23456789e+300;
   m_muMin = 0.0;
   m_writeResiduals = false;
+  m_minStepFactor = 1.0;
   // these ones don't need to be stored (at least for now), but should be set
   int mgAverageType  = CoarseAverageFace::arithmetic;
   ViscousTensorOpFactory::s_coefficientAverageType = mgAverageType;
@@ -688,6 +689,7 @@ void JFNKSolver::define(const ProblemDomain& a_coarseDomain,
   pp.query("muMin", m_muMin);
   pp.query("uMaxAbs", m_uMaxAbs);
   pp.query("writeResiduals", m_writeResiduals);
+  pp.query("minStepFactor", m_minStepFactor);
   if (pp.contains("solverType") )
     {
       int solverIntType = m_linearSolverType;
@@ -1066,18 +1068,38 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
               MayDay::Error("linearSolverType is petsc, but code compiled w/o PETSC=TRUE");
             }
 
-	  newOp.incr(localU,du,1.0);
-	  current.setState(localU);      
-	 
-	  JFNKOp testOp (&current, &perturbed, localU, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
-			 m_refRatios, m_domains, m_dxs, a_lbase, 
-			 m_numMGSmooth, m_numMGIter, mode);
-	  testOp.outerResidual(residual,localU,localRhs);
-
-
-
-	  resNorm = testOp.norm(residual, m_normType);
-
+	  //take the Newton step du, and if the residual is not reduced try a sequence
+	  //of smaller steps w*du, halving w until either the residual is reduced or
+	  //w < m_minStepFactor
+	  Real w = 1.0; 
+	  newOp.incr(localU,du,w);
+	  do 
+            {
+	      current.setState(localU);      
+	      JFNKOp testOp (&current, &perturbed, localU, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
+			     m_refRatios, m_domains, m_dxs, a_lbase, 
+			     m_numMGSmooth, m_numMGIter, mode);
+	      testOp.outerResidual(residual,localU,localRhs);
+	      resNorm = testOp.norm(residual, m_normType);
+	      if (resNorm >= oldResNorm)
+		{
+		  w *= 0.5;
+		  if (w >= m_minStepFactor)
+		    {
+		      //step halfway back to the last U
+		      newOp.incr(localU,du,-w);
+		      if (m_verbosity > 0)
+			pout() << "JFNK iteration " << iter  << " halving step length, w =   " << w << std::endl; 	
+		    }
+		  else
+		    {
+		      //give up, return to the last U
+		      newOp.incr(localU,du,-2.0*w);
+		    } 
+		}
+	    }
+          while ( resNorm >= oldResNorm && w >= m_minStepFactor);
+	  
 	  if (resNorm > oldResNorm)
 	    {
 	      if (m_verbosity > 0){
@@ -1090,15 +1112,15 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
                            << std::endl;
                   }
               }
-              
+	      
 	      //don't take the step and 
 	      //switch back to Picard mode
-	      newOp.incr(localU,du,-1.0);
-	      imposeMaxAbs(localU,m_uMaxAbs);
-
+	      //newOp.incr(localU,du,-w); 
+	      //imposeMaxAbs(localU,m_uMaxAbs); 
 	      mode = PICARD_SOLVER_MODE;
-              resNorm = oldResNorm;
+	      resNorm = oldResNorm;
 	    }
+	
 	  
 	  if (m_verbosity > 0)
 	    {

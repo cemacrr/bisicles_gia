@@ -80,6 +80,7 @@ class JFNKOp :  public LinearOp<Vector<LevelData<FArrayBox>*> >
   Real m_err, m_umin; bool m_hAdaptive;
   //compute a perturbation coefficient h given a direction a_v
   Real finiteh(const Vector<LevelData<FArrayBox>*>& a_v);
+  
 
   // m_mlOp provides the multigrid precondioner
   // and is used to evaluate f(u)
@@ -472,7 +473,8 @@ public:
       switching to JFNK mode. Default is zero.
   */
   int m_minPicardIter;
-
+  //smallest acceptable factor to try when reducing the newton step length
+  Real m_minStepFactor;
   //options to do with writing out residual data
   bool m_writeResiduals;
   
