@@ -1312,8 +1312,6 @@ void AMRIceControl::readState(const std::string& a_file, int& a_counter,
       j+=2;
       //restartData[lev]->copyTo(Interval(j,j),*(m_Ccopy[lev]),Interval(0,0));
       j++;
-      //restartData[lev]->copyTo(Interval(j,j),*(m_Cplasticbed[lev]),Interval(0,0));
-      j++;
       //restartData[lev]->copyTo(Interval(j,j),*(m_C[lev]),Interval(0,0));
       j++;
       //restartData[lev]->copyTo(Interval(j,j),*(m_muCoef[lev]),Interval(0,0));
@@ -1355,8 +1353,7 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
   names.push_back("X0");
   names.push_back("X1");
   names.push_back("C");
-  names.push_back("Cplastic");
-  names.push_back("beta");
+  names.push_back("Cwshelf");
   names.push_back("muCoef");
   names.push_back("xVelb");
   names.push_back("yVelb");
@@ -1374,7 +1371,9 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
   names.push_back("gradJMuCoef");
   names.push_back("velc");
   names.push_back("divuhc");
-  
+  names.push_back("topg");
+  names.push_back("thck");
+  names.push_back("usrf");
 
   Vector<LevelData<FArrayBox>*> vdata(m_finestLevel+1);
   for (int lev = 0; lev <= m_finestLevel;lev++)
@@ -1386,11 +1385,6 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
       a_x[lev]->copyTo(Interval(1,1),data,Interval(j,j));j++;
       //use m_Ccopy rather than m_C because m_C is set to zero in shelves etc
       m_Ccopy[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
-
-      LevelData<FArrayBox> Cplastic(m_grids[lev],1,IntVect::Zero);
-      CviscoustoCplastic(Cplastic, *m_Ccopy[lev], *m_velb[lev], m_coordSys[lev]->getFloatingMask());
-      Cplastic.copyTo(Interval(0,0),data,Interval(j,j));j++;
-
       m_C[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;  
       m_muCoef[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++; 
       m_velb[lev]->copyTo(Interval(0,1),data,Interval(j,j+1));j+=2;
@@ -1404,8 +1398,10 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
       a_g[lev]->copyTo(Interval(1,1),data,Interval(j,j));j++;
       m_velCoef[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
       m_divUHCoef[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
+      m_coordSys[lev]->getTopography().copyTo(Interval(0,0),data,Interval(j,j));j++;
+      m_coordSys[lev]->getH().copyTo(Interval(0,0),data,Interval(j,j));j++;
+      m_coordSys[lev]->getSurfaceHeight().copyTo(Interval(0,0),data,Interval(j,j));j++;
     }
-  
   const Real dt = 1.0;
   const Real time = Real(a_counter);
   
