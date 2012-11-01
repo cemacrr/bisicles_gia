@@ -39,8 +39,13 @@ LevelDataTemperatureIBC::parse(ParmParse& a_pp)
 	names[0] = temperatureName;
 	Real dx;
 	ParmParse ppAmr ("amr");
-	Vector<int> ancells(3); 
-	ppAmr.getarr("num_cells", ancells, 0, ancells.size());
+	Vector<int> ancells(3,0); 
+	ppAmr.queryarr("num_cells", ancells, 0, ancells.size());
+	if (ancells[0] == 0)
+	  {
+	    ParmParse ppGeo ("geometry");
+	    ppGeo.getarr("num_cells", ancells, 0, ancells.size());
+	  }
 	readLevelData(vectData,dx,infile,names,ancells[2]);
 	RealVect levelDx = RealVect::Unit * dx;
 
