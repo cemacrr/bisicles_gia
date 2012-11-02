@@ -231,24 +231,23 @@ protected:
 
 
   /// define nonlinear ellipic solver for computing velocity field
-  void defineSolver();
+  virtual void defineSolver();
 
   /// solve for velocity field (or just set up some auxilliary quantities)
-  void solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
-			   Real a_convergenceMetric = -1.0);
+  virtual void solveVelocityField(Real a_convergenceMetric = -1.0);
 
   /// compute RHS for velocity field solve
   /** also sets beta to zero where ice is floating
    */
-  void defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
-                    Vector<LevelData<FArrayBox>* >& a_vectC,
-		    Vector<LevelData<FArrayBox>* >& a_vectC0);
+  virtual void defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
+                            Vector<LevelData<FArrayBox>* >& a_vectC,
+                            Vector<LevelData<FArrayBox>* >& a_vectC0);
 
   /// set basal friction coefficient (beta) prior to velocity solve
-  void setBasalFriction(Vector<LevelData<FArrayBox>* >& a_vectBeta);
+  virtual void setBasalFriction(Vector<LevelData<FArrayBox>* >& a_vectBeta);
 
   /// set mu coefficient (phi) prior to velocity solve
-  void setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef, 
+  virtual void setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef, 
 			Vector<LevelData<FluxBox>* >& a_faceMuCoef);
 
   /// given the current cell centred velocity field, compute a face centred velocity field
@@ -417,9 +416,6 @@ protected:
       shelf test problem
   */
   bool  m_reset_floating_friction_to_zero;
-
-  /// decay rate for basal friction at base of floating ice
-  Real m_basalFrictionDecay;
 
   bool m_wallDrag;
   Real m_wallDragExtra;

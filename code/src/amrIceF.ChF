@@ -78,50 +78,28 @@ c sets beta^2 to zero if ice is floating
 c ----------------------------------------------------
       subroutine SETFLOATINGBETA(CHF_FRA1[beta],
      &                           CHF_CONST_FIA1[floatingMask],
-     &                           CHF_CONST_FRA1[lsrf],
-     &                           CHF_CONST_FRA1[topg],
-     &                           CHF_CONST_REAL[decay],
      &                           CHF_BOX[gridBox])
 
       integer CHF_AUTODECL[i]
-
-      if (decay .gt. 1.0d-6) then
-c     exponential decay of beta with depth
-         CHF_AUTOMULTIDO[gridBox; i]
-         if (floatingMask(CHF_AUTOIX[i]).eq.FLOATINGMASKVAL) then
-c     floating ice
-            beta(CHF_AUTOIX[i]) =  beta(CHF_AUTOIX[i]) 
-     &           * exp(-decay*(lsrf(CHF_AUTOIX[i]) -topg(CHF_AUTOIX[i])));
-         else if (floatingMask(CHF_AUTOIX[i]).eq.OPENSEAMASKVAL) then
-c     open sea : set beta = 1.0 (and hope that rhs, mu = 0)
-            beta(CHF_AUTOIX[i]) = max(1.0d+2,beta(CHF_AUTOIX[i]))
-         else if (floatingMask(CHF_AUTOIX[i]).eq.OPENLANDMASKVAL) then
-c     open sea : set beta = 1.0 (and hope that rhs, mu = 0)
-            beta(CHF_AUTOIX[i]) = max(1.0d+2,beta(CHF_AUTOIX[i]))
-         end if
-         CHF_ENDDO
-      else
+    
 c     original behaviour
-         CHF_AUTOMULTIDO[gridBox; i]
-         if (floatingMask(CHF_AUTOIX[i]).eq.FLOATINGMASKVAL) then
+      CHF_AUTOMULTIDO[gridBox; i]
+      if (floatingMask(CHF_AUTOIX[i]).eq.FLOATINGMASKVAL) then
 c     floating ice
-            beta(CHF_AUTOIX[i]) = zero
-         else if (floatingMask(CHF_AUTOIX[i]).eq.OPENSEAMASKVAL) then
-c     open sea : set beta = 1.0 (and hope that rhs, mu = 0)
-            beta(CHF_AUTOIX[i]) = max(1.0d+2,beta(CHF_AUTOIX[i]))
-         else if (floatingMask(CHF_AUTOIX[i]).eq.OPENLANDMASKVAL) then
-c     open sea : set beta = 1.0 (and hope that rhs, mu = 0)
-            beta(CHF_AUTOIX[i]) = max(1.0d+2,beta(CHF_AUTOIX[i]))
-         else
-            beta(CHF_AUTOIX[i]) = max(1.0e-10,beta(CHF_AUTOIX[i]))
-         end if
-         CHF_ENDDO
+         beta(CHF_AUTOIX[i]) = zero
+      else if (floatingMask(CHF_AUTOIX[i]).eq.OPENSEAMASKVAL) then
+c     open sea : set beta = 100.0 (and hope that rhs, mu = 0)
+         beta(CHF_AUTOIX[i]) = max(1.0d+2,beta(CHF_AUTOIX[i]))
+      else if (floatingMask(CHF_AUTOIX[i]).eq.OPENLANDMASKVAL) then
+c     open land : set beta = 100.0 (and hope that rhs, mu = 0)
+         beta(CHF_AUTOIX[i]) = max(1.0d+2,beta(CHF_AUTOIX[i]))
+      else
+         beta(CHF_AUTOIX[i]) = max(1.0e-10,beta(CHF_AUTOIX[i]))
       end if
+      CHF_ENDDO
        
       return
       end
-      
-
 
 c ----------------------------------------------------
 c switch to using one-sided gradients near grounding line

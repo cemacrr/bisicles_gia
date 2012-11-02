@@ -420,7 +420,7 @@ AmrIce::setDefaults()
   m_initialGuessSolverType = Picard; 
   m_initialGuessConstVel = RealVect::Zero; // only needed if m_initialGuessType = ConstMu *and* the basal traction relation is nonlinear
   m_reset_floating_friction_to_zero = true; // set basal friction to zero where ice is floating
-  m_basalFrictionDecay = -1.0 ; // set basal friction to zero wherever ice is floating
+ 
   m_basalLengthScale = 0.0; // don't mess about with the basal friction / rhs by default
   
   m_wallDrag = true; //compute additional drag due to contact with rocky walls 
@@ -1105,8 +1105,7 @@ AmrIce::initialize()
 
   ppAmr.query("reset_floating_friction", m_reset_floating_friction_to_zero);
   ppAmr.query("basal_length_scale", m_basalLengthScale);
-  ppAmr.query("basal_friction_decay",m_basalFrictionDecay);
-
+ 
   ppAmr.query("wallDrag",m_wallDrag);
   ppAmr.query("wallDragExtra",m_wallDragExtra);
 
@@ -2089,7 +2088,7 @@ AmrIce::timeStep(Real a_dt)
             } // end loop over levels
           
           // compute new ice velocity field
-          solveVelocityField(m_velocity);
+          solveVelocityField();
           
           // average cell-centered velocity field to faces just like before
           
@@ -2537,7 +2536,7 @@ AmrIce::timeStep(Real a_dt)
       
       // RK Stage 2: compute RHS based on first predicted value
       updateCoordSysWithNewThickness(tempThickness);
-      solveVelocityField(m_velocity);
+      solveVelocityField();
       
       time = m_time + a_dt/2;
       
@@ -2558,7 +2557,7 @@ AmrIce::timeStep(Real a_dt)
       // RK Stage 3: compute new RHS.
       updateCoordSysWithNewThickness(tempThickness);
       
-      solveVelocityField(m_velocity);
+      solveVelocityField();
 
       computeDivThicknessFlux(divFlux,vectFluxes, 
                               tempThickness, time, a_dt/3);
@@ -2580,7 +2579,7 @@ AmrIce::timeStep(Real a_dt)
       time = m_time+a_dt;
       updateCoordSysWithNewThickness(tempThickness);
       
-      solveVelocityField(m_velocity);
+      solveVelocityField();
 
       computeDivThicknessFlux(divFlux,vectFluxes, 
                               tempThickness, time, a_dt/6);
@@ -2630,7 +2629,7 @@ AmrIce::timeStep(Real a_dt)
     }
 
   // compute new ice velocity field
-  solveVelocityField(m_velocity);
+  solveVelocityField();
 
 
 
@@ -3306,7 +3305,7 @@ AmrIce::regrid()
 	  //velocity solver needs to be re-defined
 	  defineSolver();
 	  //solve velocity field, but use the previous initial residual norm in place of this one
-	  solveVelocityField(m_velocity, m_velocitySolveInitialResidualNorm);
+	  solveVelocityField(m_velocitySolveInitialResidualNorm);
 	  
 	} // end if tags changed
     } // end if max level > 0 in the first place
@@ -4218,7 +4217,7 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
     }
   
   // now call velocity solver to initialize velocity field
-  solveVelocityField(m_velocity);
+  solveVelocityField();
 
   // may be necessary to average down here
   for (int lev=m_finest_level; lev>0; lev--)
@@ -4242,8 +4241,7 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
 
 /// solve for velocity field
 void
-AmrIce::solveVelocityField(Vector<LevelData<FArrayBox>* >& a_velocity,
-			   Real a_convergenceMetric)
+AmrIce::solveVelocityField(Real a_convergenceMetric)
 {
 
   CH_TIME("AmrIce::solveVelocityField");
@@ -4732,36 +4730,16 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 	  }
 	  
 
-	    // this is also a good place to set C=0 where
-          // ice is floating, 
+	    // set friction on open land and open sea to 100. Set friction on floating ice to 0
           if(anyFloating && m_reset_floating_friction_to_zero)
             {
-	      
-	      const FArrayBox& thisTopography = levelCS.getBaseHeight()[dit];
-	      FArrayBox thisLowerSurface(gridBox,1);
-	      if (m_basalFrictionDecay > 0.0)
-		{
-		  thisLowerSurface.copy(levelCS.getSurfaceHeight()[dit]);
-		  thisLowerSurface -= thisH;
-		}
-              FORT_SETFLOATINGBETA(CHF_FRA1(thisC,0),
+              FORT_SETFLOATINGBETA(CHF_FRA1       (thisC,0),
                                    CHF_CONST_FIA1(floatingMask,0),
-				   CHF_CONST_FRA1(thisLowerSurface,0),
-				   CHF_CONST_FRA1(thisTopography,0),
-				   CHF_CONST_REAL(m_basalFrictionDecay),
-                                   CHF_BOX(gridBox));
+                                   CHF_BOX        (gridBox));
 
+              // friction must be non-negative
 	      CH_assert(thisC.min(gridBox) >= 0.0); 
-              // one-sided differencing near grounding line. 
-              // Would slope limiting be sufficient?          
-
-              // looping over directions not quite right in 3d
-              CH_assert(SpaceDim != 3);
-     
-            } // end if anything is floating
-
-	 
-
+            } 
 	   
         } // end loop over boxes
 
@@ -7224,7 +7202,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   defineSolver();
   m_doInitialVelSolve = false; // since we have just read the velocity field
   m_doInitialVelGuess = false; // ditto
-  solveVelocityField(m_velocity);
+  solveVelocityField();
   m_doInitialVelSolve = true;
 
 #endif
