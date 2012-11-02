@@ -97,20 +97,11 @@ void IceVelocity::setFloatingC(Vector<LevelData<FArrayBox>* >& a_C,
 	     {
 	       const Box& box = levelGrids[dit];
 	       FArrayBox& C = levelC[dit];
-	       const FArrayBox& usrf = levelCS.getSurfaceHeight()[dit];
-	       const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
-	       const FArrayBox& topg = levelCS.getBaseHeight()[dit];
-
-	       FArrayBox lsrf(box,1);
-	       lsrf.copy(usrf);
-	       lsrf -= levelCS.getH()[dit];
-	       
+               const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
+	       	       
 	       FORT_SETFLOATINGBETA(CHF_FRA1(C,0),
 				    CHF_CONST_FIA1(mask,0),
-				    CHF_CONST_FRA1(lsrf,0),
-				    CHF_CONST_FRA1(topg,0),
-				    CHF_CONST_REAL(a_basalFrictionDecay),
-				    CHF_BOX(box));
+                                    CHF_BOX(box));
 	     }
 	}
     }
