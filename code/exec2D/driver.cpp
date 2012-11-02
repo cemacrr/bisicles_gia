@@ -840,6 +840,18 @@ int main(int argc, char* argv[]) {
 	CH_assert( (ptr = LevelDataTemperatureIBC::parse(ildPP)) != NULL);
 	temperatureIBC  = static_cast<IceTemperatureIBC*>(ptr);
       }
+#ifdef HAVE_PYTHON
+    else if (tempType == "Python")
+      {
+	ParmParse pyPP("PythonIceTemperatureIBC");
+	std::string module;
+	pyPP.get("module",module);
+	std::string funcName = "temperature";
+	pyPP.query("function",funcName);
+	temperatureIBC  = static_cast<IceTemperatureIBC*>
+	  (new PythonInterface::PythonIceTemperatureIBC(module, funcName));
+      }
+#endif
     else 
       {
 	MayDay::Error("bad temperature type");
@@ -848,7 +860,7 @@ int main(int argc, char* argv[]) {
       amrObject.setTemperatureBC(temperatureIBC);
     
      
-    amrObject.setDomainSize(domainSize);
+      amrObject.setDomainSize(domainSize);
 
     // set up initial grids, initialize data, etc.
     amrObject.initialize();

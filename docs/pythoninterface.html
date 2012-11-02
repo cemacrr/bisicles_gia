@@ -14,7 +14,9 @@ change your python function prototypes as it evolves.</strong>
 parts of BISICLES easier to program. It is fairly crude : at certain points during a run BISICLES 
 will use an embedded python interpreter to evaluate various fields. At the moment, it is possible to
 specify <a href='#flux'>surface 
-fluxes</a> (that is, accumulation and melting), the <a href='#ibc'>initial geometry</a> (topography and thickness), and the <a href='#btrc'>basal traction coefficient</a>. 
+fluxes</a> (that is, accumulation and melting), the <a href='#ibc'>initial geometry</a> (topography and thickness), 
+the <a href='#ibctemp'>initial temperature</a>
+and the <a href='#btrc'>basal traction coefficient</a>. 
 The most likely application of the Python
 interface is in defining idealized problems, where the use of the <a href='leveldatainterface'>LevelData interface</a>
 would lead to undesirable numerical error</p> 
@@ -109,6 +111,26 @@ basalFlux.function = melt
 </pre>
 would lead to a quarter-circular calving front centered on the bottom left corner with radius 1000 km
 </p>
+
+<h2><a name='ibctemp'>Initial Geometry and temperature boundary conditions</a></h2>
+
+To set the initial temperature using python functions, create a python
+module containing a scalar function of (x,y,thickness,topography,sigma), e.g
+<pre>
+#file foo.py
+def temperature(x,y,thck,topg,sigma):
+    T = 263.0
+    if (abs(y-64.0e+3) < 8.0e+3):
+        T = T + sigma*10.0
+    return T
+
+</pre>
+and specify it in the configuration file like so
+<pre>
+temperature.type = Python
+PythonIceTemperatureIBC.module = foo
+PythonIceTemperatureIBC.function = temperature
+</pre>
 
 <h2><a name='btrc'>Basal Friction Coefficient</a></h2>
 <p>

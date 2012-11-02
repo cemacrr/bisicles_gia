@@ -13,6 +13,7 @@
 
 #include "Python.h"
 #include "IceThicknessIBC.H"
+#include "IceTemperatureIBC.H"
 #include "SurfaceFlux.H"
 #include "BasalFriction.H"
 #include "NamespaceHeader.H"
@@ -26,6 +27,9 @@
 // PythonInterface::PythonIBC, a PhysIBC-derived class which allows the bedrock and topography to be set by
 // a user-defined python function f(x,y) . Reflection boundary conditions are imposed on
 // each edge. 
+//
+// PythonInterface::PythonTemperatureIBC, much as PythonIBC, but provides initial / boundary conditions for the temperature
+// field
 //
 // PythonInterface::PythonSurfaceFlux , a SurfaceFlux derived class which allows a thickness source to be set
 // by a python function f(x,y,thickness,topography)
@@ -43,7 +47,10 @@ namespace PythonInterface
   
   void PythonEval(PyObject* a_pyFunc, Vector<Real>& a_value, Vector<Real>& a_arg); 
 
-
+  /// PythonInterface::PythonIBC, a PhysIBC-derived class which allows the bedrock and topography to be set by  a user-defined python function f(x,y) . 
+  /** Reflection boundary conditions are imposed on
+      each edge. 
+  */
   class PythonIBC : public IceThicknessIBC
   {
     PyObject*  m_pModule;
@@ -251,6 +258,45 @@ namespace PythonInterface
   
 
   };
+  /// PhysIBC-derived class that allows the temperature to set a a user-defined python function f(x,y,sigma,thickness,topography,surface) . 
+  /** Reflection boundary conditions are imposed on
+      each edge. 
+  */
+  class PythonIceTemperatureIBC : public IceTemperatureIBC
+  {
+  public:
+    virtual ~PythonIceTemperatureIBC();
+    PythonIceTemperatureIBC(const std::string& a_pyModuleName,
+			    const std::string& a_pyFuncName) ;
+
+    virtual PythonIceTemperatureIBC* new_temperatureIBC();
+    
+#if BISICLES_Z == BISICLES_LAYERED
+    virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T, 
+					  LevelData<FArrayBox>& a_surfaceT, 
+					  LevelData<FArrayBox>& a_basalT,
+					  const LevelSigmaCS& a_coordSys);
+#elif BISICLES_Z == BISICLES_FULLZ
+    virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T,
+					  const LevelSigmaCS& a_coordSys);
+#endif
+
+private:
+    PyObject*  m_pModule;
+    PyObject*  m_pFunc;
+    PythonIceTemperatureIBC() {;} 
+
+    PythonIceTemperatureIBC(PyObject*  a_pModule,  PyObject*  a_pFunc)
+    {
+      m_pModule = a_pModule;
+      m_pFunc = a_pFunc;
+      Py_XINCREF(m_pModule);
+      Py_XINCREF(m_pFunc);
+    }
+
+  };
+
+
 
   class PythonBasalFriction : public BasalFriction
   {

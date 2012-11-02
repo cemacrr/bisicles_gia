@@ -14,8 +14,10 @@ main.rateFactor = arrheniusRate
 ArrheniusRate.epsSqr0 = 1.0e-12
 
 amr.isothermal=false
-temperature.type = constant
-temperature.value = 260
+#amr.isothermal=true
+temperature.type = Python
+PythonIceTemperatureIBC.module = shearMargin
+PythonIceTemperatureIBC.function = temperature
 
 main.basalFrictionRelation = powerLaw
 BasalFrictionPowerLaw.m = 1.0
@@ -24,14 +26,15 @@ surfaceFlux.type = zeroFlux
 basalFlux.type = zeroFlux
 CalvingModel.type = NoCalvingModel
 
-main.domain_size = 100.0e+3 100.0e+3 1.0e+3
+main.domain_size = 128.0e+3 128.0e+3 1.0e+3
 
 geometry.problem_type = basic
 geometry.basal_type = constantZb
 geometry.basalSlope = -0.0087488664 0.0  # 0.5 degree slope
 geometry.basalSlope = -0.001745331 0.0 # 0.1 degree slope
-
+geometry.basalSlope = -0.002 0.0 # 
 geometry.thickness_type = constantThickness1km
+
 
 
 geometry.beta_type = Python
@@ -54,10 +57,10 @@ amr.initial_cfl = 0.5  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
 amr.time_step_ticks = 1
 
-amr.plot_interval = 20
+amr.plot_interval = 1
 amr.plot_prefix = plot.@NAME.
 amr.write_temperature = 1
-
+amr.write_solver_rhs = 1
 amr.check_interval = 100
 amr.check_prefix = chk.@NAME.
 amr.check_overwrite = 0
@@ -69,7 +72,7 @@ amr.regrid_interval = 1  # number of timesteps between regridding
 amr.blockFactor = 8          # block factor used in grid generation
 amr.fill_ratio = 0.85         # how efficient are the grids
 amr.nestingRadius = 1         # proper nesting radius required
-amr.tags_grow = 4             # amount to buffer tags
+amr.tags_grow = 1             # amount to buffer tags
 amr.n_tag_subset_boxes = 1
 amr.tag_subset_boxes = 8 0 119 16
 amr.tagCap = @TAGCAP
@@ -80,7 +83,7 @@ amr.max_box_size = 32        # largest box length allowed
 amr.tag_on_grad_velocity = 0
 
 amr.tag_on_laplacian_velocity = 1
-amr.lap_vel_tagging_val = 100
+amr.lap_vel_tagging_val = 1
 
 
 
@@ -96,13 +99,13 @@ amr.initial_velocity_guess_const_mu = 1.0e+6
 amr.initial_velocity_guess_solver_type = 1 # use JFNK solver's linear mode
 
 #JFNK parameters
-JFNKSolver.vtopSafety = 0.9
-JFNKSolver.minPicardIterations = 3
-JFNKSolver.maxIter = 10
+JFNKSolver.vtopSafety = 0.999
+JFNKSolver.minPicardIterations = 1
+JFNKSolver.maxIter = 15
 JFNKSolver.absTol = 1.0e-1
-JFNKSolver.relTol = 1.0e-5
+JFNKSolver.relTol = 1.0e-6
 JFNKSolver.solverType = 0 #Relax solver
-JFNKSolver.RelaxRelTol = 2.0e-3
+JFNKSolver.RelaxRelTol = 1.0e-4
 JFNKSolver.maxRelaxIter = 20
 JFNKSolver.normType = 0
 JFNKSolver.verbosity = 5
@@ -110,10 +113,13 @@ JFNKSolver.vtopRelaxTol = 0.005
 JFNKSolver.vtopRelaxMinIter = 8
 JFNKSolver.numMGSmooth = 8
 JFNKSolver.numMGIter = 1
-JFNKSolver.h = 0.025
-JFNKSolver.switchRate = 2.0
+JFNKSolver.h = 0.0025
+JFNKSolver.switchRate = 5.0
+JFNKSolver.minStepFactor = 0.125
 #JFNKSolver.writeResiduals = true
 #JFNKSolver.muMin = 1.0e+4
 #JFNKSolver.uMaxAbs = 1.0e+6
 
 
+#amr.additional_velocity = true
+#amr.diffusion_treatment = implicit

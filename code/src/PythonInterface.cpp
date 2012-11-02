@@ -11,17 +11,7 @@
 
 // PythonInterface.cpp
 // ============
-// BISICLES embedded Python interface. Includes
-//
-// PythonInterface, a namespace for common parts of the interface
-//
-// PythonInterface::PythonIBC, a PhysIBC-derived class which allows the bedrock and topography to be set by
-// a user-defined python function. Reflection boundary conditions are imposed on
-// each edge. 
-//
-// PythonInterface::PythonSurfaceFlux , a SurfaceFlux derived class which allows a thickness source to be set
-// by a python function f(x,y,thickness,topography)
-
+// BISICLES embedded Python interface. 
 
 #include "PythonInterface.H"
 #include "ReflectGhostCells.H"
@@ -388,7 +378,7 @@ void  PythonInterface::PythonIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 	   topg(iv) = rval[0]; 
 	}
     }
-  Real dt = 0.0;
+  //Real dt = 0.0;
   //setGeometryBCs(a_coords, grids.physDomain(), a_dx, a_time, dt);
 }
 
@@ -415,8 +405,6 @@ PythonInterface::PythonSurfaceFlux::~PythonSurfaceFlux()
 
 SurfaceFlux* PythonInterface::PythonSurfaceFlux::new_surfaceFlux()
 {
-
-
   PythonSurfaceFlux* ptr = new PythonSurfaceFlux(m_pModule, m_pFunc);
   return static_cast<SurfaceFlux*>( ptr);
 }
@@ -455,6 +443,88 @@ void PythonInterface::PythonSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBo
 	}
     }
 }
+
+
+PythonInterface::PythonIceTemperatureIBC::PythonIceTemperatureIBC
+(const std::string& a_pyModuleName,const std::string& a_pyFuncName)
+{
+  InitializePythonModule(&m_pModule,  a_pyModuleName);
+  InitializePythonFunction(&m_pFunc, m_pModule,  a_pyFuncName);
+}
+
+PythonInterface::PythonIceTemperatureIBC::~PythonIceTemperatureIBC()
+{
+  Py_DECREF(m_pModule);
+  Py_DECREF(m_pFunc);
+}
+
+PythonInterface::PythonIceTemperatureIBC* 
+PythonInterface::PythonIceTemperatureIBC::new_temperatureIBC()
+{
+  PythonInterface::PythonIceTemperatureIBC* ptr = 
+    new PythonInterface::PythonIceTemperatureIBC(m_pModule, m_pFunc);
+  return ptr;
+}
+
+#if BISICLES_Z == BISICLES_LAYERED
+void PythonInterface::PythonIceTemperatureIBC::initializeIceTemperature
+(LevelData<FArrayBox>& a_T, 
+ LevelData<FArrayBox>& a_surfaceT, 
+ LevelData<FArrayBox>& a_basalT,
+ const LevelSigmaCS& a_coordSys)
+{
+ CH_TIME("PythonInterface::PythonIceTemperatureIBC::initializeIceTemperature");
+ //function args are (x,[y,],thickness,topography,sigma)
+ Vector<Real> args(SpaceDim + 3);
+ Vector<Real> rval;
+  
+ const DisjointBoxLayout& grids = a_T.disjointBoxLayout();
+ for (DataIterator dit(grids);dit.ok();++dit)
+   {
+     a_T[dit].setVal(0.0);
+     a_surfaceT[dit].setVal(0.0);
+     a_basalT[dit].setVal(0.0);
+     const Box& b = a_T[dit].box();//grids[dit];
+     for (BoxIterator bit(b);bit.ok();++bit)
+       {
+	 const IntVect& iv = bit();
+	 int i = 0;
+	 for (int dir=0; dir < SpaceDim; dir++)
+	   {
+	     args[i] = (Real(iv[dir]) + 0.5)*a_coordSys.dx()[dir];
+	     i++;
+	   }
+	 args[i] = a_coordSys.getH()[dit](iv);i++;
+	 args[i] = a_coordSys.getTopography()[dit](iv);i++;
+	 //layer midpoint temperatures
+	 for (int layer = 0; layer < a_T[dit].nComp(); layer++)
+	   {
+	     args[i] = a_coordSys.getSigma()[layer];
+	     PythonEval(m_pFunc, rval,  args);
+	     a_T[dit](iv,layer) =  rval[0];
+	   }
+	 //surface temperature
+	 args[i] = 0.0;
+	 PythonEval(m_pFunc, rval,  args);
+	 a_surfaceT[dit](iv) =  rval[0];
+	 //basal temperature
+	 args[i] = 1.0;
+	 PythonEval(m_pFunc, rval,  args);
+	 a_basalT[dit](iv) =  rval[0];
+       }
+   }
+}
+#elif BISICLES_Z == BISICLES_FULLZ
+void PythonInterface::PythonIceTemperatureIBC::initializeIceTemperature
+(LevelData<FArrayBox>& a_T,
+ const LevelSigmaCS& a_coordSys)
+{
+
+  MayDay::Error("BISICLES_Z == BISICLES_FULLZ PythonIceTemperatureIBC::initializeIceTemperature not yet implemented");
+}
+#endif
+
+
 
 PythonInterface::PythonBasalFriction::PythonBasalFriction
 (const std::string& a_pyModuleName,
