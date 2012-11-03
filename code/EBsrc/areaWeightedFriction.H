@@ -8,40 +8,28 @@
 */
 #endif
 
-// Virtual base class encapsulating coefficient of basal friction 
-// for ice-sheet model
 
 #ifndef _AREAWEIGHTEDFRICTION_H_
 #define _AREAWEIGHTEDFRICTION_H_
 
 #include "BasalFriction.H"
+#include "EBIndexSpace.H"
 #include "LevelData.H"
 #include "FArrayBox.H"
 #include "LevelSigmaCS.H"
 
 #include "NamespaceHeader.H"
 
-/// simple basal friction resulting in a twisting ice stream
-/** 
-    beta^2 = betaVal*(1 + eps +
-    sin(2*Pi*Omega[1]*y + offset))
-
-    where offset = magOffset*sin(2*Pi*Omega[0]*x)
-*/
 class areaWeightedFriction : public BasalFriction
 {
 public:
   /// constructor
   areaWeightedFriction();
 
-  areaWeightedFriction(const Real& a_betaVal,
-                       const RealVect& a_omega,
-                       const Real& m_magOffset,
-                       const Real& a_eps,
-                       const RealVect& a_domainSize);
-    
+  areaWeightedFriction(Real a_value);
+
   /// destructor
-  virtual ~areaWeightedFriction();
+  virtual ~areaWeightedFriction() {}
 
   /// factory method
   /** return a pointer to a new BasalFriction object
@@ -54,22 +42,17 @@ public:
       AmrIce code)       
   */
   virtual void setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
-                                LevelSigmaCS& a_coordSys,
-                                Real a_time,
-                                Real a_dt);
+                                LevelSigmaCS        & a_coordSys,
+                                Real                  a_time,
+                                Real                  a_dt);
 
-  /// set friction value in Pa*a/m)
-  void setParameters(const Real& a_betaVal, 
-                     const RealVect& a_omega,
-                     const Real& a_magOffset,
-                     const Real& a_eps,
-                     const RealVect& a_domainSize);
-   
-  Real m_betaVal;
-  RealVect m_omega;
-  Real m_magOffset;
-  Real m_eps;
-  RealVect m_domainSize;
+  /// set friction value in meters/year
+  void setFrictionVal(const Real& a_betaSqr);
+
+protected:
+  Real m_frictionVal;
+
+  bool m_isValSet;
 
 private:
   // Disallowed for all the usual reasons
@@ -79,12 +62,11 @@ private:
   }
 
   // Disallowed for all the usual reasons
-  areaWeightedFriction(const constantFriction& a_input)
+  areaWeightedFriction(const areaWeightedFriction& a_input)
   {
     MayDay::Error("invalid operator");
   }
 };
-  
 
 #include "NamespaceFooter.H"
 
