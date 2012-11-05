@@ -560,6 +560,7 @@ c-------------------------------------------------
       subroutine L1L2CELLTOFACEHARMONIC(CHF_FRA1[face],
      &     CHF_CONST_FRA1[cell],
      &     CHF_CONST_INT[dir],
+     &     CHF_CONST_REAL[tiny],
      &     CHF_BOX[fbox])
       integer CHF_AUTODECL[i]
       integer CHF_AUTODECL[ii]
@@ -571,8 +572,8 @@ c-------------------------------------------------
       
       CHF_AUTOMULTIDO[fbox ; i]
       face(CHF_AUTOIX[i]) = half * 
-     &     cell(CHF_AUTOIX[i]) * cell (CHF_OFFSETIX[i;-ii]) /
-     &     (cell(CHF_AUTOIX[i]) + cell (CHF_OFFSETIX[i;-ii]))
+     &     cell(CHF_AUTOIX[i]) * cell (CHF_OFFSETIX[i;-ii]) / 
+     &     (tiny + cell(CHF_AUTOIX[i]) + cell (CHF_OFFSETIX[i;-ii]))
       CHF_ENDDO
 
       return

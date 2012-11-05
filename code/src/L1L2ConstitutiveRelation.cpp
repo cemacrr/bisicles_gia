@@ -790,9 +790,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 				  CHF_CONST_REAL(dx[1]),
 				  CHF_BOX(a_grids[dit]));
 
-      
-      
-      //CH_assert(D.norm(0) < HUGE_NORM);
+      CH_assert(D.norm(0) < HUGE_NORM*HUGE_NORM);
     }
   a_cellDiffusivity.exchange();
   //CellToEdge(cellDiffusivity, a_faceDiffusivity);
@@ -803,11 +801,13 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 	{
 	  FArrayBox& Dface = a_faceDiffusivity[dit][dir];
 	  Box fbox = a_grids[dit].surroundingNodes(dir);
+	  Real tiny = 1.0/HUGE_NORM;
 	  FORT_L1L2CELLTOFACEHARMONIC(CHF_CONST_FRA1(Dface,0),
 				      CHF_CONST_FRA1(Dcell,0),
 				      CHF_CONST_INT(dir),
+				      CHF_CONST_REAL(tiny),
 				      CHF_BOX(fbox));
-	  
+	  CH_assert(Dface.norm(0) < HUGE_NORM*HUGE_NORM);
 	  a_faceVelTotal[dit][dir] += vertAverageVelFace[dit][dir];			      
 	}
     }
