@@ -143,7 +143,7 @@ c--------------------------------------------------
       return
       end
 	
-      subroutine minfab(CHF_FRA[u], 
+      subroutine minfab1(CHF_FRA[u], 
      &     CHF_CONST_REAL[limit], 	
      &     CHF_BOX[box])
       
@@ -156,7 +156,7 @@ c--------------------------------------------------
       return
       end      
       
-      subroutine maxfab(CHF_FRA[u], 
+      subroutine maxfab1(CHF_FRA[u], 
      &     CHF_CONST_REAL[limit], CHF_BOX[box])
       
       integer CHF_AUTODECL[i],n

@@ -2363,7 +2363,7 @@ AmrIce::timeStep(Real a_dt)
           for (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	    {
 	      Real lim = 0.0;
-	      FORT_MAXFAB(CHF_FRA(levelH[dit]), 
+	      FORT_MAXFAB1(CHF_FRA(levelH[dit]), 
 			  CHF_CONST_REAL(lim), 
 			  CHF_BOX(levelH[dit].box()));
 	    }

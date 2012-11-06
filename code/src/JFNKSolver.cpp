@@ -527,7 +527,7 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
 	      FArrayBox& thisMu = levelMu[dit][dir];
 	      const Box& box = thisMu.box();
 	       
-	      FORT_MAXFAB(CHF_FRA(thisMu),
+	      FORT_MAXFAB1(CHF_FRA(thisMu),
 	       		  CHF_CONST_REAL(m_muMin),
 	       		  CHF_BOX(box));
 
@@ -541,7 +541,7 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
               levelMu[dit][dir].mult(faceH[dit][dir],
                                     levelMu[dit][dir].box(),0,0,1);
 	      //levelMu[dit][dir]*=1000.0;
-	      FORT_MINFAB(CHF_FRA(thisMu),
+	      FORT_MINFAB1(CHF_FRA(thisMu),
 	       		  CHF_CONST_REAL(m_muMax),
 	       		  CHF_BOX(box));
 	      
