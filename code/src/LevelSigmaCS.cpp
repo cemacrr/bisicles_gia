@@ -1382,7 +1382,7 @@ void LevelSigmaCS::interpFromCoarse(const LevelSigmaCS& a_crseCoords,
       ghostFiller.fillInterp(fineThck,crseThck,crseThck, 0.0,0,0,ncomp);
       fineThck.exchange();
     }
-  const ProblemDomain& domain = m_grids.physDomain();
+  //const ProblemDomain& domain = m_grids.physDomain();
   // for (DataIterator dit(m_grids); dit.ok(); ++dit)
   //   {
   //     // don't worry about ghost cells outside the domain
