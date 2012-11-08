@@ -9,7 +9,7 @@
 #endif
 
 #ifndef _GAUSSIANBUMPFRICTION_H_
-#define _GUASSIANBUMPFRICTION_H_
+#define _GAUSSIANBUMPFRICTION_H_
 
 #include "BasalFriction.H"
 
