@@ -84,7 +84,7 @@ MultilevelIceVelOp::define(const Vector<DisjointBoxLayout>& a_vectGrids,
           PetscSolverViscousTensor<LevelData<FArrayBox> >* petscSolverPtr = new PetscSolverViscousTensor<LevelData<FArrayBox> >;
           m_precondBottomSolverPtr = petscSolverPtr;
         }
-#endif #if CH_USE_PETSC
+#endif //if CH_USE_PETSC
       else
         {
           MayDay::Error("bad elliptic solver type");
