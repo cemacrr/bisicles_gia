@@ -107,14 +107,18 @@ void initData(FArrayBox& a_thickness,
       
       if (thicknessType == sinusoidalH)
         {
-          Real thisH = 0.5*sin(2*Pi*mappedLoc[0]/a_domainSize[0])*sin(2*Pi*mappedLoc[1]/a_domainSize[1]);
+          Real thisH = 0.5*D_TERM(sin(2*Pi*mappedLoc[0]/a_domainSize[0]),
+                                 *sin(2*Pi*mappedLoc[1]/a_domainSize[1]),
+                                  NOT_IMPLEMENTED_FOR_3D_YET);
           a_thickness(iv,0) = thisH;
         }
 
 
       if (basalType == sinusoidalZb)
         {
-          Real thisZb = cos(2*Pi*mappedLoc[0]/a_domainSize[0])*cos(2*Pi*mappedLoc[1]/a_domainSize[1]);
+          Real thisZb = D_TERM(cos(2*Pi*mappedLoc[0]/a_domainSize[0]),
+                               *cos(2*Pi*mappedLoc[1]/a_domainSize[1]),
+                               NOT_IMPLEMENTED_FOR_3D_YET);
           a_topography(iv,0) = thisZb;
         }
     }
@@ -210,13 +214,14 @@ testFortranInterfaceIBC()
          diminfo[3] = numCells[1];,
          diminfo[1] = numCells[2]);
 
+  // second dx is a bit of a kluge so that this will work in 1D
   baseIBC.setThickness(baseThickness.dataPtr(),
                        diminfo,
-                       &dx[0], &dx[1]);
+                       &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]));
 
   baseIBC.setTopography(baseZb.dataPtr(),
                         diminfo,
-                        &dx[0], &dx[1]);
+                        &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]));
 
 
  
@@ -339,7 +344,11 @@ testFortranInterfaceIBC()
           plotNames[1] = "topography";
 
           string fname;
-          if (SpaceDim == 2 )
+          if (SpaceDim == 1 )
+            {
+              fname = "fortranInterface.1d.hdf5";
+            }
+          else if (SpaceDim == 2 )
             {
               fname = "fortranInterface.2d.hdf5";
             }
