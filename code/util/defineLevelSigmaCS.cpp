@@ -215,7 +215,11 @@ void defineLevelSigmaCS(LevelSigmaCS& a_sigmaCoords,
               x += 0.5*RealVect::Unit;
               x *= dx;
               Real thickness;
-              if (SpaceDim == 2)
+              if (SpaceDim == 1)
+                {
+                  thickness = Cbase+sin(2.0*Pi*x[0]/a_domainSize[0]);
+                }
+              else if (SpaceDim == 2)
                 {
                   thickness = Cbase+sin(2.0*Pi*x[0]/a_domainSize[0])
                     *sin(2.0*Pi*x[1]/a_domainSize[1]);
@@ -239,6 +243,10 @@ void defineLevelSigmaCS(LevelSigmaCS& a_sigmaCoords,
               x += 0.5*RealVect::Unit;
               x *= dx;
               Real thickness;
+              if (SpaceDim == 1)
+                {
+                  thickness = Cbase+sin(2.0*Pi*x[0]/a_domainSize[0]);
+                }
               if (SpaceDim == 2)
                 {
                   thickness = Cbase+sin(2.0*Pi*x[0]/a_domainSize[0]);
