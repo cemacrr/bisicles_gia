@@ -563,10 +563,11 @@ testConstitutive()
     // assuming theta = 238.15...
     //Real exactMu0 = 4.779690e-19;
     //Real exactMu0 = 1278989e-8;
-     Real exactMu0 = pow(epsSqrZero,-1.0/3.0);
+    Real exponent = -1.0/3.0;
+     Real exactMu0 = 0.5*pow(thetaVal,exponent);
     // zero velocity field -- this is the effect of the
     // small parameter epsSqr_0
-    Real exactMu = 0.5 * exactMu0*(1.0e10);
+     Real exactMu = exactMu0*pow(epsSqrZero,exponent);
         
     IntVect muGhost = IntVect::Zero;
     // cell-centered Mu
