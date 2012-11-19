@@ -146,10 +146,10 @@ public:
     herr_t status;
     hid_t file_access = 0;
 #ifdef CH_MPI
-  file_access = H5Pcreate (H5P_FILE_ACCESS);
-  H5Pset_fapl_mpio(file_access,  Chombo_MPI::comm, MPI_INFO_NULL);
+    file_access = H5Pcreate (H5P_FILE_ACCESS);
+    H5Pset_fapl_mpio(file_access,  Chombo_MPI::comm, MPI_INFO_NULL);
 #else
-  file_access = H5P_DEFAULT;
+    file_access = H5P_DEFAULT;
 #endif
     hid_t file_id = H5Fopen(a_file.c_str(), H5F_ACC_RDONLY, file_access);
     hid_t dset_id = H5Dopen(file_id, a_set.c_str());
