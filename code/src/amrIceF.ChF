@@ -506,7 +506,7 @@ c------------------------------------------------------
 
       integer CHF_AUTODECL[i]
       integer CHF_AUTODECL[ii]
-      Real oneOnD
+      REAL_T oneOnD
 
       CHF_DTERM[ii0 = CHF_ID(dir,0);
                 ii1 = CHF_ID(dir,1);
@@ -548,7 +548,7 @@ c------------------------------------------------------
       
       integer CHF_AUTODECL[i]
       integer CHF_AUTODECL[ii]
-      Real oneOnDX
+      REAL_T oneOnDX
 
       OneOnDx = one/dx;
       CHF_DTERM[ii0 = CHF_ID(dir,0);
@@ -577,7 +577,7 @@ c------------------------------------------------------
       
       integer CHF_AUTODECL[i]
       integer CHF_AUTODECL[ii]
-      Real oneOnDx
+      REAL_T oneOnDx
 
       OneOnDx = one/dx;
       CHF_DTERM[ii0 = CHF_ID(dir,0);
