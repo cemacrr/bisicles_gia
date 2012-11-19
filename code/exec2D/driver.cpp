@@ -452,8 +452,17 @@ int main(int argc, char* argv[]) {
 	geomPP.getarr("gaussianBump_t", t, 0, nt-1);
 	geomPP.getarr("gaussianBump_C", C0, 0, nt);
 	geomPP.getarr("gaussianBump_a", a, 0, nt);
-       
-#if CH_SPACEDIM == 2
+     
+#if CH_SPACEDIM == 1
+	Vector<Real> xb(nt),xc(nt);
+	geomPP.getarr("gaussianBump_xb", xb, 0, nt);
+	geomPP.getarr("gaussianBump_xc", xc, 0, nt);
+	for (int i = 0; i < nt; ++i)
+	  {
+	    b[i][0] = xb[i];
+	    c[i][0] = xc[i];
+	  }
+#elif CH_SPACEDIM == 2
 	Vector<Real> xb(nt),yb(nt),xc(nt),yc(nt);
 	geomPP.getarr("gaussianBump_xb", xb, 0, nt);
 	geomPP.getarr("gaussianBump_xc", xc, 0, nt);
