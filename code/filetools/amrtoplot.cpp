@@ -114,10 +114,15 @@ int main(int argc, char* argv[]) {
 	  
 	  }
 
+        pout() << "File = " << in_file << ": Time = " << time << endl;
+        pout() << "writing: ";
         for (int var=0; var<names.size(); var++)
           {
             std::string compName = names[var];
-            
+
+            if (var > 0 ) pout() << "         ";
+            pout() << compName << endl;
+
             for (int lev = 0; lev < numLevels; lev++)
               {
                 char iter_str[100];
