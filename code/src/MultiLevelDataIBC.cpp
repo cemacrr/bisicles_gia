@@ -18,15 +18,18 @@
 #include "MultiLevelDataIBC.H"
 #include "ReflectGhostCells.H"
 #include "FillFromReference.H"
+#include "IceConstants.H"
 #include "NamespaceHeader.H"
 
 MultiLevelDataIBC::MultiLevelDataIBC
 (const Vector<RefCountedPtr<LevelData<FArrayBox> > >& a_thck,
  const Vector<RefCountedPtr<LevelData<FArrayBox> > >& a_topg, 
  const RealVect& a_dxCrse, const Vector<int> & a_refRatio)
-  :m_isBCsetUp(false)
+  :m_isBCsetUp(false),m_thck(a_thck),m_topg(a_topg),m_dxCrse(a_dxCrse),m_refRatio(a_refRatio)
 {
-  MayDay::Error("MultiLevelDataIBC::MultiLevelDataIBC not implemented yet");
+  m_nLevel = a_thck.size();
+  CH_assert(a_topg.size() == m_nLevel);
+  CH_assert(a_refRatio.size() >= m_nLevel);
 }
 
 MultiLevelDataIBC::~MultiLevelDataIBC()
@@ -93,7 +96,83 @@ void MultiLevelDataIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 					 const LevelSigmaCS* a_crseCoords,
 					 const int a_refRatio)
 {
-  MayDay::Error("MultiLevelDataIBC::initializeIceGeometry not implemented yet");
+
+  CH_TIME("MultiLevelDataIBC::initializeIceGeometry");
+  if (m_verbose)
+    {
+      pout() << " LevelDataIBC::initializeIceGeometry" << endl;
+    }
+  
+  Real refRatio = m_dxCrse[0]/a_dx[0];
+  //sanity check : a_dx must be an even integer multiple or divisor of m_dxCrse
+  Real testDx = a_dx[0]*refRatio;
+ 
+  if ( ((int(refRatio)%2 != 0)
+	&& (int(refRatio != 1))
+	&& (int(1.0/refRatio)%2 != 0))
+       || (abs(testDx - m_dxCrse[0])/m_dxCrse[0] > TINY_NORM))
+    {
+      MayDay::Error("MultiLevelDataIBC::initializeIceGeometry incompatible a_dx and m_dxCrse");
+    }
+
+  //interpolate level from coarser data, or copy.
+  int nRef = int(refRatio);
+  RealVect dx = m_dxCrse;
+  for (int lev = 0; lev < m_nLevel; lev++)
+    {
+      if (nRef > 1)
+	{
+	  //required level is finer than the data level, so interpolate
+	  if ( (a_crseCoords != NULL) && a_refRatio <= nRef)
+	    {
+	      //we have a valid coarse level LevelSigmaCS, so we might as well interpolate from that
+	      a_coords.interpFromCoarse(*a_crseCoords, a_refRatio);
+	    }
+	  else
+	    {
+	      const DisjointBoxLayout& crseGrids = m_thck[lev]->disjointBoxLayout();
+	      LevelSigmaCS crseCoords(crseGrids, dx, a_coords.ghostVect());
+	      for (DataIterator dit(crseGrids); dit.ok(); ++dit)
+		{
+		  crseCoords.getH()[dit].copy ( (*m_thck[lev])[dit]);
+		  crseCoords.getTopography()[dit].copy ( (*m_topg[lev])[dit]);
+		}
+	      crseCoords.recomputeGeometry(NULL,0);
+	      a_coords.interpFromCoarse(crseCoords, nRef);
+	    }
+	  
+	}
+      else if (nRef == 1)
+	{
+	  //simple copy
+	  m_thck[lev]->copyTo(Interval(0,0),a_coords.getH(),Interval(0,0));
+	  m_topg[lev]->copyTo(Interval(0,0),a_coords.getTopography(),Interval(0,0)); 
+	}
+      nRef /= m_refRatio[lev];
+      dx /= Real(m_refRatio[lev]);
+      
+    }
+
+  //coarse average level from finer data
+  nRef = int(1/refRatio);
+  dx = m_dxCrse;
+  for (int lev = 0; lev < m_nLevel; lev++)
+    {
+      if (nRef > 0)
+	{
+	  //required level is still finer than the current data level, so coarsen
+	  FillFromReference(a_coords.getH(),*m_thck[lev],a_dx,dx,m_verbose);
+	  FillFromReference(a_coords.getTopography(),*m_topg[lev],a_dx,dx,m_verbose);
+	  //\todo reground if neeeded
+	  
+	}
+      nRef *= m_refRatio[lev];
+      dx /= Real(m_refRatio[lev]);
+    } 
+
+  Real dt = 0.0;
+  setGeometryBCs(a_coords, a_coords.grids().physDomain(), a_dx, a_time, dt);
+
 }
 
 void MultiLevelDataIBC::regridIceGeometry(LevelSigmaCS& a_coords,
@@ -108,8 +187,8 @@ void MultiLevelDataIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 
 IceThicknessIBC* MultiLevelDataIBC::new_thicknessIBC()
 {
-  MayDay::Error("MultiLevelDataIBC::new_thicknessIBC not implemented yet");
-  MultiLevelDataIBC* retval = NULL;
+ 
+  MultiLevelDataIBC* retval = new MultiLevelDataIBC(m_thck,m_topg,m_dxCrse,m_refRatio) ;
   return static_cast<IceThicknessIBC*>(retval);
 }
 

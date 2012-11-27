@@ -89,6 +89,13 @@ int main(int argc, char* argv[]) {
 	MayDay::Error("failed to read AMR hierarchy");
       }
 
+    Vector<Real> dx(1,crseDx);
+    for (int lev = 1; lev < numLevels; lev++)
+      {
+	dx.push_back(dx[lev-1]/Real(ratio[lev-1]));
+      }
+
+
     //lookup table inTuple -> inNames
     Vector<int> inComps(inTuple.size());
     for (int j =0; j < inTuple.size(); j++)
@@ -146,9 +153,12 @@ int main(int argc, char* argv[]) {
 			{
 			  const IntVect& iv = bit();
 
-			  //construct a python tuple of args
-			  pArgs = PyTuple_New(inTuple.size());
-			  for (int i = 0; i < inComps.size(); ++i)
+			  //construct a python tuple of args, built from the input tuple
+                          // and ( x[,y[,z]] i[,j[,k]] level dx_level)
+			  int nExtraArgs = SpaceDim + SpaceDim + 2;
+			  pArgs = PyTuple_New(inTuple.size() + nExtraArgs);
+			  int i;
+			  for (i = 0; i < inComps.size(); i++)
 			    {
 			      pValue = PyFloat_FromDouble(inFab(iv,inComps[i]));
 			      if (!pValue)
@@ -159,6 +169,24 @@ int main(int argc, char* argv[]) {
 				}
 			      PyTuple_SetItem(pArgs, i, pValue);
 			    }
+			  
+			  RealVect x = dx[lev]*(RealVect(iv) + 0.5*RealVect::Unit);
+			  for (int dir = 0; dir < SpaceDim; dir++)
+			    {
+			      
+			      PyTuple_SetItem(pArgs, i, PyFloat_FromDouble(x[dir]));i++;
+			    }
+			  for (int dir = 0; dir < SpaceDim; dir++)
+			    {
+			      
+			      PyTuple_SetItem(pArgs, i, PyFloat_FromDouble(Real(iv[dir])));i++;
+			    }
+			  
+			  
+			  PyTuple_SetItem(pArgs, i, PyFloat_FromDouble(dx[lev]));i++;
+
+			  
+			  PyTuple_SetItem(pArgs, i, PyFloat_FromDouble(Real(lev)));i++;
 
 			  //call the python function
 			  pValue = PyObject_CallObject(pFunc, pArgs);

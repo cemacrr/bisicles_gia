@@ -6048,7 +6048,7 @@ AmrIce::writePlotFile()
 #endif    
       for (int l = 0; l < m_temperature[0]->nComp(); ++l)
 	{
-	  char idx[4]; sprintf(idx, "%04d", l);
+	  char idx[8]; sprintf(idx, "%04d", l);
 	  vectName[comp] = temperatureName + string(idx);
 	  comp++;
 	}

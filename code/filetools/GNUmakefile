@@ -9,7 +9,7 @@ DIM=2
 
 include ../mk/Make.defs
 
-ebase :=  nctoamr amrtotxt amrtoplot flatten extract merge
+ebase :=  nctoamr amrtotxt amrtoplot flatten extract merge addbox
 
 ifneq ($(PYTHON_INC),)
 ebase += pythonf

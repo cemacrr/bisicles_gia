@@ -273,7 +273,7 @@ void LevelDataIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
   Real testDx = a_dx[0]*refRatio;
   if (abs(testDx - m_dx[0])/m_dx[0] > TINY_NORM)
     {
-      MayDay::Error("LevelDataIBC::initializeIceGeometry incompatibe a_dx and m_dx");
+      MayDay::Error("LevelDataIBC::initializeIceGeometry incompatible a_dx and m_dx");
     }
   
   if (refRatio > 1.0 + tolerance)

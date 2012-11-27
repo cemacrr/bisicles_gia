@@ -13,6 +13,7 @@
  test the libamrfile functions
 ==========================================================================*/
 #include <iostream>
+#include <cstdlib>
 #include "libamrfile.H"
 #include "NamespaceHeader.H"
 

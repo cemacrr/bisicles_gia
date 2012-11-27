@@ -30,6 +30,7 @@
 #include "MarineIBC.H"
 #include "HumpIBC.H"
 #include "LevelDataIBC.H"
+#include "MultiLevelDataIBC.H"
 #include "IceTemperatureIBC.H"
 #include "LevelDataTemperatureIBC.H"
 #include "LevelDataBasalFriction.H"
@@ -807,6 +808,34 @@ int main(int argc, char* argv[]) {
 	 RealVect levelDx = RealVect::Unit * dx;
 	 LevelDataIBC* ptr = new LevelDataIBC(levelThck,levelTopg,levelDx);
 	 thicknessIBC = static_cast<IceThicknessIBC*>( ptr);
+       }
+     else if (problem_type == "MultiLevelData")
+       {
+	 //read geometry from an AMR Hierarchy, store in MultiLevelDataIBC
+	 ParmParse ildPP("inputLevelData");
+	 std::string infile;
+	 ildPP.get("geometryFile",infile);
+	 std::string thicknessName = "thck";
+	 ildPP.query("thicknessName",thicknessName);
+	 std::string topographyName = "topg";
+	 ildPP.query("topographyName",topographyName);
+	
+	
+	 Real dx;
+	 Vector<Vector<RefCountedPtr<LevelData<FArrayBox> > > > vectData;
+	
+
+	 Vector<std::string> names(2);
+	 names[0] = thicknessName;
+	 names[1] = topographyName;
+	 Vector<int> refRatio;
+	 readMultiLevelData(vectData,dx,refRatio,infile,names,1);
+	
+	 RealVect crseDx = RealVect::Unit * dx;
+	 MultiLevelDataIBC* ptr = new MultiLevelDataIBC
+	   (vectData[0],vectData[1],crseDx,refRatio);
+	 thicknessIBC = static_cast<IceThicknessIBC*>( ptr);
+
        }
 #ifdef HAVE_PYTHON
      else if (problem_type == "Python")

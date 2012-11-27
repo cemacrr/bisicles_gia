@@ -145,7 +145,17 @@ private:
 
 private:
   BCFunc m_velBCs;
-  bool m_isBCsetUp;
+  bool m_isBCsetUp, m_verbose;
+  //levels of thickness data
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > m_thck;
+  //levels of topography data
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > m_topg;
+  // count of levels, should be == m_thck.size() == m_topg.size()
+  int m_nLevel;
+  //spacing of the coarsest mesh
+  const RealVect m_dxCrse;
+  //refinement ratios of the usual kind
+  const Vector<int>  m_refRatio;
 
 };
 #include "NamespaceFooter.H"
