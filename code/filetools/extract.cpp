@@ -128,6 +128,20 @@ int main(int argc, char* argv[]) {
       {
         pout() << "... done." << endl;
       }
+  
+    for (int lev=0; lev<data.size(); lev++)
+      {
+        if (data[lev] != NULL)
+          {
+            delete data[lev];
+            data[lev] = NULL;
+          }
+        if (outData[lev] != NULL)
+          {
+            delete outData[lev];
+            outData[lev] = NULL;
+          }
+      }
 
   }  // end nested scope
   CH_TIMER_REPORT();

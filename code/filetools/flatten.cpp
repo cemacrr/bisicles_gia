@@ -21,6 +21,8 @@
 #include "fabncio.H"
 #include "NamespaceHeader.H"
 
+bool verbose = true;
+
 enum out_file_type_enum {hdf5,nc};
 
 int main(int argc, char* argv[]) {
@@ -83,7 +85,12 @@ int main(int argc, char* argv[]) {
     //	   << flatLevel << " and writing to " << out_file << std::endl;
 
     Vector<std::string> names;
-	
+
+    if (verbose)
+      {
+        pout ();
+        pout() << "reading AMR file..." << endl;
+      }
     Vector<LevelData<FArrayBox>* > data;
     Vector<DisjointBoxLayout> grids;
     Vector<int> ratio;
@@ -95,15 +102,20 @@ int main(int argc, char* argv[]) {
        ratio,numLevels);
     if (status != 0)
       {
-	MayDay::Error("failed to read AMR hierarchy");
+        MayDay::Error("failed to read AMR hierarchy");
+      }
+    
+    if (verbose)
+      {
+        pout() << "... done." << endl;
       }
 
     Box flatBox(crseBox);
     Real flatDx = crseDx;
     for (int lev=0; lev < flatLevel;lev++)
       {
-	flatBox.refine(ratio[lev]);
-	flatDx /= Real(ratio[lev]);
+        flatBox.refine(ratio[lev]);
+        flatDx /= Real(ratio[lev]);
       }
     
     ProblemDomain pd(flatBox);
@@ -115,7 +127,7 @@ int main(int argc, char* argv[]) {
     int nRef;
     int nComp = names.size();
     Interval ivl(0,nComp-1);
-
+    
     //interpolate from coarser levels
     for (int lev=0; lev < flatLevel;lev++)
       {

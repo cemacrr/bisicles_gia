@@ -159,6 +159,12 @@ int main(int argc, char* argv[]) {
 		delete mask[lev];
 		mask[lev] = NULL;
 	      }
+
+            if (data[lev] != NULL)
+              {
+                delete data[lev];
+                data[lev] = NULL;
+              }
 	  }
 
 
