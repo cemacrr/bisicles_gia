@@ -490,7 +490,7 @@ LevelSigmaCS::recomputeGeometry(const LevelSigmaCS* a_crseCoords,
 {
   CH_assert(m_isDefined);
 
-  // compute face-averaged H
+  // compute face-averaged Him 
   CellToEdge(m_H, m_faceH);    
 
   // probably will eventually want to do this more efficiently. For
@@ -501,6 +501,7 @@ LevelSigmaCS::recomputeGeometry(const LevelSigmaCS* a_crseCoords,
   int xDir = 0;
   if (SpaceDim == 3) xDir = 1;
   int yDir = xDir +1;
+  if (SpaceDim == 1) yDir = 0;
   
   DataIterator dit= m_grids.dataIterator();
   for (dit.begin(); dit.ok(); ++dit)
@@ -841,6 +842,7 @@ LevelSigmaCS::computeSurface(const LevelSigmaCS* a_crseCoords,
       int xDir = 0;
       if (SpaceDim == 3) xDir = 1;
       int yDir = xDir + 1;
+      if (SpaceDim == 1) yDir = 0;
 
       for (int dir = xDir; dir <= yDir; ++dir)
 	{

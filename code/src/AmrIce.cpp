@@ -811,7 +811,7 @@ AmrIce::initialize()
   ppCon.query("gravity",m_gravity);
   ParmParse ppAmr("amr");
   Vector<int> ancells(3); 
-  // slc : SpaceDim == 2 implies poor-mans multidum mode, in which we still
+  // slc : SpaceDim == 2 implies poor-mans multidim mode, in which we still
   // care about the number of vertical layers. 
   Vector<Real> domsize(SpaceDim);
 
@@ -2825,7 +2825,7 @@ AmrIce::regrid()
 		new LevelData<FArrayBox>(newDBL, 1, m_old_thickness[0]->ghostVect());
 	      
 	      LevelData<FArrayBox>* new_velDataPtr = 
-		new LevelData<FArrayBox>(newDBL, 2, m_velocity[0]->ghostVect());
+		new LevelData<FArrayBox>(newDBL, SpaceDim, m_velocity[0]->ghostVect());
 
 	      LevelData<FArrayBox>* new_tempDataPtr = 
 		new LevelData<FArrayBox>(newDBL, m_temperature[0]->nComp(), 
@@ -3008,7 +3008,7 @@ AmrIce::regrid()
 	      
 	      {
 		// may eventually want to do post-regrid smoothing on this!
-		FineInterp interpolator(newDBL, 2, 
+		FineInterp interpolator(newDBL, SpaceDim, 
 					m_refinement_ratios[lev-1],
 					m_amrDomains[lev]);
 		
@@ -3133,7 +3133,7 @@ AmrIce::regrid()
 		{
 		  delete m_velRHS[lev];
 		}
-	      m_velRHS[lev] = new LevelData<FArrayBox>(newDBL, 2, 
+	      m_velRHS[lev] = new LevelData<FArrayBox>(newDBL, SpaceDim, 
 						       IntVect::Zero);
 
 	      if (m_faceVelAdvection[lev] != NULL)
@@ -3435,7 +3435,7 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
     {
       for (dit.begin(); dit.ok(); ++dit)
         {
-          FArrayBox lapVel(levelGrids[dit()], 2);
+          FArrayBox lapVel(levelGrids[dit()], SpaceDim);
 	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
           lapVel.setVal(0.0);
           Real alpha = 0;
@@ -4036,7 +4036,7 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
 
   if (a_level == 0 || m_velocity[a_level] == NULL)
     {
-      m_velocity[a_level] = new LevelData<FArrayBox>(a_grids, 2,
+      m_velocity[a_level] = new LevelData<FArrayBox>(a_grids, SpaceDim,
                                                      ghostVect);
     }
   else
@@ -4045,11 +4045,11 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
       // computed velocity field as an initial guess
       {
         LevelData<FArrayBox>* newVelPtr = new LevelData<FArrayBox>(a_grids,
-                                                                   2,
+                                                                   SpaceDim,
                                                                    ghostVect);
         
         // first do interp from coarser level
-        FineInterp velInterp(a_grids, 2, 
+        FineInterp velInterp(a_grids, SpaceDim, 
                              m_refinement_ratios[a_level-1],
                              m_amrDomains[a_level]);
         
@@ -4091,8 +4091,8 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
   //m_cellMuCoef[a_level] = new LevelData<FArrayBox>(a_grids, 1, ghostVect);
   levelAllocate(&m_faceMuCoef[a_level],a_grids, 1, ghostVect);
   //m_faceMuCoef[a_level] = new LevelData<FluxBox>(a_grids, 1, ghostVect);
-  levelAllocate(&m_velRHS[a_level],a_grids, 2,  IntVect::Zero);
-  //m_velRHS[a_level] = new LevelData<FArrayBox>(a_grids, 2,  IntVect::Zero);
+  levelAllocate(&m_velRHS[a_level],a_grids, SpaceDim,  IntVect::Zero);
+  //m_velRHS[a_level] = new LevelData<FArrayBox>(a_grids, SpaceDim,  IntVect::Zero);
   levelAllocate(&m_surfaceThicknessSource[a_level], a_grids,   1, IntVect::Unit) ;
   //m_surfaceThicknessSource[a_level] = 
   //  new LevelData<FArrayBox>(a_grids,   1, IntVect::Unit) ;
@@ -4223,7 +4223,7 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
   for (int lev=m_finest_level; lev>0; lev--)
     {
       CoarseAverage avgDown(m_amrGrids[lev],
-                            2, m_refinement_ratios[lev-1]);
+                            SpaceDim, m_refinement_ratios[lev-1]);
       avgDown.averageToCoarse(*m_velocity[lev-1], *m_velocity[lev]);
     }
 
@@ -4665,7 +4665,7 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
                   // grad(s) here represents the marine boundary condition
                   if  (floatingMask(iv) == GROUNDEDMASKVAL)
                     {
-                      for (int dir=0; dir<2; dir++)
+                      for (int dir=0; dir<SpaceDim; dir++)
                         {
                           if (thisRhs(iv,dir) > maxGradDir[dir])
                             thisRhs(iv,dir) = maxGradDir[dir];
@@ -4679,7 +4679,7 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
             {
               IntVect iv = bit();
 
-              for (int dir=0; dir<2; dir++)
+              for (int dir=0; dir<SpaceDim; dir++)
                 {     
                   thisRhs(iv,dir) *= iceDensity*gravity*thisH(iv,0);
                 } // end loop over directions
@@ -5867,7 +5867,7 @@ AmrIce::writePlotFile()
   
   // plot comps: thickness + horizontal velocity + zb + zs
   // slc: + base velocity + 'flux' velocity
-  int numPlotComps = 6;
+  int numPlotComps = 4 + SpaceDim;
 
 
 
@@ -5877,14 +5877,14 @@ AmrIce::writePlotFile()
 
   if (m_write_fluxVel)
     {
-      numPlotComps += 2;
+      numPlotComps += SpaceDim;
       if (writeZvel) numPlotComps+=1;
     }
   
  
   if (m_write_baseVel)
     {
-      numPlotComps += 2;
+      numPlotComps += SpaceDim;
       if (writeZvel) numPlotComps+=1;
     }
 
@@ -5968,8 +5968,9 @@ AmrIce::writePlotFile()
 
   vectName[0] = thicknessName;
   vectName[1] = xVelName;
-  vectName[2] = yVelName;
-  int comp = 3;
+  if (SpaceDim > 1)
+    vectName[2] = yVelName;
+  int comp = SpaceDim+1;
   if (writeZvel) 
     {
       vectName[comp] = zVelName;
@@ -5991,7 +5992,12 @@ AmrIce::writePlotFile()
       vectName[comp] = C0Name;
       comp++;
 
-      if (SpaceDim == 2)
+      if (SpaceDim == 1)
+        {
+          vectName[comp] = solverRhsxName;
+          comp++;
+        }
+      else if (SpaceDim == 2)
         {
           vectName[comp] = solverRhsxName;
           comp++;
@@ -6014,8 +6020,11 @@ AmrIce::writePlotFile()
     {
       vectName[comp] = xfVelName;
       comp++;
-      vectName[comp] = yfVelName;
-      comp++;
+      if (SpaceDim > 1)
+        {
+          vectName[comp] = yfVelName;
+          comp++;
+        }
       
       if (writeZvel) 
         {
@@ -6030,8 +6039,11 @@ AmrIce::writePlotFile()
     {
       vectName[comp] = xbVelName;
       comp++;
-      vectName[comp] = ybVelName;
-      comp++;
+      if (SpaceDim > 1)
+        {
+          vectName[comp] = ybVelName;
+          comp++;
+        }
       
       if (writeZvel) 
         {
@@ -6187,7 +6199,7 @@ AmrIce::writePlotFile()
     {
       // now copy new-time solution into plotData
       Interval thicknessComps(0,0);
-      Interval velocityComps(1,2);
+      Interval velocityComps(1,SpaceDim);
 
       LevelData<FArrayBox>& plotDataLev = *plotData[lev];
 
@@ -6219,9 +6231,9 @@ AmrIce::writePlotFile()
 
           comp++;
           const FArrayBox& thisVel = (*m_velocity[lev])[dit];
-          thisPlotData.copy(thisVel, 0, comp, 2);
+          thisPlotData.copy(thisVel, 0, comp, SpaceDim);
           
-          comp += 2;
+          comp += SpaceDim;
 	 
           if (writeZvel) 
             {
@@ -6326,9 +6338,9 @@ AmrIce::writePlotFile()
           if (m_write_baseVel)
             {
               const FArrayBox& thisBaseVel = (*m_velocity[lev])[dit];
-              thisPlotData.copy(thisBaseVel, 0, comp, 2);
+              thisPlotData.copy(thisBaseVel, 0, comp, SpaceDim);
               
-              comp += 2;
+              comp += SpaceDim;
               
               if (writeZvel) 
                 {
@@ -6483,7 +6495,11 @@ AmrIce::writePlotFile()
     }
   else
     {
-      if (SpaceDim == 2)
+      if (SpaceDim == 1)
+        {
+          filename.append("1d.hdf5");
+        } 
+      else if (SpaceDim == 2)
         {
           filename.append("2d.hdf5");
         } 
@@ -7051,7 +7067,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 #endif
 	  // other quantities need only one;
 	  IntVect ghostVect(IntVect::Unit);
-          m_velocity[lev] = new LevelData<FArrayBox>(levelDBL, 2, 
+          m_velocity[lev] = new LevelData<FArrayBox>(levelDBL, SpaceDim, 
                                                      ghostVect);
 
 	  m_faceVelAdvection[lev] = new LevelData<FluxBox>(m_amrGrids[lev], 1, IntVect::Unit);
@@ -7066,7 +7082,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	  m_velBasalC[lev] = new LevelData<FArrayBox>(levelDBL, 1, ghostVect);
 	  m_cellMuCoef[lev] = new LevelData<FArrayBox>(levelDBL, 1, ghostVect);
 	  m_faceMuCoef[lev] = new LevelData<FluxBox>(levelDBL, 1, ghostVect);
-	  m_velRHS[lev] = new LevelData<FArrayBox>(levelDBL, 2, IntVect::Zero);
+	  m_velRHS[lev] = new LevelData<FArrayBox>(levelDBL, SpaceDim, IntVect::Zero);
 	  m_surfaceThicknessSource[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_basalThicknessSource[lev] = new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_balance[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Zero) ;

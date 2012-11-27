@@ -337,7 +337,7 @@ IceJFNKstate::IceJFNKstate
    Real alpha = -1.0;
    Real beta = 1.0;
    // for the moment, at least, this only works for dx = dy:
-   CH_assert(m_dxs[0][0] == m_dxs[0][1]);
+   if (SpaceDim > 1) CH_assert(m_dxs[0][0] == m_dxs[0][1]);
 
    BCHolder velSolveBC = m_bcPtr->velocitySolveBC();
    m_opFactoryPtr = 

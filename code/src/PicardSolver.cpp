@@ -929,7 +929,7 @@ PicardSolver::defineGMRESSolver(GMRESSolver<Vector<LevelData<FArrayBox>* > >& a_
 
 void PicardSolver::defineOpFactory()
 {
-  if (SpaceDim == 2)
+  if (SpaceDim <= 2)
     {
       CH_assert(m_opFactoryPtr == NULL);
      
@@ -937,7 +937,8 @@ void PicardSolver::defineOpFactory()
       getOperatorScaleFactors(alpha, beta);
 
       // for the moment, at least, this only works for dx = dy:
-      CH_assert(m_dxCrse[0] == m_dxCrse[1]);
+      if (SpaceDim > 1)
+        CH_assert(m_dxCrse[0] == m_dxCrse[1]);
       
      
 
