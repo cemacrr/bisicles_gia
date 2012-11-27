@@ -28,11 +28,11 @@ void writeNetCDF(const std::string& a_file,
       MayDay::Error("failed to open netcdf file");
     }
 
-  std::string xname[SpaceDim] = {"x","y"};
+  std::string xname[SpaceDim] = {D_DECL("x","y","z")};
   int dimID[SpaceDim];
 
   int bufSize = 1;
-  size_t start[SpaceDim] = {0,0};
+  size_t start[SpaceDim] = {D_DECL(0,0,0)};
   size_t count[SpaceDim];
   for (int dir = 0; dir < SpaceDim; ++dir)
     {
@@ -235,7 +235,7 @@ void readNetCDF(const std::string& a_file,
 	 
 
 	} //end if (i == 0)
-      size_t start[SpaceDim] = {0,0};
+      size_t start[SpaceDim] = {D_DECL(0,0,0)};
       if ( ( rc =  nc_get_vara_double(ncID, varID[i], start, dimLength, dptr) ) != NC_NOERR)
 	{
 	  MayDay::Error("nc_get_vara_double failed");
