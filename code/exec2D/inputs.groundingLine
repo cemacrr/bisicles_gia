@@ -17,7 +17,7 @@ surfaceFlux.flux_value = 0.3
 basalFlux.type = zeroFlux
 
 geometry.problem_type = VieliPayne
-vieliPayne.basal_slope = -0.005 0
+vieliPayne.basal_slope = -0.000087266 0 # -0.005 degrees
 vieliPayne.originElevation = -250.0 
 vieliPayne.thickness = 500.0
 geometry.beta_type = constantBeta
