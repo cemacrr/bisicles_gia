@@ -200,7 +200,7 @@ c     secant solve
              tmua = res(CHF_AUTOIX[i])
 c             call L1L2SECANTSOLVE(tmu,tmua,tA,tesqr,ttsqr,
 c     &            p1, niter, tol)      
-             if (abs(tmua - tmu) .lt. 0.005d0) then
+             if (abs(tmua - tmu) .lt. 0.005d0*(tmu+1.0)) then
                 tmua = 1.005d0 * tmu;
              end if       
              !call COMPUTEL1L2RES(fa,tmua,tA,tesqr,ttsqr,p1)
@@ -210,9 +210,12 @@ c     &            p1, niter, tol)
                 !call COMPUTEL1L2RES(fb,tmu,tA,tesqr,ttsqr,p1)
                 fb = 1.0d0 - 2.0d0 * tA * tmu * 
      &               (4.0d0 * tmu**2 * tesqr + ttsqr)**p1
-                if (abs(fb) .lt. tol .or. abs(fb-fa) .lt. tol**2) exit
+               
+                if (abs(fb) .lt. tol) exit
+                if (abs(fb-fa) .lt. tol**2) exit
+
                 t = tmu
-                tmu = tmua - (tmua - tmu)/(fa - fb)*fa
+                tmu = tmua - (tmua - tmu)/(fa - fb)*fa 
                 tmua = t
                 fa = fb 
          
@@ -501,16 +504,17 @@ c------------------------------------------------
       end
 
 
+
 c-------------------------------------------------
 c compute diffusivity D from vertically averaged velocity u
-c through D = - u H / grad(H). D and u are face-centered
-c and H is cell-centeres. Also compute utotal 
+c through D = - u H / grad(s). all fields are cell-centered
 c------------------------------------------------- 
 
       subroutine L1L2COMPUTEDIFFUSIVITY(CHF_FRA1[D],
      &     CHF_CONST_FRA1[ux],
      &     CHF_CONST_FRA1[uy],
      &     CHF_CONST_FRA1[thck],
+     &     CHF_CONST_FRA1[s],
      &     CHF_CONST_INT[dir],
      &     CHF_CONST_REAL[dx],
      &     CHF_CONST_REAL[dy],
@@ -519,7 +523,7 @@ c-------------------------------------------------
       integer CHF_AUTODECL[i]
       integer CHF_AUTODECL[ix]
       integer CHF_AUTODECL[iy]
-      REAL_T oneOnDx, uxc,uyc, uc, dhx, dhy, dh
+      REAL_T oneOnDx, uxc,uyc, uc, dsx, dsy, ds
 
       oneOnDx = one/dx
 
@@ -541,13 +545,13 @@ c-------------------------------------------------
       uxc = half * (ux(CHF_AUTOIX[i])+ux(CHF_OFFSETIX[i;+ix]))
       uyc = half * (uy(CHF_AUTOIX[i])+uy(CHF_OFFSETIX[i;+iy]))
       uc = (uxc**2 + uyc**2)**half
-      dhx = half*(thck(CHF_OFFSETIX[i;+ix])
-     &     -thck(CHF_OFFSETIX[i;-ix]))/dx
-      dhy = half*(thck(CHF_OFFSETIX[i;+iy])
-     &     -thck(CHF_OFFSETIX[i;-iy]))/dy
-      dh = (dhx**2 + dhy**2)**half + 1.0e-6
+      dsx = half*(s(CHF_OFFSETIX[i;+ix])
+     &     -s(CHF_OFFSETIX[i;-ix]))/dx
+      dsy = half*(s(CHF_OFFSETIX[i;+iy])
+     &     -s(CHF_OFFSETIX[i;-iy]))/dy
+      ds = (dsx**2 + dsy**2)**half + 1.0e-6
       
-      D(CHF_AUTOIX[i]) = thck(CHF_AUTOIX[i]) * uc / dh
+      D(CHF_AUTOIX[i]) = thck(CHF_AUTOIX[i]) * uc / ds
       
       CHF_ENDDO
 

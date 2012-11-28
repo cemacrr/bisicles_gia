@@ -371,12 +371,33 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
 	    // use mu from the previous layer, twice
 	    res.copy(a_mu,l-1,0); 
 	    a_mu.copy(a_mu,l-1,l);
+	    //	    a_mu.mult(0.95,l,1);
+	    
+	    FORT_ANALYTICL1L2MU(CHF_FRA1(a_mu,l),
+				CHF_CONST_FRA1(A, 0),
+				CHF_CONST_FRA1(epsSqr,0),
+				CHF_CONST_FRA1(phiTildeSqr,0),
+				CHF_BOX(a_box),
+				CHF_CONST_REAL(a_sigma[l]),
+				CHF_CONST_REAL(glensFlowRelation.m_n),
+				CHF_CONST_REAL(glensFlowRelation.m_epsSqr0));
+
 	  } 
 	else 
 	  {
 	    // use mu from the previous two layers
 	    res.copy(a_mu,l-2,0);
 	    a_mu.copy(a_mu,l-1,l);
+
+	    FORT_ANALYTICL1L2MU(CHF_FRA1(a_mu,l),
+				CHF_CONST_FRA1(A, 0),
+				CHF_CONST_FRA1(epsSqr,0),
+				CHF_CONST_FRA1(phiTildeSqr,0),
+				CHF_BOX(a_box),
+				CHF_CONST_REAL(a_sigma[l]),
+				CHF_CONST_REAL(glensFlowRelation.m_n),
+				CHF_CONST_REAL(glensFlowRelation.m_epsSqr0));
+
 	  } 
 
     
@@ -391,6 +412,18 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
 			   CHF_CONST_REAL(glensFlowRelation.m_epsSqr0),
 			   CHF_CONST_REAL(m_solverTol),
 			   CHF_CONST_INT(maxIter));
+	
+
+	if (res.norm(0) >= 2.0 * m_solverTol)
+	  {
+	    pout() << "L1L2 mu calculation failed in layer " << l << std::endl;
+	    writeFABname(&a_H,"H.2d.hdf5");
+	    writeFABname(&res,"res.2d.hdf5");
+	    writeFABname(&A,"A.2d.hdf5");
+	    writeFABname(&phiTildeSqr,"phiTildeSqr.2d.hdf5");
+	    writeFABname(&epsSqr,"epsSqr.2d.hdf5");
+	    writeFABname(&a_mu,"mu.2d.hdf5");
+	  }
 	CH_assert(res.norm(0) < 2.0 * m_solverTol);
 	CH_assert(a_mu.min(a_box,l) > 0.0e0);
       } // end general case
@@ -721,7 +754,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
   LevelData<FArrayBox> sigmaFaceA(a_grids,a_coordSys.getFaceSigma().size(),grownGhost);
   LevelData<FArrayBox> grownThickness(a_grids, 1, grownGhost);
   const LevelData<FArrayBox>& H = a_coordSys.getH();
-
+  
   // (DFM) if cellVel's ghosting is greater than grownGhost, we can 
   // skip this copy, but putting it here for now for simplicity..
   LevelData<FArrayBox> grownCellVel(a_grids, SpaceDim, grownGhost);
@@ -780,15 +813,30 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
       FArrayBox& D = a_cellDiffusivity[dit];
       D.setVal(0.0);
       FluxBox& uvavg = vertAverageVelFace[dit];
-     
+      const FArrayBox& s = a_coordSys.getSurfaceHeight()[dit];
+
+      //set D = \bar{u'}H / grad(H),  u_total = u_base + \bar{u'}
       FORT_L1L2COMPUTEDIFFUSIVITY(CHF_FRA1(D,0),
 				  CHF_CONST_FRA1(uvavg[0],0),
 				  CHF_CONST_FRA1(uvavg[1],0),
+				  CHF_CONST_FRA1(H[dit],0),
 				  CHF_CONST_FRA1(H[dit],0),
 				  CHF_CONST_INT(SpaceDim),
 				  CHF_CONST_REAL(dx[0]),
 				  CHF_CONST_REAL(dx[1]),
 				  CHF_BOX(a_grids[dit]));
+      //set D = \bar{u'}H / grad(s),  u_total = u_base + \bar{u'}
+      FORT_L1L2COMPUTEDIFFUSIVITY(CHF_FRA1(D,0),
+				  CHF_CONST_FRA1(uvavg[0],0),
+				  CHF_CONST_FRA1(uvavg[1],0),
+				  CHF_CONST_FRA1(H[dit],0),
+				  CHF_CONST_FRA1(s,0),
+				  CHF_CONST_INT(SpaceDim),
+				  CHF_CONST_REAL(dx[0]),
+				  CHF_CONST_REAL(dx[1]),
+				  CHF_BOX(a_grids[dit]));
+
+
 
       CH_assert(D.norm(0) < HUGE_NORM*HUGE_NORM);
     }
@@ -808,6 +856,31 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 				      CHF_CONST_REAL(tiny),
 				      CHF_BOX(fbox));
 	  CH_assert(Dface.norm(0) < HUGE_NORM*HUGE_NORM);
+
+	 
+	  //modify grounded ice advection and floating ice diffusion 
+          //to account for the relationships between surface, topography and thickness
+	  { 
+	    const FArrayBox& b = a_coordSys.getTopography()[dit];
+	    const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
+	    for (BoxIterator bit(fbox);bit.ok();++bit)
+	      {
+		const IntVect& iv = bit();
+		const IntVect& ivm = iv - BASISV(dir);
+	
+		if (mask(ivm)==FLOATINGMASKVAL || mask(iv)==FLOATINGMASKVAL)
+		  {
+		    Dface(iv)*=(1.0-918.0/1028.0);
+		  }
+		else if (mask(ivm)==GROUNDEDMASKVAL || mask(iv)==GROUNDEDMASKVAL)
+		  {
+		    Real db = (b(iv)-b(ivm))/dx[dir];
+		    a_faceVelAdvection[dit][dir](iv) -= 2.0 * db*Dface(iv) / (H[dit](iv) + H[dit](ivm));
+		  }
+	      }
+	  }
+
+
 	  a_faceVelTotal[dit][dir] += vertAverageVelFace[dit][dir];			      
 	}
     }
