@@ -1,6 +1,6 @@
 #inputs file for Amr ice-sheet solver
-main.maxTime = 10000000000  # maximum time to run to
-main.maxStep = 2   # maximum number of steps to runx
+main.maxTime = 1000  # maximum time to run to
+#main.maxStep = 2   # maximum number of steps to runx
 main.maxStep = 20000   # maximum number of steps to runx
 main.constitutiveRelation = GlensLaw
 #main.constitutiveRelation = constMu
@@ -49,8 +49,9 @@ amr.initial_cfl = 0.01  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
 
 
-amr.plot_interval = 1
+amr.plot_interval = 100
 amr.plot_prefix = plot.groundingLine.
+amr.write_preSolve_plotfiles = false
 amr.write_solver_rhs = 1
 amr.check_interval = 20
 amr.check_prefix = chk
