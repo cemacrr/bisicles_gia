@@ -27,6 +27,7 @@
 #include "LoadBalance.H"
 #include "BRMeshRefine.H"
 #include "LevelDataIBC.H"
+#include "MultiLevelDataIBC.H"
 #include "LevelDataTemperatureIBC.H"
 #include "AMRIceControl.H"
 #include "ReadLevelData.H"
@@ -109,8 +110,8 @@ int main(int argc, char* argv[]) {
     
 
     RealVect dataDx;
-    RefCountedPtr<LevelData<FArrayBox> > levelThck;
-    RefCountedPtr<LevelData<FArrayBox> > levelTopg;
+    //RefCountedPtr<LevelData<FArrayBox> > levelThck;
+    //RefCountedPtr<LevelData<FArrayBox> > levelTopg;
     RefCountedPtr<LevelData<FArrayBox> > levelXVel;
     RefCountedPtr<LevelData<FArrayBox> > levelYVel;
     RefCountedPtr<LevelData<FArrayBox> > levelVel;
@@ -131,19 +132,19 @@ int main(int argc, char* argv[]) {
 	Vector<std::string> names;
 	 Vector<RefCountedPtr<LevelData<FArrayBox> > > vectData;
 
-	std::string thicknessName = "thk";
-	ildPP.query("thicknessName",thicknessName);
-	names.push_back(thicknessName);
-	levelThck =  RefCountedPtr<LevelData<FArrayBox> >
-	 (new LevelData<FArrayBox>); 
-	vectData.push_back(levelThck);
+	// std::string thicknessName = "thk";
+	// ildPP.query("thicknessName",thicknessName);
+	// names.push_back(thicknessName);
+	// levelThck =  RefCountedPtr<LevelData<FArrayBox> >
+	//  (new LevelData<FArrayBox>); 
+	// vectData.push_back(levelThck);
 
-	std::string topographyName = "topg";
-	ildPP.query("topographyName",topographyName);
-	names.push_back(topographyName);
-	levelTopg = RefCountedPtr<LevelData<FArrayBox> >
-	 (new LevelData<FArrayBox>);
-	vectData.push_back(levelTopg);
+	// std::string topographyName = "topg";
+	// ildPP.query("topographyName",topographyName);
+	// names.push_back(topographyName);
+	// levelTopg = RefCountedPtr<LevelData<FArrayBox> >
+	//  (new LevelData<FArrayBox>);
+	// vectData.push_back(levelTopg);
 
 	std::string frictionName = "beta";
 	ildPP.query("frictionName",frictionName);
@@ -293,8 +294,49 @@ int main(int argc, char* argv[]) {
 	MayDay::Error("undefined basalFrictionRelation in inputs");
       }
    
-    LevelDataIBC ibc(levelThck,levelTopg,dataDx);
+    
 
+    IceThicknessIBC* thicknessIBC = NULL;
+    ParmParse geomPP("geometry");
+    std::string geomType("LevelData");
+    geomPP.query("type",geomType);
+    if (geomType == "LevelData" || geomType == "MultiLevelData")
+      {
+	// MultiLevelThicknessIBC can replace LevelDataThicknessIBC
+	ParmParse ildPP("inputLevelData");
+	
+	std::string infile="";
+	ildPP.query("inputFile",infile);
+	ildPP.query("geometryFile",infile);
+	if (infile == "")
+	  {
+	    MayDay::Error("inputLevelData.inputFile or inputLevelData.geometryFile must be specified");
+	  }
+	std::string thicknessName = "thck";
+	ildPP.query("thicknessName",thicknessName);
+	std::string topographyName = "topg";
+	ildPP.query("topographyName",topographyName);
+	Real dx;
+	Vector<Vector<RefCountedPtr<LevelData<FArrayBox> > > > vectData;
+	Vector<std::string> names(2);
+	names[0] = thicknessName;
+	names[1] = topographyName;
+	Vector<int> refRatio;
+	readMultiLevelData(vectData,dx,refRatio,infile,names,1);
+	
+	RealVect crseDx = RealVect::Unit * dx;
+	MultiLevelDataIBC* ptr = new MultiLevelDataIBC
+	  (vectData[0],vectData[1],crseDx,refRatio);
+	
+	thicknessIBC  = static_cast<IceThicknessIBC*>(ptr);
+
+
+
+      }
+    else 
+      {
+	MayDay::Error("bad geometry type");
+      }
 
     IceTemperatureIBC* temperatureIBC = NULL;
     ParmParse tempPP("temperature");
@@ -323,7 +365,7 @@ int main(int argc, char* argv[]) {
 
 
     AMRIceControl amrIceControl;
-    amrIceControl.define(&ibc, temperatureIBC,  rateFactorPtr, constRelPtr , 
+    amrIceControl.define(thicknessIBC, temperatureIBC,  rateFactorPtr, constRelPtr , 
 			 basalFrictionRelationPtr,dataDx,levelC, levelVel,
 			 levelVelCoef,levelDivUH,levelDivUHCoef);
 
@@ -352,6 +394,18 @@ int main(int argc, char* argv[]) {
       {
         delete rateFactorPtr;
         rateFactorPtr = NULL;
+      }
+
+    if (thicknessIBC != NULL)
+      {
+	delete thicknessIBC;
+	thicknessIBC = NULL;
+      }
+    
+    if (temperatureIBC != NULL)
+      {
+	delete temperatureIBC;
+	temperatureIBC = NULL;
       }
 
     if (basalFrictionRelationPtr != NULL)
