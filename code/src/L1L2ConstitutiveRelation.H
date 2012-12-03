@@ -35,7 +35,8 @@ class L1L2ConstitutiveRelation : public ConstitutiveRelation
 public:
   ///
   L1L2ConstitutiveRelation() 
-    :m_solverTol(1.0e-6),m_additionalVelocitySIAGradSLimit(1.0e-2),m_additionalVelocitySIAOnly(true) 
+    :m_solverTol(1.0e-6),m_additionalVelocitySIAGradSLimit(1.0e-2),
+     m_additionalVelocitySIAOnly(true),m_startFromAnalyticMu(false)
   {;}
   ///
   
@@ -246,9 +247,13 @@ private:
   Real m_solverTol;
   // if > 0, limit the magnitude of grad(s) when computing the SIA part of u(z) - u(z=base)
   Real m_additionalVelocitySIAGradSLimit; 
+
   // neglect non SIA contribution to u(z) - u(z=base)  
   bool m_additionalVelocitySIAOnly; 
-  
+
+  // for n = 3, there is an analytic solution to f(mu) = 0; sometimes
+  // it is preferable to start from that value
+  bool m_startFromAnalyticMu;
 
 
 };

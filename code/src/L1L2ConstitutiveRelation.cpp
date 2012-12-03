@@ -34,6 +34,7 @@ L1L2ConstitutiveRelation::getNewConstitutiveRelation() const
   newPtr->m_solverTol = m_solverTol;
   newPtr->m_additionalVelocitySIAGradSLimit = m_additionalVelocitySIAGradSLimit;
   newPtr->m_additionalVelocitySIAOnly = m_additionalVelocitySIAOnly;
+  newPtr->m_startFromAnalyticMu = m_startFromAnalyticMu;
   GlensFlowRelation* gfr =  newPtr->getGlensFlowRelationPtr();
   gfr->setParameters(glensFlowRelation.m_n, 
 		     glensFlowRelation.m_rateFactor->getNewRateFactor(), 
@@ -49,6 +50,7 @@ L1L2ConstitutiveRelation::parseParameters()
   ppL1L2.query("solverTolerance", m_solverTol);
   ppL1L2.query("additionalVelocitySIAGradSLimit", m_additionalVelocitySIAGradSLimit);
   ppL1L2.query("additionalVelocitySIAOnly", m_additionalVelocitySIAOnly);
+  ppL1L2.query("startFromAnalyticMu",m_startFromAnalyticMu);
 }
 
 void
@@ -372,15 +374,15 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
 	    res.copy(a_mu,l-1,0); 
 	    a_mu.copy(a_mu,l-1,l);
 	    //	    a_mu.mult(0.95,l,1);
-	    
-	    FORT_ANALYTICL1L2MU(CHF_FRA1(a_mu,l),
-				CHF_CONST_FRA1(A, 0),
-				CHF_CONST_FRA1(epsSqr,0),
-				CHF_CONST_FRA1(phiTildeSqr,0),
-				CHF_BOX(a_box),
-				CHF_CONST_REAL(a_sigma[l]),
-				CHF_CONST_REAL(glensFlowRelation.m_n),
-				CHF_CONST_REAL(glensFlowRelation.m_epsSqr0));
+	    if (m_startFromAnalyticMu)
+	      FORT_ANALYTICL1L2MU(CHF_FRA1(a_mu,l),
+				  CHF_CONST_FRA1(A, 0),
+				  CHF_CONST_FRA1(epsSqr,0),
+				  CHF_CONST_FRA1(phiTildeSqr,0),
+				  CHF_BOX(a_box),
+				  CHF_CONST_REAL(a_sigma[l]),
+				  CHF_CONST_REAL(glensFlowRelation.m_n),
+				  CHF_CONST_REAL(glensFlowRelation.m_epsSqr0));
 
 	  } 
 	else 
@@ -389,14 +391,15 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
 	    res.copy(a_mu,l-2,0);
 	    a_mu.copy(a_mu,l-1,l);
 
-	    FORT_ANALYTICL1L2MU(CHF_FRA1(a_mu,l),
-				CHF_CONST_FRA1(A, 0),
-				CHF_CONST_FRA1(epsSqr,0),
-				CHF_CONST_FRA1(phiTildeSqr,0),
-				CHF_BOX(a_box),
-				CHF_CONST_REAL(a_sigma[l]),
-				CHF_CONST_REAL(glensFlowRelation.m_n),
-				CHF_CONST_REAL(glensFlowRelation.m_epsSqr0));
+	    if (m_startFromAnalyticMu)
+	      FORT_ANALYTICL1L2MU(CHF_FRA1(a_mu,l),
+				  CHF_CONST_FRA1(A, 0),
+				  CHF_CONST_FRA1(epsSqr,0),
+				  CHF_CONST_FRA1(phiTildeSqr,0),
+				  CHF_BOX(a_box),
+				  CHF_CONST_REAL(a_sigma[l]),
+				  CHF_CONST_REAL(glensFlowRelation.m_n),
+				  CHF_CONST_REAL(glensFlowRelation.m_epsSqr0));
 
 	  } 
 
@@ -414,16 +417,7 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
 			   CHF_CONST_INT(maxIter));
 	
 
-	if (res.norm(0) >= 2.0 * m_solverTol)
-	  {
-	    pout() << "L1L2 mu calculation failed in layer " << l << std::endl;
-	    writeFABname(&a_H,"H.2d.hdf5");
-	    writeFABname(&res,"res.2d.hdf5");
-	    writeFABname(&A,"A.2d.hdf5");
-	    writeFABname(&phiTildeSqr,"phiTildeSqr.2d.hdf5");
-	    writeFABname(&epsSqr,"epsSqr.2d.hdf5");
-	    writeFABname(&a_mu,"mu.2d.hdf5");
-	  }
+
 	CH_assert(res.norm(0) < 2.0 * m_solverTol);
 	CH_assert(a_mu.min(a_box,l) > 0.0e0);
       } // end general case
@@ -850,7 +844,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 	  FArrayBox& Dface = a_faceDiffusivity[dit][dir];
 	  Box fbox = a_grids[dit].surroundingNodes(dir);
 	  Real tiny = 1.0/HUGE_NORM;
-	  FORT_L1L2CELLTOFACEHARMONIC(CHF_CONST_FRA1(Dface,0),
+	  FORT_L1L2CELLTOFACEHARMONIC(CHF_FRA1(Dface,0),
 				      CHF_CONST_FRA1(Dcell,0),
 				      CHF_CONST_INT(dir),
 				      CHF_CONST_REAL(tiny),
