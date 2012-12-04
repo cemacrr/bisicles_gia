@@ -141,6 +141,7 @@ PetscErrorCode FormJacobian( SNES snes,Vec x,Mat *jac,Mat *prejac,MatStructure *
   PetscFunctionBegin;
 
   ierr = SNESGetApplicationContext(snes,(void**)&solver);CHKERRQ(ierr);
+
   tthis = (PetscIceSolver*)solver->m_ctx;
 
   ierr = solver->putPetscInChombo( *tthis->m_tphi2, x );     CHKERRQ(ierr);

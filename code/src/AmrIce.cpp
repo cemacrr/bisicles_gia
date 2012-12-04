@@ -23,7 +23,6 @@ using std::cerr;
 using std::endl;
 using std::string;
 
-
 #include "Box.H"
 #include "Vector.H"
 #include "DisjointBoxLayout.H"
@@ -39,7 +38,7 @@ using std::string;
 #include "LoadBalance.H"
 #include "MayDay.H"
 #include "AmrIce.H"
-#include "computeNorm.H"
+#include "computeNorm.H" 
 #include "PatchGodunov.H"
 #include "AdvectPhysics.H"
 #include "PiecewiseLinearFillPatch.H"
@@ -59,6 +58,7 @@ using std::string;
 #include "JFNKSolver.H"
 #include "PetscIceSolver.H"
 #include "RelaxSolver.H"
+#include "FASIceSolverI.H"
 #include "KnownVelocitySolver.H"
 #include "VCAMRPoissonOp2.H"
 #include "AMRPoissonOpF_F.H"
@@ -1621,7 +1621,7 @@ AmrIce::defineSolver()
       if (m_maxSolverIterations > 0)
         {
           m_velSolver->setMaxIterations(m_maxSolverIterations);
-	  
+
         }
     }
   else  if (m_solverType == JFNK)
@@ -1717,6 +1717,47 @@ AmrIce::defineSolver()
         }
     }
 #endif
+  else if (m_solverType == FASMGAMR)
+    {
+            // for now, at least, just delete any existing solvers
+      // and rebuild them from scratch
+      if (m_velSolver != NULL)
+        {
+          delete m_velSolver;
+          m_velSolver = NULL;
+        }
+      
+      FASIceSolver *solver = new FASIceSolver;
+      m_velSolver = solver;
+      
+      solver->setParameters( "FASSolver" );
+
+      RealVect dxCrse = m_amrDx[0]*RealVect::Unit;
+
+      int numLevels = m_finest_level + 1;
+
+      // make sure that the IBC has the correct grid hierarchy info
+      m_thicknessIBCPtr->setGridHierarchy( m_vect_coordSys, m_amrDomains );
+
+      solver->define( m_amrDomains[0],
+		      m_constitutiveRelation,
+		      m_basalFrictionRelation,
+		      m_amrGrids,
+		      m_refinement_ratios,
+		      dxCrse,
+		      m_thicknessIBCPtr,
+		      numLevels );
+
+      solver->setVerbosity( s_verbosity );
+
+      solver->setTolerance( m_velocity_solver_tolerance );
+
+      if (m_maxSolverIterations > 0)
+        {
+          solver->setMaxIterations( m_maxSolverIterations );
+        }
+    }
+
   else
     {
       MayDay::Error("unsupported velocity solver type");
@@ -4383,7 +4424,7 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
 		  JFNKSolver* jfnkSolver = dynamic_cast<JFNKSolver*>(m_velSolver);
 		  CH_assert(jfnkSolver != NULL);
 		  const bool linear = true;
-		  rc = jfnkSolver->solve(m_velocity, initialNorm,finalNorm,convergenceMetric,
+		  rc = jfnkSolver->solve( m_velocity, initialNorm,finalNorm,convergenceMetric,
 					  linear , m_velRHS, m_velBasalC, vectC0, m_A, muCoef,
 					  m_vect_coordSys, m_time, 0, m_finest_level);
 		}

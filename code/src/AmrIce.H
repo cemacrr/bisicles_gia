@@ -174,6 +174,7 @@ public:
 			JFNK = 1,
 			KnownVelocity = 2,
 			PetscNLSolver = 3,
+			FASMGAMR = 4,
                         NUM_SOLVER_TYPES};
 
   /// read only access members
