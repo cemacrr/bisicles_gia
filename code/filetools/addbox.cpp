@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
     rank=0;
     number_procs=1;
 #endif
-    if(argc != 6) 
+    if(argc < 6) 
       { 
 	std::cerr << " usage: " << argv[0] << " <input_file> <output_file> nRef ilo[,jlo[,klo]] ihi[,jhi[,khi]] " << std::endl; exit(1); 
       }
@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
 	    lev++;
 	    levelRef *= ratio[lev-1];
 	  }
-
+	
 	if (nRef < levelRef)
 	  {
 	    cerr << "nRef = " << nRef << "falls between levels";
@@ -150,16 +150,45 @@ int main(int argc, char* argv[]) {
 	    fi.interpToFine(*outData[outNumLevels-1],*data[numLevels-1]);
 	    
 	  }
-	else
+	else 
 	  {
-	    //in this case we need to add a single box to an existing level
-	    MayDay::Error("adding a box to an existing level not implemented");
+	    //in this case we need to add a single box to the top leve
+	    const DisjointBoxLayout& levelDBL = grids[lev];
+	    
+	    Vector<Box> boxes(levelDBL.size() + 1);
+	    LayoutIterator lit = levelDBL.layoutIterator();
+	    int i = 0;
+	    for (lit.begin(); lit.ok(); ++lit, ++i) 
+	      {
+		boxes[i] = levelDBL[lit()];
+	      }
+	    boxes[i] = b; 
+	    Vector<int> procIDs(levelDBL.size() + 1,0);
+	    ProblemDomain domain = grids[lev].physDomain();
+	    const DisjointBoxLayout dbl(boxes,procIDs,domain);
+	    outData[lev] = new LevelData<FArrayBox>(dbl,data[lev]->nComp(),data[lev]->ghostVect());
+	    FineInterp fi(dbl,data[lev]->nComp(),outRatio[outNumLevels-2],dbl.physDomain());
+	    fi.interpToFine(*outData[lev],*data[lev-1]);
+	    int nComp = data[lev]->nComp();
+	    data[lev]->copyTo(Interval(0,nComp-1),*outData[lev],Interval(0,nComp-1));
+
 	  }
+	
 
 	WriteAMRHierarchyHDF5(out_file, outGrids, outData, names, 
 			      crseBox, crseDx, dt, time, outRatio,outNumLevels);
 	
 	
+	
+	for (int lev = 0; lev < numLevels; lev++)
+	  {
+	    if (outData[lev] != NULL)
+	      {
+		delete outData[lev];
+		outData[lev] = NULL;
+	      }
+
+	  }
 	
 
   }  // end nested scope

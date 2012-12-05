@@ -42,19 +42,19 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
 			   RateFactor* a_rateFactor,
 			   ConstitutiveRelation* a_constRelPtr, 
 			   BasalFrictionRelation* a_bfRelPtr,
-			   const RealVect& a_dataDx,
-			   RefCountedPtr<LevelData<FArrayBox> > a_dataLevelCOrigin,
-			   RefCountedPtr<LevelData<FArrayBox> > a_dataLevelVelObs,
-			   RefCountedPtr<LevelData<FArrayBox> > a_dataLevelVelCoef,
-			   RefCountedPtr<LevelData<FArrayBox> > a_dataLevelDivUHObs,
-			   RefCountedPtr<LevelData<FArrayBox> > a_dataLevelDivUHCoef)
+			   const Vector<RealVect>& a_dataDx,
+			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >& a_referenceCOrigin,
+			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceVelObs,
+			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceVelCoef,
+			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceDivUHObs,
+			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >& a_referenceDivUHCoef)
 {
   m_dataDx = a_dataDx;
-  m_dataLevelCOrigin = a_dataLevelCOrigin;
-  m_dataLevelVelObs = a_dataLevelVelObs;
-  m_dataLevelVelCoef = a_dataLevelVelCoef;
-  m_dataLevelDivUHObs = a_dataLevelDivUHObs;
-  m_dataLevelDivUHCoef =  a_dataLevelDivUHCoef;
+  m_referenceCOrigin = a_referenceCOrigin;
+  m_referenceVelObs = a_referenceVelObs;
+  m_referenceVelCoef = a_referenceVelCoef;
+  m_referenceDivUHObs = a_referenceDivUHObs;
+  m_referenceDivUHCoef =  a_referenceDivUHCoef;
   m_ibcPtr = a_ibcPtr;
   m_tempIBCPtr = a_tempIBCPtr;
   m_rateFactor = a_rateFactor;
@@ -366,13 +366,13 @@ void AMRIceControl::levelSetup(int a_lev)
   m_coordSys[a_lev]->setFaceSigma(m_faceSigma);
 
   //observations
-  fill(m_velObs, *m_dataLevelVelObs, a_lev, IntVect::Unit);
-  fill(m_velCoef, *m_dataLevelVelCoef, a_lev, IntVect::Unit);
-  fill(m_divUHObs, *m_dataLevelDivUHObs, a_lev, IntVect::Unit);
-  fill(m_divUHCoef, *m_dataLevelDivUHCoef, a_lev, IntVect::Unit);
+  fill(m_velObs, m_referenceVelObs, m_dataDx, a_lev, IntVect::Unit);
+  fill(m_velCoef, m_referenceVelCoef, m_dataDx, a_lev, IntVect::Unit);
+  fill(m_divUHObs, m_referenceDivUHObs, m_dataDx, a_lev, IntVect::Unit);
+  fill(m_divUHCoef, m_referenceDivUHCoef, m_dataDx, a_lev, IntVect::Unit);
 
   //initial C
-  fill(m_COrigin, *m_dataLevelCOrigin, a_lev, IntVect::Unit);
+  fill(m_COrigin, m_referenceCOrigin, m_dataDx , a_lev, IntVect::Unit);
 
 
 }
@@ -396,10 +396,32 @@ void AMRIceControl::levelSetup(int a_lev)
 // }
 
 void AMRIceControl::fill
+(Vector<LevelData<FArrayBox>*>& a_data, const Vector<RefCountedPtr<LevelData<FArrayBox> > >& a_refData, 
+ const Vector<RealVect>& a_refDx, const int a_lev, const IntVect& a_ghost)
+{
+
+  if (a_data.size() <= a_lev)
+    a_data.resize(a_lev+1);
+
+  if (a_data[a_lev] != NULL)
+    a_data[a_lev]->define(m_grids[a_lev], a_refData[0]->nComp(), a_ghost); 
+  else
+    a_data[a_lev] = new LevelData<FArrayBox>(m_grids[a_lev], a_refData[0]->nComp(), a_ghost);
+
+  for (int refDataLev = 0; refDataLev < a_refData.size(); refDataLev++)
+    {
+      FillFromReference(*a_data[a_lev], *a_refData[refDataLev], m_dx[a_lev], a_refDx[refDataLev] ,true); 
+    }
+ 
+}
+
+
+void AMRIceControl::fill
 (Vector<LevelData<FArrayBox>*>& a_data, const LevelData<FArrayBox>& a_refData, 
  const int a_lev, const IntVect& a_ghost)
 {
 
+  MayDay::Error("this AMRIceControl::fill is to be removed");
   if (a_data.size() <= a_lev)
     a_data.resize(a_lev+1);
 
@@ -408,7 +430,7 @@ void AMRIceControl::fill
   else
     a_data[a_lev] = new LevelData<FArrayBox>(m_grids[a_lev], a_refData.nComp(), a_ghost);
 
-  FillFromReference(*a_data[a_lev], a_refData, m_dx[a_lev], m_dataDx ,true);  
+  FillFromReference(*a_data[a_lev], a_refData, m_dx[a_lev], m_dataDx[0] ,true);  
 }
 
 void AMRIceControl::solveControl()

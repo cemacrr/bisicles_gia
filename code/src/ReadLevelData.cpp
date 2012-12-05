@@ -16,6 +16,7 @@
 #include "ReadLevelData.H"
 #include "LoadBalance.H"
 #include "BRMeshRefine.H"
+#include "CoarseAverage.H"
 #include "NamespaceHeader.H"
 
 //fill a LevelData<FArrayBox> from data stored in an AMR file
@@ -195,6 +196,18 @@ void readMultiLevelData
 	     read++;
 	   }
        }
+
+     //SLC : possibly this coarse average should be optional, but it seems to me that
+     //in the most common use cases (reading DEMs etc) we will always want to 
+     //ensure that coarse levels approximate fine levels.
+     for (int lev = a_data[j].size() - 1; lev > 0; lev--)
+       {
+	 const LevelData<FArrayBox>& fine = *a_data[j][lev];
+	 LevelData<FArrayBox>& crse = *a_data[j][lev-1];
+	 CoarseAverage av(fine.disjointBoxLayout(), fine.nComp(), a_refRatio[lev-1] );
+	 av.averageToCoarse(crse,fine);
+       }
+
    }
 
  CH_assert(read == a_names.size());

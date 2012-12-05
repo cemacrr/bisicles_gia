@@ -60,65 +60,15 @@ int main(int argc, char* argv[]) {
     ParmParse pp(argc-2,argv+2,NULL,in_file);
     ParmParse ppMain("main");
 
-//     //geometry set up
-//     Vector<int> ncells(3); 
-//     ppMain.getarr("num_cells",ncells,0,ncells.size());
-//     bool periodic[SpaceDim] = {D_DECL(false,false,false)};
-//     {
-//       Vector<int> is_periodic(SpaceDim);
-//       ppMain.getarr("is_periodic", is_periodic, 0, SpaceDim);
-//       for (int dir=0; dir<SpaceDim; dir++) 
-// 	{
-// 	  periodic[dir] = (is_periodic[dir] == 1);
-// 	}
-//     }
-
-
-//     IntVect lo(IntVect::Zero);
-//     IntVect hi(D_DECL(ncells[0]-1, ncells[1]-1, ncells[2]-1));
-//     ProblemDomain pd(lo,hi,periodic);
-// #if BISICLES_Z == BISICLES_LAYERED
-//     Vector<Real> faceSigma(ncells[2]+1);
-//     Real dz = 1.0 / ncells[2];
-//     faceSigma[0] = 0.0;
-//     for (int j = 1; j < faceSigma.size()-1; ++j)
-// 	faceSigma[j] = faceSigma[j-1] + dz;
-//     faceSigma[faceSigma.size()-1] = 1.0;
-// #endif
-
-   
-
-//     RealVect domainSize;
-//     Vector<Real> domSize(SpaceDim);
-//     ppMain.getarr("domain_size", domSize, 0, SpaceDim);
-//     domainSize = RealVect(D_DECL(domSize[0], domSize[1], domSize[2]));
-   
-//     RealVect dx (domainSize);
-//     for (int dir = 0; dir < SpaceDim; ++dir)
-//       dx[dir] /= Real(ncells[dir]);
-//     RealVect dataDx = dx;
-
-//     int blockFactor = 8;
-//     int maxBoxSize = 1000000;
-
-//     Vector<Box> baseBoxes;
-//     domainSplit(pd, baseBoxes,maxBoxSize,blockFactor);
-//     Vector<int> procAssign(baseBoxes.size());
-//     LoadBalance(procAssign,baseBoxes);
-//     DisjointBoxLayout grids(baseBoxes, procAssign, pd);
-
+    Vector<RealVect> dataDx;
+    Vector<RefCountedPtr<LevelData<FArrayBox> > > xVelObs;
+    Vector<RefCountedPtr<LevelData<FArrayBox> > > yVelObs;
+    Vector<RefCountedPtr<LevelData<FArrayBox> > > velObs;
+    Vector<RefCountedPtr<LevelData<FArrayBox> > > velCoef;
+    Vector<RefCountedPtr<LevelData<FArrayBox> > > originC;
+    Vector<RefCountedPtr<LevelData<FArrayBox> > > divUHObs;
+    Vector<RefCountedPtr<LevelData<FArrayBox> > > divUHCoef;
     
-
-    RealVect dataDx;
-    //RefCountedPtr<LevelData<FArrayBox> > levelThck;
-    //RefCountedPtr<LevelData<FArrayBox> > levelTopg;
-    RefCountedPtr<LevelData<FArrayBox> > levelXVel;
-    RefCountedPtr<LevelData<FArrayBox> > levelYVel;
-    RefCountedPtr<LevelData<FArrayBox> > levelVel;
-    RefCountedPtr<LevelData<FArrayBox> > levelVelCoef;
-    RefCountedPtr<LevelData<FArrayBox> > levelC;
-    RefCountedPtr<LevelData<FArrayBox> > levelDivUH;
-    RefCountedPtr<LevelData<FArrayBox> > levelDivUHCoef;
     //read input data
     std::string inputMethod = "";
     ppMain.get("inputMethod", inputMethod );
@@ -130,77 +80,61 @@ int main(int argc, char* argv[]) {
 	ildPP.get("inputFile",infile);
 
 	Vector<std::string> names;
-	 Vector<RefCountedPtr<LevelData<FArrayBox> > > vectData;
+	
 
-	// std::string thicknessName = "thk";
-	// ildPP.query("thicknessName",thicknessName);
-	// names.push_back(thicknessName);
-	// levelThck =  RefCountedPtr<LevelData<FArrayBox> >
-	//  (new LevelData<FArrayBox>); 
-	// vectData.push_back(levelThck);
-
-	// std::string topographyName = "topg";
-	// ildPP.query("topographyName",topographyName);
-	// names.push_back(topographyName);
-	// levelTopg = RefCountedPtr<LevelData<FArrayBox> >
-	//  (new LevelData<FArrayBox>);
-	// vectData.push_back(levelTopg);
-
+	//read names of the input fields
 	std::string frictionName = "beta";
 	ildPP.query("frictionName",frictionName);
 	names.push_back(frictionName);
-	levelC = RefCountedPtr<LevelData<FArrayBox> >
-	  (new LevelData<FArrayBox>);
-	vectData.push_back(levelC);
-
 	std::string xvelName = "xvel";
 	ildPP.query("xvelName",xvelName);
 	names.push_back(xvelName);
-	levelXVel = RefCountedPtr<LevelData<FArrayBox> >
-	  (new LevelData<FArrayBox>);
-	vectData.push_back(levelXVel);
-
 	std::string yvelName = "yvel";
 	ildPP.query("yvelName",yvelName);
 	names.push_back(yvelName);
-	levelYVel = RefCountedPtr<LevelData<FArrayBox> >
-	  (new LevelData<FArrayBox>);
-	vectData.push_back(levelYVel);
-	
 	std::string velcoefName = "velcoef";
 	ildPP.query("velcoefName",velcoefName);
 	names.push_back(velcoefName);
-	levelVelCoef = RefCountedPtr<LevelData<FArrayBox> >
-	   (new LevelData<FArrayBox>);
-	vectData.push_back(levelVelCoef);
-	
-
 	std::string divuhName = "divuh";
 	ildPP.query("divuhName",divuhName);
 	names.push_back(divuhName);
-	levelDivUH = RefCountedPtr<LevelData<FArrayBox> >
-	   (new LevelData<FArrayBox>);
-	vectData.push_back(levelDivUH);
-
 	std::string divuhcoefName = "divuhcoef";
 	ildPP.query("divuhcoefName",divuhcoefName);
 	names.push_back(divuhcoefName);
-	levelDivUHCoef = RefCountedPtr<LevelData<FArrayBox> >
-	  (new LevelData<FArrayBox>);
-	vectData.push_back(levelDivUHCoef);
 
-	Real dx = 0.0;
-	readLevelData(vectData,dx,infile,names,1);
+	Vector<Vector<RefCountedPtr<LevelData<FArrayBox> > > > vectData;
+	Real dx;
+	Vector<int> refRatio;
+	readMultiLevelData(vectData,dx,refRatio,infile,names,1);
+
 	
-	dataDx[0]=dx;dataDx[1]=dx;
+
+	for (int lev =0 ; lev < vectData[0].size(); lev++)
+	  {
+	    int j = 0;
+	    originC.push_back( vectData[j++][lev]);
+	    xVelObs.push_back( vectData[j++][lev]);
+	    yVelObs.push_back( vectData[j++][lev]);
+	    velCoef.push_back( vectData[j++][lev]);
+	    divUHObs.push_back( vectData[j++][lev]);
+	    divUHCoef.push_back( vectData[j++][lev]);
+	    velObs.push_back 
+	      (RefCountedPtr<LevelData<FArrayBox> > 
+	       (new LevelData<FArrayBox>
+		(xVelObs[lev]->disjointBoxLayout(),SpaceDim,xVelObs[lev]->ghostVect())));
+	    xVelObs[lev]->copyTo(Interval(0,0),*velObs[lev],Interval(0,0));
+	    yVelObs[lev]->copyTo(Interval(0,0),*velObs[lev],Interval(1,1));
+	  }
+	dataDx.resize(xVelObs.size());
+	dataDx[0][0]=dx;dataDx[0][1]=dx;
+	for (int lev = 1; lev < refRatio.size(); lev++)
+	  {
+	    dataDx[lev] = dataDx[lev-1] / Real(refRatio[lev-1]);
+	  }
 
 	pout() << "read in data from hdf5 file " << infile  << std::endl;
 
-	levelVel = RefCountedPtr<LevelData<FArrayBox> >
-	  (new LevelData<FArrayBox>(levelXVel->disjointBoxLayout(),
-				    SpaceDim,IntVect::Zero));
-	levelXVel->copyTo(Interval(0,0),*levelVel,Interval(0,0));
-	levelYVel->copyTo(Interval(0,0),*levelVel,Interval(1,1));
+	
 
       }
     else
@@ -366,8 +300,8 @@ int main(int argc, char* argv[]) {
 
     AMRIceControl amrIceControl;
     amrIceControl.define(thicknessIBC, temperatureIBC,  rateFactorPtr, constRelPtr , 
-			 basalFrictionRelationPtr,dataDx,levelC, levelVel,
-			 levelVelCoef,levelDivUH,levelDivUHCoef);
+			 basalFrictionRelationPtr,dataDx,originC,velObs,
+			 velCoef,divUHObs,divUHCoef);
 
     std::string problem = "control";
     ppMain.query("problem", problem);
@@ -413,6 +347,9 @@ int main(int argc, char* argv[]) {
 	delete basalFrictionRelationPtr;
 	basalFrictionRelationPtr = NULL;
       }
+ 
+
+
   }  // end nested scope
   CH_TIMER_REPORT();
 

@@ -51,8 +51,8 @@ class AMRIceControl
   
   //mesh spacings
   Vector<RealVect> m_dx;
-  //mesh spacing on the data level
-  RealVect m_dataDx;
+  //mesh spacing on the data levels
+  Vector<RealVect> m_dataDx;
 
   //problem domains
   Vector<ProblemDomain> m_domain;
@@ -77,7 +77,7 @@ class AMRIceControl
   // coefficients of basal friction.
   // m_C = exp(X[0]) * m_COrigin;
   Vector<LevelData<FArrayBox>*> m_COrigin;
-  RefCountedPtr<LevelData<FArrayBox> > m_dataLevelCOrigin;
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > m_referenceCOrigin;
   Vector<LevelData<FArrayBox>*> m_C0;
   Vector<LevelData<FArrayBox>*> m_C;
   Vector<LevelData<FArrayBox>*> m_Ccopy;
@@ -103,19 +103,19 @@ class AMRIceControl
 
   //observations of velocity data (at surface)
   Vector<LevelData<FArrayBox>*> m_velObs; // AMR Hierarchy of observations
-  RefCountedPtr<LevelData<FArrayBox> > m_dataLevelVelObs; // data level observations
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > m_referenceVelObs; // reference (input) observations
 
   //coefficient of velocity data in objective fucntion (ie 1/sigma^2)
   Vector<LevelData<FArrayBox>*> m_velCoef; 
-  RefCountedPtr<LevelData<FArrayBox> > m_dataLevelVelCoef;
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > m_referenceVelCoef; 
 
   //observations of div(uH) 
   Vector<LevelData<FArrayBox>*> m_divUHObs;
-  RefCountedPtr<LevelData<FArrayBox> > m_dataLevelDivUHObs;
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > m_referenceDivUHObs;
 
   //coefficient of div(UH) in objective funvtion (ie 1/sigma^2)
   Vector<LevelData<FArrayBox>*> m_divUHCoef; 
-  RefCountedPtr<LevelData<FArrayBox> > m_dataLevelDivUHCoef;
+  Vector<RefCountedPtr<LevelData<FArrayBox> > >  m_referenceDivUHCoef;
   //calculations of div(uH)  
   Vector<LevelData<FArrayBox>*> m_divUH;
   //storage for thickness flux
@@ -166,12 +166,12 @@ public:
 	      RateFactor* a_rateFactor,
 	      ConstitutiveRelation* a_constRelPtr, 
 	      BasalFrictionRelation* a_bfRelPtr,
-	      const RealVect& a_dataDx,
-	      RefCountedPtr<LevelData<FArrayBox> > a_dataLevelCOrigin,
-	      RefCountedPtr<LevelData<FArrayBox> > a_dataLevelVelObs,
-	      RefCountedPtr<LevelData<FArrayBox> > a_dataLevelVelCoef,
-	      RefCountedPtr<LevelData<FArrayBox> > a_dataLevelDivUHObs,
-	      RefCountedPtr<LevelData<FArrayBox> > a_dataLevelDivUHCoef);
+	      const Vector<RealVect>& a_dataDx,
+	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >& a_referenceCOrigin,
+	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceVelObs,
+	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceVelCoef,
+	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceDivUHObs,
+	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >& a_referenceDivUHCoef);
 
 
   void solveControl();
@@ -265,6 +265,11 @@ private:
   
   void fill(Vector<LevelData<FArrayBox>*>& a_data, const LevelData<FArrayBox>& a_refData, 
 	    const int a_lev, const IntVect& a_ghost = IntVect::Zero);
+
+  void fill(Vector<LevelData<FArrayBox>*>& a_data, 
+	    const Vector<RefCountedPtr<LevelData<FArrayBox> > >& a_refData, 
+	    const Vector<RealVect>& a_refDx, const int a_lev, 
+	    const IntVect& a_ghost);
 
   void solveForwardProblem(Vector<LevelData<FArrayBox>* >& a_u,
 			   const bool a_linear,

@@ -58,7 +58,9 @@ using std::string;
 #include "JFNKSolver.H"
 #include "PetscIceSolver.H"
 #include "RelaxSolver.H"
+#ifdef CH_HAS_FAS
 #include "FASIceSolverI.H"
+#endif
 #include "KnownVelocitySolver.H"
 #include "VCAMRPoissonOp2.H"
 #include "AMRPoissonOpF_F.H"
@@ -1717,6 +1719,7 @@ AmrIce::defineSolver()
         }
     }
 #endif
+#ifdef CH_HAS_FAS
   else if (m_solverType == FASMGAMR)
     {
             // for now, at least, just delete any existing solvers
@@ -1757,7 +1760,7 @@ AmrIce::defineSolver()
           solver->setMaxIterations( m_maxSolverIterations );
         }
     }
-
+#endif
   else
     {
       MayDay::Error("unsupported velocity solver type");
@@ -2012,14 +2015,15 @@ AmrIce::timeStep(Real a_dt)
 				     CHF_CONST_REAL(dx(lev)[dir]),
 				     CHF_INT(dir),
 				     CHF_INT(dir));
+		      CH_assert(flux.norm(0) < HUGE_NORM);
 		      flux *= (*m_diffusivity[lev])[dit][dir];
-
+		      CH_assert(flux.norm(0) < HUGE_NORM);
 		      FORT_DIVERGENCE(CHF_CONST_FRA(flux),
 				      CHF_FRA(advectiveSource),
 				      CHF_BOX(levelGrids[dit]),
 				      CHF_CONST_REAL(dx(lev)[dir]),
 				      CHF_INT(dir));
-		      CH_assert(flux.norm(0) < HUGE_NORM);
+		     
 		    }
 	       	}
               
