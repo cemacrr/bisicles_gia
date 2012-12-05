@@ -29,7 +29,7 @@ endif
 ##
 ## names of Chombo libraries needed by this program, in order of search.
 ##
-LibNames :=  AMRElliptic  AMRTimeDependent AMRTools BoxTools BaseTools
+LibNames :=  AMRElliptic AMRTimeDependent AMRTools BoxTools BaseTools 
 
 base_dir = .
 
@@ -37,8 +37,12 @@ BASE_DIR = ../
 
 EXEC_DIR = .
 
-
-SRC_DIR = ../src
+ifeq ($(FAS), TRUE)
+XTRACXXFLAGS = -DFAS_USE_NEW_CF_INTERP -DCH_HAS_FAS 
+SRC_DIR = ../src  ../../../AMRFAS/src
+else
+SRC_DIR = ../src  
+endif
 UTIL_DIR = ../util 
 
 src_dirs = $(SRC_DIR) $(UTIL_DIR)  

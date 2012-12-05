@@ -12,7 +12,7 @@
 -pc_hypre_boomeramg_agg_nl 1
 -pc_hypre_boomeramg_coarsen_type HMIS
 -pc_hypre_boomeramg_interp_type ext+i
-#-pc_hypre_boomeramg_P_max 4
+-pc_hypre_boomeramg_P_max 4
 #-pc_hypre_boomeramg_agg_num_paths 2
 #-pc_hypre_boomeramg_print_statistics
 #-pc_hypre_boomeramg_relax_type_coarse symmetric-SOR/Jacobi 
@@ -31,12 +31,12 @@
 -mg_levels_ksp_max_it 1
 #-mat_ascii_output_large
 -options_left
--ksp_monitor
+#-ksp_monitor
 #-mat_view_matlab
--pc_gamg_verbose 0
+-pc_gamg_verbose 1
 -ksp_norm_type unpreconditioned
 #-ksp_view
-#-ksp_converged_reason
+-ksp_converged_reason
 -ksp_converged_use_initial_residual_norm
 #-log_summary
 #-info
