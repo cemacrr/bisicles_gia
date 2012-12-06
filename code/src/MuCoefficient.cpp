@@ -62,4 +62,35 @@ void LevelDataMuCoefficient::setMuCoefficient(LevelData<FArrayBox>& a_cellMuCoef
   CellToEdge(a_cellMuCoef, a_faceMuCoef);
 }
 
+MuCoefficient* MultiLevelDataMuCoefficient::new_muCoefficient() const
+{
+  MultiLevelDataMuCoefficient* ptr = new MultiLevelDataMuCoefficient(m_muCoef, m_dxCrse, m_ratio);
+  return static_cast<MuCoefficient*>(ptr);
+
+}
+void MultiLevelDataMuCoefficient::setMuCoefficient(LevelData<FArrayBox>& a_cellMuCoef,
+					 LevelData<FluxBox>& a_faceMuCoef,
+					 LevelSigmaCS& a_coordSys,
+					 Real a_time,
+					 Real a_dt)
+{
+
+  for (DataIterator dit = a_cellMuCoef.dataIterator(); dit.ok(); ++dit)
+    {
+      a_cellMuCoef[dit].setVal(1.0);
+      for (int dir = 0; dir < SpaceDim; dir++)
+	{
+	  a_faceMuCoef[dit][dir].setVal(1.0);
+	}
+    }
+  RealVect dx(m_dxCrse);
+  for (int refDataLev = 0; refDataLev < m_muCoef.size(); refDataLev++)
+    {
+      FillFromReference(a_cellMuCoef, *m_muCoef[refDataLev], a_coordSys.dx(), dx ,m_verbose);
+      dx /= Real(m_ratio[refDataLev]);
+    }
+  CellToEdge(a_cellMuCoef, a_faceMuCoef);
+}
+
+
 #include "NamespaceFooter.H"

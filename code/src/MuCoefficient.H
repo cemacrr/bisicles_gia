@@ -137,6 +137,50 @@ private:
 
 };
 
+class MultiLevelDataMuCoefficient : public MuCoefficient
+{
+
+public:
+  //constructor
+  MultiLevelDataMuCoefficient
+  (const Vector< RefCountedPtr<LevelData<FArrayBox> > >& a_muCoef,
+   const RealVect& a_dxCrse, const Vector<int> & a_ratio)
+  :m_muCoef(a_muCoef),m_dxCrse(a_dxCrse),m_ratio(a_ratio),m_verbose(true)
+  {
+  }
+    /// factory method
+  /** return a pointer to a new Mucoefficient object
+   */
+  virtual MuCoefficient* new_muCoefficient() const;
+
+  virtual void setMuCoefficient
+  (LevelData<FArrayBox>& a_muCoef,
+   LevelData<FluxBox>& a_faceMuCoef,
+   LevelSigmaCS& a_coordSys,
+   Real a_time,
+   Real a_dt) ;
+
+protected:
+  Vector< RefCountedPtr< LevelData<FArrayBox> > > m_muCoef;
+  RealVect m_dxCrse;
+  Vector<int> m_ratio;
+  bool m_verbose;
+
+private:
+  void operator=(const MultiLevelDataMuCoefficient& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  MultiLevelDataMuCoefficient(const MultiLevelDataMuCoefficient& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+};
+
+
+
 #include "NamespaceFooter.H"
 
 

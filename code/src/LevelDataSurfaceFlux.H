@@ -104,6 +104,79 @@ private:
 
 };
 
+
+class MultiLevelDataSurfaceFlux : public SurfaceFlux
+{
+public:
+
+ 
+  MultiLevelDataSurfaceFlux(RefCountedPtr<std::map<Real, std::string> >& a_timeFileMap, 
+		       const std::string& a_name)
+    :m_timeFileMap(a_timeFileMap), m_startTime(1.2345678e+300), m_endTime(-1.2345678e+300),
+     m_verbose(true),m_name(a_name)
+  {
+  }
+
+ 
+
+
+  /// destructor
+  virtual ~MultiLevelDataSurfaceFlux() {};
+
+  /// factory method
+  /** return a pointer to a new SurfaceFlux object
+   */
+  virtual SurfaceFlux* new_surfaceFlux()
+  {
+    MultiLevelDataSurfaceFlux* ptr;
+    if (m_timeFileMap != NULL)
+      {
+	ptr = new MultiLevelDataSurfaceFlux(m_timeFileMap,m_name);
+      }
+    // else
+    //   {
+    // 	ptr = new MultiLevelDataSurfaceFlux(m_startFlux,m_dx);
+    //   }
+
+    return static_cast<SurfaceFlux*>(ptr);
+  }
+
+  /// define source term for thickness evolution and place it in flux
+  /** 
+  */
+
+  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				    const AmrIce& a_amrIce, 
+				    int a_level, Real a_dt);
+  
+
+protected:
+
+  RefCountedPtr<std::map<Real,std::string> > m_timeFileMap;
+  Real m_startTime, m_endTime;
+  Vector<RefCountedPtr< LevelData<FArrayBox> > > m_startFlux;
+  Vector<RefCountedPtr< LevelData<FArrayBox> > > m_endFlux;
+  RealVect m_dxCrse;
+  Vector<int> m_ratio;
+  bool m_verbose;
+  std::string m_name;
+
+private:
+  // Disallowed for all the usual reasons
+  void operator=(const MultiLevelDataSurfaceFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+  
+  // public interfaces disallowed for all the usual reasons
+  MultiLevelDataSurfaceFlux(const MultiLevelDataSurfaceFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+};
+
+
 #include "NamespaceFooter.H"
 
 #endif

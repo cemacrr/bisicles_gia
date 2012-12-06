@@ -55,11 +55,7 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
 	{
 	  start = end = m_timeFileMap->begin();
 	}
-//       pout() << " LevelDataSurfaceFlux::surfaceThicknessFlux  "
-// 	     << " time = " << time 
-// 	     << " start->first = " << start->first 
-// 	     << " end->first = " << end->first  
-// 	     << std::endl;
+
       Vector<std::string> name(1,m_name);
       
       if (start->first != m_startTime)
@@ -93,7 +89,6 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
 	  m_endTime = end->first;
 	}
     }
-  //pout() << " LevelDataSurfaceFlux::m_startTime = " <<   m_startTime;
   
   for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
     {
@@ -106,8 +101,7 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
       
       Real w = std::min(1.0 , (time - m_startTime) / (m_endTime - m_startTime)); 
 
-      //pout() << " LevelDataSurfaceFlux::m_endTime = " <<   m_endTime
-      //	     << " w = " << w; 
+     
 
       LevelData<FArrayBox> tmp; tmp.define(a_flux);
       for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
@@ -134,12 +128,139 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
     }
   a_flux.exchange();
   
-  //Real f = 0.0;
-  // for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
-  //  {
-  //    f = max(f, a_flux[dit].max());
-  //  }
-  //pout() << " f = " << f << std::endl;
+  
+
+}
+
+void MultiLevelDataSurfaceFlux::surfaceThicknessFlux
+(LevelData<FArrayBox>& a_flux,
+ const AmrIce& a_amrIce, 
+ int a_level, Real a_dt)
+{
+    
+  const Real& time = a_amrIce.time();
+  const RealVect& levelDx = a_amrIce.dx(a_level);
+
+  if (m_timeFileMap != NULL)
+    {
+      std::map<Real,std::string>::const_iterator start,end;
+      if (m_timeFileMap->size() > 1)
+	{
+	  end = m_timeFileMap->begin();
+	  while (end != m_timeFileMap->end() && end->first <= time )
+	    {
+	      ++end;
+	    }
+	  start = end;
+	  if (start != m_timeFileMap->begin())
+	    --start;
+	  if (end == m_timeFileMap->end())
+	    end = start;
+	}
+      else
+	{
+	  start = end = m_timeFileMap->begin();
+	}
+
+      Vector<std::string> name(1,m_name);
+      
+      if (start->first != m_startTime)
+	{
+	  //load m_startFlux
+	  pout() << " LevelDataSurfaceFlux::surfaceThicknessFlux loading start time data " << start->second << std::endl;
+	  Vector<Vector<RefCountedPtr<LevelData<FArrayBox> > > > data;
+	  Real dxCrse;
+	  readMultiLevelData(data,dxCrse,m_ratio,start->second,name,1);
+	  for (int dir=0;dir<SpaceDim;dir++)
+	    m_dxCrse[dir] = dxCrse;
+	  m_startFlux.resize(data.size());
+	  for (int lev = 0; lev < m_startFlux.size(); lev++)
+	    {
+	      m_startFlux[lev] = data[0][lev];
+	    }
+
+
+	  m_startTime = start->first;
+	}
+      if (end->first != m_endTime)
+	{
+	  if (start == end)
+	    {
+	      m_endFlux = m_startFlux;
+	    }
+	  else
+	    {
+	      //load m_endFlux
+	      pout() << " LevelDataSurfaceFlux::surfaceThicknessFlux loading end time data " << end->second << std::endl;
+	      Vector<Vector<RefCountedPtr<LevelData<FArrayBox> > > > data;
+	      Real dxCrse;
+	      Vector<int> ratio;
+	      readMultiLevelData(data,dxCrse,ratio,start->second,name,1);
+	      for (int dir=0;dir<SpaceDim;dir++)
+		CH_assert(m_dxCrse[dir] = dxCrse);
+	      for (int lev = 0; lev < m_startFlux.size(); lev++)
+		{
+		  CH_assert(ratio[lev] = m_ratio[lev]);
+		  m_endFlux[lev] = data[0][lev];
+		}
+
+	      m_endTime = end->first;
+	    }
+	  m_endTime = end->first;
+	}
+    }
+  
+  for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
+    {
+      a_flux[dit].setVal(0.0);
+    }
+  
+  RealVect dx(m_dxCrse);
+  for (int refDataLev = 0; refDataLev < m_startFlux.size(); refDataLev++) 
+    {
+      FillFromReference(a_flux, *m_startFlux[refDataLev], levelDx ,dx,m_verbose);
+      dx /= Real(m_ratio[refDataLev]);
+    }
+
+  if (time > m_startTime && m_startTime < m_endTime)
+    {
+      
+      Real w = std::min(1.0 , (time - m_startTime) / (m_endTime - m_startTime)); 
+
+     
+
+      LevelData<FArrayBox> tmp; tmp.define(a_flux);
+      for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
+	{
+	  tmp[dit].setVal(0.0);
+	}
+
+        
+      dx = m_dxCrse;
+      for (int refDataLev = 0; refDataLev < m_endFlux.size(); refDataLev++) 
+	{
+	  FillFromReference(tmp, *m_endFlux[refDataLev], levelDx ,dx,m_verbose);
+	  dx /= Real(m_ratio[refDataLev]);
+	}
+      for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
+  	{
+  	  tmp[dit] *=w;
+  	  a_flux[dit] *= (1.0-w);
+  	  a_flux[dit] += tmp[dit];
+  	}
+    }
+  
+  const ProblemDomain& domain = a_flux.disjointBoxLayout().physDomain();
+  for (int dir = 0; dir < SpaceDim; ++dir)
+    {
+      if (!(domain.isPeriodic(dir))){
+	ReflectGhostCells(a_flux, domain, dir, Side::Lo);
+	ReflectGhostCells(a_flux, domain, dir, Side::Hi);
+      }
+    }
+  a_flux.exchange();
+  
+  
 
 }
 
