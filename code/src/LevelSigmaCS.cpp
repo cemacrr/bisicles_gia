@@ -164,6 +164,81 @@ LevelSigmaCS::define(const LevelSigmaCS& a_fineCS,
 
 }
 
+/// define as a coarsening of fineCS 
+LevelSigmaCS::LevelSigmaCS( const DisjointBoxLayout& a_grids,
+			    const RealVect& a_dx,
+			    const LevelSigmaCS& a_fineCS, 
+			    int a_nRef
+			    )
+{
+  // now call the other define function to set up storage
+  define( a_grids, a_dx, a_fineCS.ghostVect() );
+ 
+  DisjointBoxLayout crseGrids;
+  coarsen( crseGrids, a_fineCS.m_grids, a_nRef );
+
+  // now need to average-down data
+  Copier copier( crseGrids, a_grids );
+
+  /// cell-centered topography
+  LevelData<FArrayBox> crs_ldfTop( crseGrids, m_topography.nComp(), IntVect::Zero );
+  horizontalAverage( crs_ldfTop, a_fineCS.m_topography, a_nRef );
+  crs_ldfTop.copyTo( crs_ldfTop.interval(), m_topography, m_topography.interval(), copier );
+  m_topography.exchange();
+
+
+  /// cell-centered ice thickness
+  LevelData<FArrayBox> crs_ldfH( crseGrids, m_H.nComp(), IntVect::Zero );
+  horizontalAverage( crs_ldfH, a_fineCS.m_H, a_nRef );
+  crs_ldfH.copyTo( crs_ldfH.interval(), m_H, m_H.interval(), copier);
+  m_H.exchange();
+
+  /// cell-centered surface elevation
+  LevelData<FArrayBox> crs_ldfsurface( crseGrids, m_surface.nComp(), IntVect::Zero );
+  horizontalAverage( crs_ldfsurface, a_fineCS.m_surface, a_nRef );
+  crs_ldfsurface.copyTo( crs_ldfsurface.interval(), m_surface, m_surface.interval(), copier );
+  m_surface.exchange();
+
+
+  /// cell-centered gradient of surface elevation
+  LevelData<FArrayBox> crs_gradSurface( crseGrids, m_gradSurface.nComp(), IntVect::Zero );
+  horizontalAverage( crs_gradSurface, a_fineCS.m_gradSurface,  a_nRef );
+  crs_gradSurface.copyTo( crs_gradSurface.interval(), m_gradSurface, m_gradSurface.interval(), copier);
+  m_gradSurface.exchange();
+
+  /// cell-centered 
+  LevelData<FArrayBox> crs_deltaFactors( crseGrids, m_deltaFactors.nComp(), IntVect::Zero );
+  averageAllDim(crs_deltaFactors, a_fineCS.m_deltaFactors, a_nRef);
+  crs_deltaFactors.copyTo( crs_deltaFactors.interval(), m_deltaFactors, m_deltaFactors.interval(), copier);
+  m_deltaFactors.exchange();
+
+  /// cell-centered 
+  LevelData<FArrayBox> crs_thicknessOverFlotation( crseGrids, m_thicknessOverFlotation.nComp(), IntVect::Zero );
+  horizontalAverage( crs_thicknessOverFlotation, a_fineCS.m_thicknessOverFlotation, a_nRef );
+  crs_thicknessOverFlotation.copyTo(crs_thicknessOverFlotation.interval(), m_thicknessOverFlotation, m_thicknessOverFlotation.interval(), copier);
+  m_thicknessOverFlotation.exchange();
+
+  /// face-centered ice thickness
+  CellToEdge( m_H, m_faceH );
+  m_faceH.exchange();
+
+  /// face-centered gradient of surface elevation
+  CellToEdge( m_gradSurface, m_gradSurfaceFace );
+  m_gradSurfaceFace.exchange();
+
+  /// face-centered
+  CellToEdge( m_deltaFactors, m_faceDeltaFactors );
+  m_faceDeltaFactors.exchange();
+
+  // simple copy stuff
+  m_seaLevel = a_fineCS.seaLevel();
+#if CH_SPACEDIM == 2
+  m_faceSigma = a_fineCS.m_faceSigma;
+  m_sigma = a_fineCS.m_sigma;
+  m_dSigma = a_fineCS.m_dSigma;
+#endif
+}
+
 /// given coordinate in mapped space, return its location in real
 /// space -- this will be a bit slow; probably want to use Fab-based
 /// one instead (once it's implemented in Fortran)

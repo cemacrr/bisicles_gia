@@ -56,7 +56,11 @@ public:
                const RealVect& a_dx, 
                const IntVect& a_ghostVect = IntVect::Unit);
 
-
+  LevelSigmaCS( const DisjointBoxLayout& a_grids,
+		const RealVect& a_dx,
+		const LevelSigmaCS& a_fineCS, 
+		int a_nRef
+		);
   /**
      Destructor.
    */
