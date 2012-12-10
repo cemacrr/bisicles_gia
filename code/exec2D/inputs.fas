@@ -76,6 +76,7 @@ FASSolver.num_post = 2
 FASSolver.cycle_type = 0 # FULL=0,VCYCLE=1,FCYCLE=2,SMOOTHER=3
 FASSolver.smoother = 0 # FAS_GSRB=0,FAS_RICH=1
 FASSolver.avoid_norms = 0
+FASSolver.verbosity = 5
 FASSolver.num_v_cycles = 1
 FASSolver.max_iterations = 1
 FASSolver.tolerance  = 1.0e-10
