@@ -27,7 +27,9 @@ public:
   //! Constructor.
   FASIceViscouseTensorOpFactory( ConstitutiveRelation* a_constRelPtr,
 				 BasalFrictionRelation* a_basalFrictionRelPtr,
-				 IceThicknessIBC* a_bc );
+				 IceThicknessIBC* a_bc// , 
+				 // int a_sizeA
+				 );
 
   virtual ~FASIceViscouseTensorOpFactory()    
   {
@@ -48,9 +50,11 @@ public:
   // Ice op data, copy into op
   const ConstitutiveRelation* m_constRelPtr;
   const BasalFrictionRelation* m_basalFrictionRelPtr;
-  
+
   ViscousTensorOpFactory* m_VTOFactory;
   IceThicknessIBC* m_bc; // this masks m_bc in base class
+
+  //const int m_sizeA; // need to get this early to allocate m_A
 };
 
 /**
@@ -74,7 +78,6 @@ public:
   }
 
   virtual void restrictState( RefCountedPtr<AMRFASOp<LevelData<FArrayBox> > >,
-			      RefCountedPtr<LevelData<FArrayBox> > a_CrsCover, 
 			      Copier &a_copier );
 
   virtual void recomputeState( RefCountedPtr<LevelData<FArrayBox> > a_phi,
@@ -144,7 +147,8 @@ class FASIceSolver : public IceVelocitySolver, public AMRFAS<LevelData<FArrayBox
 
 public:
 
-  FASIceSolver()
+  FASIceSolver(// int a_sizeA
+	       ) // : m_sizeA(a_sizeA)
   {
   }
 
@@ -197,6 +201,7 @@ public:
 protected:
   RefCountedPtr<FASIceViscouseTensorOpFactory> m_opFactoryPtr;
   bool m_writeResidToPlotFile;
+  //const int m_sizeA;
 };
 
 #include "NamespaceFooter.H"
