@@ -1,14 +1,14 @@
 #-help
 #-pc_mg_type full
-#-pc_type hypre
--pc_type gamg
+-pc_type hypre
+#-pc_type gamg
 #-pc_mg_levels_pc_type bjacobi
 -pc_gamg_sym_graph
 -pc_gamg_type agg
 -pc_gamg_agg_nsmooths 1
 -pc_gamg_threshold .05
 -pc_hypre_type boomeramg
--pc_hypre_boomeramg_no CF
+-pc_hypre_boomeramg_no_CF
 -pc_hypre_boomeramg_agg_nl 1
 -pc_hypre_boomeramg_coarsen_type HMIS
 -pc_hypre_boomeramg_interp_type ext+i
@@ -30,15 +30,15 @@
 -ksp_rtol 1.e-3
 -mg_levels_ksp_max_it 1
 #-mat_ascii_output_large
--options_left
-#-ksp_monitor
+#-options_left
+-ksp_monitor
 #-mat_view_matlab
 -pc_gamg_verbose 1
 -ksp_norm_type unpreconditioned
 #-ksp_view
 -ksp_converged_reason
 -ksp_converged_use_initial_residual_norm
-#-log_summary
+-log_summary
 #-info
 -snes_mf_operator
 -snes_monitor

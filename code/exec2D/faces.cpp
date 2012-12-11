@@ -58,7 +58,7 @@ inline std::string masktostr(int a_mask)
 
 void writeHeader()
 {
-  CH_assert(SpaceDim == 2)
+  CH_assert(SpaceDim == 2);
   pout() << "face level facedir iminus jminus iplus jplus maskminus maskplus x y thk topg ub vb Tnx Tny" << std::endl;
 }
 

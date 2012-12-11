@@ -27,9 +27,9 @@ CalvingModel.type = NoCalvingModel
 amr.maxLevel = 0   # finest level allowed in simulation
 amr.ref_ratio = 2 2 
 #amr.num_cells = 0032 0032 16   #number of cells in base grid
-amr.num_cells = 0064 0064 16   #number of cells in base grid
+#amr.num_cells = 0064 0064 16   #number of cells in base grid
 #amr.num_cells = 0128 0128 16   #number of cells in base grid
-#amr.num_cells = 0256 0256 16   #number of cells in base grid
+amr.num_cells = 0256 0256 16   #number of cells in base grid
 #amr.num_cells = 0512 0512 16   #number of cells in base grid
 amr.is_periodic = 1 1 1    # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
@@ -48,39 +48,39 @@ amr.plot_prefix = stream.L1L2.0032.petsc.
 amr.write_solver_rhs = 1
 amr.check_interval = -1
 amr.check_prefix = chk
-amr.verbosity = 5
+amr.verbosity = 2
 
 amr.regrid_interval = 10000   # number of timesteps between regridding
 amr.blockFactor = 4           # block factor used in grid generation
 amr.fill_ratio = 0.8          # how efficient are the grids
 amr.nestingRadius = 1         # proper nesting radius required
 amr.tags_grow = 1             # amount to buffer tags
-amr.max_box_size = 256      # largest box length allowed
+amr.max_box_size = 32      # largest box length allowed
 #amr.tagging_val = 0.001       # min undivided grad(vel) resulting in tagging
 
 amr.tag_on_laplacian_velocity = 1
 amr.lap_vel_tagging_val = 10
 
-# this problem seems to need more picard iterations
-amr.max_solver_iterations = 20
-
 #velocity solve type -- 0=Picard, 1=JFNK, 2=knownVel, 3=petsc, 4=FAS-MG
 amr.velocity_solver_type = 4
 
 # FAS Multigrid solver parameters
-FASSolver.num_smooth = 1
-FASSolver.num_mg     = 1
-FASSolver.num_bottom = 1
-FASSolver.num_pre = 2
-FASSolver.num_post = 2
-FASSolver.cycle_type = 0 # FULL=0,VCYCLE=1,FCYCLE=2,SMOOTHER=3
-FASSolver.smoother = 0 # FAS_GSRB=0,FAS_RICH=1
+FASSolver.max_iterations = 100
+FASSolver.min_iterations = 2
+FASSolver.num_smooth = 4
+FASSolver.num_cycles = 1
+#FASSolver.num_pre = 2
+#FASSolver.num_post = 2
+FASSolver.cycle_type = 0  # FULL=0,VCYCLE=1,FCYCLE=2,SMOOTHER=3
+FASSolver.smoother = 1    # FAS_GSRB=0,FAS_RICH=1
+FASSolver.smoothing_damping_factor = 1.
 FASSolver.avoid_norms = 0
-FASSolver.verbosity = 5
-FASSolver.num_v_cycles = 1
-FASSolver.max_iterations = 1
-FASSolver.tolerance  = 1.0e-10
-FASSolver.hang       = 1.0e-10
+FASSolver.verbosity = 2
+FASSolver.num_v_cycles = 5
+#FASSolver.tolerance  = 1.0e-3
+amr.velocity_solver_tolerance  = 1.0e-3 # this overrides my tol
+FASSolver.stagnate = 1.0e-3
+FASSolver.plot_residual = false
 
 #input file for solver benchmark
 main.filename = stream.L1L2.0032.r2.l0.000000.2d.hdf5
