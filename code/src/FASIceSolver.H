@@ -80,8 +80,7 @@ public:
   virtual void restrictState( RefCountedPtr<AMRFASOp<LevelData<FArrayBox> > >,
 			      Copier &a_copier );
 
-  virtual void recomputeState( RefCountedPtr<LevelData<FArrayBox> > a_phi,
-			       const LevelData<FArrayBox> *a_phiCoarse );
+  virtual void recomputeState( RefCountedPtr<LevelData<FArrayBox> > a_phi );
 
 protected:
   virtual void applyLevel( LevelData<FArrayBox>& a_LofPhi,
@@ -101,14 +100,14 @@ protected:
 		   fop->m_VTO );
   }
 
-  virtual void levelGSRB( LevelData<FArrayBox>&       a_phi,
-			  const LevelData<FArrayBox>& a_rhs,
+  virtual void levelGSRB( RefCountedPtr<LevelData<FArrayBox> >       a_phi,
+			  const RefCountedPtr<LevelData<FArrayBox> > a_rhs,
 			  const LevelData<FArrayBox> *a_phiCoarse,
 			  const LevelData<FArrayBox> *a_phiFine,
 			  AMRFASOp<LevelData<FArrayBox> > *a_finerOp );
-
-  virtual void levelRich( LevelData<FArrayBox>&       a_phi,
-			  const LevelData<FArrayBox>& a_rhs,
+  
+  virtual void levelRich( RefCountedPtr<LevelData<FArrayBox> >       a_phi,
+			  const RefCountedPtr<LevelData<FArrayBox> > a_rhs,
 			  const LevelData<FArrayBox> *a_phiCoarse,
 			  const LevelData<FArrayBox> *a_phiFine,
 			  AMRFASOp<LevelData<FArrayBox> > *a_finerOp );
