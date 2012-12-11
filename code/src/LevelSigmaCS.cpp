@@ -172,6 +172,7 @@ LevelSigmaCS::LevelSigmaCS( const DisjointBoxLayout& a_grids,
 			    )
 {
   // now call the other define function to set up storage
+  setDefaultValues();
   define( a_grids, a_dx, a_fineCS.ghostVect() );
  
   DisjointBoxLayout crseGrids;
@@ -186,6 +187,11 @@ LevelSigmaCS::LevelSigmaCS( const DisjointBoxLayout& a_grids,
   crs_ldfTop.copyTo( crs_ldfTop.interval(), m_topography, m_topography.interval(), copier );
   m_topography.exchange();
 
+  /// cell-centered gradient of surface elevation
+  LevelData<FArrayBox> crs_gradSurface( crseGrids, m_gradSurface.nComp(), IntVect::Zero );
+  horizontalAverage( crs_gradSurface, a_fineCS.m_gradSurface,  a_nRef );
+  crs_gradSurface.copyTo( crs_gradSurface.interval(), m_gradSurface, m_gradSurface.interval(), copier);
+  m_gradSurface.exchange();
 
   /// cell-centered ice thickness
   LevelData<FArrayBox> crs_ldfH( crseGrids, m_H.nComp(), IntVect::Zero );
@@ -199,13 +205,6 @@ LevelSigmaCS::LevelSigmaCS( const DisjointBoxLayout& a_grids,
   crs_ldfsurface.copyTo( crs_ldfsurface.interval(), m_surface, m_surface.interval(), copier );
   m_surface.exchange();
 
-
-  /// cell-centered gradient of surface elevation
-  LevelData<FArrayBox> crs_gradSurface( crseGrids, m_gradSurface.nComp(), IntVect::Zero );
-  horizontalAverage( crs_gradSurface, a_fineCS.m_gradSurface,  a_nRef );
-  crs_gradSurface.copyTo( crs_gradSurface.interval(), m_gradSurface, m_gradSurface.interval(), copier);
-  m_gradSurface.exchange();
-
   /// cell-centered 
   LevelData<FArrayBox> crs_deltaFactors( crseGrids, m_deltaFactors.nComp(), IntVect::Zero );
   averageAllDim(crs_deltaFactors, a_fineCS.m_deltaFactors, a_nRef);
@@ -214,7 +213,8 @@ LevelSigmaCS::LevelSigmaCS( const DisjointBoxLayout& a_grids,
 
   /// cell-centered 
   LevelData<FArrayBox> crs_thicknessOverFlotation( crseGrids, m_thicknessOverFlotation.nComp(), IntVect::Zero );
-  horizontalAverage( crs_thicknessOverFlotation, a_fineCS.m_thicknessOverFlotation, a_nRef );
+  //horizontalAverage( crs_thicknessOverFlotation, a_fineCS.m_thicknessOverFlotation, a_nRef );
+  averageAllDim( crs_thicknessOverFlotation, a_fineCS.m_thicknessOverFlotation, a_nRef );
   crs_thicknessOverFlotation.copyTo(crs_thicknessOverFlotation.interval(), m_thicknessOverFlotation, m_thicknessOverFlotation.interval(), copier);
   m_thicknessOverFlotation.exchange();
 
