@@ -27,9 +27,9 @@ CalvingModel.type = NoCalvingModel
 amr.maxLevel = 0   # finest level allowed in simulation
 amr.ref_ratio = 2 2 
 #amr.num_cells = 0032 0032 16   #number of cells in base grid
-#amr.num_cells = 0064 0064 16   #number of cells in base grid
+amr.num_cells = 0064 0064 16   #number of cells in base grid
 #amr.num_cells = 0128 0128 16   #number of cells in base grid
-amr.num_cells = 0256 0256 16   #number of cells in base grid
+#amr.num_cells = 0256 0256 16   #number of cells in base grid
 #amr.num_cells = 0512 0512 16   #number of cells in base grid
 amr.is_periodic = 1 1 1    # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
