@@ -66,7 +66,7 @@ FASIceViscouseTensorOp::applyLevel( LevelData<FArrayBox>& a_lhs,
       // this is used for G-S and Rich
       scale( m_VTO->m_relaxCoef, m_smoothing_damping_factor );
     }
-  
+
   // this applies BCs
   m_VTO->applyOp( a_lhs, a_phi, true ); // homogenous ? 
 }
@@ -112,18 +112,13 @@ FASIceViscouseTensorOp::levelRich( RefCountedPtr<LevelData<FArrayBox> > a_phi,
   CH_assert(a_rhs->isDefined());
   CH_assert(a_phi->ghostVect() >= IntVect::Unit);
   CH_assert(a_phi->nComp() == a_rhs->nComp());
-  
-  {
-    CH_TIME("levelRich::exchange");
-    a_phi->exchange( m_exchangeCopier );
-  }
 
   {
     Real omega = 1.0; // this is folded into m_VTO->m_relaxCoef
     LevelData<FArrayBox> tmp;
     create( tmp, *a_rhs );
-
-    // apply has BCs, exchange and C-F interp and compute-state
+    
+    // apply has BCs, exchange and C-F interp done before (eg, in compute state)
     apply( tmp, *a_phi, a_phiCoarse, a_phiFine, a_finerOp, false ); // applies BCs, calls applyLevel
 
     // x = x + omega D^-1 (b - Ax) ; D == alaph - 2*beta*Dim/h^2
@@ -179,8 +174,8 @@ FASIceViscouseTensorOp::restrictState( RefCountedPtr<AMRFASOp<LevelData<FArrayBo
 }
 
 // ---------------------------------------------------------
-void 
-FASIceViscouseTensorOp::recomputeState( RefCountedPtr<LevelData<FArrayBox> > a_phi )
+bool
+FASIceViscouseTensorOp::computeState( RefCountedPtr<LevelData<FArrayBox> > a_phi )
 {
   CH_TIME("FASIceViscouseTensorOp::recomputeState");
   if( !s_recompute_mu )
@@ -190,7 +185,9 @@ FASIceViscouseTensorOp::recomputeState( RefCountedPtr<LevelData<FArrayBox> > a_p
       m_VTO->setAlphaAndBeta( m_VTO->getAlpha(), m_VTO->getBeta() ); 
       // this is used for G-S and Rich
       scale( m_VTO->m_relaxCoef, m_smoothing_damping_factor );
+      return true;
     }
+  else return false;
 }
 
 
@@ -402,8 +399,6 @@ FASIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
   Vector<RefCountedPtr<LevelData<FArrayBox> > > rhs(a_maxLevel + 1);
   for (int lev = 0; lev < a_maxLevel + 1; ++lev)
     { 
-      //phi[lev] = RefCountedPtr<LevelData<FArrayBox> >( a_horizontalVel[lev] );
-      //rhs[lev] = RefCountedPtr<LevelData<FArrayBox> >( a_rhs[lev] );
       phi[lev] = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>);
       rhs[lev] = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>);
 
@@ -416,6 +411,7 @@ FASIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       op->assignLocal( *rhs[lev], *a_rhs[lev] );
     }
 
+  // solve
   int returnCode;
   static bool zero_init_sol = true;  // have to assume there is an initial guess
   a_finalResidualNorm = AMRFAS<LevelData<FArrayBox> >::solve( phi, rhs, zero_init_sol, &returnCode );
@@ -430,7 +426,7 @@ FASIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       CH_assert(op);
       op->assignLocal( *a_horizontalVel[lev], *phi[lev] );
     }
-
+  
   if( !m_avoid_norms && m_plot_residual )
     {
 #ifdef CH_USE_HDF5
@@ -438,16 +434,19 @@ FASIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       char suffix[30];
       sprintf(suffix, "%dd.hdf5",SpaceDim);
       fname += suffix;
-
+      
       Vector<string> varNames(SpaceDim);
       varNames[0] = "residual-x";
       varNames[1] = "residual-y";
 
       Real bogusVal = 1.0;
       // writes all grids
-      if( IceVelocitySolver::m_verbosity > 0 )
+      if( s_verbosity > 0 )
 	{
-	  pout() << "    AMRFAS:: plot residual " << m_residual.size() << " levels\n";
+	  op = dynamic_cast<FASIceViscouseTensorOp*>( &(*getOp(a_maxLevel)) );
+	  Real n1 = op->norm( *phi[a_maxLevel], 0, 0);
+	  Real n2 = op->norm( *phi[a_maxLevel], 0, 1);
+	  pout() << "FASIceSolver::solve plot residual " << m_residual.size() << " levels, |phi_x|= " << setprecision(15) << n1 << " |phi_y|= " << n2 << endl;
 	}
 
       Vector<LevelData<FArrayBox>*> res( m_residual.size() );
@@ -473,6 +472,9 @@ FASIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 }
 
 // isothermal version -- for the ViscousTensorOp, lambda = 2*mu
+//
+// side effect: does exchange on a_horizontalVel (otherwise it should be const)
+//
 void 
 FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
 				   const LevelData<FArrayBox>* a_crsVel
@@ -487,7 +489,10 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
   const LevelData<FArrayBox>& levelBeta = *m_Beta;
   LevelData<FArrayBox>&    levelC =       *m_VTO->getACoef(); // not intuitive: VTO acoef == solver C
 
-  // just in case, add an exchange here
+  
+  // side effect, does exchange
+  levelVel.exchange( m_exchangeCopier );
+
   //levelVel.exchange();
 
   // first set BC's on vel
@@ -495,8 +500,7 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
 			 levelCS,
 			 m_domain, 
 			 m_time);
-  
-  
+
   //slc : qcfi.coarseFineInterp fills the edges of lev > 0 cells
   //but not the corners. We need them filled to compute the
   //rate-of-strain invariant, so here is a bodge for now
@@ -513,13 +517,12 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
       
     }
   
-  // actually need to use a cornerCopier, too...
+  // actually need to use a cornerCopier, too ... really ??
   CornerCopier cornerCopier(levelGrids, levelGrids, 
 			    m_domain,levelVel.ghostVect(),
 			    true);
-  
-  levelVel.exchange(cornerCopier);      
-  
+  levelVel.exchange(cornerCopier);
+
   // constant temperature...
   LevelData<FluxBox> theta(levelGrids, 1, IntVect::Unit);   
   LevelData<FArrayBox> cellTheta(levelGrids, 1, IntVect::Unit);         

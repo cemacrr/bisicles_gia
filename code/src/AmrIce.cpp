@@ -1715,7 +1715,7 @@ AmrIce::defineSolver()
 
       if (m_maxSolverIterations > 0)
         {
-          m_velSolver->setMaxIterations(m_maxSolverIterations);	  
+          m_velSolver->setMaxIterations(m_maxSolverIterations);
         }
     }
 #endif
@@ -1750,8 +1750,6 @@ AmrIce::defineSolver()
 		      dxCrse,
 		      m_thicknessIBCPtr,
 		      numLevels );
-
-      solver->setVerbosity( s_verbosity );
 
       solver->setTolerance( m_velocity_solver_tolerance );
 
@@ -5861,8 +5859,7 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 	  
 	  for (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	    {
-	      Real maxNorm = (*H[lev])[dit].norm(0,0,1);
-	      CH_assert(maxNorm < HUGE_THICKNESS);
+	      CH_assert( (*H[lev])[dit].norm(0,0,1) < HUGE_THICKNESS);
 	      levelCoord_H[dit].copy( (*H[lev])[dit], 0, 0, 1);
 
 	      //put sensible values into the corners.

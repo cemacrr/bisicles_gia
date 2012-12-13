@@ -80,7 +80,7 @@ public:
   virtual void restrictState( RefCountedPtr<AMRFASOp<LevelData<FArrayBox> > >,
 			      Copier &a_copier );
 
-  virtual void recomputeState( RefCountedPtr<LevelData<FArrayBox> > a_phi );
+  virtual bool computeState( RefCountedPtr<LevelData<FArrayBox> > a_phi );
 
 protected:
   virtual void applyLevel( LevelData<FArrayBox>& a_LofPhi,
