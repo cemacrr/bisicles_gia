@@ -168,8 +168,9 @@ FASIceViscouseTensorOp::restrictState( RefCountedPtr<AMRFASOp<LevelData<FArrayBo
     LevelData<FArrayBox> crs_beta, &c_beta = *m_Beta;
     
     fop->createCoarsened( crs_beta, f_beta, nRef );
-    fop->AMRRestrict( crs_beta, f_beta );
-    crs_beta.copyTo( crs_beta.interval(), c_beta, c_beta.interval(), a_copier );
+    //fop->AMRRestrict( crs_beta, f_beta );
+    //crs_beta.copyTo( crs_beta.interval(), c_beta, c_beta.interval(), a_copier );
+    fop->AMRRestrict( c_beta, f_beta, crs_beta, a_copier );
   }
 }
 
