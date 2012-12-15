@@ -2,7 +2,8 @@
 main.maxTime = 1000  # maximum time to run to
 #main.maxStep = 2   # maximum number of steps to runx
 main.maxStep = 20000   # maximum number of steps to runx
-main.constitutiveRelation = GlensLaw
+#main.constitutiveRelation = GlensLaw
+main.constitutiveRelation = L1L2
 #main.constitutiveRelation = constMu
 #constMu.mu = 1.279e8
 main.rateFactor = constRate
@@ -32,7 +33,7 @@ geometry.basalSlope = 0 0 0
 amr.maxLevel = 2   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2
 #amr.num_cells = 128 128 128   #number of cells in base grid
-amr.num_cells = 64 64 64   #number of cells in base grid
+amr.num_cells = 64 64 16   #number of cells in base grid
 amr.is_periodic = 0 1 1    # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
 # velocity BC types:  0 = homogeneous Dirichlet
