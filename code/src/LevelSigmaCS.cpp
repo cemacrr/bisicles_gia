@@ -100,8 +100,8 @@ LevelSigmaCS::define(const DisjointBoxLayout& a_grids,
       
   m_topography.define(m_Hgrids, 1, Hghost);
   m_surface.define(m_Hgrids, 1, 2 * IntVect::Unit);
-  m_gradSurface.define(m_Hgrids, 2, IntVect::Unit);
-  m_gradSurfaceFace.define(m_Hgrids, 2, IntVect::Unit);
+  m_gradSurface.define(m_Hgrids, SpaceDim, IntVect::Unit);
+  m_gradSurfaceFace.define(m_Hgrids, SpaceDim, IntVect::Unit);
   m_thicknessOverFlotation.define(m_Hgrids, 1, IntVect::Unit) ;
 
   m_H.define(m_Hgrids, 1, Hghost);
