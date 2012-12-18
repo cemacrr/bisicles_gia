@@ -192,6 +192,25 @@ FASIceViscouseTensorOp::computeState( RefCountedPtr<LevelData<FArrayBox> > a_phi
 }
 
 
+// ---------------------------------------------------------
+void
+FASIceViscouseTensorOp::reflux(const LevelData<FArrayBox>&        a_phiFine,
+			       const LevelData<FArrayBox>&        a_phi,
+			       LevelData<FArrayBox>&              a_residual,
+			       AMRFASOp<LevelData<FArrayBox> >*   a_finerOp )
+{
+  CH_TIME("FASIceViscouseTensorOp::reflux");
+  const FASIceViscouseTensorOp * const fop = dynamic_cast<FASIceViscouseTensorOp*>( a_finerOp );
+  CH_assert(fop);
+
+  // this constructs a LevelFluxRegister each time - yikes 
+  m_VTO->reflux( a_phiFine,
+		 a_phi,
+		 a_residual,
+		 fop->m_VTO );
+}
+
+
 ///
 /**
    FASIceViscouseTensorOpFactory: ViscouseTensor derived class for FAS-VTO operator factory

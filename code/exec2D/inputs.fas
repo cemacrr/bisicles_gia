@@ -27,10 +27,10 @@ CalvingModel.type = NoCalvingModel
 amr.maxLevel = 0   # finest level allowed in simulation
 amr.ref_ratio = 2 2 
 #amr.num_cells = 0032 0032 16   #number of cells in base grid
-amr.num_cells = 0064 0064 16   #number of cells in base grid
+#amr.num_cells = 0064 0064 16   #number of cells in base grid
 #amr.num_cells = 0128 0128 16   #number of cells in base grid
 #amr.num_cells = 0256 0256 16   #number of cells in base grid
-#amr.num_cells = 0512 0512 16   #number of cells in base grid
+amr.num_cells = 0512 0512 16   #number of cells in base grid
 amr.is_periodic = 1 1 1    # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
 # physical BC types:  0 = homogeneous Dirichlet
@@ -72,8 +72,8 @@ FASSolver.num_cycles = 1
 #FASSolver.num_pre = 2
 #FASSolver.num_post = 2
 FASSolver.cycle_type = 0  # FULL=0,VCYCLE=1,FCYCLE=2,SMOOTHER=3
-FASSolver.smoother = 0    # FAS_GSRB=0,FAS_RICH=1
-FASSolver.smoothing_damping_factor = 1.1
+FASSolver.smoother =   0  # FAS_GSRB=0,FAS_RICH=1
+FASSolver.smoothing_damping_factor = 1.
 FASSolver.avoid_norms = 0
 FASSolver.verbosity = 3
 FASSolver.num_v_cycles = 5

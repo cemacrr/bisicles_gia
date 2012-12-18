@@ -90,15 +90,7 @@ protected:
   virtual void reflux(const LevelData<FArrayBox>&        a_phiFine,
 		      const LevelData<FArrayBox>&        a_phi,
                       LevelData<FArrayBox>&              a_residual,
-		      AMRFASOp<LevelData<FArrayBox> >*   a_finerOp )
-  {
-    const FASIceViscouseTensorOp * const fop = dynamic_cast<FASIceViscouseTensorOp*>( a_finerOp );
-    CH_assert(fop);
-    m_VTO->reflux( a_phiFine,
-		   a_phi,
-		   a_residual,
-		   fop->m_VTO );
-  }
+		      AMRFASOp<LevelData<FArrayBox> >*   a_finerOp );
 
   virtual void levelGSRB( RefCountedPtr<LevelData<FArrayBox> >       a_phi,
 			  const RefCountedPtr<LevelData<FArrayBox> > a_rhs,
