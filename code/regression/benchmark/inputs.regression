@@ -23,6 +23,8 @@ surfaceFlux.type = zeroFlux
 basalFlux.type = zeroFlux
 #constFlux.flux_value = 0.0
 
+CalvingModel.type = NoCalvingModel
+
 amr.maxLevel = 0   # finest level allowed in simulation
 amr.ref_ratio = 2 2 
 amr.num_cells = 0064 0064 16   #number of cells in base grid
