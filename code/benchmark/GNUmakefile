@@ -23,8 +23,8 @@ endif
 PAPILIBS = #/usr/local/lib/libpapi.a
 PAPILIBS = #/usr/common/usg/papi/2.1/lib/libpapi.a -L/usr/lpp/pmtoolkit/lib -lpmapi
 
-TARMACDIR=../interface/libtarmac
-XTRALIBFLAGS=-L$(TARMACDIR) -ltarmac
+#TARMACDIR=../interface/libtarmac
+#XTRALIBFLAGS=-L$(TARMACDIR) -ltarmac
 
 #  have a default for machines not defined here.
 # make this a relative path so it will find the Chombo 
