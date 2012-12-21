@@ -17,5 +17,7 @@ all:
 	cd $(BUILD_DIR); $(MAKE) $(ebase)
 	ln -s $(BUILD_DIR)/$(ebase)$(config).ex ./$(ebase)$(config).ex
 
+example-only: all
+
 realclean:
 	$(RM) *.ex *.hdf5 pout.* time.table
