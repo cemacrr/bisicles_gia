@@ -88,8 +88,8 @@ do
     runcommand="$RUNPREFIX $EXECFILE $infile > $outfile"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
-    echo "cp pout.0 pout.$RES" >> $RUNFILE
-    echo "mv time.table time.table.$RES" >> $RUNFILE
+#    echo "cp pout.0 pout.$RES" >> $RUNFILE
+#    echo "mv time.table time.table.$RES" >> $RUNFILE
 #    echo "$SCRIPTDIR/innerJFNK.awk < $outfile > $TEMPFILE " >> $RUNFILE
 #    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
 #    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
@@ -142,8 +142,8 @@ do
     runcommand="$RUNPREFIX $EXECFILE $infile > $outfile"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
-    echo "cp pout.0 pout.2Ref.$RES" >> $RUNFILE
-    echo "mv time.table time.table.$RES.r$NREF.l$MAXLEVEL" >> $RUNFILE
+#    echo "cp pout.0 pout.2Ref.$RES" >> $RUNFILE
+#    echo "mv time.table time.table.$RES.r$NREF.l$MAXLEVEL" >> $RUNFILE
 #    echo "$SCRIPTDIR/innerJFNK.awk < $outfile > $TEMPFILE " >> $RUNFILE
 #    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
 #    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
@@ -190,8 +190,8 @@ do
     runcommand="$RUNPREFIX $EXECFILE $infile > $outfile"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
-    echo "cp pout.0 pout.3Lev.$RES" >> $RUNFILE
-    echo "mv time.table time.table.$RES.r$NREF.l$MAXLEVEL" >> $RUNFILE
+#    echo "cp pout.0 pout.3Lev.$RES" >> $RUNFILE
+#    echo "mv time.table time.table.$RES.r$NREF.l$MAXLEVEL" >> $RUNFILE
 #    echo "$SCRIPTDIR/innerJFNK.awk < $outfile > $TEMPFILE " >> $RUNFILE
 #    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
 #    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
@@ -241,8 +241,8 @@ do
     runcommand="$RUNPREFIX $EXECFILE $infile > $outfile"
     echo "echo \"doing $RES run\" " >> $RUNFILE
     echo $runcommand >> $RUNFILE
-    echo "cp pout.0 pout.4Ref.$RES" >> $RUNFILE
-    echo "mv time.table time.table.$RES.r$NREF.l$MAXLEVEL" >> $RUNFILE
+#    echo "cp pout.0 pout.4Ref.$RES" >> $RUNFILE
+#    echo "mv time.table time.table.$RES.r$NREF.l$MAXLEVEL" >> $RUNFILE
 #    echo "$SCRIPTDIR/innerJFNK.awk < $outfile > $TEMPFILE " >> $RUNFILE
 #    echo "$SCRIPTDIR/a.out $TEMPFILE  $innerConvergename" >> $RUNFILE
 #    echo "$SCRIPTDIR/jfnk.awk < $outfile > $outerConvergename " >> $RUNFILE
