@@ -40,12 +40,15 @@ public:
   virtual void define( const ProblemDomain& a_coarseDomain, 
 		       const RealVect&      a_crsDx,
 		       const Vector<DisjointBoxLayout>& a_grids,
-		       const Vector<int>&   a_refRatios
+		       const Vector<int>&   a_refRatios,
+		       int a_nSRGrids = 0
 		       );
   
   /// override base
   virtual RefCountedPtr<AMRFASOp<LevelData<FArrayBox> > > 
-  AMRNewOp(int a_ilev, const DisjointBoxLayout& a_grid );
+  AMRNewOp(int a_ilev, 
+	   const DisjointBoxLayout& a_grid,
+	   bool a_isSR = false );
 
   // Ice op data, copy into op
   const ConstitutiveRelation* m_constRelPtr;
@@ -93,16 +96,12 @@ protected:
 		      AMRFASOp<LevelData<FArrayBox> >*   a_finerOp );
 
   virtual void levelGSRB( RefCountedPtr<LevelData<FArrayBox> >       a_phi,
-			  const RefCountedPtr<LevelData<FArrayBox> > a_rhs,
-			  const LevelData<FArrayBox> *a_phiCoarse,
-			  const LevelData<FArrayBox> *a_phiFine,
-			  AMRFASOp<LevelData<FArrayBox> > *a_finerOp );
+			  const RefCountedPtr<LevelData<FArrayBox> > a_rhs
+			  );
   
   virtual void levelRich( RefCountedPtr<LevelData<FArrayBox> >       a_phi,
-			  const RefCountedPtr<LevelData<FArrayBox> > a_rhs,
-			  const LevelData<FArrayBox> *a_phiCoarse,
-			  const LevelData<FArrayBox> *a_phiFine,
-			  AMRFASOp<LevelData<FArrayBox> > *a_finerOp );
+			  const RefCountedPtr<LevelData<FArrayBox> > a_rhs
+			  );
 
   // compute face-centered coefficients for tensor solver (really
   // winds up being H*mu) -- non-isothermal version...
