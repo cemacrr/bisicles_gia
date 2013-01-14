@@ -171,7 +171,10 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
 		       IceThicknessIBC* a_bc,
 		       int a_numLevels)
 {
-  CH_assert(a_numLevels==1); // no m_isDefined ???
+  CH_assert(a_numLevels==1);
+  if(a_numLevels!=1){
+    MayDay::Error("PetscIceSolver::define not implemented AMR");
+  }
   m_domain = a_coarseDomain;
   
   m_constRelPtr = a_constRelPtr;

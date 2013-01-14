@@ -43,7 +43,7 @@ public:
 		       const Vector<int>&   a_refRatios,
 		       int a_nSRGrids = 0
 		       );
-  
+
   /// override base
   virtual RefCountedPtr<AMRFASOp<LevelData<FArrayBox> > > 
   AMRNewOp(int a_ilev, 
@@ -83,7 +83,9 @@ public:
   virtual void restrictState( RefCountedPtr<AMRFASOp<LevelData<FArrayBox> > >,
 			      Copier &a_copier );
 
-  virtual bool computeState( RefCountedPtr<LevelData<FArrayBox> > a_phi );
+  virtual bool computeState( RefCountedPtr<LevelData<FArrayBox> > a_phi, 
+			     const RefCountedPtr<LevelData<FArrayBox> > a_CrsPhi 
+			     );
 
 protected:
   virtual void applyLevel( LevelData<FArrayBox>& a_LofPhi,

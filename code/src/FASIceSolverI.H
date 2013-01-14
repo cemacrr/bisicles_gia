@@ -20,7 +20,7 @@
 #include "AMRIO.H"
 #include "NamespaceHeader.H"
 
-static bool s_recompute_mu = false; // this does help convergance but it is much slower
+static bool s_always_recompute_mu = false; // this does help convergance but it is much slower
 
 ///
 /**
@@ -56,7 +56,7 @@ FASIceViscouseTensorOp::applyLevel( LevelData<FArrayBox>& a_lhs,
   CH_TIME("FASIceViscouseTensorOp::applyLevel");
 
   // this is only called from base class apply()
-  if( s_recompute_mu )
+  if( s_always_recompute_mu )
     {
       LevelData<FArrayBox>& phi = (LevelData<FArrayBox>&)a_phi; // need to force
       
@@ -81,7 +81,7 @@ FASIceViscouseTensorOp::levelGSRB( RefCountedPtr<LevelData<FArrayBox> > a_phi,
 {
   CH_TIME("FASIceViscouseTensorOp::levelGSRB");
 
-  if( s_recompute_mu )
+  if( s_always_recompute_mu )
     {
       LevelData<FArrayBox>& phi = *a_phi; 
       
@@ -115,7 +115,7 @@ FASIceViscouseTensorOp::levelRich( RefCountedPtr<LevelData<FArrayBox> > a_phi,
     create( tmp, *a_rhs );
     
     // apply has BCs, exchange and C-F interp done before (eg, in compute state)
-    apply( tmp, *a_phi, 0, 0, 0, false ); // applies BCs, calls applyLevel
+    apply( tmp, *a_phi, 0, false ); // applies BCs, calls applyLevel, exchange done above
 
     // x = x + omega D^-1 (b - Ax) ; D == alaph - 2*beta*Dim/h^2
     axby( tmp, tmp, *a_rhs, -1.0, 1.0 );    // (b - Ax) 
@@ -175,12 +175,14 @@ FASIceViscouseTensorOp::restrictState( RefCountedPtr<AMRFASOp<LevelData<FArrayBo
 
 // ---------------------------------------------------------
 bool
-FASIceViscouseTensorOp::computeState( RefCountedPtr<LevelData<FArrayBox> > a_phi )
+FASIceViscouseTensorOp::computeState( RefCountedPtr<LevelData<FArrayBox> > a_phi, 
+				      const RefCountedPtr<LevelData<FArrayBox> > a_CrsPhi 
+				      )
 {
   CH_TIME("FASIceViscouseTensorOp::recomputeState");
-  if( !s_recompute_mu )
+  if( !s_always_recompute_mu )
     {
-      computeMu( *a_phi, 0 );
+      computeMu( *a_phi, a_CrsPhi );
       // trick to get VTO to recompute D^-1 (m_relaxCoef)
       m_VTO->setAlphaAndBeta( m_VTO->getAlpha(), m_VTO->getBeta() ); 
       // this is used for G-S and Rich
@@ -193,10 +195,10 @@ FASIceViscouseTensorOp::computeState( RefCountedPtr<LevelData<FArrayBox> > a_phi
 
 // ---------------------------------------------------------
 void
-FASIceViscouseTensorOp::reflux(const LevelData<FArrayBox>&        a_phiFine,
-			       const LevelData<FArrayBox>&        a_phi,
-			       LevelData<FArrayBox>&              a_residual,
-			       AMRFASOp<LevelData<FArrayBox> >*   a_finerOp )
+FASIceViscouseTensorOp::reflux( const LevelData<FArrayBox>&        a_phiFine,
+				const LevelData<FArrayBox>&        a_phi,
+				LevelData<FArrayBox>&              a_residual,
+				AMRFASOp<LevelData<FArrayBox> >*   a_finerOp )
 {
   CH_TIME("FASIceViscouseTensorOp::reflux");
   const FASIceViscouseTensorOp * const fop = dynamic_cast<FASIceViscouseTensorOp*>( a_finerOp );
@@ -274,22 +276,21 @@ FASIceSolver::define( const ProblemDomain& a_coarseDomain,
 {
   CH_TIME("FASIceSolver::define");
 
-  // define factory
-  CH_assert(m_opFactoryPtr == NULL);
-    
-  // for the moment, at least, this only works for dx = dy:
-  CH_assert(a_dxCrse[0] == a_dxCrse[1]);
+  // define factory -- this can be called oftan and refCounted pointers take care of it
+  // CH_assert(m_opFactoryPtr == NULL);
 
   // I don't have all the levels yet, so defer complete define
   m_opFactoryPtr = RefCountedPtr<FASIceViscouseTensorOpFactory>
     (new FASIceViscouseTensorOpFactory( a_constRelPtr, a_basalFrictionRelPtr, a_bc ) );
 
   // define base solver class, makes coarse levels as needed, calls FASIceViscouseTensorOpFactory::define
-  AMRFAS<LevelData<FArrayBox> >::define( a_coarseDomain, 
-					 a_dxCrse, 
-					 a_vectGrids, 
-					 a_vectRefRatio, 
-					 *m_opFactoryPtr 
+  AMRFAS<LevelData<FArrayBox> >::define( a_coarseDomain,
+					 a_dxCrse,
+					 a_vectGrids,
+					 a_vectRefRatio,
+					 *m_opFactoryPtr,
+					 0,
+					 a_numLevels
 					 );
 }
 
@@ -382,7 +383,6 @@ FASIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 		     int a_maxLevel
 		     )
 {
-  CH_assert(a_maxLevel+1 == a_horizontalVel.size());
   CH_TIME("FASIceSolver::solve");
 
   // copy data into ops, acting like a factory ...
@@ -419,7 +419,7 @@ FASIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
     }
   // solver will copy internal levels
 
-  // solver wants RefCountedPtr, allocate and copy in
+  // solver wants RefCountedPtr, allocate and copy in, and strips out extra levels
   Vector<RefCountedPtr<LevelData<FArrayBox> > > phi(a_maxLevel + 1);
   Vector<RefCountedPtr<LevelData<FArrayBox> > > rhs(a_maxLevel + 1);
   for (int lev = 0; lev < a_maxLevel + 1; ++lev)
@@ -475,7 +475,7 @@ FASIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       Vector<LevelData<FArrayBox>*> res( m_residual.size() );
       for (int lev = 0; lev < m_residual.size() ; ++lev)
 	{ 
-	  res[lev] = &(*m_residual[lev]); 
+	  res[lev] = &(*m_temp[lev]); // residual happens to be in m_temp
 	}
 
       WriteAMRHierarchyHDF5(fname,
@@ -512,11 +512,8 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
   const LevelData<FArrayBox>& levelBeta = *m_Beta;
   LevelData<FArrayBox>&    levelC =       *m_VTO->getACoef(); // not intuitive: VTO acoef == solver C
 
-  
   // side effect, does exchange
   levelVel.exchange( m_exchangeCopier );
-
-  //levelVel.exchange();
 
   // first set BC's on vel
   m_bc->velocityGhostBC( levelVel,
@@ -539,7 +536,7 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
 	}
       
     }
-  
+
   // actually need to use a cornerCopier, too ... really ??
   CornerCopier cornerCopier(levelGrids, levelGrids, 
 			    m_domain,levelVel.ghostVect(),
