@@ -178,7 +178,7 @@ public:
                         NUM_SOLVER_TYPES};
 
   /// read only access members
-  const Real time() const
+  Real time() const
   {
     return m_time + m_offsetTime;
   };
