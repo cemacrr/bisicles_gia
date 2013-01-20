@@ -47,6 +47,16 @@ FASIceViscouseTensorOp::FASIceViscouseTensorOp( int a_o,
 }
 
 // ---------------------------------------------------------
+// CFInterp - default C-F interp 
+// ---------------------------------------------------------
+void 
+FASIceViscouseTensorOp::CFInterp( LevelData<FArrayBox>& a_phi,
+				  const LevelData<FArrayBox>& a_phiCoarse )
+{
+  m_VTO->cfinterp( a_phi, a_phiCoarse ); 
+}
+
+// ---------------------------------------------------------
 // applyLevel - apply operator on one level - do BC's but no exchange or C-F
 // ---------------------------------------------------------
 void 
@@ -163,14 +173,12 @@ FASIceViscouseTensorOp::restrictState( RefCountedPtr<AMRFASOp<LevelData<FArrayBo
     const LevelData<FArrayBox>& f_beta = *fop->m_Beta;
     LevelData<FArrayBox> crs_beta, &c_beta = *m_Beta;
     
-    //fop->createCoarsened( crs_beta, f_beta, nRef );
     DisjointBoxLayout dblCoarsenedFine;
     coarsen( dblCoarsenedFine, f_beta.disjointBoxLayout(), nRef );
     crs_beta.define( dblCoarsenedFine, f_beta.nComp(), f_beta.ghostVect() );
-    //fop->AMRRestrict( crs_beta, f_beta );
-    //crs_beta.copyTo( crs_beta.interval(), c_beta, c_beta.interval(), a_copier );
     fop->AMRRestrict( c_beta, f_beta, crs_beta, a_copier );
   }
+
 }
 
 // ---------------------------------------------------------
@@ -444,7 +452,7 @@ FASIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 
   // copy out
   for (int lev = 0; lev < a_maxLevel + 1; ++lev)
-    { 
+    {
       op = dynamic_cast<FASIceViscouseTensorOp*>( &(*getOp(lev)) );
       CH_assert(op);
       op->assignLocal( *a_horizontalVel[lev], *phi[lev] );
@@ -453,7 +461,7 @@ FASIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
   if( !m_avoid_norms && m_plot_residual )
     {
 #ifdef CH_USE_HDF5
-      string fname = "residual.";
+      string fname = "residualFAS.";
       char suffix[30];
       sprintf(suffix, "%dd.hdf5",SpaceDim);
       fname += suffix;

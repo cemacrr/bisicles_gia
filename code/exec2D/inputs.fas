@@ -24,12 +24,14 @@ basalFlux.type = zeroFlux
 
 CalvingModel.type = NoCalvingModel
 
-amr.maxLevel = 1   # finest level allowed in simulation
-amr.ref_ratio = 2 2 
+amr.maxLevel = 7   # finest level allowed in simulation
+amr.ref_ratio = 2 2 2 2 2 2 2 2 2
+amr.num_cells = 0008 0008 16   #number of cells in base grid
+#amr.num_cells = 0016 0016 16   #number of cells in base grid
 #amr.num_cells = 0032 0032 16   #number of cells in base grid
 #amr.num_cells = 0064 0064 16   #number of cells in base grid
 #amr.num_cells = 0128 0128 16   #number of cells in base grid
-amr.num_cells = 0256 0256 16   #number of cells in base grid
+#amr.num_cells = 0256 0256 16   #number of cells in base grid
 #amr.num_cells = 0512 0512 16   #number of cells in base grid
 amr.is_periodic = 1 1 1    # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
@@ -47,7 +49,7 @@ amr.plot_prefix = stream.L1L2.0032.petsc.
 amr.write_solver_rhs = 1
 amr.check_interval = -1
 amr.check_prefix = chk
-amr.verbosity = 5
+amr.verbosity = 1
 
 amr.regrid_interval = 10000   # number of timesteps between regridding
 amr.blockFactor = 4           # block factor used in grid generation
@@ -61,7 +63,7 @@ amr.tag_on_laplacian_velocity = 1
 amr.lap_vel_tagging_val = 10
 
 #velocity solve type -- 0=Picard, 1=JFNK, 2=knownVel, 3=petsc, 4=FAS-MG
-amr.velocity_solver_type = 1
+amr.velocity_solver_type = 4
 
 # FAS Multigrid solver parameters
 FASSolver.max_iterations = 400
@@ -72,16 +74,17 @@ FASSolver.num_cycles = 1
 #FASSolver.num_post = 2
 FASSolver.cycle_type = 0  # FULL=0,VCYCLE=1,FCYCLE=2,SMOOTHER=3
 FASSolver.smoother =   1  # FAS_GSRB=0,FAS_RICH=1
-FASSolver.smoothing_damping_factor = .8
+FASSolver.smoothing_damping_factor = .6
 FASSolver.avoid_norms = 0
-FASSolver.verbosity = 3
+FASSolver.verbosity = 2
 FASSolver.num_v_cycles = 5
 #FASSolver.tolerance  = 1.0e-3
-amr.velocity_solver_tolerance = 1.0e-10 # this overrides my tol
+amr.velocity_solver_tolerance = 1.0e-8 # this overrides my tol
 FASSolver.stagnate = 1.0e-3
 
-#FASSolver.plot_residual = true
+FASSolver.plot_residual = true
 #JFNKSolver.writeResiduals = true
+picardSolver.numMGSmooth = 4
 
 #input file for solver benchmark
 main.filename = stream.L1L2.0032.r2.l0.000000.2d.hdf5
