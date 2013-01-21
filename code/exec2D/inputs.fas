@@ -45,7 +45,7 @@ amr.initial_cfl = 0.1  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
 
 amr.plot_interval = 1  
-amr.plot_prefix = stream.L1L2.0032.petsc.
+amr.plot_prefix = stream.L1L2.0032.fas.
 amr.write_solver_rhs = 1
 amr.check_interval = -1
 amr.check_prefix = chk
@@ -85,6 +85,35 @@ FASSolver.stagnate = 1.0e-3
 FASSolver.plot_residual = true
 #JFNKSolver.writeResiduals = true
 picardSolver.numMGSmooth = 4
+
+JFNKSolver.vtopSafety = 0.9
+JFNKSolver.minPicardIterations = 2
+JFNKSolver.switchRate = 5.0
+#JFNKSolver.numMGSmooth = @NSMOOTH
+JFNKSolver.numMGSmooth = 8
+JFNKSolver.maxIter = 100
+
+#JFNKSolver.absTol = 1.0e-2
+#JFNKSolver.relTol = 1.0e-10
+#JFNKSolver.BiCGStabRelTol = 4.0e-3
+JFNKSolver.BiCGStabRelTol = 1.0e-5
+JFNKSolver.maxBiCGStabIter = 10
+JFNKSolver.maxBiCGStabIter = 40
+#JFNKSolver.normType = 0
+JFNKSolver.verbosity = 5
+JFNKSolver.vtopRelaxMinIter = 4
+JFNKSolver.vtopRelaxTol = 0
+JFNKSolver.numMGIter = 1
+JFNKSolver.h = 0.025
+JFNKSolver.hAdaptive = true 
+JFNKSolver.mgProlongType = 1
+JFNKSolver.solverType = 0
+JFNKSolver.maxBiCGStabIter = 50
+JFNKSolver.MGtol = 1.0e-5
+JFNKSolver.RelaxTol = 1.0e-5
+JFNKSolver.maxRelaxIter = 50
+JFNKSolver.vtopRelaxTol = 0
+
 
 #input file for solver benchmark
 main.filename = stream.L1L2.0032.r2.l0.000000.2d.hdf5
