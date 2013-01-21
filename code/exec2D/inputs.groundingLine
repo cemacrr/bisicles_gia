@@ -34,6 +34,7 @@ amr.maxLevel = 2   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2
 #amr.num_cells = 128 128 128   #number of cells in base grid
 amr.num_cells = 64 64 16   #number of cells in base grid
+amr.domLo = -32 -32 0
 amr.is_periodic = 0 1 1    # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
 # velocity BC types:  0 = homogeneous Dirichlet

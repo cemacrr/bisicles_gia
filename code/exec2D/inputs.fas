@@ -65,6 +65,13 @@ amr.lap_vel_tagging_val = 10
 #velocity solve type -- 0=Picard, 1=JFNK, 2=knownVel, 3=petsc, 4=FAS-MG
 amr.velocity_solver_type = 4
 
+#initial guess 
+amr.do_initial_velocity_guess = 0
+amr.do_initial_velocity_solve = 1
+amr.initial_velocity_guess_type = 1 # linear PDE
+amr.initial_velocity_guess_const_mu = 1.0e+6
+#amr.initial_velocity_guess_solver_type = 1 # use JFNK solver's linear mode
+
 # FAS Multigrid solver parameters
 FASSolver.max_iterations = 400
 FASSolver.min_iterations = 1

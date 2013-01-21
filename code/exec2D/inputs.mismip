@@ -14,7 +14,7 @@ main.domain_size = 1800000.0 1800000.0 1000.0
 CalvingModel.type = NoCalvingModel
 
 surfaceFlux.type = constantFlux
-surfaceFlux.flux_value = 0.3
+surfaceFlux.flux_value = 0.1
 basalFlux.type = zeroFlux
 
 geometry.problem_type = marineIceSheet
@@ -42,8 +42,8 @@ amr.temporal_accuracy = 1
 #amr.temporal_accuracy = 2
 #amr.temporal_accuracy = 4
 
-amr.cfl = 0.5  # "cfl" number
-amr.initial_cfl = 0.5  # "cfl" number
+amr.cfl = 0.01  # "cfl" number
+amr.initial_cfl = 0.01  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
 
 
@@ -62,4 +62,41 @@ amr.tags_grow = 1             # amount to buffer tags
 amr.max_box_size = 256         # largest box length allowed
 amr.max_solver_iterations = 100   #maximun number of outer iterations ins
 amr.velocity_solver_tolerance = 1.0e-2
+
+#velocity solve type -- 0 = Picard, 1 = JFNK
+amr.velocity_solver_type = 1
+
+picardSolver.num_smooth = 8
+#picardSolver.linearSolver = multigrid
+picardSolver.linearSolver = BiCGStab
+
+JFNKSolver.vtopSafety = 0.9
+JFNKSolver.minPicardIterations = 2
+JFNKSolver.switchRate = 5.0
+JFNKSolver.numMGSmooth = 8
+JFNKSolver.maxIter = 100
+
+JFNKSolver.absTol = 1.0e-2
+JFNKSolver.relTol = 1.0e-10
+#JFNKSolver.BiCGStabRelTol = 4.0e-3
+JFNKSolver.BiCGStabRelTol = 1.0e-5
+JFNKSolver.maxBiCGStabIter = 10
+JFNKSolver.maxBiCGStabIter = 40
+JFNKSolver.normType = 0
+JFNKSolver.verbosity = 5
+JFNKSolver.vtopRelaxMinIter = 4
+JFNKSolver.vtopRelaxTol = 0
+JFNKSolver.numMGIter = 1
+JFNKSolver.h = 0.025
+JFNKSolver.hAdaptive = true 
+JFNKSolver.mgProlongType = 1
+
+# 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = MultiGrid
+JFNKSolver.solverType = 0
+JFNKSolver.maxBiCGStabIter = 50
+JFNKSolver.MGtol = 1.0e-5
+JFNKSolver.RelaxTol = 1.0e-5
+JFNKSolver.maxRelaxIter = 50
+JFNKSolver.vtopRelaxTol = 0
+
 
