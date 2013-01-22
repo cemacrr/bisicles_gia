@@ -3,6 +3,8 @@
 main.maxTime = 10000000  # maximum time to run to
 main.maxStep = 0   # maximum number of steps to run
 main.constitutiveRelation = L1L2
+#main.constitutiveRelation = constMu
+constMu.mu = 1.0e+6
 
 main.domain_size = 160000.0 160000.0 160000.0 
 
