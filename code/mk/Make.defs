@@ -56,6 +56,15 @@ ifeq ($(UNAMEN),martins)
 #PYTHON_VERSION=2.6
 endif
 
+#handle hopper.nersc.gov specially 
+ifeq ($(UNAMEN),hopper04)
+PYTHON_VERSION=HOPPER
+PYTHON_INC=/usr/common/usg/python/2.7.3/include/python2.7
+PYTHON_LIBS=-L/usr/common/usg/python/2.7.3/lib -lpython2.7 -dynamic
+endif
+
+
+
 ifeq ($(PYTHON_VERSION),2.7)
 #python 2.7
 PYTHON_INC=/usr/include/python2.7
