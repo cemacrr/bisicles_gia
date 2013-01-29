@@ -85,10 +85,25 @@ amr.tag_on_grad_velocity = 0
 amr.tag_on_laplacian_velocity = 1
 amr.lap_vel_tagging_val = 1
 
+# FAS Multigrid solver parameters
+FASSolver.max_iterations = 500
+FASSolver.min_iterations = 1
+FASSolver.num_smooth = 1
+FASSolver.num_cycles = 2
+#FASSolver.num_pre = 2
+#FASSolver.num_post = 2
+FASSolver.cycle_type = 0  # FULL=0,VCYCLE=1,FCYCLE=2,SMOOTHER=3
+FASSolver.smoother =   1  # FAS_GSRB=0,FAS_RICH=1
+FASSolver.smoothing_damping_factor = .6
+FASSolver.avoid_norms = 0
+FASSolver.verbosity = 2
+FASSolver.num_v_cycles = 1 
+#FASSolver.tolerance  = 1.0e-3
+amr.velocity_solver_tolerance = 1.0e-8 # this overrides FAS's tol
+FASSolver.stagnate = 1.0e-30
 
 
-
-#velocity solve type -- 0 = Picard, 1 = JFNK
+#velocity solve type -- 0 = Picard, 1 = JFNK, 2=???, 3=petsc, 4=FAS-MG
 amr.velocity_solver_type = 1
 
 #initial guess 
