@@ -23,6 +23,7 @@
 #include "BasalFrictionRelation.H"
 #include "MuCoefficient.H"
 #include "twistyStreamFriction.H"
+#include "singularStreamFriction.H"
 #include "GaussianBumpFriction.H"
 #include "IceThicknessIBC.H"
 #include "BasicThicknessIBC.H"
@@ -56,6 +57,7 @@ enum basalFrictionTypes {constantBeta = 0,
                          sinusoidalBetay,
                          twistyStreamx,
 			 gaussianBump,
+			 singularStream,
                          NUM_BETA_TYPES};
 
 //===========================================================================
@@ -441,6 +443,19 @@ int main(int argc, char* argv[]) {
                                                                                 magOffset, 
                                                                                 eps,
                                                                                 domainSize));          
+      }
+    else if (beta_type == "singularStream")
+      {
+	Real slippyC,stickyC,width,twistNumber,twistAmplitude;
+	geomPP.get("slippyC",slippyC);
+	geomPP.get("stickyC",stickyC);
+	geomPP.get("width",width);
+	geomPP.get("twistNumber",twistNumber);
+	geomPP.get("twistAmplitude",twistAmplitude);
+	basalFrictionPtr = static_cast<BasalFriction*>
+	  (new singularStreamFriction
+	   (slippyC,stickyC,width,twistNumber,twistAmplitude,domainSize));
+
       }
      else if (beta_type == "gaussianBump")
       {

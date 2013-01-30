@@ -10,14 +10,11 @@ main.constitutiveRelation = @CRE
 #constRate.epsSqr0 = 1.0e-12
 #constRate.A =  4.0e-17 
 
-main.rateFactor = arrheniusRate
-ArrheniusRate.epsSqr0 = 1.0e-12
+#main.rateFactor = arrheniusRate
+#ArrheniusRate.epsSqr0 = 1.0e-12
 
 amr.isothermal=false
-#amr.isothermal=true
-temperature.type = Python
-PythonIceTemperatureIBC.module = shearMargin
-PythonIceTemperatureIBC.function = temperature
+temperature.type=constant
 
 main.basalFrictionRelation = powerLaw
 BasalFrictionPowerLaw.m = 1.0
@@ -37,9 +34,12 @@ geometry.thickness_type = constantThickness1km
 
 
 
-geometry.beta_type = Python
-PythonBasalFriction.module = shearMargin
-PythonBasalFriction.function = frictioncoef
+geometry.beta_type = singularStream
+geometry.slippyC = 0.0
+geometry.stickyC = 1.0e+6
+geometry.width = 16.0e+3
+geometry.twistNumber = 1.0
+geometry.twistAmplitude = 0.0
 
 amr.num_cells = @RESX @RESY 10
 
