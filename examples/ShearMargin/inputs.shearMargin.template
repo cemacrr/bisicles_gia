@@ -4,7 +4,7 @@ constants.sea_water_density = 1028.0
 constants.gravity = 9.81 
 
 main.maxTime = 30000  # maximum time to run to
-main.maxStep = 50000   # maximum number of steps to runx
+main.maxStep = 1   # maximum number of steps to runx
 main.constitutiveRelation = @CRE
 #main.rateFactor = constRate
 #constRate.epsSqr0 = 1.0e-12
@@ -87,28 +87,26 @@ amr.tag_on_laplacian_velocity = 1
 amr.lap_vel_tagging_val = 1
 
 # FAS Multigrid solver parameters
-FASSolver.max_iterations = 500
+FASSolver.max_iterations = 5000
 FASSolver.min_iterations = 1
-FASSolver.num_smooth = 1
-FASSolver.num_cycles = 2
+FASSolver.num_smooth = 16
+FASSolver.num_cycles = 1
 #FASSolver.num_pre = 2
 #FASSolver.num_post = 2
-FASSolver.cycle_type = 0  # FULL=0,VCYCLE=1,FCYCLE=2,SMOOTHER=3
+FASSolver.cycle_type = 1  # FULL=0,VCYCLE=1,FCYCLE=2,SMOOTHER=3
 FASSolver.smoother =   1  # FAS_GSRB=0,FAS_RICH=1
-FASSolver.smoothing_damping_factor = .6
+FASSolver.smoothing_damping_factor = .9
 FASSolver.avoid_norms = 0
 FASSolver.verbosity = 2
 FASSolver.num_v_cycles = 1 
-#FASSolver.tolerance  = 1.0e-3
-amr.velocity_solver_tolerance = 1.0e-8 # this overrides FAS's tol
 FASSolver.stagnate = 1.0e-30
+amr.velocity_solver_tolerance = 1.0e-6 # this overrides FAS's tol
 
-
-#velocity solve type -- 0 = Picard, 1 = JFNK, 2=???, 3=petsc, 4=FAS-MG
+#velocity solve type -- 0 = Picard, 1 = JFNK, 2=???, 3 = petsc, 4 = FAS-MG
 amr.velocity_solver_type = 1
 
 #initial guess 
-amr.do_initial_velocity_guess = 1
+amr.do_initial_velocity_guess = 0
 amr.do_initial_velocity_solve = 1
 amr.initial_velocity_guess_type = 1 # linear PDE
 amr.initial_velocity_guess_const_mu = 1.0e+6
