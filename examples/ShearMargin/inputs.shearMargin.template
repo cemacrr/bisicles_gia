@@ -10,11 +10,12 @@ main.constitutiveRelation = @CRE
 #constRate.epsSqr0 = 1.0e-12
 #constRate.A =  4.0e-17 
 
-#main.rateFactor = arrheniusRate
-#ArrheniusRate.epsSqr0 = 1.0e-12
+main.rateFactor = arrheniusRate
+ArrheniusRate.epsSqr0 = 1.0e-12
 
 amr.isothermal=false
 temperature.type=constant
+temperature.value=268.0
 
 main.basalFrictionRelation = powerLaw
 BasalFrictionPowerLaw.m = 1.0
