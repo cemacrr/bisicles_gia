@@ -51,7 +51,7 @@ amr.plot_prefix = stream.L1L2.0032.fas.
 amr.write_solver_rhs = 1
 amr.check_interval = -1
 amr.check_prefix = chk
-amr.verbosity = 1
+amr.verbosity = 2
 
 amr.regrid_interval = 10000   # number of timesteps between regridding
 amr.blockFactor = 4           # block factor used in grid generation
@@ -75,25 +75,28 @@ amr.initial_velocity_guess_const_mu = 1.0e+6
 #amr.initial_velocity_guess_solver_type = 1 # use JFNK solver's linear mode
 
 # FAS Multigrid solver parameters
-FASSolver.max_iterations = 400
+FASSolver.max_iterations = 5000
 FASSolver.min_iterations = 1
-FASSolver.num_smooth = 4
+FASSolver.num_smooth =2
 FASSolver.num_cycles = 1
 #FASSolver.num_pre = 2
 #FASSolver.num_post = 2
 FASSolver.cycle_type = 0  # FULL=0,VCYCLE=1,FCYCLE=2,SMOOTHER=3
 FASSolver.smoother =   1  # FAS_GSRB=0,FAS_RICH=1
-FASSolver.smoothing_damping_factor = .6
+FASSolver.smoothing_damping_factor = .9
 FASSolver.avoid_norms = 0
 FASSolver.verbosity = 2
-FASSolver.num_v_cycles = 5
+FASSolver.num_v_cycles = 15
 #FASSolver.tolerance  = 1.0e-3
-amr.velocity_solver_tolerance = 1.0e-8 # this overrides my tol
 FASSolver.stagnate = 1.0e-3
+FASSolver.prol_poly_order = 1
+FASSolver.fmg_prol_poly_order = 2
+amr.velocity_solver_tolerance = 1.0e-8 # this overrides my tol
 
 FASSolver.plot_residual = true
 #JFNKSolver.writeResiduals = true
 picardSolver.numMGSmooth = 4
+picardSolver.max_iterations = 100
 
 JFNKSolver.vtopSafety = 0.9
 JFNKSolver.minPicardIterations = 2
