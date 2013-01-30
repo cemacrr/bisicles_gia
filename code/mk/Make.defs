@@ -60,8 +60,8 @@ endif
 
 ifeq ($(NERSC_HOST),hopper)
 PYTHON_VERSION=HOPPER
-PYTHON_INC=/usr/common/usg/python/2.7.3/include/python2.7
-PYTHON_LIBS=-L/usr/common/usg/python/2.7.3/lib -lpython2.7 -dynamic
+#PYTHON_INC=/usr/common/usg/python/2.7.3/include/python2.7
+#PYTHON_LIBS=-L/usr/common/usg/python/2.7.3/lib -lpython2.7 -dynamic
 endif
 
 
