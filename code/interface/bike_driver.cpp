@@ -87,8 +87,8 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 #ifdef CH_USE_PETSC
   ierr = PetscInitialize(&argc, &argv,"./.petscrc",PETSC_NULL); CHKERRQ(ierr);
 #else
-#ifdef MPI
-  MPI_Init(&argc, &argv);
+#ifdef CH_MPI
+  //  MPI_Init(&argc, &argv);
 #endif
 #endif // end petsc conditional
   
@@ -99,17 +99,23 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
     
      
 
-#ifdef MPI
+#ifdef CH_MPI
     MPI_Barrier(Chombo_MPI::comm);
 #endif
     int rank, number_procs;
-#ifdef MPI
+#ifdef CH_MPI
     MPI_Comm_rank(Chombo_MPI::comm, &rank);
     MPI_Comm_size(Chombo_MPI::comm, &number_procs);
 #else
     rank=0;
     number_procs=1;
 #endif
+
+    bool verbose = true;
+    if (verbose)
+      {
+	pout() << "rank " << rank << " of " << number_procs << endl;
+      }
 
     //static AmrIce amrObject;
     //    AmrIce amrObject;
@@ -126,6 +132,10 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
     //ParmParse pp(argc-2,argv+2,NULL,in_file);
     bikePtr->parmParse = new ParmParse(argc-2,argv+2,NULL,in_file);
 
+    if (verbose)
+      {
+	cout << "...done reading file..." << endl;
+      }
     RealVect domainSize;
 
     ParmParse pp2("main");
@@ -135,6 +145,11 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
     // ---------------------------------------------
     // set constitutive relation & rate factor
     // ---------------------------------------------
+    if (verbose)
+      {
+	cout << "initializing constRel" << endl;
+      }
+
     std::string constRelType;
     pp2.get("constitutiveRelation", constRelType);
     ConstitutiveRelation* constRelPtr = NULL;
@@ -204,6 +219,12 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 
     amrObjectPtr->setConstitutiveRelation(constRelPtr);  
     
+    if (verbose)
+      {
+	cout << "... done" << endl;
+	
+	cout << "setting surface flux... " << endl;
+      }
 
     // ---------------------------------------------
     // set (upper) surface flux. 
@@ -241,7 +262,13 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
       }
 
     amrObjectPtr->setSurfaceFlux(surf_flux_ptr);
-  
+    
+    if (verbose)
+      {
+	cout << "... done" << endl;
+	
+	cout << "setting basal flux... " << endl;
+      }
 
     // ---------------------------------------------
     // set basal (lower surface) flux. 
@@ -350,6 +377,12 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
       }
     
     amrObjectPtr->setBasalFlux(basal_flux_ptr); 
+    
+    if (verbose)
+      {
+	cout << "... done" << endl;
+	cout << "setting mu..." << endl;
+      }
 
     // ---------------------------------------------
     // set mu coefficient
@@ -390,6 +423,13 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
       }
 
 
+    if (verbose)
+      {
+	cout << "... done" << endl;
+	
+	cout << "setting IBC..." << endl;
+      }
+
     ParmParse geomPP("geometry");
     Real dew, dns;
     long * dimInfo;        
@@ -422,6 +462,11 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         nodalGeom = true;
         interfacePP.query("nodalInitialData", nodalGeom);
         
+	if (verbose)
+	  {
+	    cout << "nodal initial data = " << nodalGeom << endl;
+	  }
+	
         // this is about removing ice from regions which
         // don't affect the dynamics of the region, but which 
         // can cause our solvers problems. Siple Island comes to mind here
@@ -471,7 +516,10 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
             ibcPtr->setThicknessClearRegions(clearBoxes);
           }
         
-        
+	if (verbose)
+	  {
+	    cout << "...done" << endl;
+	  }
 
         double * thicknessDataPtr, *topographyDataPtr;
         int i, reg_index;      
@@ -591,6 +639,11 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
     // set basal friction coefficient and relation
     // ---------------------------------------------
 
+    if (verbose)
+      {
+	cout << "setting basal friction..." << endl;
+      }
+    
     BasalFriction* basalFrictionPtr = NULL;
 
     std::string beta_type;
@@ -786,6 +839,11 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 
     amrObjectPtr->setBasalFrictionRelation(basalFrictionRelationPtr);
 
+    if (verbose)
+      {
+	cout << "... done" << endl;
+      }
+
     // ---------------------------------------------
     // now set temperature BC's
     // ---------------------------------------------
@@ -913,8 +971,8 @@ void bike_driver_finalize(int amr_obj_index)
       bikePtr = NULL;
     }
   pout() << "Bike Object deleted." << endl << endl; 
-#ifdef MPI
-  MPI_Finalize();
+#ifdef CH_MPI
+  //  MPI_Finalize();
 #endif
   
   //  return 0;
