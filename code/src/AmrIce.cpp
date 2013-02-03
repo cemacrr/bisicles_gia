@@ -813,6 +813,8 @@ AmrIce::initialize()
   ppCon.query("gravity",m_gravity);
   ParmParse ppAmr("amr");
   Vector<int> ancells(3); 
+  // allows for domains with lower indices which are not positive
+  Vector<int> domLoIndex(SpaceDim,0); 
   // slc : SpaceDim == 2 implies poor-mans multidim mode, in which we still
   // care about the number of vertical layers. 
   Vector<Real> domsize(SpaceDim);
@@ -827,6 +829,12 @@ AmrIce::initialize()
   ppAmr.query("tagCap",m_tag_cap);
   
   ppAmr.getarr("num_cells", ancells, 0, ancells.size());
+  
+  // this one doesn't have a vertical dimension
+  ppAmr.queryarr("domainLoIndex", domLoIndex, 0, SpaceDim);
+
+
+
 
 # if 0
   // this is now handled in main and passed in using the
@@ -1167,8 +1175,10 @@ AmrIce::initialize()
 
   // now set up problem domains
   {
-    IntVect loVect = IntVect::Zero;
-    IntVect hiVect(D_DECL(ancells[0]-1, ancells[1]-1, ancells[2]-1));
+    IntVect loVect = IntVect(D_DECL(domLoIndex[0], domLoIndex[1], domLoIndex[3]));
+    IntVect hiVect(D_DECL(domLoIndex[0]+ancells[0]-1, 
+                          domLoIndex[1]+ancells[1]-1, 
+                          domLoIndex[2]+ancells[2]-1));
 #if BISICLES_Z == BISICLES_LAYERED
     {
       int nLayers = ancells[2];

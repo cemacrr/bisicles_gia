@@ -63,8 +63,10 @@ void VieliPayneVelBC(FArrayBox& a_state,
           if (!a_domain.isPeriodic(dir))
             {
 
-              // boundary conditions are Dirichlet on low side,
+              // boundary conditions are 
               // Neumann on high side,
+              // Dirichlet on low side,for half-domain, 
+              // Neumann on low-side for full-domain
               Box ghostBoxLo = adjCellBox(valid, dir, Side::Lo, 1);
               Box ghostBoxHi = adjCellBox(valid, dir, Side::Hi, 1);
 
@@ -78,15 +80,65 @@ void VieliPayneVelBC(FArrayBox& a_state,
                   // transverse directions
                   ghostBoxLo.grow(1);
                   ghostBoxLo.grow(dir,-1);
-                  DiriBC(a_state,
-                         valid,
-                         a_dx,
-                         a_homogeneous,
-                         zeroBCValueVP,
-                         dir,
-                         Side::Lo);
+                  if (valid.loVect()[dir] < 0)
+                    {
+                      // full domain case -- we're at a calving front
+                      // normal-component BC is Neumann, 
+                      // transverse vel BC is Dirichlet
+                      Interval NeumInterval(dir,dir);
+                      NeumBC(a_state,
+                             valid,
+                             a_dx,
+                             a_homogeneous,
+                             zeroBCValueVP,
+                             dir,
+                             Side::Lo,
+                             NeumInterval);                      
+                      for (int comp=0; comp<a_state.nComp(); comp++)
+                        {
+                          if (comp != dir)
+                            {
+                              Interval DiriInterval(comp,comp);
+                              DiriBC(a_state,
+                                     valid,
+                                     a_dx,
+                                     a_homogeneous,
+                                     zeroBCValueVP,
+                                     dir,                                 
+                                     Side::Lo,
+                                     DiriInterval);
+                            } // end if comp != dir
+                        } // end loop over components
+                    }
+                  else
+                    {
+                      // half-domain - we're at ice divide                    
+                      DiriBC(a_state,
+                             valid,
+                             a_dx,
+                             a_homogeneous,
+                             zeroBCValueVP,
+                             dir,
+                             Side::Lo);
+                      
+                      for (int comp=0; comp<a_state.nComp(); comp++)
+                        {
+                          if (comp != dir)
+                            {
+                              Interval DiriInterval(comp,comp);
+                              DiriBC(a_state,
+                                     valid,
+                                     a_dx,
+                                     a_homogeneous,
+                                     zeroBCValueVP,
+                                     dir,                                 
+                                     Side::Lo,
+                                     DiriInterval);
+                            } // end if comp != dir
+                        } // end loop over components 
+                    }
                 }
-
+              
               if(!a_domain.domainBox().contains(ghostBoxHi))
                 {
                   // want to set corners if possible, so grow ghostBox in the 
@@ -105,7 +157,7 @@ void VieliPayneVelBC(FArrayBox& a_state,
                          dir,
                          Side::Hi,
                          NeumInterval);
-
+                  
                   for (int comp=0; comp<a_state.nComp(); comp++)
                     {
                       if (comp != dir)
@@ -561,7 +613,7 @@ VieliPayneIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
           x += 0.5*RealVect::Unit;
           x *= dx;
           
-          Real baseHeight = D_TERM(x[0]*m_slope[0],+x[1]*m_slope[1],+x[2]*m_slope[2]);
+          Real baseHeight = D_TERM(abs(x[0])*m_slope[0],+abs(x[1])*m_slope[1],+abs(x[2])*m_slope[2]);
           baseHeight += m_originElevation;
 
           thisZbLocal(iv,0) = baseHeight;
