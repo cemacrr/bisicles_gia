@@ -708,15 +708,108 @@ VieliPayneBCFunction::operator()(FArrayBox&           a_state,
                   // transverse directions
                   ghostBoxLo.grow(1);
                   ghostBoxLo.grow(dir,-1);
-                  int order = 2;
-                  DiriBC(a_state,
-                         valid,
-                         a_dx,
-                         a_homogeneous,
-                         zeroBCValueVP,
-                         dir,
-                         Side::Lo,
-                         order);
+                  if (valid.loVect()[dir] < 0)
+                    {
+                      // full domain case -- we're at a calving front
+                      // normal-component BC is Neumann,
+                      // transverse vel BC is Dirichlet
+                      // normal component BC is marine boundary condition.
+                      // if homogeneous, just use homogeneous Neumann BCFunc
+                      if (a_homogeneous)
+                        {                      
+                          // normal-component BC is Neumann, 
+                          // transverse vel BC is Dirichlet
+                          Interval NeumInterval(dir,dir);
+                          NeumBC(a_state,
+                                 valid,
+                                 a_dx,
+                                 a_homogeneous,
+                                 zeroBCValueVP,
+                                 dir,
+                                 Side::Lo,
+                                 NeumInterval);
+                        }
+                      else
+                        {
+                          // this is where we actually do something interesting
+                          // and apply the inhomogeneous form of the marine bc
+                          
+                          // first, figure out which level we're on
+                          int thisLev=-1; 
+                          for (int lev=0; lev<m_vectDomain.size(); lev++)
+                            {
+                              if (a_domain == m_vectDomain[lev])
+                                {
+                                  thisLev = lev;
+                                }
+                            }
+                          // check to be sure we actually found a match
+                          if (thisLev == -1)
+                            { 
+                              MayDay::Error("unable to determine AMR level for inhomogeneous Marine BC");
+                            }
+                          
+                          // now grab the SigmaCS for this level
+                          const LevelSigmaCS& thisCS = (*m_vectCS[thisLev]);
+                          
+                          // get face-centered ice thickness 
+                          const FluxBox& thisFaceH = thisCS.getFaceH()[a_index];
+                          const FArrayBox& thisFaceHDir = thisFaceH[dir];
+                      
+                          Real dx = thisCS.dx()[dir];
+                          
+                          //                      Real A = 1e-18/SECONDSPERYEAR;  
+                          //Real A = 1e-18;
+                          Real A = 9.2e-18;
+                          int n = 3;
+                          // bcVal from Vieli&Payne
+                          Real f = (0.25*thisCS.gravity()*thisCS.iceDensity()
+                                    *(1.0 - thisCS.iceDensity()/thisCS.waterDensity()));
+                          // negative shiftIV for low side
+                          IntVect shiftIV = -BASISV(dir);
+                          
+                          BoxIterator bit(ghostBoxLo);
+                          for (bit.begin(); bit.ok(); ++bit)
+                            {
+                              IntVect iv = bit();
+                              Real bcVal = thisFaceHDir(iv,0);
+                              bcVal *= f;
+                              bcVal = A*pow(bcVal,n);
+                              a_state(iv,dir) = a_state(iv-shiftIV,dir) - dx*bcVal;
+                            }    
+                        }                    
+                      
+                      for (int comp=0; comp<a_state.nComp(); comp++)
+                        {
+                          if (comp != dir)
+                            {
+                              int order = 1;
+                              Interval DiriInterval(comp,comp);
+                              DiriBC(a_state,
+                                     valid,
+                                     a_dx,
+                                     a_homogeneous,
+                                     zeroBCValueVP,
+                                     dir,                                 
+                                     Side::Lo,
+                                     DiriInterval,
+                                     order);
+                            } // end if comp != dir
+                        } // end loop over components
+                    }
+                  else
+                    {
+                      // at ice divide
+                      int order = 2;
+                      DiriBC(a_state,
+                             valid,
+                             a_dx,
+                             a_homogeneous,
+                             zeroBCValueVP,
+                             dir,
+                             Side::Lo,
+                             order);
+                    }
                 }
 
               if(!a_domain.domainBox().contains(ghostBoxHi))
