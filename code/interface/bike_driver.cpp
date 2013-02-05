@@ -111,6 +111,15 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
     number_procs=1;
 #endif
 
+
+    long cism_communicator, cism_process_count, my_cism_rank;
+
+    cism_communicator = *(btg_ptr -> getLongVar("communicator","mpi_vars"));
+    cism_process_count = *(btg_ptr -> getLongVar("process_count","mpi_vars"));
+    my_cism_rank = *(btg_ptr -> getLongVar("my_rank","mpi_vars"));
+    cout << "In bike_driver, CISM comm, count, my_rank = " << cism_communicator << "  "
+         << cism_process_count << "  " << my_cism_rank << endl;
+
     bool verbose = true;
     if (verbose)
       {
@@ -542,6 +551,17 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         cout << "DimInfoGeom  in bike_driver: " << endl;
         for (i=0;i<=dimInfoGeom[0];i++) cout << dimInfoGeom[i] << " ";
         cout << endl;
+
+        long ewlb, ewub, nslb, nsub;
+
+        ewlb = *(btg_ptr -> getLongVar("ewlb","geometry"));
+        ewub = *(btg_ptr -> getLongVar("ewub","geometry"));
+        nslb = *(btg_ptr -> getLongVar("nslb","geometry"));
+        nsub = *(btg_ptr -> getLongVar("nsub","geometry"));
+        cout << "In bike_driver: ewlb, ewub = " << ewlb << "  " << ewub <<  endl;
+        cout << "In bike_driver: nslb, nsub = " << nslb << "  " << nsub <<  endl;
+
+
 
         CH_assert(SpaceDim == 2);
 #if 1
