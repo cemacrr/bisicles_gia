@@ -772,7 +772,8 @@ VieliPayneBCFunction::operator()(FArrayBox&           a_state,
                           for (bit.begin(); bit.ok(); ++bit)
                             {
                               IntVect iv = bit();
-                              Real bcVal = thisFaceHDir(iv,0);
+                              // H from face on the boundary, to the right of ghost cell
+                              Real bcVal = thisFaceHDir(iv-shiftIV,0);
                               bcVal *= f;
                               bcVal = A*pow(bcVal,n);
                               a_state(iv,dir) = a_state(iv-shiftIV,dir) - dx*bcVal;
