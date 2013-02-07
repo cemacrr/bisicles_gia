@@ -13,7 +13,9 @@
 #define _AREAWEIGHTEDFRICTION_H_
 
 #include "BasalFriction.H"
+#ifdef CH_USE_EB
 #include "EBIndexSpace.H"
+#endif
 #include "LevelData.H"
 #include "FArrayBox.H"
 #include "LevelSigmaCS.H"
@@ -26,7 +28,7 @@ public:
   /// constructor
   areaWeightedFriction();
 
-  areaWeightedFriction(Real a_value);
+  areaWeightedFriction(BasalFriction* frictionPtr);
 
   /// destructor
   virtual ~areaWeightedFriction() {}
@@ -46,14 +48,9 @@ public:
                                 Real                  a_time,
                                 Real                  a_dt);
 
-  /// set friction value in meters/year
-  void setFrictionVal(const Real& a_betaSqr);
-
 protected:
-  Real m_frictionVal;
-
-  bool m_isValSet;
-
+  BasalFriction* m_frictionPtr;
+  
 private:
   // Disallowed for all the usual reasons
   void operator=(const areaWeightedFriction& a_input)
