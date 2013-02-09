@@ -9,19 +9,26 @@ main.constitutiveRelation = L1L2
 main.rateFactor = constRate
 constRate.epsSqr0 = 1.0e-16
 
-#main.domain_size = 100000.0 100000.0 100000.0  # half-domain
-main.domain_size = 200000.0 200000.0 200000.0  # full-domain
+main.domain_size = 100000.0 100000.0 100000.0  # half-domain
+#main.domain_size = 200000.0 200000.0 200000.0  # full-domain
 
-CalvingModel.type = NoCalvingModel
+
+CalvingModel.type = DomainEdgeCalvingModel
+CalvingModel.front_lo = 0 0 # for half-domain
+#CalvingModel.front_lo = 1 0 # for full-domain
+CalvingModel.front_hi = 1 0
 
 surfaceFlux.type = constantFlux
 surfaceFlux.flux_value = 0.3
 basalFlux.type = zeroFlux
 
-geometry.problem_type = VieliPayne
-vieliPayne.basal_slope = -0.005 0 
-vieliPayne.originElevation = -250.0 
-vieliPayne.thickness = 500.0
+geometry.problem_type = marineIceSheet
+marineIceSheet.geometry = symmetricPlane
+marineIceSheet.basal_slope = -0.005 0
+marineIceSheet.symmetryPoint = 0 0 0 
+marineIceSheet.originElevation = -250
+marineIceSheet.thickness = 500.0
+
 geometry.beta_type = constantBeta
 geometry.betaValue = 1000.0
 #geometry.betaValue = 0.0
@@ -34,8 +41,9 @@ geometry.basalSlope = 0 0 0
 amr.maxLevel = 2   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2
 #amr.num_cells = 128 128 128   #number of cells in base grid
-amr.num_cells = 128 128 16   #number of cells in base grid
-amr.domainLoIndex = -64 0 0 # full-domain offset
+amr.num_cells = 64 64 16   #number of cells in base grid for half-domain
+#amr.num_cells = 128 128 16   #number of cells in base grid for full-domain
+#amr.domainLoIndex = -64 0 0 # full-domain offset
 amr.is_periodic = 0 1 1    # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
 # velocity BC types:  0 = homogeneous Dirichlet
@@ -47,14 +55,15 @@ amr.temporal_accuracy = 1
 #amr.temporal_accuracy = 2
 #amr.temporal_accuracy = 4
 
-amr.cfl = 0.01  # "cfl" number
-amr.initial_cfl = 0.01  # "cfl" number
+amr.cfl = 0.1  # "cfl" number
+amr.initial_cfl = 0.1  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
 
 
-amr.plot_interval = 100
+amr.plot_interval = 1
 amr.plot_prefix = plot.groundingLine.
-amr.write_preSolve_plotfiles = false
+#amr.plot_prefix = plot.groundingLine-fullDomain.
+#amr.write_preSolve_plotfiles = true
 amr.write_solver_rhs = 1
 amr.check_interval = 20
 amr.check_prefix = chk

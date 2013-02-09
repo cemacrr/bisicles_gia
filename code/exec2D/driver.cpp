@@ -653,6 +653,25 @@ int main(int argc, char* argv[]) {
 	    RefCountedPtr<RealFunction<RealVect> > ptr(new InclinedPlaneFunction(originElevation, basalSlope));
 	    bedrockFunction[0] =  ptr;
 	  }
+	else if (geometry == "symmetricPlane")
+	  {
+	    //inclined plane geometry, symmetric about origin
+	    RealVect basalSlope;
+	    Vector<Real> vect(SpaceDim);
+	    mPP.getarr("basal_slope", vect, 0, SpaceDim);
+	    basalSlope = RealVect(D_DECL(vect[0], vect[1], vect[2]));
+
+	    Real originElevation;
+	    mPP.get("originElevation", originElevation);
+
+            RealVect symmetryPoint(RealVect::Zero);
+            mPP.getarr("symmetryPoint", vect, 0, SpaceDim);
+            symmetryPoint = RealVect(D_DECL(vect[0], vect[1], vect[2]));
+	   
+	    RefCountedPtr<RealFunction<RealVect> > ptr(new SymmetricInclinedPlaneFunction(originElevation, basalSlope, symmetryPoint));
+	    bedrockFunction[0] =  ptr;
+	  }
+
         else if (geometry == "regroundingTest")
           {
 	    //inclined plane geometry with a Gaussian bump
