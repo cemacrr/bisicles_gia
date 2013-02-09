@@ -75,6 +75,36 @@ public:
 };
 
 
+class SymmetricInclinedPlaneFunction : public RealFunction<RealVect>
+{
+  Real m_origin;
+  RealVect m_slope;
+  RealVect m_symmetryPoint;
+public:
+  SymmetricInclinedPlaneFunction(Real a_origin, const RealVect& a_slope, 
+                        const RealVect& a_symmetryPoint)
+    : m_origin(a_origin),m_slope(a_slope), m_symmetryPoint(a_symmetryPoint)
+  {;}
+
+  Real operator()(const RealVect& x)
+  {
+    RealVect local_x(x);
+    local_x -= m_symmetryPoint;
+    D_TERM(local_x[0] = abs(local_x[0]);,
+           local_x[1] = abs(local_x[1]);,
+           local_x[2] = abs(local_x[2]);)
+
+
+     Real r =  m_origin + 
+       D_TERM(local_x[0]*m_slope[0],+x[1]*m_slope[1],+x[2]*m_slope[2]);
+
+     return r;
+
+  }
+
+};
+
+
 class GaussianFunction : public RealFunction<RealVect>
 {
   RealVect m_center;
