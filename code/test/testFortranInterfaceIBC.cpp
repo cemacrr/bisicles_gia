@@ -91,39 +91,44 @@ parseTestOptions( int argc ,char* argv[] )
 }
 
 
-void initData(FArrayBox& a_thickness,
-              FArrayBox& a_topography,
+void initData(LevelData<FArrayBox>& a_thickness,
+              LevelData<FArrayBox>& a_topography,
               const RealVect& a_dx,
               const RealVect& a_domainSize)
 {
-  BoxIterator ccBit(a_thickness.box());
-  RealVect ccOffset = 0.5*RealVect::Unit;
-  for (ccBit.begin(); ccBit.ok(); ++ccBit)
+  DataIterator dit = a_thickness.dataIterator(); 
+  for (dit.begin(); dit.ok(); ++dit)
     {
-      IntVect iv = ccBit();
-      RealVect mappedLoc(iv);
-      mappedLoc += ccOffset;
-      mappedLoc *= a_dx;
-      
-      if (thicknessType == sinusoidalH)
+      FArrayBox& topoFab = a_topography[dit];
+      FArrayBox& thickFab = a_thickness[dit];
+      BoxIterator ccBit(thickFab.box());
+      RealVect ccOffset = 0.5*RealVect::Unit;
+      for (ccBit.begin(); ccBit.ok(); ++ccBit)
         {
-          Real thisH = 0.5*D_TERM(sin(2*Pi*mappedLoc[0]/a_domainSize[0]),
-                                 *sin(2*Pi*mappedLoc[1]/a_domainSize[1]),
-                                  NOT_IMPLEMENTED_FOR_3D_YET);
-          a_thickness(iv,0) = thisH;
-        }
-
-
-      if (basalType == sinusoidalZb)
-        {
-          Real thisZb = D_TERM(cos(2*Pi*mappedLoc[0]/a_domainSize[0]),
-                               *cos(2*Pi*mappedLoc[1]/a_domainSize[1]),
-                               NOT_IMPLEMENTED_FOR_3D_YET);
-          a_topography(iv,0) = thisZb;
+          IntVect iv = ccBit();
+          RealVect mappedLoc(iv);
+          mappedLoc += ccOffset;
+          mappedLoc *= a_dx;
+          
+          if (thicknessType == sinusoidalH)
+            {
+              Real thisH = 0.5*D_TERM(sin(2*Pi*mappedLoc[0]/a_domainSize[0]),
+                                      *sin(2*Pi*mappedLoc[1]/a_domainSize[1]),
+                                      NOT_IMPLEMENTED_FOR_3D_YET);
+              thickFab(iv,0) = thisH;
+            }
+          
+          
+          if (basalType == sinusoidalZb)
+            {
+              Real thisZb = D_TERM(cos(2*Pi*mappedLoc[0]/a_domainSize[0]),
+                                   *cos(2*Pi*mappedLoc[1]/a_domainSize[1]),
+                                   NOT_IMPLEMENTED_FOR_3D_YET);
+              topoFab(iv,0) = thisZb;
+            }
         }
     }
-
-      
+  
 }
 
 
@@ -190,16 +195,24 @@ testFortranInterfaceIBC()
   dx /= numCells;
 
   //int maxBoxSize = 8;
-  int maxBoxSize = 32;
+  int numSplit = sqrt(numProc());
+
+  int maxBoxSize = 32/numSplit;
+
+  pout() << "numSplit = " << numSplit
+         << ", maxBoxSize = " << maxBoxSize << endl;
+
   Vector<Box> gridBoxes;
   domainSplit(domainBox, gridBoxes, maxBoxSize); 
   
   Vector<int> procAssign(gridBoxes.size(), 0);
   LoadBalance(procAssign, gridBoxes);
 
-  // first generate single fab of data
-  FArrayBox baseThickness(domainBox, 1);
-  FArrayBox baseZb(domainBox, 1);
+  // first generate data
+  IntVect baseGhostVect = IntVect::Zero;
+  DisjointBoxLayout sourceGrids(gridBoxes, procAssign, entireDomain);
+  LevelData<FArrayBox> baseThickness(sourceGrids, 1, baseGhostVect );
+  LevelData<FArrayBox> baseZb(sourceGrids, 1, baseGhostVect);
 
   initData(baseThickness, baseZb,
            dx, domainSize);
@@ -214,13 +227,38 @@ testFortranInterfaceIBC()
          diminfo[3] = numCells[1];,
          diminfo[1] = numCells[2]);
 
+
   // second dx is a bit of a kluge so that this will work in 1D
-  baseIBC.setThickness(baseThickness.dataPtr(),
+  // assume that there is only one box per processor.
+  DataIterator dit = baseThickness.dataIterator();
+  dit.begin();
+  // grab the box on this processor
+  const Box& gridBox = sourceGrids[dit];
+  int ewlb = gridBox.loVect()[0];
+  int ewub = gridBox.hiVect()[0];
+  int nslb = gridBox.loVect()[1];
+  int nsub = gridBox.hiVect()[1];
+
+  int lb[SpaceDim];
+  int ub[SpaceDim];
+  D_TERM(lb[0] = ewlb;,
+         lb[1] = nslb;,
+         lb[2] = numCells[2];)
+
+  D_TERM(ub[0] = ewub;,
+         ub[1] = nsub;,
+         ub[2] = numCells[2];)
+
+    baseIBC.define(entireDomain, dx[0]);
+
+  baseIBC.setThickness(baseThickness[dit].dataPtr(),
                        diminfo,
+                       lb, ub,
                        &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]));
 
-  baseIBC.setTopography(baseZb.dataPtr(),
+  baseIBC.setTopography(baseZb[dit].dataPtr(),
                         diminfo,
+                        lb, ub,
                         &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]));
 
 

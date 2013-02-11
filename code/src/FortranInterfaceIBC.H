@@ -21,7 +21,7 @@
 #define _FORTRANTHICKNESSIBC_H_
 
 #include "IceThicknessIBC.H"
-
+#include "RefCountedPtr.H"
 #include "NamespaceHeader.H"
 
 class AmrIce;
@@ -55,6 +55,7 @@ public:
 
   virtual void  setFAB(Real* a_data_ptr,
 		       const int* a_dimInfo,
+                       const int* boxlo, const int* boxhi, 
 		       const Real* a_dew, const Real* a_dns,
 		       const IntVect& a_nGhost,
 		       FArrayBox& a_fab,
@@ -63,12 +64,14 @@ public:
   /// nGhost is the number of ghost cells in in the input data (which are ignored)
   virtual void setThickness(Real* a_data_ptr,
 			    const int* a_dimInfo,
+                            const int* boxlo, const int* boxhi, 
 			    const Real* a_dew, const Real* a_dns,
                             const IntVect& a_nGhost = IntVect::Zero, 
 			    const bool a_nodal = false);
 
   virtual void setTopography(Real* a_data_ptr,
 			     const int* a_dimInfo,
+                             const int* boxlo, const int* boxhi, 
 			     const Real* a_dew, const Real* a_dns,
                              const IntVect& a_nGhost = IntVect::Zero, 
 			     const bool a_nodal = false);
@@ -168,6 +171,13 @@ public:
 			      const RealVect& a_dx,
 			      Real a_time, Real a_dt);
   
+  /// set grids using Boxes passed in from Glimmer-CISM
+  /** creates a DisjointBoxLayout using the grid boxes and 
+      processor distribution used by CISM. */
+  virtual void setGrids(const Box& a_gridBox);
+
+  /// has setGrids been called?
+  bool gridsSet() const {return m_gridsSet;}
 
 
   /// utility function to fill in holes in topography
@@ -196,17 +206,26 @@ protected:
 
   BCFunc m_velBCs;
 
+  DisjointBoxLayout m_grids;
+  bool m_gridsSet;
+
   // ice sheet thickness from glimmer
+  /// alias to data array passed in from glimmer-CISM
   FArrayBox m_inputThickness;
   RealVect m_inputThicknessDx;
   IntVect m_thicknessGhost; 
+  /// distributed version of thickness
+  RefCountedPtr<LevelData<FArrayBox> > m_inputThicknessLDF;
 
   /// regions where we will artificially set ice thickness to zero
   Vector<Box> m_thicknessClearRegions;
 
+  /// alias to data array passed in from glimmer-CISM
   FArrayBox m_inputTopography;
   RealVect m_inputTopographyDx;
   IntVect m_topographyGhost;
+  /// distributed version of topography
+  RefCountedPtr<LevelData<FArrayBox> > m_inputTopographyLDF;
 
 private:
   // Disallowed for all the usual reasons

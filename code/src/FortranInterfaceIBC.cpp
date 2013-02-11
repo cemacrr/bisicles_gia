@@ -238,6 +238,7 @@ FortranInterfaceIBC::FortranInterfaceIBC() : m_boundaryThickness(0.0)
 {
   m_isBCsetUp = false;
   m_isDefined = false;
+  m_gridsSet = false;
   // set default to be true
   m_verbose = true;
   m_thicknessGhost = IntVect::Zero;
@@ -271,14 +272,23 @@ FortranInterfaceIBC::define(const ProblemDomain& a_domain,
 // if the data is nodal, also compute the change in value across the box
 void FortranInterfaceIBC::setFAB(Real* a_data_ptr,
 				 const int* a_dimInfo,
+                                 const int* a_boxlo, const int* a_boxhi, 
 				 const Real* a_dew, const Real* a_dns,
 				 const IntVect& a_nGhost,
 				 FArrayBox & a_fab,
 				 const bool a_nodal)
 {
-  IntVect hiVect(D_DECL(a_dimInfo[2]-1,a_dimInfo[3]-1, a_dimInfo[1]-1));
-  Box fabBox(IntVect::Zero, hiVect);
+  IntVect loVect(D_DECL(a_boxlo[0],a_boxlo[1], a_boxlo[2]-1));
+  IntVect hiVect(D_DECL(a_boxhi[0],a_boxhi[1], a_boxhi[2]-1));
+  Box fabBox(loVect, hiVect);
   fabBox.shift(-a_nGhost);
+  // if we haven't already set the grids, do it now
+  if (!gridsSet())
+    {
+      Box gridBox(fabBox);
+      gridBox.grow(-a_nGhost);
+      setGrids(gridBox);
+    }
   if (a_nodal)
     {
       a_fab.define(fabBox, 1);
@@ -294,14 +304,14 @@ void FortranInterfaceIBC::setFAB(Real* a_data_ptr,
     {
       a_fab.define(fabBox, 1, a_data_ptr);
     }
-
 }
 
 
 void
 FortranInterfaceIBC::setThickness(Real* a_data_ptr,
 				  const int* a_dimInfo,
-				  const Real* a_dew, const Real* a_dns,
+                                  const int* a_boxlo, const int* a_boxhi, 
+                                  const Real* a_dew, const Real* a_dns,
                                   const IntVect& a_nGhost,
 				  const bool a_nodal)
 {
@@ -315,8 +325,22 @@ FortranInterfaceIBC::setThickness(Real* a_data_ptr,
   // we want to use c ordering
   //cout << "a_dimonfo" << a_dimInfo[0] << a_dimInfo[1] << endl;  
 
-  setFAB(a_data_ptr, a_dimInfo,a_dew,a_dns,a_nGhost,m_inputThickness,a_nodal);
+  setFAB(a_data_ptr, a_dimInfo,a_boxlo, a_boxhi,
+         a_dew,a_dns,a_nGhost,m_inputThickness,a_nodal);
   m_inputThicknessDx = RealVect(D_DECL(*a_dew, *a_dns, 1));
+
+  // now define LevelData and copy from FAB->LevelData 
+  // (at some point will likely change this to be an  aliased 
+  // constructor for the LevelData, but this should be fine for now....
+  RefCountedPtr<LevelData<FArrayBox> > localLDFPtr(new LevelData<FArrayBox>(m_grids, 1, m_thicknessGhost) );
+  m_inputThicknessLDF = localLDFPtr;
+  // fundamental assumption that there is only one box per processor here
+  DataIterator dit = m_grids.dataIterator();
+  dit.begin();
+  Box copyBox = (*m_inputThicknessLDF)[dit].box();
+  copyBox &= m_inputThickness.box();
+  (*m_inputThicknessLDF)[dit].copy(m_inputThickness, copyBox);
+
 
   // if necessary, set thickness to zero where needed
   if (m_thicknessClearRegions.size() > 0) 
@@ -329,7 +353,8 @@ FortranInterfaceIBC::setThickness(Real* a_data_ptr,
           region &= m_inputThickness.box();
           if (!region.isEmpty())
             {
-              m_inputThickness.setVal(0.0, region, 0, 1);
+              // do this in distributed copy, rather than in the original
+              (*m_inputThicknessLDF)[dit].setVal(0.0, region, 0, 1);
             }
         } // end loop over thickness clear regions
     }
@@ -339,6 +364,7 @@ FortranInterfaceIBC::setThickness(Real* a_data_ptr,
 void
 FortranInterfaceIBC::setTopography(Real* a_data_ptr,
 				   const int* a_dimInfo,
+                                   const int* a_boxlo, const int* a_boxhi, 
 				   const Real* a_dew, const Real* a_dns,
                                    const IntVect& a_nGhost, 
 				   const bool a_nodal)
@@ -351,8 +377,23 @@ FortranInterfaceIBC::setTopography(Real* a_data_ptr,
   // we want to use c ordering
 
   m_topographyGhost = a_nGhost;
-  setFAB(a_data_ptr, a_dimInfo,a_dew,a_dns,a_nGhost,m_inputTopography,a_nodal);
+  setFAB(a_data_ptr, a_dimInfo,a_boxlo, a_boxhi, a_dew,a_dns,
+         a_nGhost,m_inputTopography,a_nodal);
   m_inputTopographyDx = RealVect(D_DECL(*a_dew, *a_dns, 1));
+
+  // now define LevelData and copy from FAB->LevelData 
+  // (at some point will likely change this to be an aliased 
+  // constructor for the LevelData, but this should be fine for now....
+  RefCountedPtr<LevelData<FArrayBox> > localLDFPtr(new LevelData<FArrayBox>(m_grids, 1, m_topographyGhost));
+  m_inputTopographyLDF = localLDFPtr;
+  // fundamental assumption that there is only one box per processor here
+  DataIterator dit = m_grids.dataIterator();
+  dit.begin();
+  Box copyBox = (*m_inputTopographyLDF)[dit].box();
+  copyBox &= m_inputTopography.box();
+  (*m_inputTopographyLDF)[dit].copy(m_inputTopography, copyBox);
+
+
 
 }
 
@@ -381,12 +422,18 @@ IceThicknessIBC*
 FortranInterfaceIBC::new_thicknessIBC()
 {
   FortranInterfaceIBC* retval = new FortranInterfaceIBC();
+
+  retval->m_grids = m_grids;
+  retval->m_gridsSet = m_gridsSet;
+
   // only do this if these guys are actually defined
   if (!m_inputThickness.box().isEmpty())
     {
       //retval->m_inputThickness.define(m_inputThickness.interval(), m_inputThickness);
       retval->m_inputThickness.define(m_inputThickness.box(), m_inputThickness.nComp());
       retval->m_inputThickness.copy(m_inputThickness);
+
+      retval->m_inputThicknessLDF = m_inputThicknessLDF;
     }
   retval->m_thicknessGhost = m_thicknessGhost;
   retval->m_inputThicknessDx = m_inputThicknessDx;
@@ -396,6 +443,8 @@ FortranInterfaceIBC::new_thicknessIBC()
       //retval->m_inputTopography.define(m_inputTopography.interval(), m_inputTopography);
       retval->m_inputTopography.define(m_inputTopography.box(), m_inputTopography.nComp());
       retval->m_inputTopography.copy(m_inputTopography);
+
+      retval->m_inputTopographyLDF = m_inputTopographyLDF;
     }
   retval->m_inputTopographyDx = m_inputTopographyDx;
   retval->m_topographyGhost = m_topographyGhost;
@@ -560,6 +609,73 @@ FortranInterfaceIBC::setGeometryBCs(LevelSigmaCS& a_coords,
 	}
     }
 
+}
+
+
+/// set grids using Boxes passed in from Glimmer-CISM
+/** creates a DisjointBoxLayout using the grid boxes and 
+    processor distribution used by CISM. */
+void 
+FortranInterfaceIBC::setGrids(const Box& a_gridBox)
+{
+
+  if (m_verbose)
+    {
+      pout() << "in setGrids, box = " << a_gridBox << endl;
+    }
+
+  CH_assert(m_isDefined);
+
+  const int numBox = numProc();
+  Vector<Box> boxes(numBox);
+
+  if (numBox == 1) boxes[0] = a_gridBox;
+
+  Box* nonConstBox = const_cast<Box*>(&a_gridBox);
+#ifdef CH_MPI
+  int boxSize = sizeof(Box);
+
+  pout() << "entering allGather -- sending " << *nonConstBox << endl;
+  pout () << "numBox = " << numBox << ", boxSize = " << boxSize << endl;
+  
+  MPI_Allgather(nonConstBox,  boxSize,  MPI_BYTE, &(boxes[0]), 
+                boxSize , MPI_BYTE , Chombo_MPI::comm);
+
+  pout () << "after allGather" << endl;
+  pout () << "nonConstbox = " << *nonConstBox << endl;
+
+
+#endif
+
+  pout () << "numBoxes = " << boxes.size() << endl;
+  for (int i=0; i< boxes.size(); i++)
+    {
+      pout () << "box " << i << ": " << boxes[i] << endl;
+    }
+
+  Vector<int> procAssign(boxes.size());
+  for (int i=0; i< boxes.size(); i++)
+    {
+      procAssign[i] = i;
+    }
+  
+  //if (m_verbose)
+    {
+      pout() << "processor " << procID() << ": grids: " << endl;
+      for (int i=0; i<boxes.size(); i++)
+        {
+          pout () << procAssign[i] << ": " << boxes[i] << endl;
+        }
+    }
+
+    pout () << " before DBL define" << endl;
+
+  // define DisjointBoxLayout
+  m_grids.define(boxes, procAssign, m_domain);
+
+  pout () << "after DBL define" << endl;
+
+  m_gridsSet = true;
 }
 
 /// utility function to fill in holes in topography
@@ -754,17 +870,15 @@ FortranInterfaceIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
     {
 
       FillFromReference(ChomboThickness,
-			m_inputThickness,
+			(*m_inputThicknessLDF),
 			a_dx,
 			m_inputThicknessDx,
-			m_thicknessGhost,
 			m_verbose);
 
       FillFromReference(ChomboTopography,
-			m_inputTopography,
+			(*m_inputTopographyLDF),
 			a_dx,
 			m_inputTopographyDx,
-			m_topographyGhost,
 			m_verbose);
       if (a_crseCoords!= NULL)
 	{
