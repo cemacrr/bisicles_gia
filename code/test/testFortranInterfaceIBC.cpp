@@ -195,7 +195,7 @@ testFortranInterfaceIBC()
   dx /= numCells;
 
   //int maxBoxSize = 8;
-  int numSplit = sqrt(numProc());
+  int numSplit = int(sqrt(float(numProc())));
 
   int maxBoxSize = 32/numSplit;
 
