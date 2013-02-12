@@ -561,6 +561,16 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         cout << "In bike_driver: ewlb, ewub = " << ewlb << "  " << ewub <<  endl;
         cout << "In bike_driver: nslb, nsub = " << nslb << "  " << nsub <<  endl;
 
+        int lb[SpaceDim];
+        int ub[SpaceDim];
+
+        D_TERM(lb[0] = ewlb;
+               ub[0] = ewub;,
+               lb[1] = nslb;
+               ub[1] = nsub;,
+               lb[2] = 0;
+               ub[2] = numCells[2]-1;)
+               
 
 
         CH_assert(SpaceDim == 2);
@@ -577,15 +587,19 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         domainSize[0] = dew*(dimInfoGeom[2]); 
         domainSize[1] = dns*(dimInfoGeom[3]);     
                  
-        ibcPtr->setThickness(thicknessDataPtr, dimInfoGeom, &dew, &dns, 
+        ibcPtr->setThickness(thicknessDataPtr, dimInfoGeom, lb,ub,
+                             &dew, &dns, 
                              ghostVect, nodalGeom);                             
-        ibcPtr->setTopography(topographyDataPtr, dimInfoGeom, &dew, &dns, 
+        ibcPtr->setTopography(topographyDataPtr, dimInfoGeom, lb, ub, 
+                              &dew, &dns, 
                               ghostVect, nodalGeom);
 #else
 	domainSize[0] = dew*(dimInfoGeom[2]); 
 	domainSize[1] = dns*(dimInfoGeom[3]);	
-        ibcPtr->setThickness(thicknessDataPtr, dimInfoGeom, &dew, &dns, ghostVect);
-        ibcPtr->setTopography(topographyDataPtr, dimInfoGeom, &dew, &dns, ghostVect);
+        ibcPtr->setThickness(thicknessDataPtr, dimInfoGeom, lb,ub,
+                             &dew, &dns, ghostVect);
+        ibcPtr->setTopography(topographyDataPtr, dimInfoGeom, lb, ub,
+                              &dew, &dns, ghostVect);
 #endif
         // if desired, smooth out topography to fill in holes
         bool fillTopographyHoles = false;
