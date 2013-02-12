@@ -249,17 +249,21 @@ testFortranInterfaceIBC()
          ub[1] = nsub;,
          ub[2] = numCells[2];)
 
-    baseIBC.define(entireDomain, dx[0]);
+  baseIBC.define(entireDomain, dx[0]);
+
+  IntVect offset = IntVect::Zero;
 
   baseIBC.setThickness(baseThickness[dit].dataPtr(),
                        diminfo,
                        lb, ub,
-                       &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]));
+                       &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]),
+                       offset);
 
   baseIBC.setTopography(baseZb[dit].dataPtr(),
                         diminfo,
                         lb, ub,
-                        &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]));
+                        &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]),
+                        offset);
 
 
  
