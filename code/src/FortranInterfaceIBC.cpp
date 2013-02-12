@@ -274,6 +274,7 @@ void FortranInterfaceIBC::setFAB(Real* a_data_ptr,
 				 const int* a_dimInfo,
                                  const int* a_boxlo, const int* a_boxhi, 
 				 const Real* a_dew, const Real* a_dns,
+				 const IntVect& a_offset,
 				 const IntVect& a_nGhost,
 				 FArrayBox & a_fab,
 				 const bool a_nodal)
@@ -282,6 +283,7 @@ void FortranInterfaceIBC::setFAB(Real* a_data_ptr,
   IntVect hiVect(D_DECL(a_boxhi[0],a_boxhi[1], a_boxhi[2]-1));
   Box fabBox(loVect, hiVect);
   fabBox.shift(-a_nGhost);
+  fabBox.shift(a_offset);
   // if we haven't already set the grids, do it now
   if (!gridsSet())
     {
@@ -312,6 +314,7 @@ FortranInterfaceIBC::setThickness(Real* a_data_ptr,
 				  const int* a_dimInfo,
                                   const int* a_boxlo, const int* a_boxhi, 
                                   const Real* a_dew, const Real* a_dns,
+				  const IntVect& a_offset,
                                   const IntVect& a_nGhost,
 				  const bool a_nodal)
 {
@@ -326,7 +329,8 @@ FortranInterfaceIBC::setThickness(Real* a_data_ptr,
   //cout << "a_dimonfo" << a_dimInfo[0] << a_dimInfo[1] << endl;  
 
   setFAB(a_data_ptr, a_dimInfo,a_boxlo, a_boxhi,
-         a_dew,a_dns,a_nGhost,m_inputThickness,a_nodal);
+         a_dew,a_dns,a_offset,a_nGhost,
+	 m_inputThickness,a_nodal);
   m_inputThicknessDx = RealVect(D_DECL(*a_dew, *a_dns, 1));
 
   // now define LevelData and copy from FAB->LevelData 
@@ -366,6 +370,7 @@ FortranInterfaceIBC::setTopography(Real* a_data_ptr,
 				   const int* a_dimInfo,
                                    const int* a_boxlo, const int* a_boxhi, 
 				   const Real* a_dew, const Real* a_dns,
+				   const IntVect& a_offset,
                                    const IntVect& a_nGhost, 
 				   const bool a_nodal)
 {
@@ -378,7 +383,7 @@ FortranInterfaceIBC::setTopography(Real* a_data_ptr,
 
   m_topographyGhost = a_nGhost;
   setFAB(a_data_ptr, a_dimInfo,a_boxlo, a_boxhi, a_dew,a_dns,
-         a_nGhost,m_inputTopography,a_nodal);
+         a_offset, a_nGhost,m_inputTopography,a_nodal);
   m_inputTopographyDx = RealVect(D_DECL(*a_dew, *a_dns, 1));
 
   // now define LevelData and copy from FAB->LevelData 

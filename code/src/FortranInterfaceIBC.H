@@ -57,6 +57,7 @@ public:
 		       const int* a_dimInfo,
                        const int* boxlo, const int* boxhi, 
 		       const Real* a_dew, const Real* a_dns,
+		       const IntVect& a_offset,
 		       const IntVect& a_nGhost,
 		       FArrayBox& a_fab,
 		       const bool a_nodal = false);
@@ -66,6 +67,8 @@ public:
 			    const int* a_dimInfo,
                             const int* boxlo, const int* boxhi, 
 			    const Real* a_dew, const Real* a_dns,
+			    /// amount to offset indices (due to C-Fortran numbering, for example)
+			    const IntVect& a_offset, 
                             const IntVect& a_nGhost = IntVect::Zero, 
 			    const bool a_nodal = false);
 
@@ -73,6 +76,8 @@ public:
 			     const int* a_dimInfo,
                              const int* boxlo, const int* boxhi, 
 			     const Real* a_dew, const Real* a_dns,
+			     /// amount to offset indices (due to C-Fortran numbering, for example)
+			     const IntVect& a_offset,
                              const IntVect& a_nGhost = IntVect::Zero, 
 			     const bool a_nodal = false);
 
