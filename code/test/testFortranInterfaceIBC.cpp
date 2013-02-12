@@ -221,6 +221,8 @@ testFortranInterfaceIBC()
   // now construct a FortranInterfaceIBC
   FortranInterfaceIBC baseIBC;
 
+  baseIBC.setVerbose(verbose);
+
   int diminfo[4];
   diminfo[0] = SpaceDim;
   D_TERM(diminfo[2] = numCells[0];,
@@ -232,40 +234,64 @@ testFortranInterfaceIBC()
   // assume that there is only one box per processor.
   DataIterator dit = baseThickness.dataIterator();
   dit.begin();
+
   // grab the box on this processor
-  const Box& gridBox = sourceGrids[dit];
+  Box gridBox;
+  if (dit.ok())
+    {
+      gridBox = sourceGrids[dit];
+    }
   int ewlb = gridBox.loVect()[0];
   int ewub = gridBox.hiVect()[0];
   int nslb = gridBox.loVect()[1];
   int nsub = gridBox.hiVect()[1];
-
+  
   int lb[SpaceDim];
   int ub[SpaceDim];
   D_TERM(lb[0] = ewlb;,
          lb[1] = nslb;,
-         lb[2] = numCells[2];)
-
+         lb[2] = 0;)
+    
   D_TERM(ub[0] = ewub;,
          ub[1] = nsub;,
-         ub[2] = numCells[2];)
-
+         ub[2] = numCells[2]-1;)
+    
   baseIBC.define(entireDomain, dx[0]);
-
+  
   IntVect offset = IntVect::Zero;
+  
+  Real* thickness_data_ptr = NULL;
+  Real* topo_data_ptr = NULL;
+  if (dit.ok() )
+    {
+      thickness_data_ptr = baseThickness[dit].dataPtr();
+      topo_data_ptr = baseZb[dit].dataPtr();
+    }
 
-  baseIBC.setThickness(baseThickness[dit].dataPtr(),
+  if (verbose) 
+    {
+      pout () << "Setting thickness..." << endl;
+    }
+  baseIBC.setThickness(thickness_data_ptr,
                        diminfo,
                        lb, ub,
                        &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]),
                        offset);
-
-  baseIBC.setTopography(baseZb[dit].dataPtr(),
+  
+  if (verbose) 
+    {
+      pout () << "... Done.  Setting topography..." << endl;
+    }
+  baseIBC.setTopography(topo_data_ptr,
                         diminfo,
                         lb, ub,
                         &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]),
                         offset);
-
-
+      
+  if (verbose)
+    {
+      pout() << "... done!" << endl;
+    }
  
   // now set up grid hiearchy, starting with level 0 one level coarser 
   int numLevels = 4;
@@ -285,6 +311,12 @@ testFortranInterfaceIBC()
   Vector<LevelSigmaCS* > vectCS(numLevels, NULL);
   for (int lev=0; lev<numLevels; lev++)
     {
+
+      if (verbose)
+        {
+          pout() << "setting up level " << lev << endl;
+        }
+
       IntVect domLo = levelDomain.domainBox().smallEnd();
       IntVect domHi = levelDomain.domainBox().bigEnd();
       IntVect domSize = levelDomain.domainBox().size();
@@ -330,10 +362,18 @@ testFortranInterfaceIBC()
       vectGrids[lev] = levelGrids;
       IntVect ghostVect = IntVect::Zero;
       vectCS[lev] = new LevelSigmaCS(levelGrids, dxLevel, ghostVect);
-      
+
+      if (verbose)
+        {
+          pout() << "copying FortranInterfaceIBC for this level..." << endl;
+        }
       IceThicknessIBC* levelIBC = baseIBC.new_thicknessIBC();
       levelIBC->define(levelDomain, dxLevel[0]);
 
+      if (verbose)
+        {
+          pout() << "done!  Initializing ice geometry..." << endl;
+        }
       Real time = 0.0;
       LevelSigmaCS* crseCoords = NULL;
       int nRefCrse = -1;
@@ -341,6 +381,11 @@ testFortranInterfaceIBC()
                                       time, crseCoords, nRefCrse );
 
       delete levelIBC;
+
+      if (verbose)
+        {
+          pout() << "done!" << endl;
+        }
 
       // set up for next level
       levelDomain.refine(vectNref[lev]);

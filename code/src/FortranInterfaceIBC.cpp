@@ -279,17 +279,50 @@ void FortranInterfaceIBC::setFAB(Real* a_data_ptr,
 				 FArrayBox & a_fab,
 				 const bool a_nodal)
 {
+  if (m_verbose)
+    {
+      pout() << "in FortranInterfaceIBC::setFAB" << endl;
+      pout() << " -- doing box calculus" << endl;
+    }
+
   IntVect loVect(D_DECL(a_boxlo[0],a_boxlo[1], a_boxlo[2]-1));
   IntVect hiVect(D_DECL(a_boxhi[0],a_boxhi[1], a_boxhi[2]-1));
-  Box fabBox(loVect, hiVect);
-  fabBox.shift(-a_nGhost);
-  fabBox.shift(a_offset);
+  if (m_verbose)
+    {
+      pout () << "loVect = " << loVect << endl;
+      pout () << "hiVect = " << hiVect << endl;
+    }
+
+  Box fabBox;
+  if (loVect <= hiVect)
+    {
+      fabBox.define(loVect, hiVect);
+      if (m_verbose)
+        {
+          pout() << "done defining box" << endl;
+        }
+      fabBox.shift(-a_nGhost);
+      fabBox.shift(a_offset);
+      if (m_verbose)
+        {
+          pout() << "... done! " << endl;
+        }
+    }
+
   // if we haven't already set the grids, do it now
   if (!gridsSet())
     {
+      if (m_verbose) 
+        {
+          pout() << " -- entering setGrids" << endl;
+        }
       Box gridBox(fabBox);
       gridBox.grow(-a_nGhost);
       setGrids(gridBox);
+      if (m_verbose)
+        {
+          pout() << " -- out of setGrids" << endl;
+        }
     }
   if (a_nodal)
     {
@@ -328,9 +361,20 @@ FortranInterfaceIBC::setThickness(Real* a_data_ptr,
   // we want to use c ordering
   //cout << "a_dimonfo" << a_dimInfo[0] << a_dimInfo[1] << endl;  
 
+  if (m_verbose)
+    {
+      pout() << "In FortranInterfaceIBC::setThickness:" << endl;
+      pout() << " -- entering setFAB..." << endl;
+    }
+
   setFAB(a_data_ptr, a_dimInfo,a_boxlo, a_boxhi,
          a_dew,a_dns,a_offset,a_nGhost,
 	 m_inputThickness,a_nodal);
+  if (m_verbose)
+    {
+      pout() << "... done" << endl;
+    }
+
   m_inputThicknessDx = RealVect(D_DECL(*a_dew, *a_dns, 1));
 
   // now define LevelData and copy from FAB->LevelData 
@@ -338,30 +382,32 @@ FortranInterfaceIBC::setThickness(Real* a_data_ptr,
   // constructor for the LevelData, but this should be fine for now....
   RefCountedPtr<LevelData<FArrayBox> > localLDFPtr(new LevelData<FArrayBox>(m_grids, 1, m_thicknessGhost) );
   m_inputThicknessLDF = localLDFPtr;
-  // fundamental assumption that there is only one box per processor here
+  // fundamental assumption that there is no more than one box/ processor 
+  // don't do anything if there is no data on this processor
   DataIterator dit = m_grids.dataIterator();
-  dit.begin();
-  Box copyBox = (*m_inputThicknessLDF)[dit].box();
-  copyBox &= m_inputThickness.box();
-  (*m_inputThicknessLDF)[dit].copy(m_inputThickness, copyBox);
-
-
-  // if necessary, set thickness to zero where needed
-  if (m_thicknessClearRegions.size() > 0) 
+  for (dit.begin(); dit.ok(); ++dit)
     {
-      for (int i=0; i<m_thicknessClearRegions.size(); i++)
+      Box copyBox = (*m_inputThicknessLDF)[dit].box();
+      copyBox &= m_inputThickness.box();
+      (*m_inputThicknessLDF)[dit].copy(m_inputThickness, copyBox);
+      
+      // if necessary, set thickness to zero where needed
+      if (m_thicknessClearRegions.size() > 0) 
         {
-          Box region = m_thicknessClearRegions[i];
-          // adjust for ghosting
-          region.shift(-a_nGhost);
-          region &= m_inputThickness.box();
-          if (!region.isEmpty())
+          for (int i=0; i<m_thicknessClearRegions.size(); i++)
             {
-              // do this in distributed copy, rather than in the original
-              (*m_inputThicknessLDF)[dit].setVal(0.0, region, 0, 1);
-            }
-        } // end loop over thickness clear regions
-    }
+              Box region = m_thicknessClearRegions[i];
+              // adjust for ghosting
+              region.shift(-a_nGhost);
+              region &= m_inputThickness.box();
+              if (!region.isEmpty())
+                {
+                  // do this in distributed copy, rather than in the original
+                  (*m_inputThicknessLDF)[dit].setVal(0.0, region, 0, 1);
+                }
+            } // end loop over thickness clear regions
+        }
+    } // end DataIterator loop
 
 }
 
@@ -391,14 +437,14 @@ FortranInterfaceIBC::setTopography(Real* a_data_ptr,
   // constructor for the LevelData, but this should be fine for now....
   RefCountedPtr<LevelData<FArrayBox> > localLDFPtr(new LevelData<FArrayBox>(m_grids, 1, m_topographyGhost));
   m_inputTopographyLDF = localLDFPtr;
-  // fundamental assumption that there is only one box per processor here
+  // fundamental assumption that there is no more than one box per processor/
   DataIterator dit = m_grids.dataIterator();
-  dit.begin();
-  Box copyBox = (*m_inputTopographyLDF)[dit].box();
-  copyBox &= m_inputTopography.box();
-  (*m_inputTopographyLDF)[dit].copy(m_inputTopography, copyBox);
-
-
+  for (dit.begin(); dit.ok(); ++dit)
+    {
+      Box copyBox = (*m_inputTopographyLDF)[dit].box();
+      copyBox &= m_inputTopography.box();
+      (*m_inputTopographyLDF)[dit].copy(m_inputTopography, copyBox);
+    }
 
 }
 
@@ -673,13 +719,44 @@ FortranInterfaceIBC::setGrids(const Box& a_gridBox)
         }
     }
 
-    pout () << " before DBL define" << endl;
+    
+    // filter out any empty boxes (it's OK if there are fewer 
+    // boxes than processors, but DisjointBoxLayout will 
+    // choke if given an empty box, so remove them now...
+
+    // this isn't the most efficient way to do this -- assumption
+    // is that we're not dealing with all that many boxes, and that 
+    // this is only done once anyway...
+    Vector<Box> filteredBoxes;
+    Vector<int> filteredProcAssign;
+    for (int i=0; i<boxes.size(); i++)
+      {
+        if (!boxes[i].isEmpty() )
+          {
+            filteredBoxes.push_back(boxes[i]);
+            filteredProcAssign.push_back(procAssign[i]);
+          }
+      }
+
+    if (m_verbose)
+      {
+        pout() << "filtered Boxes and processor assignments: numBoxes = " << filteredBoxes.size() << endl;
+        for (int i=0; i<filteredBoxes.size(); i++)
+          {
+            pout() << "box " << i << ": " << filteredBoxes[i] << "  on processor " << filteredProcAssign[i] << endl;
+          }
+
+        pout () << " before DBL define" << endl;
+        
+      }
 
   // define DisjointBoxLayout
-  m_grids.define(boxes, procAssign, m_domain);
+  m_grids.define(filteredBoxes, filteredProcAssign, m_domain);
 
-  pout () << "after DBL define" << endl;
-
+  if (m_verbose)
+    {
+      pout () << "after DBL define" << endl;
+    }
   m_gridsSet = true;
 }
 
@@ -826,29 +903,11 @@ FortranInterfaceIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 
       
     }
-  // assume here that topography and thickness defined on same box
-  // passed-in ice topography on a LevelData
 
-#if 0
   if (m_verbose)
     {
-      pout() << " ...setting up topography LevelData..." << endl;
+      pout() << " Done with background slope" << endl;
     }
-  CH_assert(m_thicknessGhost == m_topographyGhost);
-
-  DisjointBoxLayout& topographyDBL = thicknessDBL;
-  LevelData<FArrayBox> topographyLD(topographyDBL, 1);
-  
-  {
-    DataIterator dit = topographyDBL.dataIterator();
-    for (dit.begin(); dit.ok(); ++dit)
-      {
-	topographyLD[dit].copy(m_inputTopography);
-      }
-  }
-#endif
-
-
 
   DisjointBoxLayout ChomboGrids = a_coords.grids();
   LevelData<FArrayBox>& ChomboThickness = a_coords.getH();
@@ -873,6 +932,10 @@ FortranInterfaceIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
     }
   else 
     {
+      if (m_verbose)
+        {
+          pout() << "calling FillFromReference for thickness..." << endl;
+        }
 
       FillFromReference(ChomboThickness,
 			(*m_inputThicknessLDF),
@@ -880,20 +943,42 @@ FortranInterfaceIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 			m_inputThicknessDx,
 			m_verbose);
 
+      if (m_verbose)
+        {
+          pout() << "...and topography..." << endl;
+        }
+
       FillFromReference(ChomboTopography,
 			(*m_inputTopographyLDF),
 			a_dx,
 			m_inputTopographyDx,
 			m_verbose);
+      if (m_verbose)
+        {
+          pout() << "...done!" << endl;
+        }
+
       if (a_crseCoords!= NULL)
 	{
+          if (m_verbose)
+            {
+              pout() << "filling ghost cells" << endl;
+            }
 	  // fill ghost cells
 	  a_coords.interpFromCoarse(*a_crseCoords, a_refRatio, 
 				    false, false, false);
+          if (m_verbose) 
+            {
+              pout() << "done filling ghost cells" << endl;
+            }
 	}
 
     }
   
+  if (m_verbose) 
+    {      
+      pout() << "calling exchange..." << endl;
+    }
   ChomboThickness.exchange();
   //ChomboTopography.exchange();
   //LevelSigmaCS.exchangeTopography() takes care of constant topography slopes
