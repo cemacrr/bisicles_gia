@@ -573,6 +573,48 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
                
 
 
+        // bit of a hack, since we need to have periodicity info here,
+	// which is normally taken care of inside AmrIce
+        ParmParse ppAmr("amr");
+        // default is that domains are not periodic
+	bool is_periodic[SpaceDim];
+	for (int dir=0; dir<SpaceDim; dir++)
+	  is_periodic[dir] = false;
+	Vector<int> is_periodic_int(SpaceDim, 0);
+
+	ppAmr.getarr("is_periodic", is_periodic_int, 0, SpaceDim);
+	for (int dir=0; dir<SpaceDim; dir++) 
+	  {
+	    is_periodic[dir] = (is_periodic_int[dir] == 1);
+	  }
+
+
+	// define domain using dim_info
+	int ewn = dimInfoGeom[2];
+	int nsn = dimInfoGeom[3];
+
+	// convert to 0->n-1 ordering to suit Chombo's preferences
+	IntVect domLo = IntVect::Zero;
+	IntVect domHi = IntVect(D_DECL(ewn-1, nsn-1, dimInfoGeom[1]));
+	
+	Box domainBox(domLo, domHi);
+	ProblemDomain baseDomain(domainBox);
+	for (int dir=0; dir<SpaceDim; dir++)
+	  {
+	    baseDomain.setPeriodic(dir, is_periodic[dir]);
+	  }
+
+	if (verbose)
+	  {
+	    pout() << "Base Domain = " << baseDomain << endl;
+	  }
+
+	// this is mainly to get the ProblemDomain info into the mix
+	ibcPtr->define(baseDomain, dew);
+
+	// this is to convert Fortran indexing to C indexing.
+	IntVect offset = IntVect::Unit;
+
         CH_assert(SpaceDim == 2);
 #if 1
         if (nodalGeom)
@@ -589,17 +631,17 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
                  
         ibcPtr->setThickness(thicknessDataPtr, dimInfoGeom, lb,ub,
                              &dew, &dns, 
-                             ghostVect, nodalGeom);                             
+                             offset, ghostVect, nodalGeom);                             
         ibcPtr->setTopography(topographyDataPtr, dimInfoGeom, lb, ub, 
                               &dew, &dns, 
-                              ghostVect, nodalGeom);
+                              offset, ghostVect, nodalGeom);
 #else
 	domainSize[0] = dew*(dimInfoGeom[2]); 
 	domainSize[1] = dns*(dimInfoGeom[3]);	
         ibcPtr->setThickness(thicknessDataPtr, dimInfoGeom, lb,ub,
-                             &dew, &dns, ghostVect);
+                             &dew, &dns, offset, ghostVect);
         ibcPtr->setTopography(topographyDataPtr, dimInfoGeom, lb, ub,
-                              &dew, &dns, ghostVect);
+                              &dew, &dns, offset, ghostVect);
 #endif
         // if desired, smooth out topography to fill in holes
         bool fillTopographyHoles = false;
