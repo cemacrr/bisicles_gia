@@ -35,8 +35,8 @@ using std::ofstream;
 static const char* pgmname = "testFortranInterfaceIBC" ;
 static const char* indent = "   ";
 static const char* indent2 = "      " ;
-//static bool verbose = false ;
-static bool verbose = true ;
+static bool verbose = false ;
+//static bool verbose = true ;
 
 #ifdef CH_USE_DOUBLE
 //static Real precision = 1.0e-15;
@@ -199,9 +199,12 @@ testFortranInterfaceIBC()
 
   int maxBoxSize = 32/numSplit;
 
-  pout() << "numSplit = " << numSplit
-         << ", maxBoxSize = " << maxBoxSize << endl;
-
+  if (verbose)
+    {
+      pout() << "numSplit = " << numSplit
+             << ", maxBoxSize = " << maxBoxSize << endl;
+    }
+  
   Vector<Box> gridBoxes;
   domainSplit(domainBox, gridBoxes, maxBoxSize); 
   
@@ -367,7 +370,9 @@ testFortranInterfaceIBC()
         {
           pout() << "copying FortranInterfaceIBC for this level..." << endl;
         }
+
       IceThicknessIBC* levelIBC = baseIBC.new_thicknessIBC();
+      FortranInterfaceIBC* FIBCptr = dynamic_cast<FortranInterfaceIBC*>(levelIBC);
       levelIBC->define(levelDomain, dxLevel[0]);
 
       if (verbose)
