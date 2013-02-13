@@ -41,6 +41,11 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
   // tolerance used when converting refinement ratio from Real -> integer
   Real tolerance = 1.0e-6;
 
+  if (a_verbose)
+    {
+      pout() << "in FillFromReference" << endl;
+    }
+  
   // refinement ratio
   Real refRatio = a_srcDx[0]/a_destDx[0];
 
@@ -172,6 +177,12 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 		       const RealVect&  a_srcDx,
 		       const bool a_verbose)
 {
+
+  if (a_verbose)
+    {
+      pout() << "in LDF FillFromReference" << endl;
+    }
+
   // tolerance used when converting refinement ratio from Real -> integer 
   Real tolerance = 1.0e-6;
   // refinement ratio
@@ -186,14 +197,24 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
   const DisjointBoxLayout& srcGrids = a_srcData.disjointBoxLayout();
   const DisjointBoxLayout& destGrids = a_destData.disjointBoxLayout();
 
+  if (a_verbose)
+    {
+      pout() << "refRatio = " << refRatio << ", srcDx = " << a_srcDx[0]
+             << ", destDx = " << a_destDx[0] << endl;
+    }
 
   if (refRatio > 1+tolerance) 
      {
        //interpolate data
+       if (a_verbose)
+         {
+           pout() << "Interpolating data... " << endl;
+         }
+
        int nRef = (int)(refRatio + tolerance); 
        bool coarsenable = destGrids.coarsenable(nRef);
-       //avoid attempting to refine with a ratio greater than block_factor by interpolating coarse data 
-       //in stages until nRef == block_factor
+       //avoid attempting to refine with a ratio greater than block_factor 
+       // by interpolating coarse data in stages until nRef == block_factor
        if (coarsenable)
 	 {
 	   if (a_verbose)
@@ -248,6 +269,10 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
      }
   else if (refRatio < 1-tolerance)
     {
+      if (a_verbose)
+        {
+          pout() << "averaging data" << endl;
+        }
       // need to average data
       refRatio = 1.0/refRatio;
       int nRef = (int) (refRatio + tolerance);
@@ -271,7 +296,11 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 
   a_destData.exchange();
 
-
+  // 
+  if (a_verbose)
+    {
+      pout() << "Leaving FillFromReference" << endl;
+    }
 
 }
 

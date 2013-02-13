@@ -251,6 +251,10 @@ FortranInterfaceIBC::FortranInterfaceIBC() : m_boundaryThickness(0.0)
 
 FortranInterfaceIBC::~FortranInterfaceIBC()
 {
+  if (m_verbose)
+    {
+      pout() << "in FortranInterfaceIBC destructor" << endl;
+    }
 }
 
 
