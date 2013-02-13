@@ -192,6 +192,10 @@ public:
 
   virtual void checkOK() const;
 
+  // accessor
+  const RefCountedPtr<LevelData<FArrayBox> >& inputThicknessPtr() const
+  {return  m_inputThicknessLDF;}
+
 protected:
 
   // ice sheet thickness at domain boundaries

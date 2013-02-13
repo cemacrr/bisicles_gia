@@ -277,8 +277,11 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
       refRatio = 1.0/refRatio;
       int nRef = (int) (refRatio + tolerance);
       	{
-	  pout() << " ...averaging data with refinement ratio = " 
-		 << nRef << endl;
+          if (a_verbose)
+            {
+              pout() << " ...averaging data with refinement ratio = " 
+                     << nRef << endl;
+            }
 	}
 	CoarseAverage averager(srcGrids,destGrids,
 			       a_destData.nComp(), nRef, a_destData.ghostVect());

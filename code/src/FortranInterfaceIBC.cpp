@@ -480,27 +480,20 @@ FortranInterfaceIBC::new_thicknessIBC()
 
   retval->m_grids = m_grids;
   retval->m_gridsSet = m_gridsSet;
-
-  // only do this if these guys are actually defined
-  if (!m_inputThickness.box().isEmpty())
-    {
-      //retval->m_inputThickness.define(m_inputThickness.interval(), m_inputThickness);
-      retval->m_inputThickness.define(m_inputThickness.box(), m_inputThickness.nComp());
-      retval->m_inputThickness.copy(m_inputThickness);
-
-      retval->m_inputThicknessLDF = m_inputThicknessLDF;
-    }
+  
+  retval->m_inputThickness.define(m_inputThickness.box(), m_inputThickness.nComp());
+  retval->m_inputThickness.copy(m_inputThickness);
+  
+  retval->m_inputThicknessLDF = m_inputThicknessLDF;
+  
   retval->m_thicknessGhost = m_thicknessGhost;
   retval->m_inputThicknessDx = m_inputThicknessDx;
+  
+  retval->m_inputTopography.define(m_inputTopography.box(), m_inputTopography.nComp());
+  retval->m_inputTopography.copy(m_inputTopography);
+  
+  retval->m_inputTopographyLDF = m_inputTopographyLDF;
 
-  if (!m_inputTopography.box().isEmpty())
-    {
-      //retval->m_inputTopography.define(m_inputTopography.interval(), m_inputTopography);
-      retval->m_inputTopography.define(m_inputTopography.box(), m_inputTopography.nComp());
-      retval->m_inputTopography.copy(m_inputTopography);
-
-      retval->m_inputTopographyLDF = m_inputTopographyLDF;
-    }
   retval->m_inputTopographyDx = m_inputTopographyDx;
   retval->m_topographyGhost = m_topographyGhost;
 
@@ -690,22 +683,29 @@ FortranInterfaceIBC::setGrids(const Box& a_gridBox)
 #ifdef CH_MPI
   int boxSize = sizeof(Box);
 
-  pout() << "entering allGather -- sending " << *nonConstBox << endl;
-  pout () << "numBox = " << numBox << ", boxSize = " << boxSize << endl;
-  
+  if (m_verbose)
+    {
+      pout() << "entering allGather -- sending " << *nonConstBox << endl;
+      pout () << "numBox = " << numBox << ", boxSize = " << boxSize << endl;
+    }
   MPI_Allgather(nonConstBox,  boxSize,  MPI_BYTE, &(boxes[0]), 
                 boxSize , MPI_BYTE , Chombo_MPI::comm);
-
-  pout () << "after allGather" << endl;
-  pout () << "nonConstbox = " << *nonConstBox << endl;
-
+  
+  if (m_verbose)
+    {
+      pout () << "after allGather" << endl;
+      pout () << "nonConstbox = " << *nonConstBox << endl;
+    }
 
 #endif
 
-  pout () << "numBoxes = " << boxes.size() << endl;
-  for (int i=0; i< boxes.size(); i++)
+  if (m_verbose) 
     {
-      pout () << "box " << i << ": " << boxes[i] << endl;
+      pout () << "numBoxes = " << boxes.size() << endl;
+      for (int i=0; i< boxes.size(); i++)
+        {
+          pout () << "box " << i << ": " << boxes[i] << endl;
+        }
     }
 
   Vector<int> procAssign(boxes.size());
@@ -714,7 +714,7 @@ FortranInterfaceIBC::setGrids(const Box& a_gridBox)
       procAssign[i] = i;
     }
   
-  //if (m_verbose)
+  if (m_verbose)
     {
       pout() << "processor " << procID() << ": grids: " << endl;
       for (int i=0; i<boxes.size(); i++)
@@ -939,6 +939,7 @@ FortranInterfaceIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
       if (m_verbose)
         {
           pout() << "calling FillFromReference for thickness..." << endl;
+          
         }
 
       FillFromReference(ChomboThickness,
@@ -946,6 +947,7 @@ FortranInterfaceIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 			a_dx,
 			m_inputThicknessDx,
 			m_verbose);
+
 
       if (m_verbose)
         {
