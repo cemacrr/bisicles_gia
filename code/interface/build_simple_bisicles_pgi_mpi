@@ -8,7 +8,7 @@ BISICLES_DIR=${PWD}/../../../BISICLES
 CISM_DIR=${PWD}/../../../seacism
 
 
-CISM_CMAKE_BUILD_DIR=${CISM_DIR}/builds/linux-gnu-bisicles
+CISM_CMAKE_BUILD_DIR=${CISM_DIR}/builds/hopper-pgi
 
 # Note: If this is the first CISM build, uncomment the following 3 lines:
 #source /etc/profile.d/modules.sh
@@ -29,13 +29,10 @@ cd ${CISM_CMAKE_BUILD_DIR}
 rm example-drivers/simple_bisicles/src/simple_bisicles
 make -j 8
 
-#move to seacism bin directory for convenience
-mv ${CISM_CMAKE_BUILD_DIR}/example-drivers/simple_bisicles/src/simple_bisicles ${CISM_DIR}/bin
-
 cd ${BISICLES_DIR}/code/interface
 
 echo "NOTE: The simple_bisicles executable will be located in: "
-echo "${CISM_DIR}/bin/simple_bisicles"
+echo "${CISM_CMAKE_BUILD_DIR}/example-drivers/simple_bisicles/src"
 
 # used for autotools-based simple_bisicles build:
 #cd ~/glimmer-cism2/branches/seacism/libdycore

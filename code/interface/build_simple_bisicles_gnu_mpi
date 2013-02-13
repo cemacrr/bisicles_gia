@@ -3,23 +3,17 @@
 # Note: The hopper-pgi-cmake file in your CISM build dir needs to
 # be run once, before using this script.
 
-CHOMBO_DIR=${PWD}/../../../Chombo
-BISICLES_DIR=${PWD}/../../../BISICLES
-CISM_DIR=${PWD}/../../../seacism
+BISICLES_DIR=~/BISICLES
+CISM_DIR=~/seacism
+CISM_CMAKE_BUILD_DIR=${CISM_DIR}/builds/hopper-gnu-mpi
 
-
-CISM_CMAKE_BUILD_DIR=${CISM_DIR}/builds/linux-gnu-bisicles
 
 # Note: If this is the first CISM build, uncomment the following 3 lines:
 #source /etc/profile.d/modules.sh
 #cd ${CISM_CMAKE_BUILD_DIR}
 #source hopper-pgi-cmake
 
-cd ${CHOMBO_DIR}/lib
-make include
-
 cd ${BISICLES_DIR}/code/exec2D
-make lib MPI=TRUE OPT=FALSE DEBUG=TRUE
 make driver MPI=TRUE OPT=FALSE DEBUG=TRUE
 
 cd  ${BISICLES_DIR}/code/interface
@@ -29,13 +23,10 @@ cd ${CISM_CMAKE_BUILD_DIR}
 rm example-drivers/simple_bisicles/src/simple_bisicles
 make -j 8
 
-#move to seacism bin directory for convenience
-mv ${CISM_CMAKE_BUILD_DIR}/example-drivers/simple_bisicles/src/simple_bisicles ${CISM_DIR}/bin
-
 cd ${BISICLES_DIR}/code/interface
 
 echo "NOTE: The simple_bisicles executable will be located in: "
-echo "${CISM_DIR}/bin/simple_bisicles"
+echo "${CISM_CMAKE_BUILD_DIR}/example-drivers/simple_bisicles/src"
 
 # used for autotools-based simple_bisicles build:
 #cd ~/glimmer-cism2/branches/seacism/libdycore
