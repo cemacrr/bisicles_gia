@@ -26,7 +26,7 @@ basalFlux.type = zeroFlux
 
 CalvingModel.type = NoCalvingModel
 
-amr.maxLevel = 9   # finest level allowed in simulation
+amr.maxLevel = 6   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2 2 2 2 2 2 2 2 2 2
 amr.num_cells = 0008 0008 16   #number of cells in base grid
 #amr.num_cells = 0016 0016 16   #number of cells in base grid
@@ -68,7 +68,7 @@ amr.tag_on_laplacian_velocity = 1
 amr.lap_vel_tagging_val = 10
 
 #velocity solve type -- 0=Picard, 1=JFNK, 2=knownVel, 3=petsc, 4=FAS-MG
-amr.velocity_solver_type = 1
+amr.velocity_solver_type = 4
 
 #initial guess 
 amr.do_initial_velocity_guess = 0

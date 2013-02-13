@@ -131,7 +131,6 @@ public:
   ViscousTensorOp* m_VTO;
   IceThicknessIBC* m_bc; // this masks m_bc in base class
 
-  virtual bool haveCFInterp() const { return true; } 
   virtual void CFInterp( LevelData<FArrayBox>& a_phi,
 			 const LevelData<FArrayBox>& a_phiCoarse);
 };
