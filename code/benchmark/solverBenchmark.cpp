@@ -28,8 +28,12 @@
 #include "CoarseAverageFace.H"
 #include "IceVelocity.H"
 #include "LevelSigmaCS.H"
+#ifdef CH_HAS_FAS
+#include "FASIceSolver.H"
+#endif
 
-#include "PetscSolver.H"
+//#include "PetscSolver.H"
+#include "PetscIceSolver.H"
 
 #include "AMRIO.H"
 
@@ -48,6 +52,9 @@ enum basalFrictionTypes {constantBeta = 0,
 
 enum velSolverTypes { Picard = 0,
                       JFNK = 1,
+                      KnownVelocity = 2,
+                      PetscNLSolver = 3,
+                      FASMGAMR = 4,
                       NUM_SOLVER_TYPES};
 
 
@@ -1016,7 +1023,27 @@ int main(int argc, char* argv[]) {
       {
         solverPtr = new JFNKSolver;
       }
-    
+#ifdef CH_USE_PETSC
+  else if (solverType == PetscNLSolver)
+    {
+      solverPtr = new PetscIceSolver;
+    }
+#endif
+#ifdef CH_HAS_FAS
+  else if (solverType == FASMGAMR)
+    {
+      FASIceSolver *solver = new FASIceSolver;
+      solverPtr = solver;
+
+      solver->setParameters("FASSOLVER");
+
+    }
+#endif
+  else
+    {
+      MayDay::Error("Unknown Solver Type" );
+    }
+
     RealVect dxCrse = amrDx[0]*RealVect::Unit;
     
     thicknessIBCPtr->setGridHierarchy(vectCoordSys, amrDomains);

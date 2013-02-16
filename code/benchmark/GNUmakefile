@@ -1,41 +1,34 @@
 # -*- Mode: Makefile -*- 
 
+#set compiler and CHOMBO_HOME
+include ../mk/Make.defs
+
 ### This makefile produces an executable for each 
 ### name in the `ebase' variable
-
 ebase := solverBenchmark
 
-#set compiler and CHOMBO_HOME
 
+
+TARMAC = FALSE
 MACHINE = $(shell uname)
 UNAMEM = $(shell uname -m)
 
 DIM=2
 
-TRAPFPE=FALSE
-ifeq ($(TRAPFPE),TRUE)	
-# petermc, 12 Oct 2007:  never set XTRACPPFLAGS in makefile
-# XTRACPPFLAGS += -DTRAP_FPE
+
+ifeq ($(TARMAC),TRUE)
+TARMACDIR=../interface/libtarmac
+XTRALIBFLAGS += -L$(TARMACDIR) -ltarmac
+XTRACPPFLAGS += -DTARMAC
 endif
-
-# petermc, 12 Oct 2007:  never set XTRACPPFLAGS in makefile
-# XTRACPPFLAGS += #-DPAPI 
-PAPILIBS = #/usr/local/lib/libpapi.a
-PAPILIBS = #/usr/common/usg/papi/2.1/lib/libpapi.a -L/usr/lpp/pmtoolkit/lib -lpmapi
-
-#TARMACDIR=../interface/libtarmac
-#XTRALIBFLAGS=-L$(TARMACDIR) -ltarmac
-
-#  have a default for machines not defined here.
-# make this a relative path so it will find the Chombo 
-# on same level as BISICLES
-CHOMBO_HOME = ../../../Chombo/lib
-
-include $(CHOMBO_HOME)/mk/Make.defs
-include $(CHOMBO_HOME)/mk/Make.defs.config
-
-#cases := $(shell echo case*)
-
+ifeq ($(TARMAC),TRUE)
+all:  $(TARMACDIR)/libtarmac.a all-example
+$(TARMACDIR)/libtarmac.a: $(TARMACDIR)/tarmac.f90
+	$(RM) $(patsubst %,%$(config).ex,$(ebase)); \
+	echo $(TARMACDIR)
+	cd $(TARMACDIR); \
+	$(MAKE) all
+endif
 ##
 ## names of Chombo libraries needed by this program, in order of search.
 ##
@@ -46,8 +39,14 @@ base_dir = .
 BASE_DIR = ../
 
 EXEC_DIR = .
-
-SRC_DIR = ../src
+FAS = TRUE
+ifeq ($(FAS), TRUE)
+#XTRACXXFLAGS = -DFAS_USE_NEW_PROL -DCH_HAS_FAS 
+XTRACXXFLAGS = -DCH_HAS_FAS 
+SRC_DIR = ../src  ../../../AMRFAS/src
+else
+SRC_DIR = ../src  
+endif
 UTIL_DIR = ../util 
 src_dirs = $(SRC_DIR) $(UTIL_DIR) 
 #src_dirs += /home/ranken/util/pglimdev/parallel/src/external_dycore
@@ -59,7 +58,7 @@ endif
 
 include $(CHOMBO_HOME)/mk/Make.example
 
-all: all-example $(TARMACDIR)/libtarmac.a
+all: all-example 
 
 $(TARMACDIR)/libtarmac.a: $(TARMACDIR)/tarmac.f90
 	cd $(TARMACDIR); \
