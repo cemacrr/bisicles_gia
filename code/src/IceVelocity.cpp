@@ -182,11 +182,13 @@ void IceVelocity::computeFaceFlux
 }
 
 
-//apply cell-centred gradient operator grad (phi) 
+
+
+//apply cell-centred gradient operator grad (phi) . grad(phi)
 //to cell-centred phi.Assumes that ghost cells
 //have been set
-void IceVelocity::applyGrad
-(LevelData<FArrayBox>& a_gradPhi,
+void IceVelocity::applyGradSq
+(LevelData<FArrayBox>& a_gradPhiSq,
  const LevelData<FArrayBox>& a_phi, 
  const DisjointBoxLayout& a_grids,
  const RealVect& a_dx)
@@ -194,6 +196,7 @@ void IceVelocity::applyGrad
 	
   for (DataIterator dit(a_grids); dit.ok(); ++dit)
     {
+      a_gradPhiSq[dit].setVal(0.0);
       for (int icomp = 0; icomp < a_phi.nComp(); icomp++) 
 	{
 	  for (int dir =0; dir < SpaceDim; dir++)
@@ -201,12 +204,11 @@ void IceVelocity::applyGrad
 	      Real oneOnTwoDx = 1.0 / (2.0 * a_dx[dir]);
 	      for (BoxIterator bit(a_grids[dit]);bit.ok();++bit)
 		{
-		  
 		  const IntVect& iv = bit();
-		  a_gradPhi[dit](iv,icomp) = 
-		    oneOnTwoDx * 
-		    (a_phi[dit](iv + BASISV(dir),icomp)
-		     -a_phi[dit](iv - BASISV(dir),icomp));
+		  Real g = oneOnTwoDx * (a_phi[dit](iv + BASISV(dir),icomp)
+					 - a_phi[dit](iv - BASISV(dir),icomp));
+		    a_gradPhiSq[dit](iv) += g*g;
+		    
 		}
 	    }
 	}

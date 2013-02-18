@@ -54,8 +54,8 @@ namespace IceVelocity
    const DisjointBoxLayout& a_grids,
    const RealVect& a_dx);
 
-  void applyGrad
-  (LevelData<FArrayBox>& a_gradPhi,
+  void applyGradSq
+  (LevelData<FArrayBox>& a_gradPhiSq,
    const LevelData<FArrayBox>& a_phi, 
    const DisjointBoxLayout& a_grids, 
    const RealVect& a_dx);
