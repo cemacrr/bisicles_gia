@@ -51,8 +51,9 @@ void CGOptimize(O& a_F, X& a_x,
   a_F.create(y,x);
   a_F.create(p,x);
 
-  Real f;
-  a_F.computeObjectiveAndGradient(f,r,x,false);
+  Real fm,fp; // these are just for retreiving the the misfit norm and penalty norm, 
+              // and play no part in the method
+  a_F.computeObjectiveAndGradient(fm,fp,r,x,false);
   a_F.scale(r,-1.0);
   a_F.preCond(s,r);
   a_F.assign(d,s);
@@ -62,9 +63,10 @@ void CGOptimize(O& a_F, X& a_x,
   while (iter < a_maxIter && deltaNew > sqr(a_tol) * deltaZero)
     {
       
-      pout() << "CGOptimize iteration " << iter << " ||f'(x)||^2 = " 
-	     << deltaNew << " ||f(x)||^2 = " << f << std::endl;
-
+      pout() << "CGOptimize iteration " << iter 
+	     << " ||f'(x)||^2 = " << deltaNew 
+	     << " ||fm(x)||^2 = " << fm 
+	     << " ||fp(x)||^2 = " << fp << std::endl;
 
       //secant line search
       Real deltaD = a_F.dotProduct(r,d);
@@ -72,8 +74,8 @@ void CGOptimize(O& a_F, X& a_x,
       Real alpha = -a_secantParameter;
       a_F.assign(y,x);
       a_F.incr(y,d,a_secantParameter);
-      Real fs;
-      a_F.computeObjectiveAndGradient(fs,p,y,true);
+      Real fs,fps;
+      a_F.computeObjectiveAndGradient(fs,fps,p,y,true);
       Real etaPrev = a_F.dotProduct(p,d);
       pout() << " ... initial secant ||f'(x+sd).f'(x)||^2 = " 
 	     << -etaPrev << " s = " << a_secantParameter << " f(x+sd) = " << fs << std::endl;
@@ -91,7 +93,7 @@ void CGOptimize(O& a_F, X& a_x,
       do {
 	if (j > 0)
 	  {
-	    a_F.computeObjectiveAndGradient(f,r,x,true);
+	    a_F.computeObjectiveAndGradient(fm,fp,r,x,true);
 	    eta = a_F.dotProduct(r,d);
 	  }
 	if (eta > 0)
@@ -115,7 +117,7 @@ void CGOptimize(O& a_F, X& a_x,
 
 
 	pout() <<  " ... secant iteration j = " << j << " f'(x[0]+qd).f'(x[0]) = " << -eta
-	       << " a = " << alpha << " q =  " << q <<  " f(x[j]+ad) = " << f << std::endl;
+	       << " a = " << alpha << " q =  " << q << std::endl;
 	alpha = alpha * eta / (etaPrev-eta);
 	q += alpha;
 	pout() << " ... testing a = " << alpha << "  q = " << q  << std::endl;
@@ -148,7 +150,7 @@ void CGOptimize(O& a_F, X& a_x,
 	       && sqr(alpha) * deltaD > sqr(a_secantTol));
     
       
-      a_F.computeObjectiveAndGradient(f,r,x,false);
+      a_F.computeObjectiveAndGradient(fm,fp,r,x,false);
       a_F.scale(r,-1.0);
       Real deltaOld = deltaNew;
       Real deltaMid = a_F.dotProduct(r,s);
@@ -171,8 +173,9 @@ void CGOptimize(O& a_F, X& a_x,
       iter++;
     }
   pout() << "CGOptimize iteration " << iter 
-	 << " ||f'(x)||^2 = " 
-	 << deltaNew << " f(x) = " << f << std::endl;
+	 << " ||f'(x)||^2 = " << deltaNew 
+	 << " ||fm(x)||^2 = " << fm 
+	 << " ||fp(x)||^2 = " << fp << std::endl;
   a_F.free(r);
   a_F.free(s);
   a_F.free(d);

@@ -82,10 +82,11 @@ class AMRIceControl
   Vector<LevelData<FArrayBox>*> m_C;
   Vector<LevelData<FArrayBox>*> m_Ccopy;
   Vector<LevelData<FArrayBox>*> m_lapC;
-
+  Vector<LevelData<FArrayBox>*> m_gradCSq;
   // coefficients of mu.
   Vector<LevelData<FArrayBox>*> m_muCoef;
   Vector<LevelData<FArrayBox>*> m_lapMuCoef;
+  Vector<LevelData<FArrayBox>*> m_gradMuCoefSq;
   Vector<LevelData<FluxBox>*> m_faceMuCoef;
 
   //right-hand side of the velocity equation
@@ -182,7 +183,7 @@ public:
 
   //members needed by CGOptimize
   void computeObjectiveAndGradient
-  (Real& a_f,
+  (Real& a_fm, Real& a_fp,
    Vector<LevelData<FArrayBox>* >& a_g, 
    const  Vector<LevelData<FArrayBox>* >& a_x, 
    bool a_inner);

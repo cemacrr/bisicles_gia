@@ -83,9 +83,10 @@ public:
   }
   
 
-  void computeObjectiveAndGradient(Real& f, RealVector& g, const  RealVector& x, bool a_inner)
+  void computeObjectiveAndGradient(Real& f, Real& r, RealVector& g, const  RealVector& x, bool a_inner)
   {
     f = 0.0;
+    r = 0.0;
     for (int i =0; i < x.n(); i++)
       {
 	Real z = x(i) - Real(i);

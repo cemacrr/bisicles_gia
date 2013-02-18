@@ -31,6 +31,7 @@
 #include "CoarseAverage.H"
 #include "CoarseAverageFace.H"
 #include "computeNorm.H"
+#include "computeSum.H"
 #include "IceVelocity.H"
 #include "IceConstants.H"
 #include "JFNKSolver.H"
@@ -216,9 +217,10 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   create(m_C0,1,IntVect::Zero);
   setToZero(m_C0);
   create(m_lapC,1,IntVect::Zero);
-
+  create(m_gradCSq,1,IntVect::Zero);
   create(m_muCoef,1,IntVect::Unit);
   create(m_lapMuCoef,1,IntVect::Zero);
+  create(m_gradMuCoefSq,1,IntVect::Zero);
   create(m_muCoef,1,IntVect::Unit);
   create(m_faceMuCoef,1,IntVect::Zero);
 
@@ -534,7 +536,10 @@ AMRIceControl::~AMRIceControl()
   free(m_Ccopy);
   free(m_C0);
   free(m_lapC);
+  free(m_gradCSq);
   free(m_muCoef);
+  free(m_lapMuCoef);
+  free(m_gradMuCoefSq);
   free(m_faceMuCoef);
   free(m_divUHObs);
   free(m_faceThckFlux);
@@ -715,7 +720,7 @@ void AMRIceControl::checkBounds(Vector<LevelData<FArrayBox>* >& a_X)
 }
 
 void AMRIceControl::computeObjectiveAndGradient
-(Real& a_f,
+(Real& a_fm, Real& a_fp,
  Vector<LevelData<FArrayBox>* >& a_g, 
  const  Vector<LevelData<FArrayBox>* >& a_x, 
  bool a_inner)
@@ -846,8 +851,10 @@ void AMRIceControl::computeObjectiveAndGradient
       CellToEdge(levelMuCoef, *m_faceMuCoef[lev]);
       IceVelocity::applyHelmOp(*m_lapC[lev], levelC, 0.0, 1.0, 
 			       m_grids[lev], m_dx[lev]);
+      IceVelocity::applyGradSq(*m_gradCSq[lev], levelC,m_grids[lev], m_dx[lev]);
       IceVelocity::applyHelmOp(*m_lapMuCoef[lev], levelMuCoef, 0.0, 1.0,
 			       m_grids[lev], m_dx[lev]);
+      IceVelocity::applyGradSq(*m_gradMuCoefSq[lev], levelMuCoef,  m_grids[lev], m_dx[lev]);
     }
 
   {
@@ -1082,15 +1089,17 @@ void AMRIceControl::computeObjectiveAndGradient
 
     }
   
-  //compute the objective function
-  Real vobj = computeNorm(m_velocityMisfit, m_refRatio, m_dx[0][0]);
-  vobj*=vobj;
-  Real mobj = computeNorm(m_massBalanceMisfit, m_refRatio, m_dx[0][0]);
-  mobj*=mobj;
-  pout() << " ||velocity misfit||^2 = " << vobj
-	 << " ||mass balance misfit||^2 = " << mobj << std::endl;
-  a_f = vobj + mobj;
+  //compute the objective function 
+  Real vobj = computeSum(m_velocityMisfit, m_refRatio, m_dx[0][0]);
+  Real mobj = computeSum(m_massBalanceMisfit, m_refRatio, m_dx[0][0]);
+  Real ctik = computeSum(m_gradCSq,m_refRatio, m_dx[0][0]);
+  Real mutik = computeSum(m_gradMuCoefSq,m_refRatio, m_dx[0][0]);
+  a_fm = vobj + mobj ;
+  a_fp =  m_gradCsqRegularization * ctik + m_gradMuCoefsqRegularization * mutik;
 
+  pout() << " ||velocity misfit||^2 = " << vobj
+	 << " ||mass balance misfit||^2 = " << mobj 
+	 << std::endl;
   //solve the adjoint problem
   solveForwardProblem(m_adjVel,true,m_adjRhs,m_C,m_C0,m_A,m_faceMuCoef);
   //this might not be necessary, but it makes the plotted fields look better
@@ -1134,55 +1143,22 @@ void AMRIceControl::computeObjectiveAndGradient
 	  
 	  //Real tol = 1.0e-6;
 	  const Box& b = m_grids[lev][dit];
-	  // Real ba = m_boundArgX0 ;
-	  // FORT_GRADBARRIERCTRL(CHF_FRA1(levelBarrier[dit],CCOMP),
-	  // 		       CHF_FRA1(t,0),
-	  // 		       CHF_CONST_FRA1(thisX,CCOMP),
-	  // 		       CHF_CONST_REAL(ba),
-	  // 		       CHF_CONST_REAL(tol),
-	  // 		       CHF_BOX(b));
-
-	  // FORT_TIKHONOVCTRL(CHF_FRA1(levelBarrier[dit],CCOMP),
-	  // 		    CHF_FRA1(t,0),
-	  // 		    CHF_CONST_FRA1(thisX,CCOMP),
-	  // 		    CHF_BOX(b));
+	  
 	  t.copy(thisX,CCOMP,0);
 	  t *= m_X0Regularization;
 	  thisG.plus(t,0,CCOMP);
 
-	  //ba = m_boundArgX1 ;
-	  // FORT_GRADBARRIERCTRL(CHF_FRA1(levelBarrier[dit],MUCOMP),
-	  // 		       CHF_FRA1(t,0),
-	  // 		       CHF_CONST_FRA1(thisX,MUCOMP),
-	  // 		       CHF_CONST_REAL(ba),
-	  // 		       CHF_CONST_REAL(tol),
-	  // 		       CHF_BOX(b));
-	  
-
-	  // FORT_TIKHONOVCTRL(CHF_FRA1(levelBarrier[dit],MUCOMP),
-	  // 		    CHF_FRA1(t,0),
-	  // 		    CHF_CONST_FRA1(thisX,MUCOMP),
-	  // 		    CHF_BOX(b));
 	  t.copy(thisX,MUCOMP,0);
 	  t *= m_X1Regularization;
 	  thisG.plus(t,0,MUCOMP);
 	}
 
     }
-  // Real barrierC = barrierCoefficient * 
-  //   computeNorm(m_barrierPenalty, m_refRatio, m_dx[0][0], Interval(CCOMP,CCOMP), 1);
-  // Real barrierMu = barrierCoefficient *
-  //   computeNorm(m_barrierPenalty, m_refRatio, m_dx[0][0], Interval(MUCOMP,MUCOMP), 1);
-
-  // pout() << " L1-norm(ln( (X0+b0)(b0-X0) / b0^2)) = " <<  barrierC
-  // 	 << " L1-norm(ln( (X1+b1)(b1-X1) / b1^2)) = " <<  barrierMu
-  // 	 << std::endl;
+  
 
   
-  Real barrierC = m_X0Regularization * 
-    computeNorm(a_x, m_refRatio, m_dx[0][0], Interval(CCOMP,CCOMP), 2);
-  Real barrierMu = m_X1Regularization *
-    computeNorm(a_x, m_refRatio, m_dx[0][0], Interval(MUCOMP,MUCOMP), 2);
+  Real barrierC = computeNorm(a_x, m_refRatio, m_dx[0][0], Interval(CCOMP,CCOMP), 2);
+  Real barrierMu = computeNorm(a_x, m_refRatio, m_dx[0][0], Interval(MUCOMP,MUCOMP), 2);
 
   pout() << " L2-norm(X0) = " <<  barrierC
   	 << " L2-norm(X1) = " <<  barrierMu

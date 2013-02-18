@@ -31,6 +31,7 @@ c---------------------------------------------------
       um = (umx(CHF_AUTOIX[i])**two+umy(CHF_AUTOIX[i])**two)**half
       
       misfit(CHF_AUTOIX[i]) = (uo-um)**two
+c      misfit(CHF_AUTOIX[i]) = (uo-um)
       t = (uo/(TINY_NORM + um)-1.0)
       rhsx(CHF_AUTOIX[i]) = t * umx(CHF_AUTOIX[i])
       rhsy(CHF_AUTOIX[i]) = t * umy(CHF_AUTOIX[i])
