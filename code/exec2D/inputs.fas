@@ -50,7 +50,8 @@ amr.initial_cfl = 0.1  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
 
 amr.plot_interval = -1  
-amr.plot_prefix = stream.L1L2.0032.fas.
+amr.plot_prefix = stream.fas.
+amr.write_preSolve_plotfiles = true
 amr.write_solver_rhs = 1
 amr.check_interval = -1
 amr.check_prefix = chk
@@ -125,4 +126,4 @@ JFNKSolver.minStepFactor = 0.125
 
 
 #input file for solver benchmark
-main.filename = stream.L1L2.0032.r2.l0.000000.2d.hdf5
+main.filename = stream.fas.preSolve.000000.2d.hdf5
