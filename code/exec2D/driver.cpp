@@ -1,4 +1,4 @@
- #ifdef CH_LANG_CC
+#ifdef CH_LANG_CC
 /*
 *      _______              __
 *     / ___/ /  ___  __ _  / /  ___
