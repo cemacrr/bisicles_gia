@@ -1035,7 +1035,7 @@ int main(int argc, char* argv[]) {
       FASIceSolver *solver = new FASIceSolver;
       solverPtr = solver;
 
-      solver->setParameters("FASSOLVER");
+      solver->setParameters("FASSolver");
 
     }
 #endif
