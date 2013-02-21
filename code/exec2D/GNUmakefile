@@ -37,10 +37,10 @@ BASE_DIR = ../
 
 EXEC_DIR = .
 
-#FAS = TRUE
-ifeq ($(FAS), TRUE)
+#USE_FAS = TRUE
+ifeq ($(USE_FAS), TRUE)
 #XTRACXXFLAGS = -DFAS_USE_NEW_PROL -DCH_HAS_FAS 
-XTRACXXFLAGS = -DCH_HAS_FAS 
+XTRACXXFLAGS = -DCH_USE_FAS 
 SRC_DIR = ../src  ../../../AMRFAS/src
 else
 SRC_DIR = ../src  

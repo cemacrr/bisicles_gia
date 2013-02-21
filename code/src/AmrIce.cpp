@@ -58,7 +58,7 @@ using std::string;
 #include "JFNKSolver.H"
 #include "PetscIceSolver.H"
 #include "RelaxSolver.H"
-#ifdef CH_HAS_FAS
+#ifdef CH_USE_FAS
 #include "FASIceSolverI.H"
 #endif
 #include "KnownVelocitySolver.H"
@@ -1729,7 +1729,7 @@ AmrIce::defineSolver()
         }
     }
 #endif
-#ifdef CH_HAS_FAS
+#ifdef CH_USE_FAS
   else if (m_solverType == FASMGAMR)
     {
             // for now, at least, just delete any existing solvers
