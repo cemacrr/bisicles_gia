@@ -28,7 +28,7 @@
 #include "CoarseAverageFace.H"
 #include "IceVelocity.H"
 #include "LevelSigmaCS.H"
-#ifdef CH_HAS_FAS
+#ifdef CH_USE_FAS
 #include "FASIceSolver.H"
 #endif
 
@@ -1029,7 +1029,7 @@ int main(int argc, char* argv[]) {
       solverPtr = new PetscIceSolver;
     }
 #endif
-#ifdef CH_HAS_FAS
+#ifdef CH_USE_FAS
   else if (solverType == FASMGAMR)
     {
       FASIceSolver *solver = new FASIceSolver;
