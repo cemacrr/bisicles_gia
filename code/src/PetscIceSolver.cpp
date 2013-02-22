@@ -97,14 +97,13 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *dummy )
   PetscErrorCode ierr;
   PetscSolverViscousTensor<LevelData<FArrayBox> > *solver;
   PetscIceSolver *tthis;
- 
+
   PetscFunctionBegin;
 
   ierr = SNESGetApplicationContext(snes,(void**)&solver); CHKERRQ(ierr);
   tthis = (PetscIceSolver*)solver->m_ctx;
 
   ierr = solver->putPetscInChombo( *tthis->m_tphi2, x );     CHKERRQ(ierr);
-  tthis->m_tphi2->exchange();
   
   tthis->updateCoefs( *tthis->m_tphi2 ); // needed because called before FormJacobian
 
@@ -421,7 +420,7 @@ PetscIceSolver::computeMu(LevelData<FArrayBox> &a_horizontalVel,
   LevelData<FArrayBox>& levelC = *m_C;
 
   // just in case, add an exchange here
-  levelVel.exchange();
+  //levelVel.exchange();
   //pout() << "PetscIceSolver::computeMu" << endl;
   // first set BC's on vel
   m_bc->velocityGhostBC(levelVel,
