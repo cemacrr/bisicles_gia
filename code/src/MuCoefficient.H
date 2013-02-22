@@ -18,6 +18,7 @@
 #include "LevelData.H"
 #include "FArrayBox.H"
 #include "LevelSigmaCS.H"
+
 #include "NamespaceHeader.H"
 
 
@@ -36,7 +37,6 @@ public:
   virtual MuCoefficient* new_muCoefficient() const = 0;
  /// define cell and face-centered coefficient
   virtual void setMuCoefficient(LevelData<FArrayBox>& a_muCoef,
-				LevelData<FluxBox>& a_faceMuCoef,
                                 LevelSigmaCS& a_coordSys,
                                 Real a_time,
                                 Real a_dt) = 0;
@@ -76,7 +76,6 @@ public:
   /** time and dt are included in case this is time-dependent.
   */
   virtual void setMuCoefficient(LevelData<FArrayBox>& a_cellMuCoef,
-				LevelData<FluxBox>& a_faceMuCoef,
                                 LevelSigmaCS& a_coordSys,
                                 Real a_time,
                                 Real a_dt);
@@ -114,7 +113,6 @@ public:
 
   virtual void setMuCoefficient
   (LevelData<FArrayBox>& a_muCoef,
-   LevelData<FluxBox>& a_faceMuCoef,
    LevelSigmaCS& a_coordSys,
    Real a_time,
    Real a_dt) ;
@@ -155,7 +153,12 @@ public:
 
   virtual void setMuCoefficient
   (LevelData<FArrayBox>& a_muCoef,
-   LevelData<FluxBox>& a_faceMuCoef,
+   RealVect a_dx,
+   Real a_time,
+   Real a_dt) ;
+
+  virtual void setMuCoefficient
+  (LevelData<FArrayBox>& a_muCoef,
    LevelSigmaCS& a_coordSys,
    Real a_time,
    Real a_dt) ;

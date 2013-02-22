@@ -75,9 +75,9 @@ constantFriction::new_basalFriction() const
   */
 void
 constantFriction::setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
-                                   LevelSigmaCS& a_coordSys,
-                                   Real a_time,
-                                   Real a_dt)
+				   LevelSigmaCS& a_coordSys,
+				   Real a_time,
+				   Real a_dt)
 {
   CH_assert(m_isValSet);
   DataIterator dit = a_betaSqr.dataIterator();
@@ -144,9 +144,9 @@ sinusoidalFriction::new_basalFriction() const
 */
 void
 sinusoidalFriction::setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
-                                     LevelSigmaCS& a_coordSys,
-                                     Real a_time,
-                                     Real a_dt)
+				     LevelSigmaCS& a_coordSys,
+				     Real a_time,
+				     Real a_dt)
 {
   RealVect twoPiOmega(m_omega);
   twoPiOmega /= m_domainSize;

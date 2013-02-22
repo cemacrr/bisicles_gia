@@ -45,6 +45,7 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
 			   BasalFrictionRelation* a_bfRelPtr,
 			   const Vector<RealVect>& a_dataDx,
 			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >& a_referenceCOrigin,
+			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >& a_referenceMuCoefOrigin,
 			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceVelObs,
 			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceVelCoef,
 			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceDivUHObs,
@@ -52,6 +53,7 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
 {
   m_dataDx = a_dataDx;
   m_referenceCOrigin = a_referenceCOrigin;
+  m_referenceMuCoefOrigin =  a_referenceMuCoefOrigin;
   m_referenceVelObs = a_referenceVelObs;
   m_referenceVelCoef = a_referenceVelCoef;
   m_referenceDivUHObs = a_referenceDivUHObs;
@@ -375,27 +377,10 @@ void AMRIceControl::levelSetup(int a_lev)
 
   //initial C
   fill(m_COrigin, m_referenceCOrigin, m_dataDx , a_lev, IntVect::Unit);
-
-
+  //initial muCoef
+  fill(m_muCoefOrigin, m_referenceMuCoefOrigin, m_dataDx , a_lev, IntVect::Unit);
 }
 
-
-// void AMRIceControl::create
-// (Vector<LevelData<FArrayBox>*>& a_data, const int a_ncomp, const IntVect& a_ghost)
-// {
-
-//   if (a_data.size() <= m_finestLevel)
-//     a_data.resize(m_finestLevel+1);
-
-//   for (int lev =0; lev <= m_finestLevel; lev++)
-//     {
-//       if (a_data[lev] != NULL)
-// 	delete a_data[lev];
-//       a_data[lev] = new LevelData<FArrayBox>
-// 	(m_grids[lev], a_ncomp, a_ghost);
-//     }
-  
-// }
 
 void AMRIceControl::fill
 (Vector<LevelData<FArrayBox>*>& a_data, const Vector<RefCountedPtr<LevelData<FArrayBox> > >& a_refData, 
@@ -728,7 +713,7 @@ void AMRIceControl::computeObjectiveAndGradient
 
   //compute C and muCoef from a_x : 
   //C = exp(a_x[0]) * COrigin
-  // muCoef = exp(a_x[1])
+  // muCoef = exp(a_x[1]) * muCoefOrigin
 
 #define CCOMP 0
 #define MUCOMP 1
@@ -752,6 +737,7 @@ void AMRIceControl::computeObjectiveAndGradient
       LevelData<FArrayBox>& levelCcopy =  *m_Ccopy[lev];
       LevelData<FArrayBox>& levelCOrigin =  *m_COrigin[lev];
       LevelData<FArrayBox>& levelMuCoef =  *m_muCoef[lev];
+      LevelData<FArrayBox>& levelMuCoefOrigin =  *m_muCoefOrigin[lev];
       const DisjointBoxLayout levelGrids =  m_grids[lev];
       
       for (DataIterator dit(levelGrids);dit.ok();++dit)
@@ -779,8 +765,9 @@ void AMRIceControl::computeObjectiveAndGradient
 	  thisCcopy.copy(thisC);
 
 	  FArrayBox& thisMuCoef = levelMuCoef[dit];
-	  Real initialMuCoef = 1.0;
-	  thisMuCoef.setVal(initialMuCoef);
+	  //Real initialMuCoef = 1.0;
+	  //thisMuCoef.setVal(initialMuCoef);
+	  thisMuCoef.copy(levelMuCoefOrigin[dit]);
 	  FORT_BOUNDEXPCTRL(CHF_FRA1(thisMuCoef,0),
 	  		    CHF_CONST_FRA1(levelX[dit],MUCOMP),
 	  		    CHF_CONST_REAL(m_boundArgX1),
@@ -1110,9 +1097,9 @@ void AMRIceControl::computeObjectiveAndGradient
     }
 
   //initialize  the gradient vector with the regularization terms R = (- a C lap(C)) 
-  // and barrier terms -{1/(x+b+tol) + 1/(x-b-tol)}
+ 
 
-  Real barrierCoefficient = 1.0e+3;
+  
   for (int lev = 0; lev <= m_finestLevel; lev++)
     {
       LevelData<FArrayBox>& levelG =  *a_g[lev];
@@ -1121,9 +1108,6 @@ void AMRIceControl::computeObjectiveAndGradient
       const LevelData<FArrayBox>& levelMuCoef  =  *m_muCoef[lev];
       const LevelData<FArrayBox>& levelLapC  =  *m_lapC[lev];
       const LevelData<FArrayBox>& levelLapMuCoef  =  *m_lapMuCoef[lev];
-
-      //LevelData<FArrayBox>& levelTikhonov =  *m_TikhonovPenalty[lev];
-      LevelData<FArrayBox>& levelBarrier =  *m_barrierPenalty[lev];
 
       for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
 	{
@@ -1140,9 +1124,6 @@ void AMRIceControl::computeObjectiveAndGradient
 	  t.copy(levelLapMuCoef[dit]);t*= levelMuCoef[dit]; t*= -m_gradMuCoefsqRegularization;
 	  thisG.plus(t,0,MUCOMP);
 
-	  
-	  //Real tol = 1.0e-6;
-	  const Box& b = m_grids[lev][dit];
 	  
 	  t.copy(thisX,CCOMP,0);
 	  t *= m_X0Regularization;

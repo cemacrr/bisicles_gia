@@ -47,7 +47,7 @@ public:
   virtual void setBasalFriction(LevelData<FArrayBox>& a_C,
                                 LevelSigmaCS& a_coordSys,
                                 Real a_time,
-				Real a_dt)
+                                Real a_dt)
   {
     FillFromReference(a_C, *m_C, a_coordSys.dx(),m_dx,m_verbose);
   }
@@ -94,21 +94,47 @@ public:
     return static_cast<BasalFriction*>(ptr);
   }
 
-  /// define basal friction coefficient C and place in a_betaSqr
-  /** time and dt are included in case this is time-dependent. Units 
-      should be Pa*a/m 
-  */
-  virtual void setBasalFriction(LevelData<FArrayBox>& a_C,
-                                LevelSigmaCS& a_coordSys,
-                                Real a_time,
-				Real a_dt)
+  void setBasalFriction(LevelData<FArrayBox>& a_C, 
+			RealVect a_dx,
+			Real a_time,
+			Real a_dt)
   {
     RealVect dx(m_dxCrse);
     for (int refDataLev = 0; refDataLev < m_C.size(); refDataLev++)
     {
-      FillFromReference(a_C, *m_C[refDataLev], a_coordSys.dx(), dx ,m_verbose);
+     
+      if (a_dx[0] < dx[0] && refDataLev > 0)
+	{
+	  //We need a LevelData<FArrayBox> whose DisjointBoxLayout covers
+	  //a_C's, but m_C[refDataLev] doesn't necessarily provide one. Since we secretly
+	  //want to be lisp programmers, we turn to recursion to build one,
+	  //throwing performance worries to the wind.
+	  //\todo consider modifying the BasalFriction interface to avoid recompuing levels 1 to n-1
+	  const int& nRef = int(dx[0]/a_dx[0]);
+	  DisjointBoxLayout crseDBL;
+	  coarsen(crseDBL, a_C.disjointBoxLayout(), nRef);
+	  LevelData<FArrayBox> crseC(crseDBL, 1 , IntVect::Zero);
+	  this->setBasalFriction(crseC , dx, a_time, a_dt);
+	  FillFromReference(a_C, crseC , a_dx, dx ,m_verbose);
+	}
+      else
+	{
+	  FillFromReference(a_C, *m_C[refDataLev], a_dx, dx ,m_verbose);
+	}
       dx /= Real(m_ratio[refDataLev]);
     }
+  }
+
+  /// define basal friction coefficient C and place in a_betaSqr
+  /** time and dt are included in case this is time-dependent. Units 
+      should be Pa*a/m 
+  */
+  virtual void setBasalFriction(LevelData<FArrayBox>& a_C, 
+                                LevelSigmaCS& a_coordSys,
+                                Real a_time,
+                                Real a_dt)
+  {
+    setBasalFriction(a_C,a_coordSys.dx(),a_time,a_dt);
   }
 
 protected:

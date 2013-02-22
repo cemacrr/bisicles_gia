@@ -362,6 +362,28 @@ int main(int argc, char* argv[]) {
 	 amrObject.setMuCoefficient(ptr);
 	 delete ptr;
       }
+    else if (muCoefType == "MultiLevelData")
+      {
+	//read a multi level muCoef from an AMR Hierarchy, and  store it in a MultiLevelDataMuCoeffcient
+	 ParmParse ildPP("inputLevelData");
+	 std::string infile;
+	 ildPP.get("muCoefFile",infile);
+	 std::string muCoefName = "muCoef";
+	 ildPP.query("muCoefName",muCoefName);
+	 
+	 Vector<Vector<RefCountedPtr<LevelData<FArrayBox> > > > vectMuCoef;
+	 Vector<std::string> names(1);
+	 names[0] = muCoefName;
+	 Real dx;
+	 Vector<int> ratio;
+	 readMultiLevelData(vectMuCoef,dx,ratio,infile,names,1);
+	 RealVect dxCrse = RealVect::Unit * dx;
+	 MuCoefficient* ptr = static_cast<MuCoefficient*>
+	   (new MultiLevelDataMuCoefficient(vectMuCoef[0],dxCrse,ratio));
+	 amrObject.setMuCoefficient(ptr);
+	 delete ptr;
+      }
+
     else
       {
 	MayDay::Error("undefined MuCoefficient in inputs");
@@ -521,6 +543,24 @@ int main(int argc, char* argv[]) {
 	 RealVect levelDx = RealVect::Unit * dx;
 	 basalFrictionPtr = static_cast<BasalFriction*>
 	   (new LevelDataBasalFriction(levelC,levelDx));
+       }
+         else if (beta_type == "MultiLevelData")
+       {
+	 //read a multi level beta^2 from an AMR Hierarchy, and  store it in a MultiLevelDataBasalFriction
+	 ParmParse ildPP("inputLevelData");
+	 std::string infile;
+	 ildPP.get("frictionFile",infile);
+	 std::string frictionName = "btrc";
+	 ildPP.query("frictionName",frictionName);
+	 Vector<Vector<RefCountedPtr<LevelData<FArrayBox> > > > vectC;
+	 Real dx;
+	 Vector<int> ratio;
+	 Vector<std::string> names(1);
+	 names[0] = frictionName;
+	 readMultiLevelData(vectC,dx,ratio,infile,names,1);
+	 RealVect dxCrse = RealVect::Unit * dx;
+	 basalFrictionPtr = static_cast<BasalFriction*>
+	   (new MultiLevelDataBasalFriction(vectC[0],dxCrse,ratio));
        }
 #ifdef HAVE_PYTHON
     else if (beta_type == "Python")

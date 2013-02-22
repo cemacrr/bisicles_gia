@@ -4740,7 +4740,7 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 
 
 
-	  CH_assert(thisRhs.norm(0,0,SpaceDim) < HUGE_NORM);
+	  // CH_assert(thisRhs.norm(0,0,SpaceDim) < HUGE_NORM);
 
 	 
 
@@ -4764,7 +4764,7 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 	    }
 
 	  
-	  CH_assert(thisRhs.norm(0,0,SpaceDim) < HUGE_NORM);
+	  //CH_assert(thisRhs.norm(0,0,SpaceDim) < HUGE_NORM);
 	  
 	  
 	  FArrayBox& thisC = levelC[dit];
@@ -4826,13 +4826,24 @@ AmrIce::setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef,
   for (int lev=0; lev<=m_finest_level; lev++)
     {
       m_muCoefficientPtr->setMuCoefficient(*a_cellMuCoef[lev],
-					   *a_faceMuCoef[lev],
 					   *m_vect_coordSys[lev],
                                            m_time,
                                            m_dt);
+      if (lev > 0)
+	{
+	  PiecewiseLinearFillPatch ghostFiller
+	    (m_amrGrids[lev],m_amrGrids[lev-1],1,m_amrDomains[lev-1],
+	     m_refinement_ratios[lev-1],1);
+	  
+	  ghostFiller.fillInterp(*a_cellMuCoef[lev],
+				 *a_cellMuCoef[lev-1],
+				 *a_cellMuCoef[lev-1],
+				 1.0,0,0,1);
+	}
+      a_cellMuCoef[lev]->exchange();
+      CellToEdge(*m_cellMuCoef[lev], *m_faceMuCoef[lev]);
     }
-
-}
+ }
 
 
 /// set basal friction coefficient (beta) prior to velocity solve

@@ -66,6 +66,7 @@ int main(int argc, char* argv[]) {
     Vector<RefCountedPtr<LevelData<FArrayBox> > > velObs;
     Vector<RefCountedPtr<LevelData<FArrayBox> > > velCoef;
     Vector<RefCountedPtr<LevelData<FArrayBox> > > originC;
+    Vector<RefCountedPtr<LevelData<FArrayBox> > > originMuCoef;
     Vector<RefCountedPtr<LevelData<FArrayBox> > > divUHObs;
     Vector<RefCountedPtr<LevelData<FArrayBox> > > divUHCoef;
     
@@ -86,6 +87,15 @@ int main(int argc, char* argv[]) {
 	std::string frictionName = "beta";
 	ildPP.query("frictionName",frictionName);
 	names.push_back(frictionName);
+
+	std::string muCoefName = "";
+	ildPP.query("muCoefName",muCoefName);
+	if (muCoefName != "")
+	  {
+	    //loading muCoef is optional
+	    names.push_back(muCoefName);
+	  }
+
 	std::string xvelName = "xvel";
 	ildPP.query("xvelName",xvelName);
 	names.push_back(xvelName);
@@ -113,6 +123,23 @@ int main(int argc, char* argv[]) {
 	  {
 	    int j = 0;
 	    originC.push_back( vectData[j++][lev]);
+	    if (muCoefName != "")
+	      {
+		originMuCoef.push_back( vectData[j++][lev]);
+	      }
+	    else
+	      {
+		//if there was no initial muCoef, then muCoef = 1.0 is appropriate
+		//for backward compatibility and in general.
+		originMuCoef.push_back
+		  (RefCountedPtr<LevelData<FArrayBox> >
+		   (new  LevelData<FArrayBox>
+		    (originC[lev]->disjointBoxLayout(),originC[lev]->nComp(),originC[lev]->ghostVect())));
+		for (DataIterator dit(originMuCoef[lev]->disjointBoxLayout());dit.ok();++dit)
+		  {
+		    (*originMuCoef[lev])[dit].setVal(1.0);
+		  }
+	      }
 	    xVelObs.push_back( vectData[j++][lev]);
 	    yVelObs.push_back( vectData[j++][lev]);
 	    velCoef.push_back( vectData[j++][lev]);
@@ -300,7 +327,7 @@ int main(int argc, char* argv[]) {
 
     AMRIceControl amrIceControl;
     amrIceControl.define(thicknessIBC, temperatureIBC,  rateFactorPtr, constRelPtr , 
-			 basalFrictionRelationPtr,dataDx,originC,velObs,
+			 basalFrictionRelationPtr,dataDx,originC,originMuCoef,velObs,
 			 velCoef,divUHObs,divUHCoef);
 
     std::string problem = "control";

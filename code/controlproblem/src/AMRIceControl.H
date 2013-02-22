@@ -84,6 +84,9 @@ class AMRIceControl
   Vector<LevelData<FArrayBox>*> m_lapC;
   Vector<LevelData<FArrayBox>*> m_gradCSq;
   // coefficients of mu.
+  // m_muCoef = exp(X[0]) * m_referenceMuCoefOrigin;
+  Vector<LevelData<FArrayBox>*> m_muCoefOrigin;
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > m_referenceMuCoefOrigin;
   Vector<LevelData<FArrayBox>*> m_muCoef;
   Vector<LevelData<FArrayBox>*> m_lapMuCoef;
   Vector<LevelData<FArrayBox>*> m_gradMuCoefSq;
@@ -169,6 +172,7 @@ public:
 	      BasalFrictionRelation* a_bfRelPtr,
 	      const Vector<RealVect>& a_dataDx,
 	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >& a_referenceCOrigin,
+	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >& a_referenceMuCoefOrigin,
 	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceVelObs,
 	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceVelCoef,
 	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceDivUHObs,
