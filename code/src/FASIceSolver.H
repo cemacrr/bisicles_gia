@@ -85,7 +85,7 @@ public:
 
   virtual bool computeState( RefCountedPtr<LevelData<FArrayBox> > a_phi, 
 			     const RefCountedPtr<LevelData<FArrayBox> > a_CrsPhi,
-			     const RefCountedPtr<LevelData<FArrayBox> > a_CrsPhi 
+			     const RefCountedPtr<LevelData<FArrayBox> > a_FinePhi 
 			     );
 
 protected:
