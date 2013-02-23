@@ -4395,7 +4395,7 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
 		  pout() << "computing an initial guess by solving the velocity equations "
 			 <<" with constant mu = " 
 			 << m_initialGuessConstMu   
-			 << "and constant initial velcocity = " << m_initialGuessConstVel
+			 << " and constant initial velocity = " << m_initialGuessConstVel
 			 << endl;
 		}
 	      // compute initial guess by solving a linear problem with a
