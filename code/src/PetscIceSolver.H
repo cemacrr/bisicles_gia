@@ -103,6 +103,7 @@ protected:
   RefCountedPtr<LevelData<FluxBox> > m_Lambda;
   // beta is used to scale C below
   RefCountedPtr<LevelData<FArrayBox> > m_Beta;
+  RefCountedPtr<LevelData<FArrayBox> > m_Beta0;
   // C here is the sliding coefficient -- the "acoeff" in terms of the viscousTensorOp
   RefCountedPtr<LevelData<FArrayBox> > m_C;
 

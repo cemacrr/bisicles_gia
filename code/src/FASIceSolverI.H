@@ -10,14 +10,13 @@
 
 #include "FASIceSolver.H" 
 #include "ParmParse.H"
-#include "QuadCFInterp.H"
+//#include "QuadCFInterp.H"
 #include "CornerCopier.H"
 #include "CoarseAverage.H"
 #include "CoarseAverageFace.H"
 #include "ExtrapBCF_F.H"
 #include "IceConstants.H"
-#include "CoarseAverageFace.H"
-#include "AMRIO.H"
+//#include "AMRIO.H"
 #include "NamespaceHeader.H"
 
 static bool s_always_recompute_mu = false; // this does help convergance but it is much slower

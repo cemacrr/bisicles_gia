@@ -11,12 +11,10 @@
 #include "PetscIceSolver.H"
 #include "ViscousTensorOp.H"
 #include "ParmParse.H"
-#include "QuadCFInterp.H"
 #include "CornerCopier.H"
-#include "CoarseAverage.H"
-#include "CoarseAverageFace.H"
 #include "ExtrapBCF_F.H"
 #include "IceConstants.H"
+#include "BisiclesF_F.H"
 //#include "AMRIO.H"
 #include "NamespaceHeader.H"
 
@@ -198,6 +196,9 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
   m_Beta = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(m_grid,
 									 1, 
 									 IntVect::Zero));
+  m_Beta0 = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(m_grid,
+									 1, 
+									 IntVect::Zero));
 
   // C only has one component...
   m_C = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(m_grid, 
@@ -256,12 +257,15 @@ PetscIceSolver::solve(Vector<LevelData<FArrayBox>* >& a_horizontalVel,
   {
     LevelData<FArrayBox>& localBeta = *m_Beta;
     LevelData<FArrayBox>& argBeta = *a_beta[0];
+    LevelData<FArrayBox>& localBeta0 = *m_Beta0;
+    LevelData<FArrayBox>& argBeta0 = *a_beta0[0];
     CH_assert(localBeta.nComp() == argBeta.nComp());
 
     DataIterator dit = localBeta.dataIterator();
     for (dit.begin(); dit.ok(); ++dit)
       {
 	localBeta[dit].copy(argBeta[dit]);
+	localBeta0[dit].copy(argBeta0[dit]);
       }
   }
 
@@ -406,10 +410,10 @@ PetscIceSolver::getOperatorScaleFactors(Real& a_alpha, Real& a_beta) const
 ////////////////////////////////////////////////////////////////////////
 // isothermal version -- for the ViscousTensorOp, lambda = 2*mu
 void 
-PetscIceSolver::computeMu(LevelData<FArrayBox> &a_horizontalVel,
-			  const LevelData<FluxBox> &a_A, 
-			  const RefCountedPtr<LevelSigmaCS> &a_coordSys,
-			  Real a_time)
+PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
+			   const LevelData<FluxBox> &a_A, 
+			   const RefCountedPtr<LevelSigmaCS> &a_coordSys,
+			   Real a_time)
 {
   CH_TIME("PetscIceSolver::computeMu");
   ProblemDomain levelDomain = m_domain;
@@ -420,6 +424,7 @@ PetscIceSolver::computeMu(LevelData<FArrayBox> &a_horizontalVel,
   const LevelData<FluxBox>& levelA = a_A;
   LevelData<FluxBox>& levelLambda = *m_Lambda;
   const LevelData<FArrayBox>& levelBeta = *m_Beta;
+  const LevelData<FArrayBox>& levelBeta0 = *m_Beta0;
   LevelData<FArrayBox>& levelC = *m_C;
 
   // just in case, add an exchange here
@@ -434,32 +439,23 @@ PetscIceSolver::computeMu(LevelData<FArrayBox> &a_horizontalVel,
   //but not the corners. We need them filled to compute the
   //rate-of-strain invariant, so here is a bodge for now
   DataIterator dit = levelGrids.dataIterator();
-  if (SpaceDim == 2)
-    {
-      for (dit.begin(); dit.ok(); ++dit)
-	{
-	  Box sbox = levelVel[dit].box();
-	  sbox.grow(-1);
-	  FORT_EXTRAPCORNER2D(CHF_FRA(levelVel[dit]),
-			      CHF_BOX(sbox));
-	}
-      
-    }
+  // if (SpaceDim == 2)
+  //   {
+  //     for (dit.begin(); dit.ok(); ++dit)
+  // 	{
+  // 	  Box sbox = levelVel[dit].box();
+  // 	  sbox.grow(-1);
+  // 	  FORT_EXTRAPCORNER2D(CHF_FRA(levelVel[dit]),
+  // 			      CHF_BOX(sbox));
+  // 	}
+
+  //   }
   
   // actually need to use a cornerCopier, too...
   CornerCopier cornerCopier(levelGrids, levelGrids, 
 			    levelDomain,levelVel.ghostVect(),
 			    true);
   levelVel.exchange(cornerCopier);      
-
-  // constant temperature...
-  LevelData<FluxBox> theta(levelGrids, 1, IntVect::Unit);   
-  LevelData<FArrayBox> cellTheta(levelGrids, 1, IntVect::Unit);         
-  for (dit.begin(); dit.ok(); ++dit)
-    {
-      theta[dit].setVal(m_constThetaVal);
-      cellTheta[dit].setVal(m_constThetaVal);          
-    }
   
   LevelData<FArrayBox>* crseVelPtr = NULL;
   int nRefCrse = -1;  
@@ -475,14 +471,50 @@ PetscIceSolver::computeMu(LevelData<FArrayBox> &a_horizontalVel,
   
   // now multiply by ice thickness H
   const LevelData<FluxBox>& faceH = levelCS.getFaceH();
-
+  Real muMax = 1.23456789e+300;
+  Real muMin = 0.0;
   for (dit.begin(); dit.ok(); ++dit)
     {
       for (int dir=0; dir<SpaceDim; dir++)
 	{
-	  levelMu[dit][dir].mult(faceH[dit][dir],
-				 levelMu[dit][dir].box(),0,0,1);
+	  FArrayBox& thisMu = levelMu[dit][dir];
+	  const Box& box = thisMu.box();
+	  	  
+	  FORT_MAXFAB1(CHF_FRA(thisMu),
+		       CHF_CONST_REAL(muMin),
+		       CHF_BOX(box));
+	  
+	  thisMu.mult(faceH[dit][dir],box,0,0,1);
+
+	  FORT_MINFAB1(CHF_FRA(thisMu),
+		       CHF_CONST_REAL(muMax),
+		       CHF_BOX(box));
 	}    
+      
+      // also update alpha (or C)
+      const Box& gridBox = levelGrids[dit];
+      m_basalFrictionRelPtr->computeAlpha
+	(levelC[dit], levelVel[dit], levelCS.getThicknessOverFlotation()[dit], 
+	 levelBeta[dit], levelCS.getFloatingMask()[dit] ,gridBox);
+      
+      levelC[dit] += levelBeta0[dit];
+
+      
+#if CH_SPACEDIM==2
+      {
+	Real mu0 = 1.0;
+	Real C0 = 1.0;
+	
+	FORT_ENFORCEWELLPOSEDCELL
+	  (CHF_FRA1(levelC[dit],0),
+	   CHF_FRA1(levelMu[dit][0],0),
+	   CHF_FRA1(levelMu[dit][1],0),
+	   CHF_CONST_REAL(mu0),
+	   CHF_CONST_REAL(C0),
+	   CHF_BOX(levelGrids[dit]));
+	
+      }
+#endif
 
       // lambda = 2*mu
       FluxBox& lambda = levelLambda[dit];
@@ -491,12 +523,7 @@ PetscIceSolver::computeMu(LevelData<FArrayBox> &a_horizontalVel,
 	  lambda[dir].copy(levelMu[dit][dir]);
 	  lambda[dir] *= 2.0;
 	}
-      
-      // also update alpha (or C)
-      const Box& gridBox = levelGrids[dit];
-      m_basalFrictionRelPtr->computeAlpha
-	(levelC[dit], levelVel[dit], levelCS.getThicknessOverFlotation()[dit], 
-	 levelBeta[dit], levelCS.getFloatingMask()[dit] ,gridBox);
+
     }
 }
 #include "NamespaceFooter.H"
