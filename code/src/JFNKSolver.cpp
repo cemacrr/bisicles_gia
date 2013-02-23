@@ -818,7 +818,6 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 		      Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
 		      Real a_time,  int a_lbase, int a_maxLevel)
 {
-
   CH_TIME("JFNKSolver::solve");
 
   int returnCode = 0;
@@ -845,7 +844,6 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
      faceA[lev] = new LevelData<FluxBox>
        (m_grids[lev], a_A[lev]->nComp(), IntVect::Zero);
      CellToEdge(*a_A[lev] , *faceA[lev]);
-
    }
  
 

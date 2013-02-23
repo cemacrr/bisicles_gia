@@ -411,7 +411,7 @@ PetscIceSolver::getOperatorScaleFactors(Real& a_alpha, Real& a_beta) const
 // isothermal version -- for the ViscousTensorOp, lambda = 2*mu
 void 
 PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
-			   const LevelData<FluxBox> &a_A, 
+			   const LevelData<FluxBox> &a_faceA, 
 			   const RefCountedPtr<LevelSigmaCS> &a_coordSys,
 			   Real a_time)
 {
@@ -421,7 +421,7 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
   const LevelSigmaCS& levelCS = *a_coordSys;
   LevelData<FArrayBox>& levelVel = a_horizontalVel;
   LevelData<FluxBox>& levelMu = *m_Mu;
-  const LevelData<FluxBox>& levelA = a_A;
+  const LevelData<FluxBox>& levelA = a_faceA;
   LevelData<FluxBox>& levelLambda = *m_Lambda;
   const LevelData<FArrayBox>& levelBeta = *m_Beta;
   const LevelData<FArrayBox>& levelBeta0 = *m_Beta0;

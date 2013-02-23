@@ -164,6 +164,12 @@ FASIceViscouseTensorOp::restrictState( RefCountedPtr<AMRFASOp<LevelData<FArrayBo
       m_faceA = RefCountedPtr<LevelData<FluxBox> >(new LevelData<FluxBox>( m_grid,
 									   aNC,
 									   IntVect::Unit) );
+      // zero out because averageToCoarse does not fill everything?
+      DataIterator dit = m_faceA->dataIterator();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          (*m_faceA)[dit].setVal(0.);
+	}
     }
   
   // restrict stuff that was copied in solver: m_faceA, m_Beta, m_Beta0
@@ -414,7 +420,7 @@ FASIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       LevelData<FArrayBox>& argA = *a_A[lev];
       CellToEdge( argA, *op->m_faceA );
 
-      // copy beta into local storage, m_faceA computed for coarse grids in callback in solver
+      // copy beta into local storage computed for coarse grids in callback in solver
       LevelData<FArrayBox>& localBeta = *op->m_Beta;
       LevelData<FArrayBox>& argBeta =   *a_beta[lev];
       LevelData<FArrayBox>& localBeta0 = *op->m_Beta0;
