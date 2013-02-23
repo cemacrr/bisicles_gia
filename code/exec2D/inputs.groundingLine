@@ -19,7 +19,7 @@ CalvingModel.front_lo = 0 0 # for half-domain
 CalvingModel.front_hi = 1 0
 
 surfaceFlux.type = constantFlux
-surfaceFlux.flux_value = 0.3
+surfaceFlux.flux_value = 5.0
 basalFlux.type = zeroFlux
 
 geometry.problem_type = marineIceSheet
