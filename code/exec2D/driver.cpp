@@ -949,7 +949,7 @@ int main(int argc, char* argv[]) {
       {
 	ParmParse ildPP("inputLevelData");
 	LevelDataTemperatureIBC* ptr = NULL;
-	CH_assert( (ptr = LevelDataTemperatureIBC::parse(ildPP)) != NULL);
+	ptr = LevelDataTemperatureIBC::parse(ildPP); CH_assert(ptr != NULL);
 	temperatureIBC  = static_cast<IceTemperatureIBC*>(ptr);
       }
 #ifdef HAVE_PYTHON

@@ -84,6 +84,7 @@ public:
 			      Copier &a_copier );
 
   virtual bool computeState( RefCountedPtr<LevelData<FArrayBox> > a_phi, 
+			     const RefCountedPtr<LevelData<FArrayBox> > a_CrsPhi,
 			     const RefCountedPtr<LevelData<FArrayBox> > a_CrsPhi 
 			     );
 
@@ -108,7 +109,8 @@ protected:
   // compute face-centered coefficients for tensor solver (really
   // winds up being H*mu) -- non-isothermal version...
   void computeMu( LevelData<FArrayBox> &a_vel,
-		  const LevelData<FArrayBox>* a_crseVel
+		  const LevelData<FArrayBox>* a_crseVel,
+		  const LevelData<FArrayBox>*
 		  );
 
 public:  
@@ -126,6 +128,7 @@ public:
 
   // beta is used to scale C below
   RefCountedPtr<LevelData<FArrayBox> > m_Beta;     // set in solver from a_beta
+  RefCountedPtr<LevelData<FArrayBox> > m_Beta0;     // set in solver from a_beta0
   RefCountedPtr<LevelData<FluxBox> >   m_faceA;    // derived in solver from m_A
   // Viscous tensor operator
   ViscousTensorOp* m_VTO;
@@ -183,7 +186,7 @@ public:
 		     Real& a_finalResidualNorm,
 		     const Real a_convergenceMetric,
 		     const Vector<LevelData<FArrayBox>* >& a_rhs,
-		     const Vector<LevelData<FArrayBox>* >& a_C,
+		     const Vector<LevelData<FArrayBox>* >& a_C, // beta
 		     const Vector<LevelData<FArrayBox>* >& a_C0,
 		     const Vector<LevelData<FArrayBox>* >& a_A,
 		     const Vector<LevelData<FluxBox>* >& a_muCoef,

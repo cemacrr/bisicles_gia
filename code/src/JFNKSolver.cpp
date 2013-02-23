@@ -477,10 +477,6 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
                             m_dxs[lev][0], m_refRatio[lev-1], 
                             2, levelDomain);
           qcfi.coarseFineInterp(levelVel, *a_u[lev-1]);
-
-
-
-
         }
 
       //slc : qcfi.coarseFineInterp fills the edges of lev > 0 cells
@@ -503,9 +499,7 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
       CornerCopier cornerCopier(levelGrids, levelGrids, 
                                 levelDomain,levelVel.ghostVect(),
                                 true);
-      levelVel.exchange(cornerCopier);      
-
-      IntVect ghostVect = IntVect::Unit;
+      levelVel.exchange(cornerCopier);
            
       (*m_constRelPtr).computeFaceMu(levelMu,
                                      levelVel,
@@ -516,7 +510,6 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
 				     levelDomain,
                                      IntVect::Zero);
 
-	  
       // now limit and  multiply by ice thickness H
       const LevelData<FluxBox>& faceH = levelCoords.getFaceH();
       LevelData<FluxBox>* muCoefPtr = m_muCoef[lev];

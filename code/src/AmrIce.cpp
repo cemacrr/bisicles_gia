@@ -3798,7 +3798,7 @@ AmrIce::initGrids(int a_finest_level)
   
   DisjointBoxLayout baseGrids(baseBoxes, procAssign, m_amrDomains[0]);
 
-  if (s_verbosity > 2) 
+  if (s_verbosity > 3) 
     {
       long long numCells0 = baseGrids.numCells();
       pout() << "Level 0: " << numCells0 << " cells: " << baseGrids << endl;

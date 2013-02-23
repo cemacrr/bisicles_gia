@@ -91,6 +91,8 @@ PetscIceSolver::~PetscIceSolver()
    Output Parameter:
 .  f - vector
  */
+#undef __FUNCT__
+#define __FUNCT__ "FormFunction"
 PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *dummy )
 {
   CH_TIME("PetscIceSolver::FormFunction");
@@ -130,6 +132,8 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *dummy )
 .  prejac - different preconditioning matrix
 .  flag - flag indicating matrix structure
 */
+#undef __FUNCT__
+#define __FUNCT__ "FormJacobian"
 PetscErrorCode FormJacobian( SNES snes,Vec x,Mat *jac,Mat *prejac,MatStructure *flag, void *dummy )
 {
   CH_TIME("PetscIceSolver::FormJacobian");
@@ -144,7 +148,6 @@ PetscErrorCode FormJacobian( SNES snes,Vec x,Mat *jac,Mat *prejac,MatStructure *
   tthis = (PetscIceSolver*)solver->m_ctx;
 
   ierr = solver->putPetscInChombo( *tthis->m_tphi2, x );     CHKERRQ(ierr);
-  tthis->m_tphi2->exchange(); 
 
   ierr = solver->formMatrix( *prejac, *tthis->m_tphi2 ); CHKERRQ(ierr);
   

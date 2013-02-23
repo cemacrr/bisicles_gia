@@ -44,6 +44,9 @@ FASIceViscouseTensorOp::FASIceViscouseTensorOp( int a_o,
   m_Beta = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(a_grid,
 									 1, 
 									 IntVect::Zero));
+  m_Beta0 = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(a_grid,
+									  1, 
+									  IntVect::Zero));
 }
 
 // ---------------------------------------------------------
@@ -70,7 +73,7 @@ FASIceViscouseTensorOp::applyLevel( LevelData<FArrayBox>& a_lhs,
     {
       LevelData<FArrayBox>& phi = (LevelData<FArrayBox>&)a_phi; // need to force
       
-      computeMu( phi, 0 ); // lets do this a lot for now
+      computeMu( phi, 0, 0 ); // lets do this a lot for now
       // trick to get VTO to recompute D^-1 (m_relaxCoef)
       m_VTO->setAlphaAndBeta( m_VTO->getAlpha(), m_VTO->getBeta() ); 
       // this is used for G-S and Rich
@@ -95,7 +98,7 @@ FASIceViscouseTensorOp::levelGSRB( RefCountedPtr<LevelData<FArrayBox> > a_phi,
     {
       LevelData<FArrayBox>& phi = *a_phi; 
       
-      computeMu( phi, 0 ); // lets do this a lot for now  
+      computeMu( phi, 0, 0 ); // lets do this a lot for now  
       // trick to get VTO to recompute D^-1 (m_relaxCoef)
       m_VTO->setAlphaAndBeta( m_VTO->getAlpha(), m_VTO->getBeta() ); 
       scale( m_VTO->m_relaxCoef, m_smoothing_damping_factor );
@@ -164,19 +167,20 @@ FASIceViscouseTensorOp::restrictState( RefCountedPtr<AMRFASOp<LevelData<FArrayBo
 									   IntVect::Unit) );
     }
   
-  // restrict stuff that was copied in solver: m_faceA, m_Beta
+  // restrict stuff that was copied in solver: m_faceA, m_Beta, m_Beta0
   CoarseAverageFace face_crs( fdbl, aNC, nRef );
   face_crs.averageToCoarse( *m_faceA, f_faceA );
   
-  // restrict m_Beta
+  // restrict m_Beta, m_Beta0
   {
-    const LevelData<FArrayBox>& f_beta = *fop->m_Beta;
-    LevelData<FArrayBox> crs_beta, &c_beta = *m_Beta;
+    const LevelData<FArrayBox> &f_beta = *fop->m_Beta, &f_beta0 = *fop->m_Beta0;
+    LevelData<FArrayBox> crs_beta, &c_beta = *m_Beta, &c_beta0 = *m_Beta0;
     
     DisjointBoxLayout dblCoarsenedFine;
     coarsen( dblCoarsenedFine, f_beta.disjointBoxLayout(), nRef );
     crs_beta.define( dblCoarsenedFine, f_beta.nComp(), f_beta.ghostVect() );
     fop->AMRRestrict( c_beta, f_beta, crs_beta, a_copier );
+    fop->AMRRestrict( c_beta0, f_beta0, crs_beta, a_copier );
   }
 
 }
@@ -184,13 +188,14 @@ FASIceViscouseTensorOp::restrictState( RefCountedPtr<AMRFASOp<LevelData<FArrayBo
 // ---------------------------------------------------------
 bool
 FASIceViscouseTensorOp::computeState( RefCountedPtr<LevelData<FArrayBox> > a_phi, 
-				      const RefCountedPtr<LevelData<FArrayBox> > a_CrsPhi 
+				      const RefCountedPtr<LevelData<FArrayBox> > a_CrsPhi,
+ 				      const RefCountedPtr<LevelData<FArrayBox> > a_FinePhi
 				      )
 {
   CH_TIME("FASIceViscouseTensorOp::recomputeState");
   if( !s_always_recompute_mu )
     {
-      computeMu( *a_phi, a_CrsPhi );
+      computeMu( *a_phi, a_CrsPhi, a_FinePhi );
       // trick to get VTO to recompute D^-1 (m_relaxCoef)
       m_VTO->setAlphaAndBeta( m_VTO->getAlpha(), m_VTO->getBeta() ); 
       // this is used for G-S and Rich
@@ -413,12 +418,15 @@ FASIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       // copy beta into local storage, m_faceA computed for coarse grids in callback in solver
       LevelData<FArrayBox>& localBeta = *op->m_Beta;
       LevelData<FArrayBox>& argBeta =   *a_beta[lev];
+      LevelData<FArrayBox>& localBeta0 = *op->m_Beta0;
+      LevelData<FArrayBox>& argBeta0 =   *a_beta0[lev];
       CH_assert(localBeta.nComp() == argBeta.nComp());
 
       DataIterator dit = localBeta.dataIterator();
       for (dit.begin(); dit.ok(); ++dit)
         {
           localBeta[dit].copy(argBeta[dit]);
+          localBeta0[dit].copy(argBeta0[dit]);
         }
       
       // cache args
@@ -508,7 +516,8 @@ FASIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 //
 void 
 FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
-				   const LevelData<FArrayBox>* a_crsVel
+				   const LevelData<FArrayBox>* a_crsVel,
+				   const LevelData<FArrayBox>* a_fineVel
 				   )
 { 
   const DisjointBoxLayout& levelGrids =    m_grid;
@@ -518,9 +527,20 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
   LevelData<FluxBox>&      levelLambda =  *m_VTO->getLambda();
   const LevelData<FluxBox>&levelA =       *m_faceA;
   const LevelData<FArrayBox>& levelBeta = *m_Beta;
+  const LevelData<FArrayBox>& levelBeta0 = *m_Beta0;
   LevelData<FArrayBox>&    levelC =       *m_VTO->getACoef(); // not intuitive: VTO acoef == solver C
 
-  // side effect, does exchange
+  if (a_fineVel)
+    {
+      CoarseAverage averager(a_fineVel->getBoxes(),
+  			     levelGrids,
+  			     a_fineVel->nComp(),
+			     refToFiner());
+      
+      averager.averageToCoarse(levelVel, *a_fineVel);
+    }
+
+  // side effect, does exchange, needed?
   levelVel.exchange( m_exchangeCopier );
 
   // first set BC's on vel
@@ -533,32 +553,22 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
   //but not the corners. We need them filled to compute the
   //rate-of-strain invariant, so here is a bodge for now
   DataIterator dit = levelGrids.dataIterator();
-  if (SpaceDim == 2)
-    {
-      for (dit.begin(); dit.ok(); ++dit)
-	{
-	  Box sbox = levelVel[dit].box();
-	  sbox.grow(-1);
-	  FORT_EXTRAPCORNER2D(CHF_FRA(levelVel[dit]),
-			      CHF_BOX(sbox));
-	}
-      
-    }
+  // if (SpaceDim == 2)
+  //   {
+  //     for (dit.begin(); dit.ok(); ++dit)
+  // 	{
+  // 	  Box sbox = levelVel[dit].box();
+  // 	  sbox.grow(-1);
+  // 	  FORT_EXTRAPCORNER2D(CHF_FRA(levelVel[dit]),
+  // 			      CHF_BOX(sbox));
+  // 	}
+  //   }
 
   // actually need to use a cornerCopier, too ... really ??
   CornerCopier cornerCopier(levelGrids, levelGrids, 
-			    m_domain,levelVel.ghostVect(),
-			    true);
+  			    m_domain,levelVel.ghostVect(),
+  			    true);
   levelVel.exchange(cornerCopier);
-
-  // constant temperature...
-  LevelData<FluxBox> theta(levelGrids, 1, IntVect::Unit);   
-  LevelData<FArrayBox> cellTheta(levelGrids, 1, IntVect::Unit);         
-  for (dit.begin(); dit.ok(); ++dit)
-    {
-      theta[dit].setVal(m_constThetaVal);
-      cellTheta[dit].setVal(m_constThetaVal);          
-    }
 
   IntVect muGhost = IntVect::Zero;
   (*m_constRelPtr).computeFaceMu( levelMu,
@@ -572,17 +582,52 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
 
   // now multiply by ice thickness H
   const LevelData<FluxBox>& faceH = levelCS.getFaceH();
-  
+  Real muMax = 1.23456789e+300;
+  Real muMin = 0.0;
   for (dit.begin(); dit.ok(); ++dit)
     {
-      
+
       for (int dir=0; dir<SpaceDim; dir++)
 	{
-	  levelMu[dit][dir].mult(faceH[dit][dir],
-				 levelMu[dit][dir].box(),0,0,1);
+	  FArrayBox& thisMu = levelMu[dit][dir];
+	  const Box& box = thisMu.box();
+
+	  FORT_MAXFAB1(CHF_FRA(thisMu),
+		       CHF_CONST_REAL(muMin),
+		       CHF_BOX(box));
+
+	  thisMu.mult(faceH[dit][dir],box,0,0,1);
+	  CH_assert(thisMu.min() >= 0.0);
+	  
+	  FORT_MINFAB1(CHF_FRA(thisMu),
+		       CHF_CONST_REAL(muMax),
+		       CHF_BOX(box));
 	}
-      
-      
+
+      // also update alpha (or C)
+      const Box& gridBox = levelGrids[dit];
+      m_basalFrictionRelPtr->computeAlpha
+	(levelC[dit], levelVel[dit], levelCS.getThicknessOverFlotation()[dit], levelBeta[dit] ,
+	 levelCS.getFloatingMask()[dit],gridBox);
+
+      levelC[dit] += levelBeta0[dit];
+
+#if CH_SPACEDIM==2
+      {
+	Real mu0 = 1.0;
+	Real C0 = 1.0;
+	
+	FORT_ENFORCEWELLPOSEDCELL
+	  (CHF_FRA1(levelC[dit],0),
+	   CHF_FRA1(levelMu[dit][0],0),
+	   CHF_FRA1(levelMu[dit][1],0),
+	   CHF_CONST_REAL(mu0),
+	   CHF_CONST_REAL(C0),
+	   CHF_BOX(levelGrids[dit]));
+	
+      }
+#endif
+
       // lambda = 2*mu
       FluxBox& lambda = levelLambda[dit];
       for (int dir=0; dir<SpaceDim; dir++)
@@ -590,13 +635,6 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
 	  lambda[dir].copy(levelMu[dit][dir]);
 	  lambda[dir] *= 2.0;
 	}
-      
-      // also update alpha (or C)
-      const Box& gridBox = levelGrids[dit];
-      m_basalFrictionRelPtr->computeAlpha
-	(levelC[dit], levelVel[dit], levelCS.getThicknessOverFlotation()[dit], levelBeta[dit] ,
-	 levelCS.getFloatingMask()[dit],gridBox);
-
     }
 }
 
