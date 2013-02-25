@@ -13,6 +13,7 @@
 //
 //===========================================================================
 #include <iostream>
+#include <fstream>
 #include "ParmParse.H"
 #include "AMRIO.H"
 #include "SPMD.H"
@@ -867,7 +868,7 @@ int main(int argc, char* argv[]) {
 	   (new LevelData<FArrayBox>());
 	 RefCountedPtr<LevelData<FArrayBox> > levelTopg
 	   (new LevelData<FArrayBox>());
-	 
+
 	 Real dx;
 
 	 Vector<RefCountedPtr<LevelData<FArrayBox> > > vectData;
@@ -878,7 +879,72 @@ int main(int argc, char* argv[]) {
 	 names[0] = thicknessName;
 	 names[1] = topographyName;
 	 readLevelData(vectData,dx,infile,names,1);
-	
+
+         // this is about removing ice from regions which
+         // don't affect the dynamics of the region, but which 
+         // can cause our solvers problems. 
+         // for now, store these regions in a separate file. 
+         // There's probably a better way to do this.
+         
+         // this will contain the boxes in the index space of the 
+         // original LevelData in which the thickness will be cleared.
+         
+         if (ildPP.contains("clearThicknessRegionsFile"))
+           {
+             Vector<Box> clearBoxes;
+             std::string clearFile;
+             ildPP.get("clearThicknessRegionsFile", clearFile);
+             
+             if (procID() == uniqueProc(SerialTask::compute))
+               {
+                 ifstream is(clearFile.c_str(), ios::in);
+                 if (is.fail())
+                   {
+                     MayDay::Error("Cannot open file with regions for thickness clearing");
+                   }
+                 // format of file: number of boxes, then list of boxes.
+                 int numRegions;
+                 is >> numRegions;
+                 
+                 // advance pointer in file
+                 while (is.get() != '\n');
+                 
+                 clearBoxes.resize(numRegions);
+                 
+                 for (int i=0; i<numRegions; i++)
+                   {
+                     Box bx;
+                     is >> bx;
+                     while (is.get() != '\n');
+                     
+                     clearBoxes[i] = bx;
+                   }
+                 
+               } // end if serial proc
+             // broadcast results
+             broadcast(clearBoxes, uniqueProc(SerialTask::compute));
+             
+             // now loop over the thickness levelData and set intersections
+             // with boxes to zero
+             
+             DataIterator dit = levelThck->dataIterator();
+             for (dit.begin(); dit.ok(); ++dit)
+               {
+                 FArrayBox& thickFab = levelThck->operator[](dit);
+                 const Box& fabBox = thickFab.box();
+                 for (int boxno=0; boxno<clearBoxes.size(); boxno++)
+                   {
+                     Box intersectBox(fabBox);
+                     intersectBox &= clearBoxes[boxno];
+                     if (!intersectBox.isEmpty())
+                       {
+                         thickFab.setVal(0.0,intersectBox,0);
+                       } // end if there's an intersection
+                   } // end loop over clearboxes
+               } // end loop over grids in thickness levelData
+
+           } // end if we're setting thickness to zero
+       
 	 RealVect levelDx = RealVect::Unit * dx;
 	 LevelDataIBC* ptr = new LevelDataIBC(levelThck,levelTopg,levelDx);
 	 thicknessIBC = static_cast<IceThicknessIBC*>( ptr);
