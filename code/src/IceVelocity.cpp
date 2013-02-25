@@ -254,7 +254,11 @@ void IceVelocity::computeA
 	
 	  CH_assert(0.0 < thetaStar.min(box));
 	  CH_assert(thetaStar.max(box) < triplepoint); 
-	  a_rateFactor->computeA(layerA,thetaStar,box);
+
+	  FArrayBox pressure(box,1);
+	  pressure.copy(a_coordSys.getH()[dit]);
+	  pressure *= a_coordSys.iceDensity() * a_coordSys.gravity() * a_sigma[layer] ;
+	  a_rateFactor->computeA(layerA,thetaStar,pressure,box);
 	}
     }
 

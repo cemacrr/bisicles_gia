@@ -762,6 +762,7 @@ void ArrheniusRateFactor::setDefaultParameters()
 
 void ArrheniusRateFactor::computeA(FArrayBox& a_A, 
 				   const FArrayBox& a_thetaStar, 
+				   const FArrayBox& a_pressure,
 				   const Box& a_box) const
 {
   //CH_assert(a_thetaStar.max(a_box) < m_theta_r);
@@ -795,6 +796,66 @@ RateFactor* ArrheniusRateFactor::getNewRateFactor() const
 		       m_C, m_R, m_Q);
   return static_cast<RateFactor*>(newPtr);
   
+}
+
+PatersonRateFactor::PatersonRateFactor()
+{
+  setDefaultParameters();
+}
+
+void PatersonRateFactor::setDefaultParameters()
+{
+  m_E  = 1.0;
+  m_A0 = 3.5e-25*secondsperyear;
+  m_T0 = 263.0;
+  m_R  = 8.314;
+  m_Qm = 6.0e+4;
+  m_Qp = 1.15e+5;
+}
+
+void PatersonRateFactor::setParameters
+(Real a_E, Real a_A0, Real a_T0, Real a_R, 
+ Real a_Qm, Real a_Qp)
+{
+  m_E  = a_E;
+  m_A0 = a_A0; 
+  m_T0 = a_T0;
+  m_R  = a_R;
+  m_Qm = a_Qm;
+  m_Qp = a_Qp;
+
+}
+void PatersonRateFactor::computeA
+(FArrayBox& a_A, 
+ const FArrayBox& a_thetaPC,
+ const FArrayBox& a_pressure,
+ const Box& a_box) const
+{
+  FArrayBox theta0PC(a_box,1);
+  theta0PC.copy(a_pressure);
+  theta0PC *= icepmeltfactor;
+  theta0PC += m_T0;
+
+  FORT_COMPUTEPATERSONA
+    (CHF_FRA1(a_A,0),
+     CHF_CONST_FRA1(a_thetaPC,0),
+     CHF_CONST_FRA1(theta0PC,0),
+     CHF_BOX(a_box),
+     CHF_CONST_REAL(m_E),
+     CHF_CONST_REAL(m_A0),
+     CHF_CONST_REAL(m_R),
+     CHF_CONST_REAL(m_Qm),
+     CHF_CONST_REAL(m_Qp));
+  
+}
+
+
+
+RateFactor* PatersonRateFactor::getNewRateFactor() const
+{
+  PatersonRateFactor* newPtr = new PatersonRateFactor();
+  newPtr->setParameters(m_E,m_A0,m_T0,m_R,m_Qm,m_Qp);
+  return static_cast<RateFactor*>(newPtr);
 }
 
 

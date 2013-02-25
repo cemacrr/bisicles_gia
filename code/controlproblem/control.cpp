@@ -230,6 +230,17 @@ int main(int argc, char* argv[]) {
 	    gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
 	  }
       }
+    else if (rateFactorType == "patersonRate")
+      {
+	PatersonRateFactor rateFactor;
+	ParmParse arPP("PatersonRate");
+	arPP.query("epsSqr0", epsSqr0);
+	rateFactorPtr = rateFactor.getNewRateFactor();
+	if (gfrPtr) 
+	  {
+	    gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
+	  }
+      }
   
     // ---------------------------------------------------
     // set initial basal friction coefficient and relation

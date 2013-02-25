@@ -60,7 +60,7 @@ c--------------------------------------------------------
 c  compute the factor A in Glen's flow law from the 
 c  temperature dependent Arrhenius relation described in Pattyn (2003)
 c  A        <= 
-c  theta      => temperature (Kelvin)
+c  theta      => temperature (Kelvin,  corrected for pressure melting)
 c  box        => box over which to compute mu
 c  nParameter => exponent in power law
 c  mParameter => m from Pattyn for Arrhenius relation
@@ -101,6 +101,59 @@ c     compute A based on local temperature
       CHF_ENDDO
 
       end subroutine
+
+
+c--------------------------------------------------------
+c  compute the factor A in Glen's flow law from the 
+c  temperature dependent Arrhenius relation 
+c  described in e.g Cuffey and Paterson 2010, 
+c  'The physics of glaciers', p72-74
+c
+c   A = E*A0*exp(-Qc / R * [1/theta - 1/theta0]
+c   where Qc = Qm = if theta < theta0; Qc = Qp otherwise.
+c
+c  A          <= 
+c  box        => box over which to compute A
+c  E          => enhancement factor
+c  A0         => isotropic ice constant of proportionality
+c  theta      => temperature (Kelvin, corrected for pressure melting)
+c  theta0     => transition temperature (Kelvin, corrected for pressure melting)
+c  R          => R (gas constant)
+c  Qm         => Q- from Cuffey and Paterson
+c  Qp         => Q+ from Cuffey and Paterson
+c --------------------------------------------------------
+      subroutine COMPUTEPATERSONA(CHF_FRA1[A],
+     &     CHF_CONST_FRA1[theta],
+     &     CHF_CONST_FRA1[theta0],
+     &     CHF_BOX[box],
+     &     CHF_CONST_REAL[E],
+     &     CHF_CONST_REAL[A0],
+     &     CHF_CONST_REAL[R],
+     &     CHF_CONST_REAL[Qm],
+     &     CHF_CONST_REAL[Qp])
+
+      integer CHF_AUTODECL[i]
+      REAL_T EA0, QmOnR, QpOnR, thisA, QonR, T, T0
+
+      EA0 = E * A0     
+      QmOnR = Qm/R
+      QpOnR = Qp/R
+
+      CHF_AUTOMULTIDO[box;i]
+
+      T = theta(CHF_AUTOIX[i])
+      T0 = theta0(CHF_AUTOIX[i])
+      if (T.ge.T0) then
+         QonR = QpOnR
+      else
+         QonR = QmOnR
+      end if
+      A(CHF_AUTOIX[i]) = EA0 * exp(-QonR *(one/T - one/T0))
+      
+      CHF_ENDDO
+
+      end subroutine
+
 
 
 c -------------------------------------------------------

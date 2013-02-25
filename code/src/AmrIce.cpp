@@ -7510,82 +7510,90 @@ void AmrIce::computeA(Vector<LevelData<FArrayBox>* >& a_A,
 	
   for (int lev = 0; lev <= m_finest_level; ++lev)
     {
-      
-      a_A[lev] = new LevelData<FArrayBox>(m_amrGrids[lev], m_nLayers, IntVect::Unit);
-      a_sA[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1, IntVect::Unit);
-      a_bA[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1, IntVect::Unit);
-      
       const LevelSigmaCS& levelCoords = *a_coordSys[lev];
+      
       const Vector<Real>& sigma = levelCoords.getSigma();
-      for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
-	{
-	  // compute A(T)
-	  // need a temperature field corrected to the pressure melting point,
-	  // \theta ^* = \min(\theta,\theta _r) + a * p)
-	  // a is a constant, p is pressure, \thera _r is the melting point in standard pressure
-	  // using p = \rho * g * \sigma * H 
-          // (used by Glimmer, even with higher order stresses)
-	  // should be p = T_xx + T_yy + \rho * g * \sigma * H
-	  Real Tmax = triplepoint - TINY_NORM;
-	  Real fbase = levelCoords.iceDensity() * levelCoords.gravity() * icepmeltfactor;
-	  const FArrayBox& theta = (*a_temperature[lev])[dit];
-	  // if (s_verbosity > 0)
-    // 	    {
-    // 	      Real Amin = theta.min();
-    // 	      Real Amax = theta.max();
-    // 	      pout() << Amin << " <= theta(x,y,sigma) <= " << Amax << std::endl;
+      a_A[lev] = new LevelData<FArrayBox>(m_amrGrids[lev], m_nLayers, IntVect::Unit);
+      IceVelocity::computeA(*a_A[lev], sigma, levelCoords, 
+			    m_rateFactor, *a_temperature[lev]);
+      
+      Vector<Real> sSigma(1,0.0);
+      a_sA[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1, IntVect::Unit);
+      IceVelocity::computeA(*a_sA[lev], sSigma, levelCoords,  
+			    m_rateFactor, *a_sTemperature[lev]);
+      Vector<Real> bSigma(1,1.0);
+      a_bA[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1, IntVect::Unit);
+      IceVelocity::computeA(*a_bA[lev], bSigma, levelCoords,  
+			    m_rateFactor, *a_bTemperature[lev]);
+    //   for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+    // 	{
+    // 	  // compute A(T)
+    // 	  // need a temperature field corrected to the pressure melting point,
+    // 	  // \theta ^* = \min(\theta,\theta _r) + a * p)
+    // 	  // a is a constant, p is pressure, \thera _r is the melting point in standard pressure
+    // 	  // using p = \rho * g * \sigma * H 
+    //       // (used by Glimmer, even with higher order stresses)
+    // 	  // should be p = T_xx + T_yy + \rho * g * \sigma * H
+    // 	  Real Tmax = triplepoint - TINY_NORM;
+    // 	  Real fbase = levelCoords.iceDensity() * levelCoords.gravity() * icepmeltfactor;
+    // 	  const FArrayBox& theta = (*a_temperature[lev])[dit];
+    // 	  // if (s_verbosity > 0)
+    // // 	    {
+    // // 	      Real Amin = theta.min();
+    // // 	      Real Amax = theta.max();
+    // // 	      pout() << Amin << " <= theta(x,y,sigma) <= " << Amax << std::endl;
 	      
-    // }
-	  for (int layer = 0; layer < m_nLayers; ++layer)
-	    {
-	      Real f = fbase * sigma[layer];
-	      FArrayBox layerA;
-	      layerA.define(Interval(layer,layer),(*a_A[lev])[dit]);
-	      const Box& box = layerA.box();
-	      FArrayBox thetaStar(box,1);
+    // // }
+    // 	  for (int layer = 0; layer < m_nLayers; ++layer)
+    // 	    {
+    // 	      Real f = fbase * sigma[layer];
+    // 	      FArrayBox layerA;
+    // 	      layerA.define(Interval(layer,layer),(*a_A[lev])[dit]);
+    // 	      const Box& box = layerA.box();
+    // 	      FArrayBox thetaStar(box,1);
 	      
 	      
 
-	      FORT_FABMINPLUS(CHF_FRA1(thetaStar,0),
-			      CHF_FRA1(theta,layer),
-			      CHF_FRA1(levelCoords.getH()[dit],0),
-			      CHF_CONST_REAL(f),
-			      CHF_CONST_REAL(Tmax),
-			      CHF_BOX(box));
+    // 	      FORT_FABMINPLUS(CHF_FRA1(thetaStar,0),
+    // 			      CHF_FRA1(theta,layer),
+    // 			      CHF_FRA1(levelCoords.getH()[dit],0),
+    // 			      CHF_CONST_REAL(f),
+    // 			      CHF_CONST_REAL(Tmax),
+    // 			      CHF_BOX(box));
 	
 
-	      CH_assert(0.0 < thetaStar.min(box));
-	      CH_assert(thetaStar.max(box) < triplepoint); 
+    // 	      CH_assert(0.0 < thetaStar.min(box));
+    // 	      CH_assert(thetaStar.max(box) < triplepoint); 
 
-	      m_rateFactor->computeA(layerA,
-				     thetaStar, 
-				     layerA.box());
-
-
+    // 	      m_rateFactor->computeA(layerA,
+    // 				     thetaStar, 
+    // 				     layerA.box());
 
 
-	    } // end loop over layers
+
+
+    // 	    } // end loop over layers
 	  
-	  //surface
-	  {
-	    m_rateFactor->computeA((*a_sA[lev])[dit],
-				   (*a_sTemperature[lev])[dit] , 
-				   (*a_sA[lev])[dit].box());
-	  }
-	  //base
-	  {
-	    const Box& box = (*m_bA[lev])[dit].box();
-	    FArrayBox thetaStar((*a_bA[lev])[dit].box() ,1);
-	    FORT_FABMINPLUS(CHF_FRA1(thetaStar,0),
-			    CHF_FRA1((*a_bTemperature[lev])[dit],0),
-			    CHF_FRA1(levelCoords.getH()[dit],0),
-			    CHF_CONST_REAL(fbase),
-			    CHF_CONST_REAL(Tmax),
-			    CHF_BOX(box));
-	    m_rateFactor->computeA((*a_bA[lev])[dit],
-				   thetaStar , box);
-	  }
-	} // end loop over boxes
+    // 	  //surface
+    // 	  {
+    // 	    m_rateFactor->computeA((*a_sA[lev])[dit],
+    // 				   (*a_sTemperature[lev])[dit] , 
+    // 				   (*a_sA[lev])[dit].box());
+    // 	  }
+    // 	  //base
+    // 	  {
+    // 	    const Box& box = (*m_bA[lev])[dit].box();
+    // 	    FArrayBox thetaStar((*a_bA[lev])[dit].box() ,1);
+    // 	    FORT_FABMINPLUS(CHF_FRA1(thetaStar,0),
+    // 			    CHF_FRA1((*a_bTemperature[lev])[dit],0),
+    // 			    CHF_FRA1(levelCoords.getH()[dit],0),
+    // 			    CHF_CONST_REAL(fbase),
+    // 			    CHF_CONST_REAL(Tmax),
+    // 			    CHF_BOX(box));
+    // 	    m_rateFactor->computeA((*a_bA[lev])[dit],
+    // 				   thetaStar , box);
+    // 	  }
+    // 	} // end loop over boxes
       
     }//end loop over AMR levels
 

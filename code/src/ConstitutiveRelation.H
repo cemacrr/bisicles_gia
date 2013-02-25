@@ -252,7 +252,8 @@ public:
   virtual ~RateFactor(){;}
 
   virtual void computeA(FArrayBox& a_A, 
-			const FArrayBox& a_thetaStar, 
+			const FArrayBox& a_thetaStar,
+			const FArrayBox& a_pressure,
 			const Box& a_box) const = 0;
 
   virtual RateFactor* getNewRateFactor() const = 0;
@@ -281,6 +282,7 @@ public:
 
   void computeA(FArrayBox& a_A, 
 		const FArrayBox& a_theta, 
+		const FArrayBox& a_pressure,
 		const Box& a_box) const
   {
     a_A.setVal(m_A, a_box, 0);
@@ -337,7 +339,8 @@ public:
 
   //compute the (temperature-dependent) rate factor A
   void computeA(FArrayBox& a_A, 
-		const FArrayBox& a_thetaStar, 
+		const FArrayBox& a_thetaStar,
+		const FArrayBox& a_pressure,
 		const Box& a_box) const;
 
   RateFactor* getNewRateFactor() const; 
@@ -345,6 +348,63 @@ public:
 
 };
 
+/// Paterson Rate Factor
+/**
+   Another  Arrhenius law, this one from
+   Cuffey and Paterson,  2010, 'The physics of glaciers', p72-74
+   (a revision of earlier books by Paterson) 
+
+   A = E*A0*exp(-Qc / R * [1/T* - 1/T0*]
+
+   Th is the usual pressure-corrected temperature
+   Th = T + 7e−8 * P
+   T0* = T0  + 7e−8 * P (T0 = 263, P = pressure)
+   Qc = Qm = if Th < T∗; Qc = Qp if Th > T∗.
+  
+   Defaults: 
+
+   A0 = 3.5e-25 Pa−3 s−1 * secondsperyear
+   Qp = 115 kJ mol−1
+   Qm = 6e4 kJ mol−1
+   R=8.314 J
+
+ */
+class PatersonRateFactor : public RateFactor  
+{
+  
+  /// enhancement factor
+  Real m_E;
+  /// flow rate factor
+  Real m_A0;
+  /// limit temperature in flow-rate factor
+  Real m_T0;
+  /// universal gas constant
+  Real m_R;
+  /// activation energies for creep 
+  // (insert funny comment about two lazy creeps here...)
+  Real m_Qm, m_Qp;
+
+public:
+
+  PatersonRateFactor();
+ 
+  void setDefaultParameters();
+ 
+
+  void setParameters(Real a_E, Real a_A0, Real a_T0, Real a_R, 
+		     Real a_Qm, Real a_Qp);
+
+  //compute the (pressure-corrected temperature- 
+  //and pressure- dependent) rate factor A
+  void computeA(FArrayBox& a_A, 
+		const FArrayBox& a_thetaPC, 
+		const FArrayBox& a_pressure,
+		const Box& a_box) const;
+
+  RateFactor* getNewRateFactor() const; 
+  
+
+};
 
 /// implementation of Glen's flow law constitutive relation
 /** The  GlensFlowRelation class is publicly derived from the 
