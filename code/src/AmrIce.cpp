@@ -210,7 +210,7 @@ AmrIce::computeVolumeAboveFlotation() const
 
  //Compute the total thickness above flotation
       Vector<LevelData<FArrayBox>* > thk(m_finest_level+1, NULL);
-      for (int lev=0; m_finest_level ; lev++)
+      for (int lev=0; lev <= m_finest_level ; lev++)
 	{
 	  const LevelSigmaCS& levelCoords = *m_vect_coordSys[lev];
 	  // need a const_cast to make things all line up right
@@ -2724,8 +2724,8 @@ AmrIce::timeStep(Real a_dt)
   Real diffSum = sumIce - m_lastSumIce;
   Real totalDiffSum = sumIce - m_initialSumIce;
   
-  Real sumGroundedIce, diffSumGrounded, totalDiffGrounded;
-  Real VAF, diffVAF, totalDiffVAF;
+  Real sumGroundedIce = 0.0, diffSumGrounded = 0.0, totalDiffGrounded = 0.0;
+  Real VAF=0.0, diffVAF = 0.0, totalDiffVAF = 0.0;
   if (m_report_grounded_ice)
     {
       sumGroundedIce = computeTotalGroundedIce();
@@ -2756,7 +2756,7 @@ AmrIce::timeStep(Real a_dt)
                  << ")" << endl;
 
 	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-                 << ": VolumeAboveFlotattion = " << VAF
+                 << ": VolumeAboveFlotation = " << VAF
                  << " (" << diffVAF
                  << " " << totalDiffVAF
                  << ")" << endl;
