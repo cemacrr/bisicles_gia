@@ -170,6 +170,9 @@ public:
   /// compute total ice and total grounded ice (volume, at this point)
   Real computeTotalGroundedIce() const;
 
+  /// compute volume over flotation
+  Real computeVolumeAboveFlotation() const;
+
   enum velSolverTypes { Picard = 0,
 			JFNK = 1,
 			KnownVelocity = 2,
@@ -778,6 +781,14 @@ protected:
   /// 
   /// diagnostic quantity -- sum(grounded ice) at last timestepa
   Real m_lastSumGroundedIce;
+
+  /// diagnostic quantity -- sum(ice over flotation) at initial time
+  Real m_initialVolumeAboveFlotation;
+
+  /// 
+  /// diagnostic quantity -- sum(ice over flotation) at last timestepa
+  Real m_lastVolumeAboveFlotation;
+
 
   /// type of basal friction distribution
   int m_beta_type;

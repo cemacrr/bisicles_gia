@@ -204,6 +204,23 @@ AmrIce::computeTotalIce() const
 
 }
 
+Real
+AmrIce::computeVolumeAboveFlotation() const
+{
+
+ //Compute the total thickness above flotation
+      Vector<LevelData<FArrayBox>* > thk(m_finest_level+1, NULL);
+      for (int lev=0; m_finest_level ; lev++)
+	{
+	  const LevelSigmaCS& levelCoords = *m_vect_coordSys[lev];
+	  // need a const_cast to make things all line up right
+	  // (but still essentially const)
+	  thk[lev] = const_cast<LevelData<FArrayBox>*>(&levelCoords.getThicknessOverFlotation());
+	}
+      Real VAF = computeSum(thk, m_refinement_ratios,m_amrDx[0], Interval(0,0), 0);
+      return VAF;
+}
+
 
 
 /// fill flattened Fortran array of data with ice thickness
@@ -1579,6 +1596,8 @@ AmrIce::initialize()
     {
       m_initialSumGroundedIce = computeTotalGroundedIce();
       m_lastSumGroundedIce = m_initialSumGroundedIce;
+      m_initialVolumeAboveFlotation = computeVolumeAboveFlotation();
+      m_lastVolumeAboveFlotation = m_initialVolumeAboveFlotation; 
     }
 }  
   
@@ -2706,12 +2725,18 @@ AmrIce::timeStep(Real a_dt)
   Real totalDiffSum = sumIce - m_initialSumIce;
   
   Real sumGroundedIce, diffSumGrounded, totalDiffGrounded;
+  Real VAF, diffVAF, totalDiffVAF;
   if (m_report_grounded_ice)
     {
       sumGroundedIce = computeTotalGroundedIce();
       diffSumGrounded = sumGroundedIce - m_lastSumGroundedIce;
       totalDiffGrounded = sumGroundedIce - m_initialSumGroundedIce;      
       m_lastSumGroundedIce = sumGroundedIce;
+      
+      VAF = computeVolumeAboveFlotation();
+      diffVAF = VAF -  m_lastVolumeAboveFlotation;
+      totalDiffVAF = VAF - m_initialVolumeAboveFlotation;
+      m_lastVolumeAboveFlotation = VAF;
     }
 
   if (s_verbosity > 0) 
@@ -2728,6 +2753,12 @@ AmrIce::timeStep(Real a_dt)
                  << ": sum(grounded ice) = " << sumGroundedIce 
                  << " (" << diffSumGrounded
                  << " " << totalDiffGrounded
+                 << ")" << endl;
+
+	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+                 << ": VolumeAboveFlotattion = " << VAF
+                 << " (" << diffVAF
+                 << " " << totalDiffVAF
                  << ")" << endl;
         }      
     }
