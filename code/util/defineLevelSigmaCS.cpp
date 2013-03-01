@@ -31,7 +31,7 @@ void defineLevelSigmaCS(LevelSigmaCS& a_sigmaCoords,
   const DisjointBoxLayout& grids = a_sigmaCoords.grids();
   DataIterator dit = grids.dataIterator();
 
-  const LevelData<FArrayBox>& zBrefLevel = a_sigmaCoords.getBaseHeight();
+  const LevelData<FArrayBox>& zBrefLevel = a_sigmaCoords.getTopography();
   LevelData<FArrayBox> zBLevel(grids,1, zBrefLevel.ghostVect());
 
   const RealVect& dx = a_sigmaCoords.dx();
@@ -138,7 +138,7 @@ void defineLevelSigmaCS(LevelSigmaCS& a_sigmaCoords,
         } // end if not constant zB
     } // end loop over grids
   
-  a_sigmaCoords.setBaseHeight(zBLevel);
+  a_sigmaCoords.setTopography(zBLevel);
   a_sigmaCoords.setBackgroundSlope(a_basalSlope);
   a_sigmaCoords.exchangeTopography();
   // set thickness
@@ -195,7 +195,7 @@ void defineLevelSigmaCS(LevelSigmaCS& a_sigmaCoords,
 	}
       else if (a_thicknessType == constantZs1km)
         {
-          //const FArrayBox& zB = a_sigmaCoords[dit].getBaseHeight();
+          //const FArrayBox& zB = a_sigmaCoords[dit].getTopography();
           BoxIterator bit(H.box());
           for (bit.begin(); bit.ok(); ++bit)
             {
