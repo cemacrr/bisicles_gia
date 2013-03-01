@@ -147,6 +147,7 @@ PetscErrorCode FormJacobian( SNES snes,Vec x,Mat *jac,Mat *prejac,MatStructure *
 
   ierr = solver->putPetscInChombo( *tthis->m_tphi2, x );     CHKERRQ(ierr);
 
+  //tthis->updateCoefs( *tthis->m_tphi2 ); // needed because called before FormJacobian
   ierr = solver->formMatrix( *prejac, *tthis->m_tphi2 ); CHKERRQ(ierr);
   
   // not sure why this needs to be called, we don't touch it
@@ -171,7 +172,6 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
 		       IceThicknessIBC* a_bc,
 		       int a_numLevels)
 {
-  CH_assert(a_numLevels==1);
   if(a_numLevels!=1){
     MayDay::Error("PetscIceSolver::define not implemented AMR");
   }
@@ -205,11 +205,11 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
 								      1,
 								      IntVect::Zero));
 
-  ParmParse petscPP("petscSolver");
+  //ParmParse petscPP("petscSolver");
   //petscPP.query("vtopSafety", m_vtopSafety);
 
   if ( !m_isOpDefined ) {
-    defineOpFactory( a_dxCrse );    CH_assert(!m_OpPtr);
+    defineOpFactory( a_dxCrse );    CH_assert(!m_OpPtr && m_opFactoryPtr);
     // this copies the unset data above, just needed here for dx &crdx.
     m_OpPtr = m_opFactoryPtr->MGnewOp( m_domain, 0, true ); 
 #ifdef CH_USE_PETSC
@@ -365,22 +365,30 @@ void PetscIceSolver::defineOpFactory( RealVect a_dx )
     {
       if (SpaceDim == 2)
 	{
-	  CH_assert(m_opFactoryPtr == NULL);
-	  
+	  CH_assert(m_opFactoryPtr == NULL);	  
 	  Real alpha, beta;
-	  getOperatorScaleFactors( alpha, beta );
-	  
 	  BCHolder velSolveBC = m_bc->velocitySolveBC();
-	  
-	  Vector< DisjointBoxLayout > grids(1);                       grids[0] = m_grid;
-	  Vector< RefCountedPtr< LevelData< FluxBox > > > eta(1);     eta[0] = m_Mu;
-	  Vector< RefCountedPtr< LevelData< FluxBox > > > lambda(1);  lambda[0] = m_Lambda;
-	  Vector< RefCountedPtr< LevelData< FArrayBox > > > acoef(1); acoef[0] = m_C;
-	  Vector< int > refRatios(1);                                 refRatios[0] = m_refRatio;
+
+	  // this is used to get relaxation values too early so needs to be set to avoid assert failures!
+	  DataIterator dit = m_C->dataIterator();
+	  for (dit.begin(); dit.ok(); ++dit)
+	    {
+	      (*m_C)[dit].setVal(1.0);
+	      (*m_Lambda)[dit].setVal(1.0);
+	      (*m_Mu)[dit].setVal(1.0);
+	    }
+
+	  getOperatorScaleFactors( alpha, beta );	  
+	  Vector<DisjointBoxLayout> grids(1);                     grids[0] = m_grid;
+	  Vector<RefCountedPtr<LevelData<FluxBox> > > eta(1);     eta[0] = m_Mu;
+	  Vector<RefCountedPtr<LevelData<FluxBox> > > lambda(1);  lambda[0] = m_Lambda;
+	  Vector<RefCountedPtr<LevelData<FArrayBox> > > acoef(1); acoef[0] = m_C;
+	  Vector<int> refRatios(1);                               refRatios[0] = m_refRatio;
+
 	  // OpFactory grabs a pointer to mu,lambda,acoef,etc.
 	  m_opFactoryPtr = new ViscousTensorOpFactory( grids, eta, lambda, acoef, alpha, 
-						       beta, refRatios, m_domain, a_dx[0], velSolveBC, 
-						       m_vtopSafety);
+						       beta, refRatios, m_domain, a_dx[0], 
+						       velSolveBC, m_vtopSafety);
 	}
       else 
 	{
@@ -391,7 +399,7 @@ void PetscIceSolver::defineOpFactory( RealVect a_dx )
     {
       MayDay::Error("PetscIceSolver::defineOpFactory called twice???");
     }
-  
+
   m_isOpDefined = true;
 }
 ////////////////////////////////////////////////////////////////////////
@@ -400,7 +408,7 @@ void PetscIceSolver::defineOpFactory( RealVect a_dx )
 void
 PetscIceSolver::getOperatorScaleFactors(Real& a_alpha, Real& a_beta) const
 {
-  a_alpha = -1.0;
+  a_alpha = -1.0; // sort of wrong signs, but that's what B does 
   a_beta = 1.0; 
 }
 
@@ -426,10 +434,11 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
   const LevelData<FArrayBox>& levelBeta = *m_Beta;
   const LevelData<FArrayBox>& levelBeta0 = *m_Beta0;
   LevelData<FArrayBox>& levelC = *m_C;
+  DataIterator dit = levelGrids.dataIterator();
 
-  // just in case, add an exchange here
-  //levelVel.exchange();
-  //pout() << "PetscIceSolver::computeMu" << endl;
+  // this is needed
+  levelVel.exchange();
+
   // first set BC's on vel
   m_bc->velocityGhostBC(levelVel,
 			levelCS,
@@ -438,7 +447,6 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
   //slc : qcfi.coarseFineInterp fills the edges of lev > 0 cells
   //but not the corners. We need them filled to compute the
   //rate-of-strain invariant, so here is a bodge for now
-  DataIterator dit = levelGrids.dataIterator();
   // if (SpaceDim == 2)
   //   {
   //     for (dit.begin(); dit.ok(); ++dit)
@@ -451,12 +459,12 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
 
   //   }
   
-  // actually need to use a cornerCopier, too...
-  CornerCopier cornerCopier(levelGrids, levelGrids, 
-			    levelDomain,levelVel.ghostVect(),
-			    true);
-  levelVel.exchange(cornerCopier);      
-  
+  // // actually need to use a cornerCopier, too...
+  // CornerCopier cornerCopier(levelGrids, levelGrids, 
+  // 			    levelDomain,levelVel.ghostVect(),
+  // 			    true);
+  // levelVel.exchange(cornerCopier);
+
   LevelData<FArrayBox>* crseVelPtr = NULL;
   int nRefCrse = -1;  
   IntVect muGhost = IntVect::Zero;
@@ -468,7 +476,7 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
 			       levelCS,
 			       m_domain,
 			       muGhost);
-  
+
   // now multiply by ice thickness H
   const LevelData<FluxBox>& faceH = levelCS.getFaceH();
   Real muMax = 1.23456789e+300;
@@ -480,15 +488,15 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
 	  FArrayBox& thisMu = levelMu[dit][dir];
 	  const Box& box = thisMu.box();
 	  	  
-	  FORT_MAXFAB1(CHF_FRA(thisMu),
-		       CHF_CONST_REAL(muMin),
-		       CHF_BOX(box));
+	  // FORT_MAXFAB1(CHF_FRA(thisMu),
+	  // 	       CHF_CONST_REAL(muMin),
+	  // 	       CHF_BOX(box));
 	  
 	  thisMu.mult(faceH[dit][dir],box,0,0,1);
 
-	  FORT_MINFAB1(CHF_FRA(thisMu),
-		       CHF_CONST_REAL(muMax),
-		       CHF_BOX(box));
+	  // FORT_MINFAB1(CHF_FRA(thisMu),
+	  // 	       CHF_CONST_REAL(muMax),
+	  // 	       CHF_BOX(box));
 	}    
       
       // also update alpha (or C)
@@ -499,22 +507,21 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
       
       levelC[dit] += levelBeta0[dit];
 
-      
-#if CH_SPACEDIM==2
-      {
-	Real mu0 = 1.0;
-	Real C0 = 1.0;
+// #if CH_SPACEDIM==2
+//       {
+// 	Real mu0 = 1.0;
+// 	Real C0 = 1.0;
 	
-	FORT_ENFORCEWELLPOSEDCELL
-	  (CHF_FRA1(levelC[dit],0),
-	   CHF_FRA1(levelMu[dit][0],0),
-	   CHF_FRA1(levelMu[dit][1],0),
-	   CHF_CONST_REAL(mu0),
-	   CHF_CONST_REAL(C0),
-	   CHF_BOX(levelGrids[dit]));
+// 	FORT_ENFORCEWELLPOSEDCELL
+// 	  (CHF_FRA1(levelC[dit],0),
+// 	   CHF_FRA1(levelMu[dit][0],0),
+// 	   CHF_FRA1(levelMu[dit][1],0),
+// 	   CHF_CONST_REAL(mu0),
+// 	   CHF_CONST_REAL(C0),
+// 	   CHF_BOX(levelGrids[dit]));
 	
-      }
-#endif
+//       }
+// #endif
 
       // lambda = 2*mu
       FluxBox& lambda = levelLambda[dit];

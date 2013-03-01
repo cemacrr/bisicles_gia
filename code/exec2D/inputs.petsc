@@ -25,11 +25,12 @@ basalFlux.type = zeroFlux
 CalvingModel.type = NoCalvingModel
 
 amr.maxLevel = 0   # finest level allowed in simulation
-amr.ref_ratio = 2 2 
+amr.ref_ratio = 2 2
+#amr.num_cells = 0016 0016 16   #number of cells in base grid
 #amr.num_cells = 0032 0032 16   #number of cells in base grid
-amr.num_cells = 0064 0064 16   #number of cells in base grid
+#amr.num_cells = 0064 0064 16   #number of cells in base grid
 #amr.num_cells = 0128 0128 16   #number of cells in base grid
-#amr.num_cells = 0256 0256 16   #number of cells in base grid
+amr.num_cells = 0256 0256 16   #number of cells in base grid
 #amr.num_cells = 0512 0512 16   #number of cells in base grid
 amr.is_periodic = 1 1 1    # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
@@ -47,7 +48,7 @@ amr.plot_prefix = stream.L1L2.0032.petsc.
 amr.write_solver_rhs = 1
 amr.check_interval = -1
 amr.check_prefix = chk
-amr.verbosity = 2
+amr.verbosity = 5
 
 amr.regrid_interval = 10000   # number of timesteps between regridding
 amr.blockFactor = 4           # block factor used in grid generation
@@ -59,6 +60,13 @@ amr.max_box_size = 32         # largest box length allowed
 
 amr.tag_on_laplacian_velocity = 1
 amr.lap_vel_tagging_val = 10
+
+
+#initial guess 
+#amr.do_initial_velocity_guess = 0
+#amr.do_initial_velocity_solve = 0
+#amr.initial_velocity_guess_type = 1 # linear PDE
+#amr.initial_velocity_guess_const_mu = 1.0e+6
 
 # this problem seems to need more picard iterations
 amr.max_solver_iterations = 20

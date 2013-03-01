@@ -545,7 +545,6 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
       averager.averageToCoarse(levelVel, *a_fineVel);
     }
 
-  // side effect, does exchange, needed?
   levelVel.exchange( m_exchangeCopier );
 
   // first set BC's on vel
@@ -570,20 +569,19 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
   //   }
 
   // actually need to use a cornerCopier, too ... really ??
-  CornerCopier cornerCopier(levelGrids, levelGrids, 
-  			    m_domain,levelVel.ghostVect(),
-  			    true);
-  levelVel.exchange(cornerCopier);
+  // CornerCopier cornerCopier(levelGrids, levelGrids, 
+  // 			    m_domain,levelVel.ghostVect(),
+  // 			    true);
+  // levelVel.exchange(cornerCopier);
 
-  IntVect muGhost = IntVect::Zero;
-  (*m_constRelPtr).computeFaceMu( levelMu,
-				  levelVel,
-				  a_crsVel,
-				  refToCoarser(),
-				  levelA,
-				  levelCS,
-				  m_domain,
-				  muGhost);
+  m_constRelPtr->computeFaceMu( levelMu,
+				levelVel,
+				a_crsVel,
+				refToCoarser(),
+				levelA,
+				levelCS,
+				m_domain,
+				IntVect::Zero);
 
   // now multiply by ice thickness H
   const LevelData<FluxBox>& faceH = levelCS.getFaceH();
@@ -597,16 +595,16 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
 	  FArrayBox& thisMu = levelMu[dit][dir];
 	  const Box& box = thisMu.box();
 
-	  FORT_MAXFAB1(CHF_FRA(thisMu),
-		       CHF_CONST_REAL(muMin),
-		       CHF_BOX(box));
+	  // FORT_MAXFAB1(CHF_FRA(thisMu),
+	  // 	       CHF_CONST_REAL(muMin),
+	  // 	       CHF_BOX(box));
 
 	  thisMu.mult(faceH[dit][dir],box,0,0,1);
 	  CH_assert(thisMu.min() >= 0.0);
 	  
-	  FORT_MINFAB1(CHF_FRA(thisMu),
-		       CHF_CONST_REAL(muMax),
-		       CHF_BOX(box));
+	  // FORT_MINFAB1(CHF_FRA(thisMu),
+	  // 	       CHF_CONST_REAL(muMax),
+	  // 	       CHF_BOX(box));
 	}
 
       // also update alpha (or C)
@@ -617,21 +615,21 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
 
       levelC[dit] += levelBeta0[dit];
 
-#if CH_SPACEDIM==2
-      {
-	Real mu0 = 1.0;
-	Real C0 = 1.0;
+// #if CH_SPACEDIM==2
+//       {
+// 	Real mu0 = 1.0;
+// 	Real C0 = 1.0;
 	
-	FORT_ENFORCEWELLPOSEDCELL
-	  (CHF_FRA1(levelC[dit],0),
-	   CHF_FRA1(levelMu[dit][0],0),
-	   CHF_FRA1(levelMu[dit][1],0),
-	   CHF_CONST_REAL(mu0),
-	   CHF_CONST_REAL(C0),
-	   CHF_BOX(levelGrids[dit]));
+// 	FORT_ENFORCEWELLPOSEDCELL
+// 	  (CHF_FRA1(levelC[dit],0),
+// 	   CHF_FRA1(levelMu[dit][0],0),
+// 	   CHF_FRA1(levelMu[dit][1],0),
+// 	   CHF_CONST_REAL(mu0),
+// 	   CHF_CONST_REAL(C0),
+// 	   CHF_BOX(levelGrids[dit]));
 	
-      }
-#endif
+//       }
+// #endif
 
       // lambda = 2*mu
       FluxBox& lambda = levelLambda[dit];
