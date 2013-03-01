@@ -412,7 +412,7 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
   DataIterator dit = grids.dataIterator();
 
   const RealVect& dx = a_coords.dx();
-  const LevelData<FArrayBox>& zBref = a_coords.getBaseHeight();
+  const LevelData<FArrayBox>& zBref = a_coords.getTopography();
   LevelData<FArrayBox> zBlocal(grids, 1, zBref.ghostVect());
   LevelData<FArrayBox>& levelH = a_coords.getH();
 
@@ -520,7 +520,7 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
           
     } // end loop over boxes
 
-  a_coords.setBaseHeight(zBlocal);
+  a_coords.setTopography(zBlocal);
   //a_coords.recomputeGeometry();
 }
 

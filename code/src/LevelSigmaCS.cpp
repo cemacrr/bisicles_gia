@@ -60,9 +60,9 @@ LevelSigmaCS::define(const DisjointBoxLayout& a_grids,
   m_ghostVect = a_ghostVect;
 
   // now define local storage
-  // note that we define H and baseHeight on a one-cell-deep
+  // note that we define H and topography on a one-cell-deep
   // box in the z-direction
-  // note that we grow baseHeight and H by one in the horizontal
+  // note that we grow topography and H by one in the horizontal
   // directions so we can define derivatives on a_ghostVect
   // in 2d, however, we just do x,y
 
@@ -366,13 +366,6 @@ LevelSigmaCS::getFaceH() const
   return m_faceH;
 }
 
-/// returns a const-reference to the cell-centered base height z_b
-const LevelData<FArrayBox>& 
-LevelSigmaCS::getBaseHeight() const
-{
-  return m_topography;
-}
-
 /// returns a const-reference to the cell-centered topography 
 const LevelData<FArrayBox>& 
 LevelSigmaCS::getTopography() const
@@ -393,21 +386,21 @@ LevelSigmaCS::getTopography()
 ///sets the base height. 
 /** In practice, this will probably done by a derived class.*/
 void
-LevelSigmaCS::setBaseHeight(const LevelData<FArrayBox>& a_baseHeight)
+LevelSigmaCS::setTopography(const LevelData<FArrayBox>& a_topography)
 {
   
-  if (a_baseHeight.getBoxes().compatible(m_topography.getBoxes()))
+  if (a_topography.getBoxes().compatible(m_topography.getBoxes()))
     {
-      DataIterator dit = a_baseHeight.dataIterator();
+      DataIterator dit = a_topography.dataIterator();
       for (dit.begin(); dit.ok(); ++dit)
         {
-          m_topography[dit].copy(a_baseHeight[dit], 
+          m_topography[dit].copy(a_topography[dit], 
                                  m_topography[dit].box());
         }
     } 
   else
     {
-      a_baseHeight.copyTo(m_topography);
+      a_topography.copyTo(m_topography);
     }
 
   
@@ -742,7 +735,7 @@ LevelSigmaCS::computeDeltaFactors()
     {      
       // cell-centered DeltaFactors
       FArrayBox& thisH = m_H[dit];
-      FArrayBox& thisBaseHeight = m_topography[dit];
+      FArrayBox& thisTopography = m_topography[dit];
       FArrayBox& thisDeltaFactors = m_deltaFactors[dit];
       Box thisBox = thisH.box();
       if (SpaceDim == 2)
@@ -773,7 +766,7 @@ LevelSigmaCS::computeDeltaFactors()
                        CHF_INT(derivDir));
           
           FORT_CCDERIV(CHF_FRA1(deltaZb,0),
-                       CHF_CONST_FRA1(thisBaseHeight,0),
+                       CHF_CONST_FRA1(thisTopography,0),
                        CHF_BOX(derivBox),
                        CHF_CONST_REAL(m_dx[derivDir]),
                        CHF_INT(derivDir));
@@ -1159,7 +1152,7 @@ WriteSigmaMappedAMRHierarchyHDF5(const string& a_fileRoot,
         {
           // now fill in 3rd component with z_surface (for lack of a
           // better idea)
-          const LevelData<FArrayBox>& zb = levelCS.getBaseHeight();
+          const LevelData<FArrayBox>& zb = levelCS.getTopography();
           const LevelData<FArrayBox>& H = levelCS.getH();
           
           DataIterator dit = levelGrids.dataIterator();          

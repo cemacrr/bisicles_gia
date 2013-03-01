@@ -109,9 +109,6 @@ public:
   const LevelData<FluxBox>& getFaceH() const;
 
   /// returns a const-reference to the cell-centered topography
-  const LevelData<FArrayBox>& getBaseHeight() const;
-
-  /// returns a const-reference to the cell-centered topography
   const LevelData<FArrayBox>& getTopography() const;
 
   /// returns a modifiable reference to the cell-centered topography
@@ -119,7 +116,7 @@ public:
 
   ///sets the base height. 
   /** In practice, this will probably done by a derived class.*/
-  void setBaseHeight(const LevelData<FArrayBox>& a_baseHeight);
+  void setTopography(const LevelData<FArrayBox>& a_topography);
   /// set the unit topography difference 
   /**  for periodic problems :  a vector with components
   (topography(x + Lx , y) - topography(x , y), 
@@ -308,9 +305,6 @@ protected:
   RealVect m_unitShift;
 
   RealVect m_backgroundSlope;
-
-  /// cell-centered base height
-  //LevelData<FArrayBox> m_baseHeight;
 
   /// cell-centered topography
   LevelData<FArrayBox> m_topography;

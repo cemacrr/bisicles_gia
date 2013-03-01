@@ -532,7 +532,7 @@ MarineIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
   DataIterator dit = grids.dataIterator();
   const RealVect& dx = a_coords.dx();
 
-  const LevelData<FArrayBox>& levelZbRef = a_coords.getBaseHeight();
+  const LevelData<FArrayBox>& levelZbRef = a_coords.getTopography();
   LevelData<FArrayBox>& levelH = a_coords.getH();
   LevelData<FArrayBox> levelZb(grids, 1, levelZbRef.ghostVect());
 
@@ -567,7 +567,7 @@ MarineIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
               
     } // end loop over boxes
 
-  a_coords.setBaseHeight(levelZb);
+  a_coords.setTopography(levelZb);
   //a_coords.recomputeGeometry();
 }
 

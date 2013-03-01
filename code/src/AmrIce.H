@@ -195,11 +195,21 @@ public:
   {
     return m_vect_coordSys[a_level];
   };
+
+  const Vector<RefCountedPtr<LevelSigmaCS> >& amrGeometry() const
+  {
+    return m_vect_coordSys;
+  }
   
   const LevelData<FArrayBox>* velocity(int a_level) const
   {
     return m_velocity[a_level];
   };
+
+  const Vector<LevelData<FArrayBox>* >& amrVelocity() const
+  {
+    return m_velocity;
+  }
 
   const LevelData<FArrayBox>* groundingLineProximity(int a_level) const;
   
@@ -809,7 +819,7 @@ protected:
       The way this is implemented, the basal height at a realVect
       location X is defined as 
       
-      z_b = sigmaCS.getBaseHeight() +basalSlope[0]*X[0] +basalSlope[1]*X[1]
+      z_b = sigmaCS.getTopography() +basalSlope[0]*X[0] +basalSlope[1]*X[1]
   */
   RealVect m_basalSlope;
 

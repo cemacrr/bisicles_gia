@@ -2106,7 +2106,7 @@ AmrIce::timeStep(Real a_dt)
 	      ///todo : Here, assume that the base height doesn't change during the
 	      ///timestep, which is not strictly true. Instead, we should perform 
 	      ///an isostasy calculation at this point.
-	      levelCoords_half.setBaseHeight(levelCoords.getBaseHeight());
+	      levelCoords_half.setTopography(levelCoords.getTopography());
 	      levelCoords_half.setFaceSigma(levelCoords.getFaceSigma());
 	      levelCoords_half.setIceDensity(levelCoords.iceDensity());
 	      levelCoords_half.setGravity(levelCoords.gravity());
@@ -2231,7 +2231,7 @@ AmrIce::timeStep(Real a_dt)
 		const FArrayBox& H = levelCoords.getH()[dit];
 		oldH.copy(H);
 	      }
-	   levelCoords_old.setBaseHeight(levelCoords.getBaseHeight());
+	   levelCoords_old.setTopography(levelCoords.getTopography());
 	   {
 	     LevelSigmaCS* crseCoords = (lev > 0)?&(*vectCoords_old[lev-1]):NULL;
 	     int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
@@ -4809,7 +4809,7 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 	  if (m_wallDrag)
 	  {
 	    IceVelocity::addWallDrag(thisC0, floatingMask, levelCS.getSurfaceHeight()[dit],
-				     thisH, levelCS.getBaseHeight()[dit], thisC, m_wallDragExtra,
+				     thisH, levelCS.getTopography()[dit], thisC, m_wallDragExtra,
 				     RealVect::Unit*m_amrDx[lev], gridBox);
 	  }
 	  
@@ -6299,7 +6299,7 @@ AmrIce::writePlotFile()
 
       const LevelSigmaCS& levelCS = (*m_vect_coordSys[lev]);
       const LevelData<FArrayBox>& levelH = levelCS.getH();
-      const LevelData<FArrayBox>& levelZbase = levelCS.getBaseHeight();
+      const LevelData<FArrayBox>& levelZbase = levelCS.getTopography();
       LevelData<FArrayBox> levelZsurf(m_amrGrids[lev], 1, ghostVect);
       levelCS.getSurfaceHeight(levelZsurf);
 
@@ -6860,13 +6860,13 @@ AmrIce::writeCheckpointFile() const
 
 	  write(handle, levelCS.getH() , "thicknessData", levelCS.getH().ghostVect());
 
-          // const LevelData<FArrayBox>& levelZb = levelCS.getBaseHeight();
+          // const LevelData<FArrayBox>& levelZb = levelCS.getTopography();
 	  // for (DataIterator dit = tmp.dataIterator();
 	  //      dit.ok(); ++dit){
 	  //   tmp[dit].copy( levelZb[dit]);
 	  // }
-	  write(handle, levelCS.getBaseHeight() , "bedHeightData",
-		levelCS.getBaseHeight().ghostVect()  );
+	  write(handle, levelCS.getTopography() , "bedHeightData",
+		levelCS.getTopography().ghostVect()  );
 
 	  write(handle, *m_velocity[lev], "velocityData", 
 		m_velocity[lev]->ghostVect());
@@ -7230,7 +7230,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
             {
               levelH[dit].copy((*m_old_thickness[lev])[dit]);
             }
-          levelCS.setBaseHeight(bedHeight);
+          levelCS.setTopography(bedHeight);
 
 	  {
 	    LevelSigmaCS* crseCoords = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
