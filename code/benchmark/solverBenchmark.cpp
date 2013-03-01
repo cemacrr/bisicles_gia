@@ -415,7 +415,7 @@ int main(int argc, char* argv[]) {
 
         levelZBase.exchange();
 
-        levelCS.setBaseHeight(levelZBase);
+        levelCS.setTopography(levelZBase);
 
         LevelSigmaCS* crseCSPtr = NULL;
         int nRefCrse = -1;
