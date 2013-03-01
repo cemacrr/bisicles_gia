@@ -1148,7 +1148,6 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
             }
         }
 
-#if 0
       // first do thickness
       FillFromReference((*m_inputThicknessLDF),
                         levelThickness,
@@ -1162,7 +1161,7 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
                         m_inputTopographyDx,
                         levelDx,
                         m_verbose);
-#endif 
+
     } // end loop over levels
   
   m_inputThicknessLDF->exchange();
