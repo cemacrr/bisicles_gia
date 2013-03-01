@@ -757,7 +757,7 @@ void AMRIceControl::computeObjectiveAndGradient
 	  FArrayBox wallC(box,1);wallC.setVal(0.0);
 	  IceVelocity::addWallDrag(wallC, 
 				   levelCS.getFloatingMask()[dit], levelCS.getSurfaceHeight()[dit],
-				   levelCS.getH()[dit], levelCS.getBaseHeight()[dit], 
+				   levelCS.getH()[dit], levelCS.getTopography()[dit], 
 				   thisC, wallDragExtra,m_dx[lev], box);
 	  thisC += wallC;
 	  
