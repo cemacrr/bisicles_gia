@@ -961,6 +961,30 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 
     pp2.get("maxTime", maxTime);
     pp2.get("maxStep", maxStep);
+    
+    // final thing to do -- return flattened states back to CISM
+    // (including velocity)
+
+    // first, return ice geometry (in case something was changed)
+    if (problem_type =="fortran")
+      {
+        // can use existing IBC
+        FortranInterfaceIBC* fibcPtr = dynamic_cast<FortranInterfaceIBC*>(thicknessIBC);
+        const Vector<RefCountedPtr<LevelSigmaCS> >& amrGeometry = amrObjectPtr->amrGeometry();
+        fibcPtr->flattenIceGeometry(amrGeometry);
+      }
+    else
+      {
+        // create a FortranInterfaceIBC for returning data to CISM
+        MayDay::Error("Non-FortranIBC geometry not implemented yet");
+      }
+
+    
+    // now, return velocities
+    
+
+    // return temperatures
+
 
     // clean up
     pout () << "exec mode = " << exec_mode << endl;
