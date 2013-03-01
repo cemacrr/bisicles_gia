@@ -35,8 +35,8 @@ using std::ofstream;
 static const char* pgmname = "testFortranInterfaceIBC" ;
 static const char* indent = "   ";
 static const char* indent2 = "      " ;
-static bool verbose = false ;
-//static bool verbose = true ;
+//static bool verbose = false ;
+static bool verbose = true ;
 
 #ifdef CH_USE_DOUBLE
 //static Real precision = 1.0e-15;
@@ -311,7 +311,7 @@ testFortranInterfaceIBC()
   
   Vector<DisjointBoxLayout> vectGrids(numLevels);
   Vector<int> vectNref(numLevels, 2);
-  Vector<LevelSigmaCS* > vectCS(numLevels, NULL);
+  Vector<RefCountedPtr<LevelSigmaCS> > vectCS(numLevels);
   for (int lev=0; lev<numLevels; lev++)
     {
 
@@ -364,7 +364,7 @@ testFortranInterfaceIBC()
 
       vectGrids[lev] = levelGrids;
       IntVect ghostVect = IntVect::Zero;
-      vectCS[lev] = new LevelSigmaCS(levelGrids, dxLevel, ghostVect);
+      vectCS[lev] = RefCountedPtr<LevelSigmaCS>(new LevelSigmaCS(levelGrids, dxLevel, ghostVect) );
 
       if (verbose)
         {
@@ -372,7 +372,7 @@ testFortranInterfaceIBC()
         }
 
       IceThicknessIBC* levelIBC = baseIBC.new_thicknessIBC();
-      FortranInterfaceIBC* FIBCptr = dynamic_cast<FortranInterfaceIBC*>(levelIBC);
+      //FortranInterfaceIBC* FIBCptr = dynamic_cast<FortranInterfaceIBC*>(levelIBC);
       levelIBC->define(levelDomain, dxLevel[0]);
 
       if (verbose)
@@ -414,7 +414,7 @@ testFortranInterfaceIBC()
 
               LevelSigmaCS& levelCS = *vectCS[lev];
               const LevelData<FArrayBox>& levelH = levelCS.getH();
-              const LevelData<FArrayBox>& levelZb = levelCS.getBaseHeight();
+              const LevelData<FArrayBox>& levelZb = levelCS.getTopography();
 
 
               // fill plot data
@@ -474,14 +474,76 @@ testFortranInterfaceIBC()
 
         } // end if write plot files
  
-  // clean up memory
-  for (int lev=0; lev<vectCS.size(); lev++)
+
+  if (verbose) 
     {
+      pout() << "testing flattening back to reference" << endl;
+    }
+
+  // finally, flatten back to reference
+  // first, set primary dataholders to bad values
+  for (dit.begin(); dit.ok(); ++dit)
+    {
+      Real badVal = 666;
+      baseThickness[dit].setVal(badVal);
+      baseZb[dit].setVal(badVal);
+    }
+  
+
+  baseIBC.flattenIceGeometry(vectCS);
+  
+  // test these answers
+  LevelData<FArrayBox> thickError(baseThickness.getBoxes(), 1,
+                                  baseThickness.ghostVect());
+
+  LevelData<FArrayBox> topoError(baseZb.getBoxes(), 1,
+                                 baseZb.ghostVect());
+
+  initData(thickError, topoError, dx, domainSize);
+
+  for(dit.begin(); dit.ok(); ++dit)
+    {
+      thickError[dit].minus(baseThickness[dit]);
+      topoError[dit].minus(baseZb[dit]);
+    }
+
+  int normType = 0;
+  Interval errComps(0,0);
+  Real thickErrNorm = norm(thickError, errComps, normType);
+  Real topoErrNorm = norm(topoError, errComps, normType);
+
+  if (verbose)
+    {
+      pout() << "L" << normType << "Err(thickness) = " << thickErrNorm << endl;
+      pout() << "L" << normType << "Err(topography) = " << topoErrNorm << endl;
+    }
+
+  Real flattenTol = 0.006;
+  if (thickErrNorm > flattenTol) 
+    {
+      pout () << "failed thickness flattening test" << endl;
+      status += 1;
+    }
+
+  flattenTol = 0.04;
+  if (topoErrNorm > flattenTol) 
+    {
+      pout () << "failed topography flattening test" << endl;
+      status += 2;
+    }
+
+  
+  // clean up memory
+    for (int lev=0; lev<vectCS.size(); lev++)
+    {
+#if 0 
+      // switched to RefCountedPtrs...
       if (vectCS[lev] != NULL)
         {
           delete vectCS[lev];
           vectCS[lev] = NULL;
         }
+#endif
     }
   return status;
       
