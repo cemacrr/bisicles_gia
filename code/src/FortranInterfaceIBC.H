@@ -53,6 +53,12 @@ public:
   virtual void define(const ProblemDomain& a_domain,
                       const Real&          a_dx);
 
+  /// sets reference fabs
+  /** if a_nodal is false, then data is cell-centered and both a_fab and 
+      a_ccFab are set to be aliases which point to a_data_ptr. If a_nodal is
+      true, then a_fab is set to be an aliase which points to a_data_ptr, 
+      while a_ccFab is allocated and filled with cell-averaged data.
+  */
   virtual void  setFAB(Real* a_data_ptr,
 		       const int* a_dimInfo,
                        const int* boxlo, const int* boxhi, 
@@ -60,6 +66,7 @@ public:
 		       const IntVect& a_offset,
 		       const IntVect& a_nGhost,
 		       FArrayBox& a_fab,
+                       FArrayBox& a_ccFab,
 		       const bool a_nodal = false);
 
   /// nGhost is the number of ghost cells in in the input data (which are ignored)
@@ -123,6 +130,14 @@ public:
 				 const Real& a_time, 
 				 const LevelSigmaCS* a_crseCoords,
 				 const int a_refRatio) ;
+
+  /// flatten thickness and basal topography back to input FArrayBoxes
+  /** 
+      re-store in m_inputThickness and m_inputTopography -- not const 
+      because we modify the values in the data holders
+  */
+  virtual void flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS> > & a_amrGeometry);
+
 
   /// Set boundary fluxes
   /**
@@ -221,6 +236,15 @@ protected:
   // ice sheet thickness from glimmer
   /// alias to data array passed in from glimmer-CISM
   FArrayBox m_inputThickness;
+  /// true if m_inputThickness is nodal
+  bool m_nodalThickness;
+  /// cell-centered input thickness 
+  /** if nodalThickness is false, this is identical to m_inputThickness. 
+      If nodalThickness is true, then this contains the cell-averaged version 
+      of the inputThickness
+  */
+  FArrayBox m_ccInputThickness;
+      
   RealVect m_inputThicknessDx;
   IntVect m_thicknessGhost; 
   /// distributed version of thickness
@@ -231,6 +255,16 @@ protected:
 
   /// alias to data array passed in from glimmer-CISM
   FArrayBox m_inputTopography;
+  // true if m_inputTopography is nodal
+  bool m_nodalTopography;
+  /// cell-centered input topography
+  /**
+     if nodalTopography is true, this is identical to m_inputTopography.
+     if nodalTopography is false, this contains the cell-averaged version
+     of the inputTopography
+  */
+  FArrayBox m_ccInputTopography;
+
   RealVect m_inputTopographyDx;
   IntVect m_topographyGhost;
   /// distributed version of topography
