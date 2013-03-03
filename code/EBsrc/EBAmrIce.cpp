@@ -54,6 +54,7 @@ using std::string;
 #include "IceConstants.H"
 #include "ExtrapBCF_F.H"
 #include "amrIceF_F.H"
+#include "EBAmrIceF_F.H"
 #include "BisiclesF_F.H"
 #include "PicardSolver.H"
 #include "JFNKSolver.H"
@@ -65,11 +66,51 @@ using std::string;
 #include "CH_HDF5.H"
 #include "IceVelocity.H"
 #include "LevelMappedDerivatives.H"
+
+#include "GroundingLineIF.H"
+#include "HyperPlaneIF.H"
+
+#ifdef CH_USE_EB
+#include "NewGeometryShop.H"
+#include "EBIndexSpace.H"
+#else
+#include "Notation.H"
+#include "RootFinder.H"
+#include "BaseIF.H"
+#include "DataFileIF.H"
+#endif
+
+#include "areaWeightedFriction.H"
+
 #ifdef HAVE_PYTHON
 #include "PythonInterface.H"
 #endif
 
 #include "NamespaceHeader.H"
+void  EBAmrIce::define(ConstitutiveRelation * a_constRelPtr,
+                       RateFactor           * a_rateFactor,
+                       SurfaceFlux          * a_surfFluxPtr,
+                       SurfaceFlux          * a_basalFluxPtr,
+                       MuCoefficient        * a_muCoefficientPtr,
+                       BasalFrictionRelation* a_basalFrictionRelationPtr,
+                       BasalFriction        * a_basalFrictionPtr,
+                       IceThicknessIBC      * a_thicknessIBC,
+                       IceTemperatureIBC    * a_temperatureIBC,
+                       const RealVect       & a_domainSize)
+{
+  setConstitutiveRelation (a_constRelPtr);
+  setRateFactor           (a_rateFactor);
+  setSurfaceFlux          (a_surfFluxPtr);
+  setBasalFlux            (a_basalFluxPtr); 
+  setMuCoefficient        (a_muCoefficientPtr);
+  setBasalFrictionRelation(a_basalFrictionRelationPtr);
+  setBasalFriction        (a_basalFrictionPtr);
+  setThicknessBC          (a_thicknessIBC);
+  setTemperatureBC        (a_temperatureIBC);
+  setDomainSize           (a_domainSize);
+  
+  initialize();
+}
 
 /// define nonlinear ellipic solver for computing velocity field
 void EBAmrIce::defineSolver()
@@ -192,7 +233,14 @@ void EBAmrIce::velInitialGuess(Vector<LevelData<FArrayBox>* >& a_vectC0,
                       
              // define solver
              defineSolver();
-                      
+
+#if CH_SPACEDIM== 1
+#if CUH_SPACEDIM == 1     
+             m_velSolver->setGroundingLineData(m_groundingLineIv,
+                                               m_physCoordGroundingPt,
+                                               m_lengthFraction);
+#endif
+#endif
              // solve
              rc = m_velSolver->solve(m_velocity, 
                                      initialNorm,
@@ -324,6 +372,8 @@ void EBAmrIce::velInitialGuess(Vector<LevelData<FArrayBox>* >& a_vectC0,
 void EBAmrIce::solveVelocityField(Real a_convergenceMetric)
 {
   CH_TIME("EBAmrIce::solveVelocityField");
+  
+  createEBIndexSpace();
 
   //ensure A is up to date
 #if BISICLES_Z == BISICLES_LAYERED
@@ -371,7 +421,6 @@ void EBAmrIce::solveVelocityField(Real a_convergenceMetric)
   setMuCoefficient(m_cellMuCoef,
                    m_faceMuCoef);
 
-  //use levelsigmaCS to get H and then ebisPtr
   setBasalFriction(vectC);
 
   // also sets beta = 0 where ice is floating 
@@ -393,7 +442,8 @@ void EBAmrIce::solveVelocityField(Real a_convergenceMetric)
     }
   
   // catch runs where plotfile writing is going to hang
-#ifdef  writeTestPlots
+#define writeTestPlot
+#ifdef writeTestPlot
   if (m_plot_interval >= 0 && m_cur_step == 0)
     {
       writePlotFile();
@@ -407,7 +457,14 @@ void EBAmrIce::solveVelocityField(Real a_convergenceMetric)
           velInitialGuess(vectC0,
                           a_convergenceMetric);
         }
-      
+
+#ifndef CH_USE_EB
+#if CH_SPACEDIM== 1
+      m_velSolver->setGroundingLineData(m_groundingLineIv,
+                                        m_physCoordGroundingPt,
+                                        m_lengthFraction);
+#endif
+#endif
       // multi-fluid viscous tensor solve
       int solverRetVal = m_velSolver->solve(m_velocity,
                                             m_velocitySolveInitialResidualNorm, 
@@ -594,9 +651,9 @@ void EBAmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
             {
               IntVect iv = bit();
 
-              for (int dir=0; dir<2; dir++)
+              for (int idir = 0; idir < SpaceDim; ++idir)
                 {     
-                  thisRhs(iv,dir) *= iceDensity*gravity*thisH(iv,0);
+                  thisRhs(iv,idir) *= iceDensity*gravity*thisH(iv,0);
                 } 
             }
           
@@ -643,9 +700,9 @@ void EBAmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
           // set beta to 100 on open land and open sea; set betqa = 0 where ice is floating;
           if(anyFloating)
             {
-              FORT_SETFLOATINGBETA(CHF_FRA1      (thisC,0),
-                                   CHF_CONST_FIA1(floatingMask,0),
-                                   CHF_BOX       (gridBox));
+              FORT_SETOPENLANDOPENSEABETA(CHF_FRA1      (thisC,0),
+                                          CHF_CONST_FIA1(floatingMask,0),
+                                          CHF_BOX       (gridBox));
 
 	      // friction non-negative
               CH_assert(thisC.min(gridBox) >= 0.0); 
@@ -677,6 +734,58 @@ void EBAmrIce::setBasalFriction(Vector<LevelData<FArrayBox>* >& a_vectBeta)
 {
   AmrIce::setBasalFriction(a_vectBeta);
 
+  // for debugging
+  ParmParse pp2("main");
+  bool useAreaWeightedFriction;
+  pp2.get("useAreaWeightedFriction",useAreaWeightedFriction);
+  if (!useAreaWeightedFriction)
+    {
+      for (int lev=0; lev<=m_finest_level; lev++)
+        {
+          // geometry information
+          LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
+
+          // masks
+          const LevelData<BaseFab<int> >& levelMask        = levelCS.getFloatingMask();
+          const LayoutData<bool        >& levelAnyFloating = levelCS.anyFloating    ();
+          
+          // level data
+          LevelData<FArrayBox>& levelBeta = (*a_vectBeta[lev]);
+          
+          // dbl
+          const DisjointBoxLayout& dbl = m_amrGrids[lev];
+          
+          // iterate through dbl
+          DataIterator dit = dbl.dataIterator();
+          for (dit.begin(); dit.ok(); ++dit)
+            {
+              Box dblBox = dbl[dit()];
+
+              // masks for floating ice
+              bool                anyFloating  = levelAnyFloating[dit()];  
+              const BaseFab<int>& floatingMask = levelMask       [dit()];
+  
+              // friction
+              FArrayBox& beta = levelBeta[dit];
+                           
+              // set friction on open land and open sea to 100. Set friction on floating ice to 0
+              if(anyFloating && m_reset_floating_friction_to_zero)
+                {
+                  FORT_SETFLOATINGBETA(CHF_FRA1       (beta       ,0),
+                                       CHF_CONST_FIA1(floatingMask,0),
+                                       CHF_BOX        (dblBox));
+                  
+                  // friction must be non-negative
+                  CH_assert(beta.min(dblBox) >= 0.0); 
+                } 
+            }
+        }
+    }
+}
+
+void  EBAmrIce::setBasalFriction(const BasalFriction* a_basalFrictionPtr)
+{
+  AmrIce::setBasalFriction(a_basalFrictionPtr);
 }
 
 /// set mu coefficient (phi) prior to velocity solve
@@ -685,6 +794,238 @@ void EBAmrIce::setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef,
 {
   AmrIce::setMuCoefficient(a_cellMuCoef, 
                            a_faceMuCoef);
+}
+
+void  EBAmrIce::setMuCoefficient(const MuCoefficient* a_muCoefficientPtr)
+{
+  AmrIce::setMuCoefficient(a_muCoefficientPtr);
+}
+
+void EBAmrIce::createEBIndexSpace()
+{
+  // index into coarsest amr level
+  int baseLevel = 0;
+
+  // level sigma-coordinate-system
+  RefCountedPtr<LevelSigmaCS> levelCoordPtr = m_vect_coordSys[baseLevel];
+  
+  // physical parameters repeated on each level
+  Real iceDensity   = levelCoordPtr->iceDensity  ();
+  Real waterDensity = levelCoordPtr->waterDensity();
+  Real seaLevel     = levelCoordPtr->seaLevel    ();
+  
+  // level data of ice thickness
+  LevelData<FArrayBox>& iceThicknessLD = levelCoordPtr->getH();
+  iceThicknessLD.exchange();
+  
+  // todo: not valid for AMR
+  Box iceThicknessBox      = m_amrDomains[baseLevel].domainBox();
+  Box grownIceThicknessBox = iceThicknessBox;
+  grownIceThicknessBox.grow(2);
+  
+  // GroundingLineIF and DataIF use ref counted pointers
+  RefCountedPtr<FArrayBox> iceThicknessFab(new FArrayBox(grownIceThicknessBox,1));
+  
+  // copy iceThicknessLD onto iceThicknessFab
+  for (DataIterator dit = iceThicknessLD.dataIterator(); dit.ok(); ++dit)
+    {
+      iceThicknessFab->copy(iceThicknessLD[dit()]);
+    }
+    
+  // bad data value
+  Real noDataValue = LARGEREALVAL;
+  
+  // number of data point in each direction
+  IntVect num      = IntVect::Unit + m_amrDomains[baseLevel].domainBox().bigEnd();
+  
+  // dx for the interface data, which in this case equals dx, defined below
+  RealVect spacing = m_amrDx[baseLevel]*RealVect::Unit;
+  
+  // origin
+  setOrigin(IndexTM<Real,SpaceDim>::Zero);
+  
+  // value of the IF that corresponds to the interface
+  Real value       = 0.0;
+  
+  // which side of the interface is in the calculation
+  bool thicknessInside  = true;
+  
+  // otherwise bi-linear
+  bool useCubicInterp = true;
+  
+  // not using binary data
+  RefCountedPtr<BaseFab<unsigned char> > binaryData(NULL);
+  
+  // data File IF used even though we actually have a state variable IF
+  RefCountedPtr<DataFileIF> iceThicknessDataIF(new DataFileIF(iceThicknessFab,
+                                                              binaryData,
+                                                              noDataValue,
+                                                              num,
+                                                              spacing,
+                                                              m_origin,
+                                                              value,
+                                                              thicknessInside,
+                                                              useCubicInterp));
+  
+  // data for synthetic "topography" generated by a plane
+  ParmParse pp("marineIceSheet");
+  
+  // slope of plane
+  Vector<Real >vecBasalSlope;
+  pp.getarr("basal_slope",vecBasalSlope,0,SpaceDim);
+  
+  // convert vector to RealVect
+  IndexTM<Real,SpaceDim> basalSlope;
+  for(int idir = 0; idir < SpaceDim; ++idir)
+    {
+      basalSlope[idir] = vecBasalSlope[idir];
+    }
+  
+  // point on the plane
+  Real originElevation;
+  pp.get("originElevation",originElevation);
+  IndexTM<Real,SpaceDim> planeOrigin;
+  CH_assert(basalSlope[0] != 0.0);
+  planeOrigin[0] = -originElevation/basalSlope[0];
+
+#if (CH_SPACEDIM == 2)
+  {
+    planeOrigin[1] = 0.0;
+  }
+#endif
+
+  // todo: why is inside correct here?
+  bool inside = false;
+  
+  // topography 
+  RefCountedPtr<HyperPlaneIF> topographyIF(new HyperPlaneIF(basalSlope, planeOrigin, inside));
+  
+  // Archimedes principle determines the interface
+  GroundingLineIF implicitFunction(iceDensity,
+                                   waterDensity,
+                                   seaLevel,
+                                   topographyIF);
+  
+  implicitFunction.setDepth(iceThicknessDataIF);
+  
+  // this won't work with amr
+  RealVect dx = RealVect::Unit*m_amrDx[baseLevel];
+  
+#ifdef CH_USE_EB
+  {
+    // todo: what constraints make sense
+    int order = 1;
+    int degree = 2;
+    bool useConstraints = false;
+    
+    ProblemDomain ebProblemDomain(m_amrDomains[baseLevel].domainBox());
+    
+    // class that uses implicit function to create geometry data for EBIS
+    NewGeometryShop workshopPtr(implicitFunction, 
+                                m_origin,
+                                dx,
+                                ebProblemDomain,
+                                order,
+                                degree,
+                                useConstraints);
+    
+    // todo: do something more clear than hard-wiring these values
+    int ebMaxSize      = 32;
+    int maxCoarsenings = -1;  
+    
+    // build EBIS
+    EBIndexSpace* ebisPtr = Chombo_EBIS::instance();
+    ebisPtr->define(ebProblemDomain, 
+                    m_origin, 
+                    m_amrDx[baseLevel], 
+                    workshopPtr, 
+                    ebMaxSize, 
+                    maxCoarsenings);
+    
+  }
+#elif (CH_SPACEDIM ==1)
+  {
+    ParmParse pp2("main");
+    bool useAreaWeightedFriction;
+    pp2.get("useAreaWeightedFriction",useAreaWeightedFriction);
+
+    if (useAreaWeightedFriction)    
+      {
+        bool foundGroundingLine = false;
+        
+        //iterate through every iv
+        for (BoxIterator bit(iceThicknessBox); bit.ok() && !foundGroundingLine; ++bit)
+          {
+            // IntVect
+            const IntVect& iv = bit();
+            
+            // physical coordinates 
+            IndexTM<Real,SpaceDim> physCoordIv;
+            for (int idir = 0; idir <SpaceDim; ++ idir)
+              {
+                physCoordIv[idir] = m_origin[idir] + (iv[idir] + 0.5)* m_amrDx[baseLevel];
+              }
+            
+            IndexTM<Real,SpaceDim> loEnd = physCoordIv;
+            loEnd[0] -= 0.5* m_amrDx[baseLevel];
+            
+            IndexTM<Real,SpaceDim> hiEnd = physCoordIv;
+            hiEnd[0] += 0.5*m_amrDx[baseLevel];
+            
+            //check endpoints
+            Real loValue = implicitFunction.value(IndexTM<int,SpaceDim>::Zero,loEnd);
+            Real hiValue = implicitFunction.value(IndexTM<int,SpaceDim>::Zero,hiEnd);
+            
+            if (loValue * hiValue <= 0)
+              {
+                foundGroundingLine = true;
+                RootFinder rootFinder(&implicitFunction);
+                // Brent returns a value between [-1,1]
+                Real lengthFraction = rootFinder.Brent(loEnd,hiEnd);
+                
+                // scale the intersection to be in (0.0,1.0)
+                lengthFraction = 0.5*(1.0 + lengthFraction);
+                
+                IndexTM<Real,SpaceDim>  physCoordGroundingPt = loEnd*lengthFraction + (1.0 - lengthFraction)*hiEnd;  
+                setGroundingLineData(iv,physCoordGroundingPt,lengthFraction);
+                
+                pout()<< "physCoordGroundingPt = "<<physCoordGroundingPt<<endl;
+                pout()<< "iv = "<<iv<<endl;
+                
+                // modify BasalFriction
+                areaWeightedFriction* areaWeightedFrictionPtr = dynamic_cast<areaWeightedFriction*>(m_basalFrictionPtr);
+                CH_assert(areaWeightedFrictionPtr != NULL);
+                
+                areaWeightedFrictionPtr->setGroundingLineData(iv,physCoordGroundingPt,lengthFraction);
+              }
+          }
+      }
+  }
+#else
+  {
+    MayDay::Abort("Confusion about CH_USE_EB and CH_SPACEDIM == 1");
+  } 
+#endif
+}
+
+#ifndef CH_USE_EB
+#if CH_SPACEDIM==1
+void EBAmrIce::setGroundingLineData(const IntVect                & a_groundingLineIv,
+                                    const IndexTM<Real,SpaceDim> & a_physCoordGroundingPt,
+                                    const Real                   & a_lengthFraction)
+
+{
+  m_groundingLineIv      = a_groundingLineIv;
+  m_physCoordGroundingPt = a_physCoordGroundingPt;
+  
+  m_lengthFraction       = a_lengthFraction;
+}                
+#endif
+#endif
+
+void EBAmrIce::setOrigin(const IndexTM<Real,SpaceDim>& a_origin)
+{
+  m_origin = a_origin;
 }
 
 #include "NamespaceFooter.H"

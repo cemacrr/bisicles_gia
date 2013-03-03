@@ -19,7 +19,7 @@
 #include "BaseIF.H"
 #include "DataFileIF.H"
 #include "GroundingLineIF.H"
-
+#include "CH_Attach.H"
 #include "NamespaceHeader.H"
 
 GroundingLineIF::GroundingLineIF(const Real                 & a_rhoIce  ,
@@ -29,17 +29,21 @@ GroundingLineIF::GroundingLineIF(const Real                 & a_rhoIce  ,
   : m_seaLevel    (a_seaLevel),
     m_rhoWater    (a_rhoWater),
     m_rhoIce      (a_rhoIce),
-    m_topographyIF(a_topographyIF)
+    m_topographyIF(a_topographyIF),
+    m_depthIFSet  (false)
 {
 }
 
-GroundingLineIF::GroundingLineIF(GroundingLineIF& a_inputIF)
-{
+GroundingLineIF::GroundingLineIF(const GroundingLineIF& a_inputIF)
+
   // Remember the parameters
-  m_seaLevel = a_inputIF.m_seaLevel;
-  m_rhoWater = a_inputIF.m_rhoWater;
-  m_rhoIce   = a_inputIF.m_rhoIce;
-  m_depthIF  = a_inputIF.m_depthIF;
+  : m_seaLevel    (a_inputIF.m_seaLevel),
+    m_rhoWater    (a_inputIF.m_rhoWater),
+    m_rhoIce      (a_inputIF.m_rhoIce),
+    m_topographyIF(a_inputIF.m_topographyIF),
+    m_depthIFSet  (a_inputIF.m_depthIFSet),
+    m_depthIF     (a_inputIF.m_depthIF)
+{
 }
 
 GroundingLineIF::~GroundingLineIF()
@@ -49,14 +53,28 @@ GroundingLineIF::~GroundingLineIF()
 Real GroundingLineIF::value(const IndexTM<int,GLOBALDIM> & a_partialDerivative,
                             const IndexTM<Real,GLOBALDIM>& a_point) const
 {
+  CH_assert(m_depthIFSet);
+  CH_assert(m_topographyIF!= NULL);
   
-  Real retval = LARGEREALVAL;
-
+  Real thicknessPartial = m_depthIF     ->value(a_partialDerivative,a_point);
+  Real zBottomPartial   = m_topographyIF->value(a_partialDerivative,a_point);
+  
+  Real retval =  m_rhoWater*(m_seaLevel - zBottomPartial) - m_rhoIce*thicknessPartial;
+  
+  //pout()<<"point = "           <<a_point         <<endl;
+  //pout()<<"thicknessPartial = "<<thicknessPartial<<endl;
+  //pout()<<"zBottomPartial = "  <<zBottomPartial  <<endl;
+  //pout()<<"retval = "          <<retval          <<endl;
+  //pout()<<""                   <<""              <<endl;
+  
   return retval;
 }
 
 Real GroundingLineIF::value(const RealVect & a_point) const
 {
+
+  CH_assert(m_depthIFSet);
+  CH_assert(m_topographyIF != NULL);
   IndexTM<Real,GLOBALDIM> pt;
 
   //check does SpaceDim = GLOBALDIM
@@ -77,28 +95,18 @@ Real GroundingLineIF::value(const RealVect & a_point) const
 
 Real GroundingLineIF::value(const IndexTM<Real,GLOBALDIM>& a_point) const
 {
-  Real retval = m_rhoIce*m_depthIF->value(a_point) - m_rhoWater*(m_seaLevel - m_topographyIF->value(a_point));
-
-  return retval;
-}
-
-IndexTM<Real,GLOBALDIM> GroundingLineIF::normal(const IndexTM<Real,GLOBALDIM>& a_point) const
-{
-  IndexTM<Real,GLOBALDIM> normal = IndexTM<Real,GLOBALDIM>::Unit;
-  return normal;
-}
-
-Vector<IndexTM<Real,GLOBALDIM> > GroundingLineIF::gradNormal(const IndexTM<Real,GLOBALDIM>& a_point)const
-{
-  Vector<IndexTM<Real,GLOBALDIM> > gradNorm;
-  gradNorm.resize(GLOBALDIM);
-
-  return gradNorm;
+  CH_assert(m_depthIFSet);
+  CH_assert(m_topographyIF != NULL);
+  
+  IndexTM<int,GLOBALDIM> noDerivative = IndexTM<int,GLOBALDIM>::Zero;
+ 
+  return value(noDerivative,a_point);
 }
 
 void GroundingLineIF::setDepth(const RefCountedPtr<DataFileIF>  & a_depth)
 {
-  m_depthIF = a_depth;
+  m_depthIF    = a_depth;
+  m_depthIFSet = true;
 }
 
 BaseIF* GroundingLineIF::newImplicitFunction() const
@@ -107,6 +115,8 @@ BaseIF* GroundingLineIF::newImplicitFunction() const
                                                           m_rhoWater,
                                                           m_seaLevel,
                                                           m_topographyIF);
+  
+  groundingLinePtr->setDepth(m_depthIF);
 
   return static_cast<BaseIF*>(groundingLinePtr);
 }

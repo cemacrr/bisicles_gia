@@ -37,7 +37,7 @@ public:
                   const RefCountedPtr <BaseIF>& a_topographyIF);
 
   /// Copy constructor
-  GroundingLineIF(GroundingLineIF& a_inputIF);
+  GroundingLineIF(const GroundingLineIF& a_inputIF);
 
   /// Destructor
   virtual ~GroundingLineIF();
@@ -52,10 +52,6 @@ public:
 
   virtual Real value(const IndexTM<Real,GLOBALDIM>& a_point) const;
 
-  virtual IndexTM<Real,GLOBALDIM> normal(const IndexTM<Real,GLOBALDIM>& a_point) const ;
-
-  virtual Vector<IndexTM<Real,GLOBALDIM> > gradNormal(const IndexTM<Real,GLOBALDIM>& a_point) const;
-
   virtual void setDepth(const RefCountedPtr<DataFileIF>& m_depth);
 
   virtual BaseIF* newImplicitFunction() const;
@@ -68,6 +64,8 @@ public:
   Real m_rhoIce  ;
   
   const RefCountedPtr<BaseIF> m_topographyIF;
+
+  bool                        m_depthIFSet;
   RefCountedPtr  <DataFileIF> m_depthIF;
 
 private:

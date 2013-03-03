@@ -54,7 +54,7 @@ void areaWeightedFriction::setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
   CH_assert(m_frictionPtr != NULL);
   m_frictionPtr->setBasalFriction(a_betaSqr,a_coordSys,a_time,a_dt);
 
-  #ifdef CH_USE_EB
+#ifdef CH_USE_EB
 
   // ebisPtr
   EBIndexSpace* ebisPtr = Chombo_EBIS::instance();
@@ -79,7 +79,6 @@ void areaWeightedFriction::setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
     {
       // geometry data and (trivial) connectivity for this box
       EBISBox ebisBox = ebisl[dit()];
-
       
       // modify the value in the irreg ivs
       Box box = dbl[dit()];
@@ -98,18 +97,55 @@ void areaWeightedFriction::setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
               Real areaFraction = ebisBox.volFrac(vofs[0]);
               a_betaSqr[dit()](iv,0) *= areaFraction;
             }
-            //else
+            else
             {
               MayDay::Error("Not coded for multi-cells");
             }
         }
 
     }
-#else
+
+#elif CH_SPACEDIM == 1
   {
+    // dbl
+    DisjointBoxLayout dbl = a_betaSqr.disjointBoxLayout();
+
+    DataIterator dit = a_betaSqr.dataIterator();
+    for (dit.begin(); dit.ok(); ++dit)
+      {
+        Box box = dbl[dit()];
+        
+        // iterate over all irregular volumes of fluid
+        for (BoxIterator bit(box); bit.ok(); ++bit)
+          {
+            IntVect iv = bit();
+            if (iv[0] == m_groundingLineIv[0])
+              {
+                a_betaSqr[dit()](iv,0) *= m_lengthFraction;
+              }
+            else if (iv[0] > m_groundingLineIv[0])
+              {
+                a_betaSqr[dit()](iv,0) = 0.0;
+              }
+          }
+      }
   }
 #endif
     
 }
+
+#ifndef CH_USE_EB
+#if CH_SPACEDIM == 1
+void areaWeightedFriction::setGroundingLineData(const IntVect                & a_groundingLineIv,
+                                                const IndexTM<Real,SpaceDim> & a_physCoordGroundingPt,
+                                                const Real                   & a_lengthFraction)
+
+{
+  m_groundingLineIv      = a_groundingLineIv;
+  m_physCoordGroundingPt = a_physCoordGroundingPt;
+  m_lengthFraction       = a_lengthFraction;   
+}        
+#endif
+#endif
 
 #include "NamespaceFooter.H"

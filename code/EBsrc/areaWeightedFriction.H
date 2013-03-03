@@ -51,7 +51,7 @@ public:
 protected:
   BasalFriction* m_frictionPtr;
   
-private:
+public:
   // Disallowed for all the usual reasons
   void operator=(const areaWeightedFriction& a_input)
   {
@@ -63,9 +63,20 @@ private:
   {
     MayDay::Error("invalid operator");
   }
+
+#ifndef CH_USE_EB
+#if CH_SPACEDIM == 1
+  void setGroundingLineData(const IntVect                & a_groundingLineIv,
+                            const IndexTM<Real,SpaceDim> & a_physCoordGroundingPt,
+                            const Real                   & a_lengthFraction);
+
+  IntVect                m_groundingLineIv;
+  IndexTM<Real,SpaceDim> m_physCoordGroundingPt;
+  Real                   m_lengthFraction;
+#endif
+#endif
 };
 
 #include "NamespaceFooter.H"
 
-
-#endif // multiple-include preventer
+#endif 
