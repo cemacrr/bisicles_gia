@@ -503,32 +503,48 @@ FortranInterfaceIBC::setThicknessClearRegions(const Vector<Box>& a_clearRegions)
 IceThicknessIBC* 
 FortranInterfaceIBC::new_thicknessIBC()
 {
+  if (m_verbose)
+    {
+      pout() << "in FortranInterfaceIBC::new_thicknessIBC" << endl;
+    }
+
   FortranInterfaceIBC* retval = new FortranInterfaceIBC();
 
   retval->m_grids = m_grids;
   retval->m_gridsSet = m_gridsSet;
   
-  // keep these as aliases
-  retval->m_inputThickness.define(m_inputThickness.box(), 
-                                  m_inputThickness.nComp(),
-                                  m_inputThickness.dataPtr());
-
-  retval->m_ccInputThickness.define(m_ccInputThickness.box(), 
-                                    m_ccInputThickness.nComp(),
-                                    m_ccInputThickness.dataPtr());
-
+  // keep these as aliases, if they're actually defined
   
+  if (!m_inputThickness.box().isEmpty())
+    {
+      retval->m_inputThickness.define(m_inputThickness.box(), 
+                                      m_inputThickness.nComp(),
+                                      m_inputThickness.dataPtr());
+    }
+
+  if (!m_ccInputThickness.box().isEmpty())
+    {
+      retval->m_ccInputThickness.define(m_ccInputThickness.box(), 
+                                        m_ccInputThickness.nComp(),
+                                        m_ccInputThickness.dataPtr());
+    }      
+
   retval->m_inputThicknessLDF = m_inputThicknessLDF;
   
   retval->m_thicknessGhost = m_thicknessGhost;
   retval->m_inputThicknessDx = m_inputThicknessDx;
   
   // keep these as aliases
-  retval->m_inputTopography.define(m_inputTopography.box(), m_inputTopography.nComp(), m_inputTopography.dataPtr());
+  if (!m_inputTopography.box().isEmpty())
+    {
+      retval->m_inputTopography.define(m_inputTopography.box(), m_inputTopography.nComp(), m_inputTopography.dataPtr());
+    }
 
-  retval->m_ccInputTopography.define(m_ccInputTopography.box(), m_ccInputTopography.nComp(), m_ccInputTopography.dataPtr());
+  if (!m_ccInputTopography.box().isEmpty())
+    {
+      retval->m_ccInputTopography.define(m_ccInputTopography.box(), m_ccInputTopography.nComp(), m_ccInputTopography.dataPtr());
+    }
 
-  
   retval->m_inputTopographyLDF = m_inputTopographyLDF;
 
   retval->m_inputTopographyDx = m_inputTopographyDx;
@@ -537,6 +553,7 @@ FortranInterfaceIBC::new_thicknessIBC()
   retval->m_verbose = m_verbose;
 
   return static_cast<IceThicknessIBC*>(retval);
+
 }
 
 /// Set up initial conditions
