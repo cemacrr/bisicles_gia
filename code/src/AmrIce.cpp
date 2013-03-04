@@ -7186,11 +7186,18 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	  
           LevelData<FArrayBox>& old_thickness = *m_old_thickness[lev];  
 	  //IntVect ghost = old_thickness.ghostVect();
+	  LevelData<FArrayBox> tmpThickness;
+	  tmpThickness.define(old_thickness);
+
           int dataStatus = read<FArrayBox>(a_handle,
-                                           old_thickness,
+                                           tmpThickness,
                                            "thicknessData",
                                            levelDBL);
 	  //CH_assert( old_thickness.ghostVect() == ghost);
+	  for (DataIterator dit(levelDBL);dit.ok();++dit)
+	    {
+	      old_thickness[dit].copy(tmpThickness[dit]);
+	    }
 
           if (dataStatus != 0)
             {
