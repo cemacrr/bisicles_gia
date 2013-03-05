@@ -2096,7 +2096,7 @@ AmrIce::timeStep(Real a_dt)
 	{
 	  for (int lev=0; lev<= finestTimestepLevel(); lev++)
 	    {
-	      IntVect sigmaCSGhost = IntVect::Unit;
+	      IntVect sigmaCSGhost = m_vect_coordSys[lev]->ghostVect();
 	      RealVect dx = m_amrDx[lev]*RealVect::Unit;
 	      vectCoords_half[lev] = RefCountedPtr<LevelSigmaCS> 
 		(new LevelSigmaCS(m_amrGrids[lev], dx, sigmaCSGhost));
@@ -2138,7 +2138,7 @@ AmrIce::timeStep(Real a_dt)
 
           // first, reset H in coordSys using H_half 
 	  // (slc :: calculation was already done above and we will need the old time
-          // also, so change solveVelcoityField so we can just swap LevelSigmaCSPointers)
+          // also, so change solveVelocityField so we can just swap LevelSigmaCSPointers)
 	  MayDay::Error("m_temporalAccuracy ==  doesn't work yet");
           for (int lev=0; lev<= m_finest_level; lev++)
             {
@@ -2213,7 +2213,7 @@ AmrIce::timeStep(Real a_dt)
       Vector<RefCountedPtr<LevelSigmaCS> > vectCoords_old (m_finest_level+1);
       for (int lev=0; lev<= m_finest_level; lev++)
 	 {
-	   IntVect sigmaCSGhost = IntVect::Unit;
+	   IntVect sigmaCSGhost = m_vect_coordSys[lev]->ghostVect();
 	   RealVect dx = m_amrDx[lev]*RealVect::Unit;
 	   vectCoords_old[lev] = RefCountedPtr<LevelSigmaCS> 
 	     (new LevelSigmaCS(m_amrGrids[lev], dx, sigmaCSGhost));
@@ -2933,9 +2933,11 @@ AmrIce::regrid()
 	      
 
 	      // also need to handle LevelSigmaCS 
+
+              // assume level 0 has correct ghosting
+              IntVect sigmaCSGhost = m_vect_coordSys[0]->ghostVect();
 	      {
-		IntVect sigmaCSGhost = IntVect::Unit;
-		RealVect dx = m_amrDx[lev]*RealVect::Unit;
+                RealVect dx = m_amrDx[lev]*RealVect::Unit;
 		RefCountedPtr<LevelSigmaCS > oldCoordSys = m_vect_coordSys[lev];
 		
 		RefCountedPtr<LevelSigmaCS > auxCoordSys = (lev > 0)?m_vect_coordSys[lev-1]:oldCoordSys;
