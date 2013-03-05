@@ -487,7 +487,11 @@ private:
 public:
   virtual ~JFNKSolver() {;}
 
-  JFNKSolver(){
+  JFNKSolver() 
+#ifdef CH_USE_PETSC
+    : m_petscSolver(NULL)
+#endif
+  {
     setDefaultParameters();
   }
 
