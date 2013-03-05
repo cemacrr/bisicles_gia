@@ -1047,7 +1047,6 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 #ifdef CH_USE_PETSC
           else if (m_linearSolverType == petsc)
             {
-	      CH_assert(0);
 	      m_petscSolver->setInitialGuessNonzero(false);
               m_petscSolver->solve(*du[0],*residual[0]);
               // this signals for next solve that its new (nonlinear)
