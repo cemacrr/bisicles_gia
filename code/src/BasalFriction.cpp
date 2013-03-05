@@ -167,9 +167,9 @@ sinusoidalFriction::setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
           x += 0.5*RealVect::Unit;
           x *= dx;
           
-          Real betaVal = m_betaVal*(1.0+m_eps+D_TERM(sin(twoPiOmega[0]*x[0]),
-                                                     *sin(twoPiOmega[1]*x[1]),
-                                                     *sin(twoPiOmega[2]*x[2])));
+          Real betaVal = m_betaVal*(1.0+m_eps+D_TERM(cos(twoPiOmega[0]*x[0]),
+                                                     *cos(twoPiOmega[1]*x[1]),
+                                                     *cos(twoPiOmega[2]*x[2])));
           thisBeta(iv,0) = betaVal;
         } // end loop over cells
     } // end loop over grids
