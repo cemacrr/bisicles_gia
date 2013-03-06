@@ -12,7 +12,7 @@ class BisiclesToGlimmer;
 
 void bike_driver_init(int argc, int exec_mode,  BisiclesToGlimmer * btg_ptr, const char * input_fname);
 
-void bike_driver_run(BisiclesToGlimmer * btg_ptr, float cur_time_yr, float time_inc);
+void bike_driver_run(BisiclesToGlimmer * btg_ptr, float& cur_time_yr, float time_inc);
 
 void bike_driver_finalize(int amr_obj_index);
 

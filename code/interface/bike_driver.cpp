@@ -959,7 +959,8 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 
     //Real startTime;
 
-    pp2.get("maxTime", maxTime);
+    // maxTime is passed in from CISM
+    //pp2.get("maxTime", maxTime);
     pp2.get("maxStep", maxStep);
     
     // final thing to do -- return flattened states back to CISM
@@ -1030,7 +1031,8 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 
 }
 
-void bike_driver_run(BisiclesToGlimmer * btg_ptr, float cur_time_yr, float time_inc_yr)
+// updates cur_time_yr as solution is advanced
+void bike_driver_run(BisiclesToGlimmer * btg_ptr, float& cur_time_yr, float time_inc_yr)
 {
   Bike *bikePtr;
   
@@ -1042,8 +1044,15 @@ void bike_driver_run(BisiclesToGlimmer * btg_ptr, float cur_time_yr, float time_
   AmrIce * amrObject_ptr = bikePtr->amrIce;
   cout << "Calling Amr.run..." << endl;
 
+  // reality check
+  Real time_eps = 1.0e-8;
+  CH_assert(abs(cur_time_yr - amrObject_ptr->time()) < time_eps);
+  
+  // use time increment passed in from CISM
+  maxTime = cur_time_yr + time_inc_yr;
   amrObject_ptr -> run(maxTime, maxStep);
 
+  cur_time_yr = amrObject_ptr->time();
   // btg_ptr -> copyDoubleVar(thicknessPtr,"thck","geometry");
 
   cout << "Amr.run returned." << endl; 
