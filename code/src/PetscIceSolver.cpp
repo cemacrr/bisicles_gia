@@ -84,7 +84,7 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *ctx )
   PetscFunctionBegin;
 
   ierr = SNESGetApplicationContext(snes,(void**)&pilev); CHKERRQ(ierr);
-pout() << "FormFunction ilev= " << *pilev << endl;
+
   solver = (PetscSolverViscousTensor<LevelData<FArrayBox> >*)ctx;
   tthis = (PetscIceSolver*)solver->m_ctx;
 
@@ -128,7 +128,7 @@ PetscErrorCode FormJacobian( SNES snes,Vec x,Mat *jac,Mat *prejac,MatStructure *
   PetscFunctionBegin;
 
   ierr = SNESGetApplicationContext(snes,(void**)&pilev); CHKERRQ(ierr);
-pout() << "\t\tFormJacobian ilev= " << *pilev << endl;
+
   solver = (PetscSolverViscousTensor<LevelData<FArrayBox> >*)ctx;
   tthis = (PetscIceSolver*)solver->m_ctx;
 
@@ -358,36 +358,31 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       pout() << "PetscIceSolver::solve: Initial residual |r|_2 = " << residNorm0 << endl;
     }
   
-  // FMG solve - coarse grid
-  ilev = 0;
-  // call solver will create matrix, setup PC
-  m_tphi = resid[ilev];
-  m_tphi2 = tempv[ilev];
-  m_tfaceA = faceAs[ilev];
-  m_tcoordSys = a_coordSys[ilev];
-  m_ttime = a_time;
-#ifdef CH_USE_PETSC
-  m_petscSolver[ilev]->m_ctx = (void*)this;
-  // does c-f interp for finer grids, computes c-f interp if crs_vel provided
-  computeMu( *a_horizontalVel[ilev], *faceAs[ilev], a_coordSys[ilev], 0, ilev, a_time ); 
-  // creates Mat and Vecs, creates SNES
-  m_petscSolver[ilev]->setup_solver( *a_horizontalVel[ilev] );  
-  // set the level to index into this
-  ierr = SNESSetApplicationContext( m_petscSolver[ilev]->m_snes, (void*)&ilev );CHKERRQ(ierr);
-  m_petscSolver[ilev]->solve( *a_horizontalVel[ilev], *a_rhs[ilev] );
-  // this signals for next solve that its new (nonlinear)
-  m_petscSolver[ilev]->resetOperator();
-#endif
-
   // go up grid hierarchy
-  for (ilev=a_lbase+1;ilev<=a_maxLevel;ilev++)
+  for (ilev=a_lbase;ilev<=a_maxLevel;ilev++)
     {
       pout() << "PetscIceSolver::solve: in FMG level " << ilev << endl;
-      // prolongate
+      // call solver will create matrix, setup PC
+      m_tphi = resid[ilev];
+      m_tphi2 = tempv[ilev];
+      m_tfaceA = faceAs[ilev];
+      m_tcoordSys = a_coordSys[ilev];
+      m_ttime = a_time;
+#ifdef CH_USE_PETSC
+      m_petscSolver[ilev]->m_ctx = (void*)this;
+      // does c-f interp for finer grids, computes c-f interp if crs_vel provided
+      computeMu( *a_horizontalVel[ilev], *faceAs[ilev], a_coordSys[ilev], 0, ilev, a_time ); 
+      // creates Mat and Vecs, creates SNES
+      m_petscSolver[ilev]->setup_solver( *a_horizontalVel[ilev] );  
+      // set the level to index into this
+      ierr = SNESSetApplicationContext( m_petscSolver[ilev]->m_snes, (void*)&ilev );CHKERRQ(ierr);
+      m_petscSolver[ilev]->solve( *a_horizontalVel[ilev], *a_rhs[ilev] );
+      // this signals for next solve that its new (nonlinear)
+      m_petscSolver[ilev]->resetOperator();
+#endif
+      if(ilev==a_maxLevel) break;
 
-
-      // level solve, just like above
-
+      // prolongate to ilev+1
 
     }
 
