@@ -15,7 +15,7 @@
 #include "ExtrapBCF_F.H"
 #include "IceConstants.H"
 #include "BisiclesF_F.H"
-//#include "AMRIO.H"
+#include "TensorCFInterp.H"
 #include "NamespaceHeader.H"
 
 ////////////////////////////////////////////////////////////////////////
@@ -26,7 +26,6 @@ PetscIceSolver::PetscIceSolver()
   // default constructor leaves things in an undefined state
   setDefaultValues();
   m_bc = NULL;
-  m_OpPtr = NULL;
   m_constRelPtr = NULL;
   m_basalFrictionRelPtr = NULL;
   m_opFactoryPtr = NULL;
@@ -34,41 +33,24 @@ PetscIceSolver::PetscIceSolver()
   m_isOpDefined = false;
   m_vtopSafety = VTOP_DEFAULT_SAFETY;
 
-  m_refRatio = 0;
+  //m_refRatio = 0;
+  //m_OpPtr = NULL;
 
   m_max_its = 20;
   m_rtol = 1.e-6;
   m_atol = 1.e-30;
-#ifdef CH_USE_PETSC
-  m_petscSolver = new PetscSolverViscousTensor<LevelData<FArrayBox> >;
-#else
-  MayDay::Error("PetscIceSolver::PetscIceSolver called w/o PETSc");
-#endif
 }
 ////////////////////////////////////////////////////////////////////////
 //  PetscIceSolver::~PetscIceSolver() 
 ////////////////////////////////////////////////////////////////////////
 PetscIceSolver::~PetscIceSolver() 
 {
-#ifdef CH_USE_PETSC
-  if (m_petscSolver != NULL)
-    {
-      delete m_petscSolver;
-      m_petscSolver = NULL;
-    }
-#endif
-
   if(m_opFactoryPtr != NULL)
     {
       delete m_opFactoryPtr;
       m_opFactoryPtr = NULL;
     }
-  if( m_OpPtr )
-    {
-      delete m_OpPtr;
-      m_OpPtr = 0;
-    }
-
+  
   if (m_bc != NULL)
     {
       delete m_bc;
@@ -84,30 +66,33 @@ PetscIceSolver::~PetscIceSolver()
    Input Parameters:
    user - user-defined application context
 .  x - vector
-.  T - optional user-defined context, as set by SNESSetFunction()
+.  ctx - user-defined context, as set by SNESSetFunction()
 
    Output Parameter:
 .  f - vector
  */
 #undef __FUNCT__
 #define __FUNCT__ "FormFunction"
-PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *dummy )
+PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *ctx )
 {
   CH_TIME("PetscIceSolver::FormFunction");
   PetscErrorCode ierr;
   PetscSolverViscousTensor<LevelData<FArrayBox> > *solver;
   PetscIceSolver *tthis;
+  PetscInt *pilev;
 
   PetscFunctionBegin;
 
-  ierr = SNESGetApplicationContext(snes,(void**)&solver); CHKERRQ(ierr);
+  ierr = SNESGetApplicationContext(snes,(void**)&pilev); CHKERRQ(ierr);
+pout() << "FormFunction ilev= " << *pilev << endl;
+  solver = (PetscSolverViscousTensor<LevelData<FArrayBox> >*)ctx;
   tthis = (PetscIceSolver*)solver->m_ctx;
 
   ierr = solver->putPetscInChombo( *tthis->m_tphi2, x );     CHKERRQ(ierr);
   
-  tthis->updateCoefs( *tthis->m_tphi2 ); // needed because called before FormJacobian
+  tthis->updateCoefs( *tthis->m_tphi2, (int)*pilev ); // needed because called before FormJacobian
 
-  tthis->applyOp( *tthis->m_tphi, *tthis->m_tphi2 ); 
+  tthis->m_op[*pilev]->applyOp( *tthis->m_tphi, *tthis->m_tphi2 ); 
 
   ierr = solver->putChomboInPetsc( f, *tthis->m_tphi );  CHKERRQ(ierr);
 
@@ -123,7 +108,7 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *dummy )
    Input Parameters:
 .  snes - the SNES context
 .  dummy - input vector
-.  T - optional user-defined context, as set by SNESSetJacobian()
+.  ctx - optional user-defined context, as set by SNESSetJacobian()
 
    Output Parameters:
 .  jac - Jacobian matrix
@@ -132,27 +117,34 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *dummy )
 */
 #undef __FUNCT__
 #define __FUNCT__ "FormJacobian"
-PetscErrorCode FormJacobian( SNES snes,Vec x,Mat *jac,Mat *prejac,MatStructure *flag, void *dummy )
+PetscErrorCode FormJacobian( SNES snes,Vec x,Mat *jac,Mat *prejac,MatStructure *flag, void *ctx )
 {
   CH_TIME("PetscIceSolver::FormJacobian");
   PetscErrorCode ierr;
   PetscSolverViscousTensor<LevelData<FArrayBox> > *solver;
   PetscIceSolver *tthis;
+  PetscInt *pilev; // not used
 
   PetscFunctionBegin;
 
-  ierr = SNESGetApplicationContext(snes,(void**)&solver);CHKERRQ(ierr);
-
+  ierr = SNESGetApplicationContext(snes,(void**)&pilev); CHKERRQ(ierr);
+pout() << "\t\tFormJacobian ilev= " << *pilev << endl;
+  solver = (PetscSolverViscousTensor<LevelData<FArrayBox> >*)ctx;
   tthis = (PetscIceSolver*)solver->m_ctx;
 
   ierr = solver->putPetscInChombo( *tthis->m_tphi2, x );     CHKERRQ(ierr);
 
-  //tthis->updateCoefs( *tthis->m_tphi2 ); // needed because called before FormJacobian
+  //tthis->updateCoefs(*tthis->m_tphi2, (int)*pilev); // needed because called after FormJacobian
   ierr = solver->formMatrix( *prejac, *tthis->m_tphi2 ); CHKERRQ(ierr);
-  
-  // not sure why this needs to be called, we don't touch it
-  ierr = MatAssemblyBegin(*jac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-  ierr = MatAssemblyEnd(*jac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+
+  // 
+  ierr = MatAssemblyBegin(*prejac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+  ierr = MatAssemblyEnd(*prejac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+  if(prejac!=jac)
+    {
+      ierr = MatAssemblyBegin(*jac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+      ierr = MatAssemblyEnd(*jac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+    }
 
   *flag = SAME_NONZERO_PATTERN;
   PetscFunctionReturn(0);
@@ -172,176 +164,244 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
 		       IceThicknessIBC* a_bc,
 		       int a_numLevels)
 {
-  if(a_numLevels!=1){
-    MayDay::Error("PetscIceSolver::define not implemented AMR");
-  }
-  m_domain = a_coarseDomain;
-  
+  Real opAlpha, opBeta;
+
+  getOperatorScaleFactors( opAlpha, opBeta );
+
   m_constRelPtr = a_constRelPtr;
   m_basalFrictionRelPtr = a_basalFrictionRelPtr;
-  m_grid = a_vectGrids[0];
   m_bc = a_bc->new_thicknessIBC();
 
-  m_refRatio = a_vectRefRatio[0];
-
-  m_Mu = RefCountedPtr<LevelData<FluxBox> >(new LevelData<FluxBox>(m_grid, 
-								   1, 
-								   IntVect::Zero) );
-
-  m_Lambda = RefCountedPtr<LevelData<FluxBox> >(new LevelData<FluxBox>(m_grid, 
-								       1, 
-								       IntVect::Zero) );
+  m_op.resize(a_numLevels);
+  m_grid.resize(a_numLevels);
+  m_domain.resize(a_numLevels);
+  m_refRatio.resize(a_numLevels-1);
+  m_Mu.resize(a_numLevels);
+  m_Lambda.resize(a_numLevels);
+  m_Beta.resize(a_numLevels);
+  m_Beta0.resize(a_numLevels);
+  m_C.resize(a_numLevels);
+  m_petscSolver.resize(a_numLevels);
   
-  // beta only has one component...
-  m_Beta = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(m_grid,
-									 1, 
-									 IntVect::Zero));
-  m_Beta0 = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(m_grid,
-									 1, 
-									 IntVect::Zero));
+  m_domain[0] = a_coarseDomain;
+  for(int ilev=0;ilev<a_numLevels;ilev++)
+    {
+      m_grid[ilev] = a_vectGrids[ilev];
+      if( ilev < a_numLevels-1 )
+	{
+	  m_refRatio[ilev] = a_vectRefRatio[ilev];
+	}
 
-  // C only has one component...
-  m_C = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(m_grid, 
-								      1,
-								      IntVect::Zero));
-
-  //ParmParse petscPP("petscSolver");
-  //petscPP.query("vtopSafety", m_vtopSafety);
-
-  if ( !m_isOpDefined ) {
-    defineOpFactory( a_dxCrse );    CH_assert(!m_OpPtr && m_opFactoryPtr);
-    // this copies the unset data above, just needed here for dx &crdx.
-    m_OpPtr = m_opFactoryPtr->MGnewOp( m_domain, 0, true ); 
-#ifdef CH_USE_PETSC
-    Real opAlpha, opBeta;
-    m_petscSolver->define( m_OpPtr, false ); // dx & crdx
-    getOperatorScaleFactors( opAlpha, opBeta );
-    m_petscSolver->setVTParams( opAlpha, opBeta, &(*m_C), &(*m_Mu), &(*m_Lambda) );
-    if(true){
-      m_petscSolver->setFunctionAndJacobian( FormFunction, FormJacobian );
+      m_Mu[ilev] = RefCountedPtr<LevelData<FluxBox> >(new LevelData<FluxBox>(m_grid[ilev], 
+									     1, 
+									     IntVect::Zero) );
+      
+      m_Lambda[ilev] = RefCountedPtr<LevelData<FluxBox> >(new LevelData<FluxBox>(m_grid[ilev],
+										 1, 
+										 IntVect::Zero) );
+      
+      // beta only has one component...
+      // m_Beta[ilev] = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(m_grid[ilev],
+      // 										   1, 
+      // 										   IntVect::Zero));
+      // m_Beta0[ilev] = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(m_grid[ilev],
+      // 										    1, 
+      // 										    IntVect::Zero));
+      
+      // C only has one component...
+      m_C[ilev] = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(m_grid[ilev], 
+										1,
+										IntVect::Zero));
+      // make domain
+      if(ilev>0)
+	{
+	  m_domain[ilev] = m_domain[ilev-1];
+	  m_domain[ilev].refine(m_refRatio[ilev-1]);
+pout() << "PetscIceSolver::define WOW!!! new fine grid refrat:" << m_refRatio[ilev-1] << endl;
+	}
     }
+  
+  // create op factory
+  defineOpFactory( a_dxCrse, a_coarseDomain, a_numLevels );
+  
+  for(int ilev=0;ilev<a_numLevels;ilev++)
+    {
+      // this copies the unset data above, just needed here for dx &crdx.
+      m_op[ilev] = RefCountedPtr<ViscousTensorOp>(m_opFactoryPtr->MGnewOp(m_domain[ilev],0)); 
+#ifdef CH_USE_PETSC
+      m_petscSolver[ilev] = RefCountedPtr<PetscSolverViscousTensor<LevelData<FArrayBox> > >(new PetscSolverViscousTensor<LevelData<FArrayBox> >);
+      m_petscSolver[ilev]->define( &(*m_op[ilev]), false ); // dx & crdx
+      m_petscSolver[ilev]->setVTParams( opAlpha, opBeta, 
+					&(*m_C[ilev]), 
+					&(*m_Mu[ilev]), 
+					&(*m_Lambda[ilev]) );
+      
+      m_petscSolver[ilev]->setFunctionAndJacobian( FormFunction, FormJacobian );
 #endif
-  }
+    }
+}
+
+void
+PetscIceSolver::computeAMRLevelsResidual( RefCountedPtr<LevelData<FArrayBox> > a_resid, 
+					  int a_ilev, int a_lbase, int a_maxLevel, 
+					  const Vector<LevelData<FArrayBox>* >& a_horizontalVel, 
+					  const Vector<LevelData<FArrayBox>* >& a_rhs )
+{
+  if (a_ilev==a_lbase) 
+    {
+      if(a_ilev==a_maxLevel-1) // one level
+	{
+	  m_op[a_ilev]->residual(*a_resid, 
+				 *a_horizontalVel[a_ilev], 
+				 *a_rhs[a_ilev], true ); 
+	}
+      else // coarse grid
+	{
+	  m_op[a_ilev]->AMRResidualNC( *a_resid, 
+				       *a_horizontalVel[a_ilev+1], 
+				       *a_horizontalVel[a_ilev], 
+				       *a_rhs[a_ilev], true, 
+				       (a_ilev == a_maxLevel-1) ? 0 : &(*m_op[a_ilev+1]));
+	}
+    }
+  else if (a_ilev == a_maxLevel-1) // fine grid
+    {
+      m_op[a_ilev]->AMRResidualNF( *a_resid, 
+				   *a_horizontalVel[a_ilev],
+				   *a_horizontalVel[a_ilev-1],
+				   *a_rhs[a_ilev], true );
+    }
+  else
+    {
+      m_op[a_ilev]->AMRResidual( *a_resid, 
+				 *a_horizontalVel[a_ilev+1], 
+				 *a_horizontalVel[a_ilev], 
+				 *a_horizontalVel[a_ilev-1], 
+				 *a_rhs[a_ilev], true, 
+				 &(*m_op[a_ilev+1]));
+    }
+
+  // zero covered
+  if(a_ilev != a_maxLevel-1) // ! fine grid
+    {
+      const int nc = a_horizontalVel[a_ilev]->nComp();
+      const DisjointBoxLayout& finedbl = a_horizontalVel[a_ilev+1]->disjointBoxLayout();
+      DisjointBoxLayout dblCoarsenedFine;
+      coarsen( dblCoarsenedFine, finedbl, m_refRatio[a_ilev] );
+      LevelData<FArrayBox> coverLDF(dblCoarsenedFine,nc,IntVect::Unit); // use this for prolong!
+      Copier copier(dblCoarsenedFine,a_horizontalVel[a_ilev]->disjointBoxLayout(),IntVect::Zero);
+      m_op[a_ilev]->zeroCovered(*a_resid,coverLDF,copier); // copier needs to be cached!!!
+    }
 }
 
 /// solve for isothermal ice
 /** beta scales sliding coefficient C -- acoef in terms of the ViscousTensorOp
  */
 int
-PetscIceSolver::solve(Vector<LevelData<FArrayBox>* >& a_horizontalVel,
-		      Real& a_initialResidualNorm, 
-		      Real& a_finalResidualNorm,
-		      const Real a_convergenceMetric,
-		      const Vector<LevelData<FArrayBox>* >& a_rhs,
-		      const Vector<LevelData<FArrayBox>* >& a_beta,
-		      const Vector<LevelData<FArrayBox>* >& a_beta0, // not used
-		      const Vector<LevelData<FArrayBox>* >& a_A,
-		      const Vector<LevelData<FluxBox>* >& a_muCoef,
-		      Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
-		      Real a_time,
-		      int a_lbase, int a_maxLevel)
+PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
+		       Real& a_initialResidualNorm, 
+		       Real& a_finalResidualNorm,
+		       const Real a_convergenceMetric,
+		       const Vector<LevelData<FArrayBox>* >& a_rhs,
+		       const Vector<LevelData<FArrayBox>* >& a_beta,
+		       const Vector<LevelData<FArrayBox>* >& a_beta0, // not used
+		       const Vector<LevelData<FArrayBox>* >& a_A,
+		       const Vector<LevelData<FluxBox>* >& a_muCoef,
+		       Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+		       Real a_time,
+		       int a_lbase, int a_maxLevel )
 {
-  CH_assert(a_maxLevel==0);
+  CH_assert(a_lbase==0);
   CH_assert(m_isOpDefined);
-  int returnCode = 0;
-  
-  // initial implementation -- redefine solver for every 
-  // iteration. not ideal, but a good place to start. Eventually grab
-  // coefficients from operators and reset in existing solver
-  //cell face A, needed to compute mu
-  LevelData<FluxBox>* faceA = new LevelData<FluxBox>( m_grid, a_A[0]->nComp(), IntVect::Zero );
-  CellToEdge(*a_A[0], *faceA);
+  int returnCode = 0, ilev, ierr;
+  const int nc = a_horizontalVel[0]->nComp();
+  Real residNorm0,residNorm;
+  IntVect ghostVect = a_horizontalVel[0]->ghostVect();
 
-  // copy beta into local storage (also not terribly efficient; we'll
-  // fix that later as well)
-  {
-    LevelData<FArrayBox>& localBeta = *m_Beta;
-    LevelData<FArrayBox>& argBeta = *a_beta[0];
-    LevelData<FArrayBox>& localBeta0 = *m_Beta0;
-    LevelData<FArrayBox>& argBeta0 = *a_beta0[0];
-    CH_assert(localBeta.nComp() == argBeta.nComp());
-
-    DataIterator dit = localBeta.dataIterator();
-    for (dit.begin(); dit.ok(); ++dit)
-      {
-	localBeta[dit].copy(argBeta[dit]);
-	localBeta0[dit].copy(argBeta0[dit]);
-      }
-  }
-
-  LevelData<FArrayBox>* vect = new LevelData<FArrayBox>( m_grid, a_horizontalVel[0]->nComp(), IntVect::Zero );
-  if(true)
+  // copy betas and form faceA
+  Vector<RefCountedPtr<LevelData<FluxBox> > > faceAs(a_maxLevel+1);
+  for (ilev=0;ilev<=a_maxLevel;ilev++)
     {
-      Real residNorm0;
-      // setup matrix stuff
-      computeMu( *a_horizontalVel[0], *faceA, a_coordSys[0], a_time ); 
-      CH_assert( m_OpPtr ); 
-      //delete m_OpPtr;
-      // MGnewOp copies mu,lambda,acoef copies stuff 
-      //m_OpPtr = m_opFactoryPtr->MGnewOp( m_domain, 0, true );
-      if (m_verbosity >= 0)
-	{
-	  m_OpPtr->residual( *vect, *a_horizontalVel[0], *a_rhs[0] );  
-	  residNorm0 = sqrt(m_OpPtr->dotProduct(*vect,*vect));	  
-	  pout() << "PetscIceSolver::solve: Initial residual |r|_2 = " << residNorm0 << endl;
-	}
-      // call solver will create matrix, setup PC
-      m_tphi = vect;
-      LevelData<FArrayBox>* vect2 = new LevelData<FArrayBox>(m_grid,a_horizontalVel[0]->nComp(),a_horizontalVel[0]->ghostVect());
-      m_tphi2 = vect2;
-      m_tfaceA = faceA;
-      m_tcoordSys = a_coordSys[0];
-      m_ttime = a_time;
-#ifdef CH_USE_PETSC
-      m_petscSolver->m_ctx = (void*)this;
-      m_petscSolver->solve( *a_horizontalVel[0], *a_rhs[0] );	
-#endif
-      delete vect2;
-      if (m_verbosity >= 0)
-	{
-	  m_OpPtr->residual( *vect, *a_horizontalVel[0], *a_rhs[0] );  
-	  Real residNorm = sqrt(m_OpPtr->dotProduct(*vect,*vect));	  
-	  pout() << "PetscIceSolver::solve: PETSc nonlinear solve done |r|_2 = " << residNorm << ", rate=" << residNorm/residNorm0 << endl;
-	}
-    }
-  else{ // Picard/Newton
-    for( int it=0 ; it < m_max_its ; it++ ) // temparary
-      {
-	computeMu( *a_horizontalVel[0], *faceA, a_coordSys[0], a_time ); 
-	CH_assert( m_OpPtr ); 
-	//delete m_OpPtr;
-	// MGnewOp copies mu,lambda,acoef copies stuff
-	//m_OpPtr = m_opFactoryPtr->MGnewOp( m_domain, 0, true );
-	m_OpPtr->residual( *vect, *a_horizontalVel[0], *a_rhs[0] );  
-	Real residNorm = sqrt(m_OpPtr->dotProduct(*vect,*vect)),lastR;
-	if(it==0) 
-	  {
-	    a_initialResidualNorm = residNorm;
-	    if (m_verbosity >= 0)
-	      {
-		pout() << "PetscIceSolver::solve: iteration 0 |r|_2 = " << residNorm << endl;
-	      }
-	  }
-	else if (m_verbosity >= 0)
-	  {
-	    cout.precision(5);
-	    pout() << "\t" << it << ") |r|_2 = " << residNorm << ", rate=" << residNorm/lastR << endl;
-	  }
-	lastR = residNorm;
-	
-	if( residNorm/a_initialResidualNorm < m_rtol || residNorm < m_atol ) break; 
-#ifdef CH_USE_PETSC	  
-	m_petscSolver->setInitialGuessNonzero( true );
-	m_petscSolver->solve( *a_horizontalVel[0], *a_rhs[0] );	
-	// this signals for next solve that its new (nonlinear)
-	m_petscSolver->resetOperator(); 
-#endif
-      }
-  }
+      m_Beta[ilev] = a_beta[ilev];
+      m_Beta0[ilev] = a_beta0[ilev];
 
-  // clean up temporary storage
-  delete vect;
-  delete faceA;
+      // initial implementation -- redefine solver for every iteration. 
+      RefCountedPtr<LevelData<FluxBox> > faceA(new LevelData<FluxBox>(m_grid[ilev], 
+								      a_A[ilev]->nComp(), 
+								      IntVect::Zero));
+      CellToEdge(*a_A[ilev], *faceA);
+      faceAs[ilev] = faceA;
+    }
+  
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > resid(a_maxLevel+1);
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > tempv(a_maxLevel+1);
+  for (ilev=a_lbase;ilev<=a_maxLevel;ilev++)
+    {
+      RefCountedPtr<LevelData<FArrayBox> > vect(new LevelData<FArrayBox>(m_grid[ilev],nc,ghostVect));
+      resid[ilev] = vect;
+      RefCountedPtr<LevelData<FArrayBox> > vect2(new LevelData<FArrayBox>(m_grid[ilev],nc,ghostVect));
+      tempv[ilev] = vect2;
+    }
+
+  if (m_verbosity >= 0)
+    {
+      // residual
+      for (ilev=a_lbase,residNorm0=0.;ilev<=a_maxLevel;ilev++)
+	{
+	  computeAMRLevelsResidual(resid[ilev], ilev,  a_lbase, a_maxLevel+1, a_horizontalVel, a_rhs);
+	  residNorm0 += m_op[ilev]->dotProduct(*resid[ilev],*resid[ilev]);
+	  // residNorm0 = max(residNorm0,m_op[ilev]->localMaxNorm(*resid[ilev]);
+	}
+      residNorm0 = sqrt(residNorm0);
+      pout() << "PetscIceSolver::solve: Initial residual |r|_2 = " << residNorm0 << endl;
+    }
+  
+  // FMG solve - coarse grid
+  ilev = 0;
+  // call solver will create matrix, setup PC
+  m_tphi = resid[ilev];
+  m_tphi2 = tempv[ilev];
+  m_tfaceA = faceAs[ilev];
+  m_tcoordSys = a_coordSys[ilev];
+  m_ttime = a_time;
+#ifdef CH_USE_PETSC
+  m_petscSolver[ilev]->m_ctx = (void*)this;
+  // does c-f interp for finer grids, computes c-f interp if crs_vel provided
+  computeMu( *a_horizontalVel[ilev], *faceAs[ilev], a_coordSys[ilev], 0, ilev, a_time ); 
+  // creates Mat and Vecs, creates SNES
+  m_petscSolver[ilev]->setup_solver( *a_horizontalVel[ilev] );  
+  // set the level to index into this
+  ierr = SNESSetApplicationContext( m_petscSolver[ilev]->m_snes, (void*)&ilev );CHKERRQ(ierr);
+  m_petscSolver[ilev]->solve( *a_horizontalVel[ilev], *a_rhs[ilev] );
+  // this signals for next solve that its new (nonlinear)
+  m_petscSolver[ilev]->resetOperator();
+#endif
+
+  // go up grid hierarchy
+  for (ilev=a_lbase+1;ilev<=a_maxLevel;ilev++)
+    {
+      pout() << "PetscIceSolver::solve: in FMG level " << ilev << endl;
+      // prolongate
+
+
+      // level solve, just like above
+
+
+    }
+
+  if (m_verbosity >= 0)
+    {
+      for (ilev=a_lbase,residNorm=0.;ilev<=a_maxLevel;ilev++)
+	{
+	  computeAMRLevelsResidual( resid[ilev], ilev,  a_lbase, a_maxLevel+1, a_horizontalVel, a_rhs);
+	  residNorm += m_op[ilev]->dotProduct(*resid[ilev],*resid[ilev]);
+	}
+      residNorm = sqrt(residNorm);
+      pout() << "PetscIceSolver::solve: PETSc nonlinear solve done |r|_2 = " << residNorm << ", rate=" << residNorm/residNorm0 << endl;
+    }
+  //cout.precision(5);
+  //pout() << "\t" << it << ") |r|_2 = " << residNorm << ", rate=" << residNorm/lastR << endl;
+  //lastR = residNorm;
   
   return returnCode;
 }
@@ -359,35 +419,34 @@ PetscIceSolver::setDefaultValues()
 ////////////////////////////////////////////////////////////////////////
 // PetscIceSolver::defineOpFactory()
 ////////////////////////////////////////////////////////////////////////
-void PetscIceSolver::defineOpFactory( RealVect a_dx )
+void PetscIceSolver::defineOpFactory( RealVect a_Crsdx,
+				      const ProblemDomain &a_domainCoar,
+				      int a_numLevels )
 {
   if( !m_isOpDefined )
     {
       if (SpaceDim == 2)
 	{
-	  CH_assert(m_opFactoryPtr == NULL);	  
+	  CH_assert(m_opFactoryPtr==NULL);	  
 	  Real alpha, beta;
 	  BCHolder velSolveBC = m_bc->velocitySolveBC();
-
-	  // this is used to get relaxation values too early so needs to be set to avoid assert failures!
-	  DataIterator dit = m_C->dataIterator();
-	  for (dit.begin(); dit.ok(); ++dit)
+  	  
+	  for(int ilev=0;ilev<a_numLevels;ilev++)
 	    {
-	      (*m_C)[dit].setVal(1.0);
-	      (*m_Lambda)[dit].setVal(1.0);
-	      (*m_Mu)[dit].setVal(1.0);
+	      // so needs to be set to avoid assert failures when setting diag too early
+	      DataIterator dit = m_C[ilev]->dataIterator();
+	      for (dit.begin(); dit.ok(); ++dit)
+		{
+		  (*m_C[ilev])[dit].setVal(1.0);
+		  (*m_Lambda[ilev])[dit].setVal(1.0);
+		  (*m_Mu[ilev])[dit].setVal(1.0);
+		}
 	    }
 
-	  getOperatorScaleFactors( alpha, beta );	  
-	  Vector<DisjointBoxLayout> grids(1);                     grids[0] = m_grid;
-	  Vector<RefCountedPtr<LevelData<FluxBox> > > eta(1);     eta[0] = m_Mu;
-	  Vector<RefCountedPtr<LevelData<FluxBox> > > lambda(1);  lambda[0] = m_Lambda;
-	  Vector<RefCountedPtr<LevelData<FArrayBox> > > acoef(1); acoef[0] = m_C;
-	  Vector<int> refRatios(1);                               refRatios[0] = m_refRatio;
-
 	  // OpFactory grabs a pointer to mu,lambda,acoef,etc.
-	  m_opFactoryPtr = new ViscousTensorOpFactory( grids, eta, lambda, acoef, alpha, 
-						       beta, refRatios, m_domain, a_dx[0], 
+	  getOperatorScaleFactors( alpha, beta );
+	  m_opFactoryPtr = new ViscousTensorOpFactory( m_grid, m_Mu, m_Lambda, m_C, alpha, 
+						       beta, m_refRatio, a_domainCoar, a_Crsdx[0], 
 						       velSolveBC, m_vtopSafety);
 	}
       else 
@@ -413,6 +472,20 @@ PetscIceSolver::getOperatorScaleFactors(Real& a_alpha, Real& a_beta) const
 }
 
 ////////////////////////////////////////////////////////////////////////
+// PetscIceSolver::updateCoefs()
+////////////////////////////////////////////////////////////////////////
+void
+PetscIceSolver::updateCoefs( LevelData<FArrayBox> &a_horizontalVel, int a_ilev )
+{
+  computeMu( a_horizontalVel, 
+	     *m_tfaceA, 
+	     m_tcoordSys, 
+	     0, // don't need to update ghosts with coarse grid, this must be done above!
+	     a_ilev,
+	     m_ttime );
+}
+
+////////////////////////////////////////////////////////////////////////
 // PetscIceSolver::computeMu()
 //   side effect: sets m_Mu & m_Lambda  & m_C
 ////////////////////////////////////////////////////////////////////////
@@ -421,19 +494,21 @@ void
 PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
 			   const LevelData<FluxBox> &a_faceA, 
 			   const RefCountedPtr<LevelSigmaCS> &a_coordSys,
+			   LevelData<FArrayBox>* crseVelPtr,
+			   int a_ilev,
 			   Real a_time)
 {
   CH_TIME("PetscIceSolver::computeMu");
-  ProblemDomain levelDomain = m_domain;
-  const DisjointBoxLayout& levelGrids = m_grid;
+  ProblemDomain levelDomain = m_domain[a_ilev];
+  const DisjointBoxLayout& levelGrids = m_grid[a_ilev];
   const LevelSigmaCS& levelCS = *a_coordSys;
   LevelData<FArrayBox>& levelVel = a_horizontalVel;
-  LevelData<FluxBox>& levelMu = *m_Mu;
+  LevelData<FluxBox>& levelMu = *m_Mu[a_ilev];
   const LevelData<FluxBox>& levelA = a_faceA;
-  LevelData<FluxBox>& levelLambda = *m_Lambda;
-  const LevelData<FArrayBox>& levelBeta = *m_Beta;
-  const LevelData<FArrayBox>& levelBeta0 = *m_Beta0;
-  LevelData<FArrayBox>& levelC = *m_C;
+  LevelData<FluxBox>& levelLambda = *m_Lambda[a_ilev];
+  const LevelData<FArrayBox>& levelBeta = *m_Beta[a_ilev];
+  const LevelData<FArrayBox>& levelBeta0 = *m_Beta0[a_ilev];
+  LevelData<FArrayBox>& levelC = *m_C[a_ilev];
   DataIterator dit = levelGrids.dataIterator();
 
   // this is needed
@@ -465,22 +540,21 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
   // 			    true);
   // levelVel.exchange(cornerCopier);
 
-  LevelData<FArrayBox>* crseVelPtr = NULL;
   int nRefCrse = -1;  
   IntVect muGhost = IntVect::Zero;
-  m_constRelPtr->computeFaceMu(levelMu,
-			       levelVel,
-			       crseVelPtr,
-			       nRefCrse,
-			       levelA,
-			       levelCS,
-			       m_domain,
-			       muGhost);
+  m_constRelPtr->computeFaceMu( levelMu,
+				levelVel,
+				crseVelPtr,
+				nRefCrse,
+				levelA,
+				levelCS,
+				levelDomain,
+				muGhost);
 
   // now multiply by ice thickness H
   const LevelData<FluxBox>& faceH = levelCS.getFaceH();
-  Real muMax = 1.23456789e+300;
-  Real muMin = 0.0;
+  // Real muMax = 1.23456789e+300;
+  // Real muMin = 0.0;
   for (dit.begin(); dit.ok(); ++dit)
     {
       for (int dir=0; dir<SpaceDim; dir++)

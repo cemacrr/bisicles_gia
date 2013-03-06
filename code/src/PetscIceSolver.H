@@ -61,26 +61,31 @@ public:
 
   void setVerbosity(int a_verbosity) {m_verbosity = a_verbosity;}
 
-  // solve for isothermal ice -- returns 0 if converged, 1 if not
-  virtual int solve(Vector<LevelData<FArrayBox>* >& a_horizontalVel,
-		    Real& a_initialResidualNorm, Real& a_finalResidualNorm,
-		    const Real a_convergenceMetric,
-                    const Vector<LevelData<FArrayBox>* >& a_rhs,
-                    const Vector<LevelData<FArrayBox>* >& a_C,
-		    const Vector<LevelData<FArrayBox>* >& a_C0,
-                    const Vector<LevelData<FArrayBox>* >& a_A,
-		    const Vector<LevelData<FluxBox>* >& a_muCoef,
-                    Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
-                    Real a_time,
-                    int a_lbase, int a_maxLevel);
+  void computeAMRLevelsResidual( RefCountedPtr<LevelData<FArrayBox> > a_resid, 
+				 int a_ilev, int a_lbase, int a_maxLevel, 
+				 const Vector<LevelData<FArrayBox>* >& a_horizontalVel, 
+				 const Vector<LevelData<FArrayBox>* >& a_rhs );
 
-  ProblemDomain m_domain;
+  // solve for isothermal ice -- returns 0 if converged, 1 if not
+  virtual int solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
+		     Real& a_initialResidualNorm, Real& a_finalResidualNorm,
+		     const Real a_convergenceMetric,
+		     const Vector<LevelData<FArrayBox>* >& a_rhs,
+		     const Vector<LevelData<FArrayBox>* >& a_C,
+		     const Vector<LevelData<FArrayBox>* >& a_C0,
+		     const Vector<LevelData<FArrayBox>* >& a_A,
+		     const Vector<LevelData<FluxBox>* >& a_muCoef,
+		     Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+		     Real a_time,
+		     int a_lbase, int a_maxLevel);
+
+  Vector<ProblemDomain> m_domain;
   ViscousTensorOpFactory *m_opFactoryPtr;
-  ViscousTensorOp* m_OpPtr;
+  Vector<RefCountedPtr<ViscousTensorOp> > m_op;
 protected:
   ConstitutiveRelation* m_constRelPtr;
   BasalFrictionRelation* m_basalFrictionRelPtr;
-  DisjointBoxLayout m_grid;
+  Vector<DisjointBoxLayout> m_grid;
   Real m_vtopSafety;
   int m_verbosity;
   bool m_isOpDefined;
@@ -91,28 +96,28 @@ protected:
   Real m_rtol;
   Real m_atol;
 
-  int m_refRatio;
+  Vector<int> m_refRatio;
 #ifdef CH_USE_PETSC
 public:
-  PetscSolverViscousTensor<LevelData<FArrayBox> >* m_petscSolver;
+  Vector<RefCountedPtr<PetscSolverViscousTensor<LevelData<FArrayBox> > > > m_petscSolver;
 protected:
 #endif
 
   // materials
-  RefCountedPtr<LevelData<FluxBox> > m_Mu;
-  RefCountedPtr<LevelData<FluxBox> > m_Lambda;
+  Vector<RefCountedPtr<LevelData<FluxBox> > > m_Mu;
+  Vector<RefCountedPtr<LevelData<FluxBox> > > m_Lambda;
   // beta is used to scale C below
-  RefCountedPtr<LevelData<FArrayBox> > m_Beta;
-  RefCountedPtr<LevelData<FArrayBox> > m_Beta0;
+  Vector<const LevelData<FArrayBox> *> m_Beta;
+  Vector<const LevelData<FArrayBox> *> m_Beta0;
   // C here is the sliding coefficient -- the "acoeff" in terms of the viscousTensorOp
-  RefCountedPtr<LevelData<FArrayBox> > m_C;
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > m_C;
 
-  Real m_constThetaVal;
+  Real m_constThetaVal; // not used?
 
   void setDefaultValues();
   
   /// define operator factory. In 2D, this is a ViscousTensorOp.
-  void defineOpFactory(RealVect);
+  void defineOpFactory(RealVect,const ProblemDomain &,int);
 
   /// get ViscousTensorOp scaling factors (alpha and beta)
   /** put this in a function because we need them in two separate places */
@@ -123,20 +128,16 @@ public:
   void computeMu( LevelData<FArrayBox> &a_horizontalVel, 
 		  const LevelData<FluxBox> &a_A, 
 		  const RefCountedPtr<LevelSigmaCS> &a_coordSys,
+		  LevelData<FArrayBox>* crseVelPtr,
+		  int a_ilev,
 		  Real a_time);
   // abstract methods for (PETSc) nonlinear solvers
-  virtual void updateCoefs( LevelData<FArrayBox> &a_horizontalVel){
-    computeMu( a_horizontalVel, *m_tfaceA, m_tcoordSys, m_ttime );
-  }
-  virtual void applyOp( LevelData<FArrayBox> &a_out, LevelData<FArrayBox> &a_in){
-    CH_assert( m_OpPtr ); 
-    m_OpPtr->applyOp( a_out, a_in ); 
-  }
+  virtual void updateCoefs(LevelData<FArrayBox> &a_horizontalVel, int);
 
   // cache 
-  LevelData<FArrayBox> *m_tphi;  // place to cache a vector
-  LevelData<FArrayBox> *m_tphi2;  // place to cache a vector
-  LevelData<FluxBox>* m_tfaceA;
+  RefCountedPtr<LevelData<FArrayBox> >m_tphi;  // place to cache a vector
+  RefCountedPtr<LevelData<FArrayBox> >m_tphi2; // place to cache a vector
+  RefCountedPtr<LevelData<FluxBox> >  m_tfaceA;
   RefCountedPtr<LevelSigmaCS> m_tcoordSys;
   Real m_ttime;
 };

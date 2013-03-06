@@ -585,8 +585,8 @@ FASIceViscouseTensorOp::computeMu( LevelData<FArrayBox>& a_horizontalVel,
 
   // now multiply by ice thickness H
   const LevelData<FluxBox>& faceH = levelCS.getFaceH();
-  Real muMax = 1.23456789e+300;
-  Real muMin = 0.0;
+  // Real muMax = 1.23456789e+300;
+  // Real muMin = 0.0;
   for (dit.begin(); dit.ok(); ++dit)
     {
 
