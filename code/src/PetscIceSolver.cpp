@@ -181,8 +181,10 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
   m_Beta.resize(a_numLevels);
   m_Beta0.resize(a_numLevels);
   m_C.resize(a_numLevels);
+#ifdef CH_USE_PETSC
   m_petscSolver.resize(a_numLevels);
-  
+#endif
+
   m_domain[0] = a_coarseDomain;
   for(int ilev=0;ilev<a_numLevels;ilev++)
     {
