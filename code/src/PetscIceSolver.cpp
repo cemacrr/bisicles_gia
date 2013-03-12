@@ -366,12 +366,13 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       m_tphi = resid[ilev];
       m_tphi2 = tempv[ilev];
       m_tfaceA = faceAs[ilev];
+      m_tmuCoef = a_muCoef[ilev];
       m_tcoordSys = a_coordSys[ilev];
       m_ttime = a_time;
 #ifdef CH_USE_PETSC
       m_petscSolver[ilev]->m_ctx = (void*)this;
       // does c-f interp for finer grids, computes c-f interp if crs_vel provided
-      computeMu( *a_horizontalVel[ilev], *faceAs[ilev], a_coordSys[ilev], 0, ilev, a_time ); 
+      computeMu( *a_horizontalVel[ilev], *faceAs[ilev],  a_muCoef[ilev],  a_coordSys[ilev], 0, ilev, a_time ); 
       // creates Mat and Vecs, creates SNES
       m_petscSolver[ilev]->setup_solver( *a_horizontalVel[ilev] );  
       // set the level to index into this
@@ -476,6 +477,7 @@ PetscIceSolver::updateCoefs( LevelData<FArrayBox> &a_horizontalVel, int a_ilev )
 {
   computeMu( a_horizontalVel, 
 	     *m_tfaceA, 
+	     m_tmuCoef,
 	     m_tcoordSys, 
 	     0, // don't need to update ghosts with coarse grid, this must be done above!
 	     a_ilev,
@@ -490,6 +492,7 @@ PetscIceSolver::updateCoefs( LevelData<FArrayBox> &a_horizontalVel, int a_ilev )
 void 
 PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
 			   const LevelData<FluxBox> &a_faceA, 
+			   const LevelData<FluxBox> *a_muCoef,
 			   const RefCountedPtr<LevelSigmaCS> &a_coordSys,
 			   LevelData<FArrayBox>* crseVelPtr,
 			   int a_ilev,
@@ -501,6 +504,7 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
   const LevelSigmaCS& levelCS = *a_coordSys;
   LevelData<FArrayBox>& levelVel = a_horizontalVel;
   LevelData<FluxBox>& levelMu = *m_Mu[a_ilev];
+  
   const LevelData<FluxBox>& levelA = a_faceA;
   LevelData<FluxBox>& levelLambda = *m_Lambda[a_ilev];
   const LevelData<FArrayBox>& levelBeta = *m_Beta[a_ilev];
@@ -564,7 +568,10 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
 	  // 	       CHF_BOX(box));
 	  
 	  thisMu.mult(faceH[dit][dir],box,0,0,1);
-
+	  if (a_muCoef != NULL)
+	    {
+	      thisMu.mult((*a_muCoef)[dit][dir],box,0,0,1);
+	    }
 	  // FORT_MINFAB1(CHF_FRA(thisMu),
 	  // 	       CHF_CONST_REAL(muMax),
 	  // 	       CHF_BOX(box));

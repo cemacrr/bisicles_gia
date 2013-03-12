@@ -127,6 +127,7 @@ public:
   // winds up being H*mu) -- non-isothermal version...
   void computeMu( LevelData<FArrayBox> &a_horizontalVel, 
 		  const LevelData<FluxBox> &a_A, 
+		  const LevelData<FluxBox> *a_muCoef,
 		  const RefCountedPtr<LevelSigmaCS> &a_coordSys,
 		  LevelData<FArrayBox>* crseVelPtr,
 		  int a_ilev,
@@ -138,6 +139,7 @@ public:
   RefCountedPtr<LevelData<FArrayBox> >m_tphi;  // place to cache a vector
   RefCountedPtr<LevelData<FArrayBox> >m_tphi2; // place to cache a vector
   RefCountedPtr<LevelData<FluxBox> >  m_tfaceA;
+  LevelData<FluxBox>* m_tmuCoef;
   RefCountedPtr<LevelSigmaCS> m_tcoordSys;
   Real m_ttime;
 };
