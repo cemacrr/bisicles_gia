@@ -25,11 +25,15 @@
 PetscIceSolver::PetscIceSolver()
 {
   // default constructor leaves things in an undefined state
-  setDefaultValues();
+
+
   m_bc = NULL;
   m_constRelPtr = NULL;
   m_basalFrictionRelPtr = NULL;
   m_opFactoryPtr = NULL;
+
+  // use isothermal ice temp from Pattyn(2003)
+  m_constThetaVal = 238.15;
 
   m_isOpDefined = false;
   m_vtopSafety = VTOP_DEFAULT_SAFETY;
@@ -37,6 +41,13 @@ PetscIceSolver::PetscIceSolver()
   m_max_its = 20;
   m_rtol = 1.e-6;
   m_atol = 1.e-30;
+  m_minPicardIterations = 3;
+
+  ParmParse pp("petsc");
+  pp.query("maxIter",m_max_its);
+  pp.query("absTol",m_atol);
+  pp.query("relTol",m_rtol);
+  pp.query("minPicardIterations",m_minPicardIterations);
 }
 ////////////////////////////////////////////////////////////////////////
 //  PetscIceSolver::~PetscIceSolver() 
@@ -86,13 +97,23 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *ctx )
   solver = (PetscSolverViscousTensor<LevelData<FArrayBox> >*)ctx;
   tthis = (PetscIceSolver*)solver->m_ctx;
 
-  ierr = solver->putPetscInChombo( *tthis->m_tphi2, x );     CHKERRQ(ierr);
+  ierr = solver->putPetscInChombo( *tthis->m_twork2, x );     CHKERRQ(ierr);
   
-  tthis->updateCoefs( *tthis->m_tphi2, (int)*pilev ); // needed because called before FormJacobian
+  if( tthis->m_tphi0 ) 
+    {      
+      tthis->m_op[*pilev]->incr( *tthis->m_twork2, *tthis->m_tphi0, 1.);
+    }
+  
+  tthis->updateCoefs( *tthis->m_twork2, (int)*pilev ); // needed because called before FormJacobian
+  
+  if( tthis->m_tphi0 ) 
+    {      
+      tthis->m_op[*pilev]->incr( *tthis->m_twork2, *tthis->m_tphi0, -1.);
+    }
 
-  tthis->m_op[*pilev]->applyOp( *tthis->m_tphi, *tthis->m_tphi2 ); 
+  tthis->m_op[*pilev]->applyOp( *tthis->m_twork1, *tthis->m_twork2 ); 
 
-  ierr = solver->putChomboInPetsc( f, *tthis->m_tphi );  CHKERRQ(ierr);
+  ierr = solver->putChomboInPetsc( f, *tthis->m_twork1 );  CHKERRQ(ierr);
 
   PetscFunctionReturn(0);
 }
@@ -124,16 +145,16 @@ PetscErrorCode FormJacobian( SNES snes,Vec x,Mat *jac,Mat *prejac,MatStructure *
   PetscInt *pilev; // not used
 
   PetscFunctionBegin;
-
+  
   ierr = SNESGetApplicationContext(snes,(void**)&pilev); CHKERRQ(ierr);
-
+  
   solver = (PetscSolverViscousTensor<LevelData<FArrayBox> >*)ctx;
   tthis = (PetscIceSolver*)solver->m_ctx;
+  
+  //ierr = solver->putPetscInChombo( *tthis->m_twork2, x );     CHKERRQ(ierr);      
+  //tthis->updateCoefs(*tthis->m_twork2, (int)*pilev); // needed because called after FormJacobian
 
-  ierr = solver->putPetscInChombo( *tthis->m_tphi2, x );     CHKERRQ(ierr);
-
-  //tthis->updateCoefs(*tthis->m_tphi2, (int)*pilev); // needed because called after FormJacobian
-  ierr = solver->formMatrix( *prejac, *tthis->m_tphi2 ); CHKERRQ(ierr);
+  ierr = solver->formMatrix( *prejac, *tthis->m_twork2 ); CHKERRQ(ierr);
 
   // 
   ierr = MatAssemblyBegin(*prejac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
@@ -143,7 +164,7 @@ PetscErrorCode FormJacobian( SNES snes,Vec x,Mat *jac,Mat *prejac,MatStructure *
       ierr = MatAssemblyBegin(*jac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
       ierr = MatAssemblyEnd(*jac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     }
-
+  
   *flag = SAME_NONZERO_PATTERN;
   PetscFunctionReturn(0);
 }
@@ -242,16 +263,6 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
     {
       // this copies the unset data above, just needed here for dx &crdx.
       m_op[ilev] = RefCountedPtr<ViscousTensorOp>(m_opFactoryPtr->MGnewOp(m_domain[ilev],0)); 
-#ifdef CH_USE_PETSC
-      m_petscSolver[ilev] = RefCountedPtr<PetscSolverViscousTensor<LevelData<FArrayBox> > >(new PetscSolverViscousTensor<LevelData<FArrayBox> >);
-      m_petscSolver[ilev]->define( &(*m_op[ilev]), false ); // dx & crdx
-      m_petscSolver[ilev]->setVTParams( opAlpha, opBeta, 
-					&(*m_C[ilev]), 
-					&(*m_Mu[ilev]), 
-					&(*m_Lambda[ilev]) );
-      
-      m_petscSolver[ilev]->setFunctionAndJacobian( FormFunction, FormJacobian );
-#endif
     }
 }
 
@@ -329,6 +340,122 @@ CH_TIME("PetscIceSolver::AMRProlong");
     }
 }
 
+void PetscIceSolver::picardSolve_private( int a_ilev,
+					  LevelData<FArrayBox> &a_horizontalVel,
+					  const LevelData<FArrayBox> &a_rhs,
+					  LevelData<FluxBox> &a_faceAs,
+					  LevelData<FluxBox> *a_muCoef,
+					  RefCountedPtr<LevelSigmaCS> a_coordSys,
+					  Real a_time, int a_numIts, int &a_it )
+{
+#ifdef CH_USE_PETSC
+  for(/* void */;a_it<a_numIts;a_it++)
+    {
+      Real opAlpha, opBeta;
+      getOperatorScaleFactors( opAlpha, opBeta );
+      m_petscSolver[a_ilev] = 
+	RefCountedPtr<PetscSolverViscousTensor<LevelData<FArrayBox> > >(new PetscSolverViscousTensor<LevelData<FArrayBox> >);
+      m_petscSolver[a_ilev]->define( &(*m_op[a_ilev]), false ); // dx & crdx
+      m_petscSolver[a_ilev]->setVTParams( opAlpha, opBeta,
+					&(*m_C[a_ilev]),
+					&(*m_Mu[a_ilev]),
+					&(*m_Lambda[a_ilev]) );
+      m_petscSolver[a_ilev]->m_ctx = (void*)this;
+      // does c-f interp for finer grids, computes c-f interp if crs_vel provided
+      computeMu(a_horizontalVel, a_faceAs,  a_muCoef,  a_coordSys, 0, a_ilev, a_time);
+      // creates Mat and Vecs, creates SNES
+      m_petscSolver[a_ilev]->setInitialGuessNonzero(true);
+      m_petscSolver[a_ilev]->setup_solver(a_horizontalVel);
+      // set the level to index into this
+      m_petscSolver[a_ilev]->solve(a_horizontalVel,a_rhs);
+      if(m_verbosity>=0)
+	{
+	  pout() << a_it+1 << "/" << a_numIts <<  ") Picard iteration" << endl;	  
+	}
+    }
+#endif
+}
+
+void PetscIceSolver::jfnkSolve_private( int a_ilev,
+					LevelData<FArrayBox> &a_horizontalVel,
+					const LevelData<FArrayBox> &a_rhs,
+					LevelData<FluxBox> &a_faceAs,
+					LevelData<FluxBox> *a_muCoef,
+					RefCountedPtr<LevelSigmaCS> a_coordSys,
+					Real a_time,
+					int a_numIts, Real a_norm0, int &a_it
+					)
+{  
+  for(/* void */;a_it<a_numIts;a_it++)
+    {
+      Real opAlpha, opBeta, norm;
+      getOperatorScaleFactors( opAlpha, opBeta );
+#ifdef CH_USE_PETSC
+      m_petscSolver[a_ilev] = 
+	RefCountedPtr<PetscSolverViscousTensor<LevelData<FArrayBox> > >(new PetscSolverViscousTensor<LevelData<FArrayBox> >);
+      m_petscSolver[a_ilev]->define( &(*m_op[a_ilev]), false ); // dx & crdx
+      m_petscSolver[a_ilev]->setVTParams( opAlpha, opBeta,
+					  &(*m_C[a_ilev]),
+					  &(*m_Mu[a_ilev]),
+					  &(*m_Lambda[a_ilev]) );
+      m_petscSolver[a_ilev]->setFunctionAndJacobian( FormFunction, FormJacobian );
+      m_petscSolver[a_ilev]->m_ctx = (void*)this;
+      // does c-f interp for finer grids, computes c-f interp if crs_vel provided
+      computeMu(a_horizontalVel, a_faceAs,  a_muCoef,  a_coordSys, 0, a_ilev, a_time);
+      // creates Mat and Vecs, creates SNES
+      m_petscSolver[a_ilev]->setInitialGuessNonzero(true);
+      m_petscSolver[a_ilev]->setup_solver(a_horizontalVel);
+      // set the level to index into this
+      SNESSetTolerances(m_petscSolver[a_ilev]->m_snes,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT,1,PETSC_DEFAULT);
+      SNESSetApplicationContext( m_petscSolver[a_ilev]->m_snes,(void*)&a_ilev);
+      m_petscSolver[a_ilev]->solve(a_horizontalVel,a_rhs);
+
+      SNESGetFunctionNorm(m_petscSolver[a_ilev]->m_snes,&norm);
+#endif
+      if(m_verbosity>=0)
+	{
+	  pout() << a_it+1 << "/" << a_numIts <<  ") SNES |r|_2 = " << norm << ", rel norm = " << norm/a_norm0 << "/" << m_rtol << endl;	  
+	}
+      if(norm/a_norm0 < m_rtol){a_it++; break;}
+    }
+}
+
+void PetscIceSolver::jfnkSolve_reuse( int a_ilev,
+				      LevelData<FArrayBox> &a_horizontalVel,
+				      const LevelData<FArrayBox> &a_rhs,
+				      LevelData<FluxBox> &a_faceAs,
+				      LevelData<FluxBox> *a_muCoef,
+				      RefCountedPtr<LevelSigmaCS> a_coordSys,
+				      Real a_time,
+				      int a_numIts, Real a_norm0, Real a_norm, int &a_it
+				      )
+{  
+  Real opAlpha, opBeta;
+  getOperatorScaleFactors( opAlpha, opBeta );
+#ifdef CH_USE_PETSC
+  m_petscSolver[a_ilev] = RefCountedPtr<PetscSolverViscousTensor<LevelData<FArrayBox> > >(new PetscSolverViscousTensor<LevelData<FArrayBox> >);
+  m_petscSolver[a_ilev]->define( &(*m_op[a_ilev]), false ); // dx & crdx
+  m_petscSolver[a_ilev]->setVTParams( opAlpha, opBeta,
+				      &(*m_C[a_ilev]),
+				      &(*m_Mu[a_ilev]),
+				      &(*m_Lambda[a_ilev]) );
+  m_petscSolver[a_ilev]->setFunctionAndJacobian( FormFunction, FormJacobian );
+  m_petscSolver[a_ilev]->m_ctx = (void*)this;
+  // does c-f interp for finer grids, computes c-f interp if crs_vel provided
+  computeMu(a_horizontalVel, a_faceAs, a_muCoef, a_coordSys, 0, a_ilev, a_time);
+  // creates Mat and Vecs, creates SNES
+  m_petscSolver[a_ilev]->setInitialGuessNonzero(false); // not used
+  m_petscSolver[a_ilev]->setup_solver(a_horizontalVel);
+  // set the level to index into this
+  SNESSetTolerances(m_petscSolver[a_ilev]->m_snes,m_atol,m_rtol*a_norm0/a_norm,PETSC_DEFAULT,a_numIts,PETSC_DEFAULT);
+  SNESSetApplicationContext( m_petscSolver[a_ilev]->m_snes,(void*)&a_ilev);
+  m_petscSolver[a_ilev]->solve(a_horizontalVel,a_rhs);
+  PetscInt iter;
+  SNESGetIterationNumber(m_petscSolver[a_ilev]->m_snes,&iter);
+  a_it = iter;
+#endif
+}
+
 /// solve for isothermal ice
 /** beta scales sliding coefficient C -- acoef in terms of the ViscousTensorOp
  */
@@ -343,15 +470,14 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 		       const Vector<LevelData<FArrayBox>* >& a_A,
 		       const Vector<LevelData<FluxBox>* >& a_muCoef,
 		       Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
-		       Real a_time,
-		       int a_lbase, int a_maxLevel )
+		       Real a_time, int a_lbase, int a_maxLevel )
 {
   CH_assert(a_lbase==0);
   CH_assert(m_isOpDefined);
   int returnCode = 0, ilev;
   const int nc = a_horizontalVel[0]->nComp();
-  Real residNorm0,residNorm;
-  IntVect ghostVect = a_horizontalVel[0]->ghostVect();
+  Real residNorm0,residNorm,levelNorm,levelNorm0;
+  IntVect ghostVect = a_horizontalVel[0]->ghostVect(); // can this be Zero???
 
   // copy betas and form faceA
   Vector<RefCountedPtr<LevelData<FluxBox> > > faceAs(a_maxLevel+1);
@@ -367,15 +493,21 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       CellToEdge(*a_A[ilev], *faceA);
       faceAs[ilev] = faceA;
     }
-  
+
   Vector<RefCountedPtr<LevelData<FArrayBox> > > resid(a_maxLevel+1);
   Vector<RefCountedPtr<LevelData<FArrayBox> > > tempv(a_maxLevel+1);
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > tempv2(a_maxLevel+1);
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > tempv3(a_maxLevel+1);
   for (ilev=a_lbase;ilev<=a_maxLevel;ilev++)
     {
-      RefCountedPtr<LevelData<FArrayBox> > vect(new LevelData<FArrayBox>(m_grid[ilev],nc,ghostVect));
-      resid[ilev] = vect;
-      RefCountedPtr<LevelData<FArrayBox> > vect2(new LevelData<FArrayBox>(m_grid[ilev],nc,ghostVect));
-      tempv[ilev] = vect2;
+      RefCountedPtr<LevelData<FArrayBox> > v1(new LevelData<FArrayBox>(m_grid[ilev],nc,ghostVect));
+      resid[ilev] = v1;
+      RefCountedPtr<LevelData<FArrayBox> > v2(new LevelData<FArrayBox>(m_grid[ilev],nc,ghostVect));
+      tempv[ilev] = v2;
+      RefCountedPtr<LevelData<FArrayBox> > v3(new LevelData<FArrayBox>(m_grid[ilev],nc,ghostVect));
+      tempv2[ilev] = v3;
+      RefCountedPtr<LevelData<FArrayBox> > v4(new LevelData<FArrayBox>(m_grid[ilev],nc,ghostVect));
+      tempv3[ilev] = v4;
     }
 
   if (m_verbosity >= 0)
@@ -385,69 +517,62 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	{
 	  computeAMRLevelResidual(resid[ilev], ilev,  a_lbase, a_maxLevel, a_horizontalVel, a_rhs);
 	  residNorm0 += m_op[ilev]->dotProduct(*resid[ilev],*resid[ilev]);
-	  // residNorm0 = max(residNorm0,m_op[ilev]->localMaxNorm(*resid[ilev]);
+	  if(ilev==a_lbase) levelNorm0 = sqrt(residNorm0);
 	}
       residNorm0 = sqrt(residNorm0);
       pout() << "PetscIceSolver::solve: Initial residual |r|_2 = " << residNorm0 << endl;
     }
 
+  int it = 0; ilev = 0;
+  picardSolve_private( ilev,
+		       *a_horizontalVel[ilev],*a_rhs[ilev],*faceAs[ilev],a_muCoef[ilev],a_coordSys[ilev],a_time,
+		       m_minPicardIterations, it);
+
+  // cache stuff for nonlinear solver
+  m_twork1 = resid[ilev];
+  m_twork2 = tempv[ilev];
+  m_tfaceA = faceAs[ilev];
+  m_tmuCoef = a_muCoef[ilev];
+  m_tcoordSys = a_coordSys[ilev];
+  m_ttime = a_time;
+  m_tphi0 = 0;
+
+  // should we use |b| for levelNorm0?
+  jfnkSolve_private( ilev,
+		     *a_horizontalVel[ilev],*a_rhs[ilev],*faceAs[ilev],a_muCoef[ilev],a_coordSys[ilev],a_time,
+		     m_max_its - m_minPicardIterations, levelNorm0, it);
+  
+  if(m_verbosity>=0)pout() << it << " Level 0 total nonlinear iterations with " << m_minPicardIterations << 
+		      " Picard iterations" << endl;
+  
   // go up grid hierarchy
-  for (ilev=a_lbase;ilev<=a_maxLevel;ilev++)
+  for (ilev=a_lbase+1;ilev<=a_maxLevel;ilev++)
     {
       pout() << "PetscIceSolver::solve: in FMG level " << ilev << endl;
-      // call solver will create matrix, setup PC
-      m_tphi = resid[ilev];
-      m_tphi2 = tempv[ilev];
+
+      // prolongate to ilev
+      AMRProlong( *a_horizontalVel[ilev], *a_horizontalVel[ilev-1], *m_fineCover[ilev-1], 
+		  m_projCopier[ilev-1], m_refRatio[ilev-1] );
+
+      m_twork1 = tempv2[ilev];
+      m_twork2 = tempv3[ilev];
       m_tfaceA = faceAs[ilev];
       m_tmuCoef = a_muCoef[ilev];
       m_tcoordSys = a_coordSys[ilev];
-      m_ttime = a_time;
-#ifdef CH_USE_PETSC
-      int kk;
-      for(kk=0;kk<40;kk++)
-        {
-          Real opAlpha, opBeta;
-          getOperatorScaleFactors( opAlpha, opBeta );
-          m_petscSolver[ilev] = RefCountedPtr<PetscSolverViscousTensor<LevelData<FArrayBox> > >(new PetscSolverViscousTensor<LevelData<FArrayBox> >);
-          m_petscSolver[ilev]->define( &(*m_op[ilev]), false ); // dx & crdx
-          m_petscSolver[ilev]->setVTParams( opAlpha, opBeta,
-                                            &(*m_C[ilev]),
-                                            &(*m_Mu[ilev]),
-                                            &(*m_Lambda[ilev]) );
-          if(kk>2)m_petscSolver[ilev]->setFunctionAndJacobian( FormFunction, FormJacobian );
-          m_petscSolver[ilev]->m_ctx = (void*)this;
-          // does c-f interp for finer grids, computes c-f interp if crs_vel provided
-          computeMu( *a_horizontalVel[ilev], *faceAs[ilev],  a_muCoef[ilev],  a_coordSys[ilev], 0, ilev, a_time );
-          // creates Mat and Vecs, creates SNES
-          m_petscSolver[ilev]->setInitialGuessNonzero(true);
-          m_petscSolver[ilev]->setup_solver( *a_horizontalVel[ilev] );
-          // set the level to index into this
-          if(kk>2)SNESSetTolerances(m_petscSolver[ilev]->m_snes,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT,1,PETSC_DEFAULT);
-          if(kk>2)SNESSetApplicationContext( m_petscSolver[ilev]->m_snes,(void*)&ilev);
-          m_petscSolver[ilev]->solve( *a_horizontalVel[ilev], *a_rhs[ilev] );
-          // this signals for next solve that its new (nonlinear)
-          // m_petscSolver[ilev]->resetOperator();        
-          if(kk>2 && m_verbosity>=0)
-            {
-              PetscReal norm;
-              SNESGetFunctionNorm(m_petscSolver[ilev]->m_snes,&norm);
-              pout() << kk << ") SNES |r|_2 = " << norm << endl;
-              if(norm/residNorm0 < m_rtol){kk++; break;}
-            }
-          else if(m_verbosity>=0)
-            {
-              //pout() << kk << ") SNES |r|_2 = " << m_petscSolver[ilev]->m_ksp->rnorm0 << endl;
-            }
-        }
-      if(m_verbosity>=0)pout() << kk << " total nonlinear iterations with " << 2+1 << " Picard iterations" << endl;
+      m_tphi0 = a_horizontalVel[ilev];
 
+      m_op[ilev]->residual( *resid[ilev], 
+			    *a_horizontalVel[ilev], 
+			    *a_rhs[ilev], true );
+      levelNorm = m_op[ilev]->norm(*a_rhs[ilev], 2); // use |b| to compare against
+      m_op[ilev]->setToZero( *tempv[ilev] );
+      it = 0;
+      jfnkSolve_reuse( ilev,
+		       *tempv[ilev],*resid[ilev],*faceAs[ilev],a_muCoef[ilev],a_coordSys[ilev],a_time,
+		       m_max_its, residNorm0, levelNorm, it);
+      m_op[ilev]->incr( *m_tphi0, *tempv[ilev], 1.); // r = b - Ax 
 
-#endif
-      if(ilev==a_maxLevel) break;
-
-      // prolongate to ilev+1
-      AMRProlong( *a_horizontalVel[ilev+1], *a_horizontalVel[ilev], *m_fineCover[ilev], 
-		  m_projCopier[ilev], m_refRatio[ilev]);
+      if(m_verbosity>=0)pout() << it << " Level "<< ilev <<" nonlinear iterations " << endl;      
     }
   
   if (m_verbosity >= 0)
@@ -460,21 +585,11 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       residNorm = sqrt(residNorm);
       pout() << "PetscIceSolver::solve: PETSc nonlinear solve done |r|_2 = " << residNorm << ", rate=" << residNorm/residNorm0 << endl;
     }
-  //cout.precision(5);
-  //pout() << "\t" << it << ") |r|_2 = " << residNorm << ", rate=" << residNorm/lastR << endl;
-  //lastR = residNorm;
+
+  // clean up with full JFNK solve
+
   
   return returnCode;
-}
-
-////////////////////////////////////////////////////////////////////////
-// PetscIceSolver::setDefaultValues()
-////////////////////////////////////////////////////////////////////////
-void
-PetscIceSolver::setDefaultValues()
-{
-  // use isothermal ice temp from Pattyn(2003)
-  m_constThetaVal = 238.15;
 }
 
 ////////////////////////////////////////////////////////////////////////

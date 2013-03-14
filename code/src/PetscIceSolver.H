@@ -49,14 +49,16 @@ public:
     pout() << "PetscIceSolver::setSolverType=" << a_solver_type << endl;
   }
 
-  void setTolerance(Real a_tolerance) { m_rtol = a_tolerance; }
+  void setTolerance(Real a_tolerance) { 
+    m_rtol = a_tolerance; 
+  }
 
   // set "absolute tolerance"
   /** If norm(residual) drops below the absolute tolerance (regardless 
       of the initial residual), we declare ourselves "done" -- this is a 
       simple way to avoid solver hangs.
   */
-  void setAbsoluteTolerance(Real a_tolerance){ m_rtol = a_tolerance; }
+  void setAbsoluteTolerance(Real a_tolerance){ m_atol = a_tolerance; }
 
   // sets maximum number of iterations
   void setMaxIterations(int a_max_iter) { m_max_its = a_max_iter; }
@@ -81,6 +83,32 @@ public:
 		     Real a_time,
 		     int a_lbase, int a_maxLevel);
 
+  void picardSolve_private( int a_ilev,
+			    LevelData<FArrayBox> &a_horizontalVel,
+			    const LevelData<FArrayBox> &a_rhs,
+			    LevelData<FluxBox> &a_faceAs,
+			    LevelData<FluxBox> *a_muCoef,
+			    RefCountedPtr<LevelSigmaCS> a_coordSys,
+			    Real a_time, int a_numIts, int &a_it );
+
+  void jfnkSolve_private( int a_ilev,
+			  LevelData<FArrayBox> &a_horizontalVel,
+			  const LevelData<FArrayBox> &a_rhs,
+			  LevelData<FluxBox> &a_faceAs,
+			  LevelData<FluxBox> *a_muCoef,
+			  RefCountedPtr<LevelSigmaCS> a_coordSys,
+			  Real a_time, 
+			  int a_numIts, Real a_norm0, int &a_it );
+
+  void jfnkSolve_reuse( int a_ilev,
+			LevelData<FArrayBox> &a_horizontalVel,
+			const LevelData<FArrayBox> &a_rhs,
+			LevelData<FluxBox> &a_faceAs,
+			LevelData<FluxBox> *a_muCoef,
+			RefCountedPtr<LevelSigmaCS> a_coordSys,
+			Real a_time, 
+			int a_numIts, Real a_norm0,Real a_norm, int &a_it );
+  
   Vector<ProblemDomain> m_domain;
   ViscousTensorOpFactory *m_opFactoryPtr;
   Vector<RefCountedPtr<ViscousTensorOp> > m_op;
@@ -94,9 +122,11 @@ protected:
   bool m_isSolverDefined;
 
   IceThicknessIBC* m_bc;
+
   int m_max_its;
   Real m_rtol;
   Real m_atol;
+  int m_minPicardIterations;
 
   Vector<int> m_refRatio;
 #ifdef CH_USE_PETSC
@@ -116,8 +146,6 @@ protected:
 
   Real m_constThetaVal; // not used?
 
-  void setDefaultValues();
-  
   /// define operator factory. In 2D, this is a ViscousTensorOp.
   void defineOpFactory(RealVect,const ProblemDomain &,int);
 
@@ -138,9 +166,10 @@ public:
   virtual void updateCoefs(LevelData<FArrayBox> &a_horizontalVel, int);
 
   // cache 
-  RefCountedPtr<LevelData<FArrayBox> >m_tphi;  // work vectors
-  RefCountedPtr<LevelData<FArrayBox> >m_tphi2; 
+  RefCountedPtr<LevelData<FArrayBox> >m_twork1;  // work vectors
+  RefCountedPtr<LevelData<FArrayBox> >m_twork2; 
   RefCountedPtr<LevelData<FluxBox> >  m_tfaceA;
+  LevelData<FArrayBox> *m_tphi0; 
   LevelData<FluxBox>* m_tmuCoef;
   RefCountedPtr<LevelSigmaCS> m_tcoordSys;
   Real m_ttime;
