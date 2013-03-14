@@ -12,7 +12,8 @@
 #include "ViscousTensorOp.H"
 #include "ParmParse.H"
 #include "CornerCopier.H"
-#include "ExtrapBCF_F.H"
+//#include "ExtrapBCF_F.H"
+#include "IntInterpF_F.H"
 #include "IceConstants.H"
 #include "BisiclesF_F.H"
 #include "TensorCFInterp.H"
@@ -32,9 +33,6 @@ PetscIceSolver::PetscIceSolver()
 
   m_isOpDefined = false;
   m_vtopSafety = VTOP_DEFAULT_SAFETY;
-
-  //m_refRatio = 0;
-  //m_OpPtr = NULL;
 
   m_max_its = 20;
   m_rtol = 1.e-6;
@@ -176,6 +174,9 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
   m_grid.resize(a_numLevels);
   m_domain.resize(a_numLevels);
   m_refRatio.resize(a_numLevels-1);
+  m_fineCover.resize(a_numLevels-1);
+  m_projCopier.resize(a_numLevels-1);
+  m_restCopier.resize(a_numLevels-1);
   m_Mu.resize(a_numLevels);
   m_Lambda.resize(a_numLevels);
   m_Beta.resize(a_numLevels);
@@ -214,12 +215,23 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
       m_C[ilev] = RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(m_grid[ilev], 
 										1,
 										IntVect::Zero));
-      // make domain
+      // not coarsest grid
       if(ilev>0)
 	{
+	  // make domain
 	  m_domain[ilev] = m_domain[ilev-1];
 	  m_domain[ilev].refine(m_refRatio[ilev-1]);
-pout() << "PetscIceSolver::define WOW!!! new fine grid refrat:" << m_refRatio[ilev-1] << endl;
+	  pout() << "PetscIceSolver::define WOW!!! new fine grid refrat:" << m_refRatio[ilev-1] << endl;
+	  // make prologation stuff (index to coarse grid)
+	  const int nc = 2;
+	  const DisjointBoxLayout& finedbl = m_grid[ilev];
+	  DisjointBoxLayout dblCoarsenedFine;
+	  coarsen( dblCoarsenedFine, finedbl, m_refRatio[ilev-1]);	  
+	  m_fineCover[ilev-1]=RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(dblCoarsenedFine,nc,IntVect::Unit));
+	  // prolongator copier, from data to cover
+	  m_projCopier[ilev-1].define(m_grid[ilev-1],dblCoarsenedFine,IntVect::Unit);
+	  // restrict copier used for zero cover
+	  m_restCopier[ilev-1].define(dblCoarsenedFine,m_grid[ilev-1], IntVect::Zero);
 	}
     }
   
@@ -244,14 +256,14 @@ pout() << "PetscIceSolver::define WOW!!! new fine grid refrat:" << m_refRatio[il
 }
 
 void
-PetscIceSolver::computeAMRLevelsResidual( RefCountedPtr<LevelData<FArrayBox> > a_resid, 
-					  int a_ilev, int a_lbase, int a_maxLevel, 
-					  const Vector<LevelData<FArrayBox>* >& a_horizontalVel, 
-					  const Vector<LevelData<FArrayBox>* >& a_rhs )
+PetscIceSolver::computeAMRLevelResidual( RefCountedPtr<LevelData<FArrayBox> > a_resid, 
+					 int a_ilev, int a_lbase, int a_maxLevel, 
+					 const Vector<LevelData<FArrayBox>* >& a_horizontalVel, 
+					 const Vector<LevelData<FArrayBox>* >& a_rhs )
 {
   if (a_ilev==a_lbase) 
     {
-      if(a_ilev==a_maxLevel-1) // one level
+      if(a_ilev==a_maxLevel) // one level
 	{
 	  m_op[a_ilev]->residual(*a_resid, 
 				 *a_horizontalVel[a_ilev], 
@@ -263,10 +275,10 @@ PetscIceSolver::computeAMRLevelsResidual( RefCountedPtr<LevelData<FArrayBox> > a
 				       *a_horizontalVel[a_ilev+1], 
 				       *a_horizontalVel[a_ilev], 
 				       *a_rhs[a_ilev], true, 
-				       (a_ilev == a_maxLevel-1) ? 0 : &(*m_op[a_ilev+1]));
+				       (a_ilev == a_maxLevel) ? 0 : &(*m_op[a_ilev+1]));
 	}
     }
-  else if (a_ilev == a_maxLevel-1) // fine grid
+  else if (a_ilev == a_maxLevel) // fine grid
     {
       m_op[a_ilev]->AMRResidualNF( *a_resid, 
 				   *a_horizontalVel[a_ilev],
@@ -284,15 +296,36 @@ PetscIceSolver::computeAMRLevelsResidual( RefCountedPtr<LevelData<FArrayBox> > a
     }
 
   // zero covered
-  if(a_ilev != a_maxLevel-1) // ! fine grid
+  if(a_ilev != a_maxLevel) // not finest grid
     {
-      const int nc = a_horizontalVel[a_ilev]->nComp();
-      const DisjointBoxLayout& finedbl = a_horizontalVel[a_ilev+1]->disjointBoxLayout();
-      DisjointBoxLayout dblCoarsenedFine;
-      coarsen( dblCoarsenedFine, finedbl, m_refRatio[a_ilev] );
-      LevelData<FArrayBox> coverLDF(dblCoarsenedFine,nc,IntVect::Unit); // use this for prolong!
-      Copier copier(dblCoarsenedFine,a_horizontalVel[a_ilev]->disjointBoxLayout(),IntVect::Zero);
-      m_op[a_ilev]->zeroCovered(*a_resid,coverLDF,copier); // copier needs to be cached!!!
+      m_op[a_ilev]->zeroCovered(*a_resid,*m_fineCover[a_ilev],m_restCopier[a_ilev]); 
+    }
+}
+
+void PetscIceSolver::AMRProlong( LevelData<FArrayBox>&       a_fu,
+				 const LevelData<FArrayBox>& a_cu,
+				 LevelData<FArrayBox>&       a_CrsCover,
+				 Copier a_copier,
+				 int a_refRatio
+				 )
+{
+CH_TIME("PetscIceSolver::AMRProlong");
+  
+  DisjointBoxLayout dbl = a_fu.disjointBoxLayout();
+  DisjointBoxLayout cdbl = a_CrsCover.disjointBoxLayout();
+  
+  a_cu.copyTo(a_CrsCover.interval(), a_CrsCover, a_CrsCover.interval(), a_copier);
+  
+  for ( DataIterator dit = a_fu.dataIterator(); dit.ok(); ++dit )
+    {
+      FArrayBox& phi =  a_fu[dit];
+      FArrayBox& coarse = a_CrsCover[dit];
+      Box region = dbl[dit];
+
+      FORT_PROLONGQUAD_ICE(CHF_FRA(phi),
+			   CHF_CONST_FRA(coarse),
+			   CHF_BOX(region),
+			   CHF_CONST_INT(a_refRatio));
     }
 }
 
@@ -315,7 +348,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 {
   CH_assert(a_lbase==0);
   CH_assert(m_isOpDefined);
-  int returnCode = 0, ilev, ierr;
+  int returnCode = 0, ilev;
   const int nc = a_horizontalVel[0]->nComp();
   Real residNorm0,residNorm;
   IntVect ghostVect = a_horizontalVel[0]->ghostVect();
@@ -350,14 +383,14 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       // residual
       for (ilev=a_lbase,residNorm0=0.;ilev<=a_maxLevel;ilev++)
 	{
-	  computeAMRLevelsResidual(resid[ilev], ilev,  a_lbase, a_maxLevel+1, a_horizontalVel, a_rhs);
+	  computeAMRLevelResidual(resid[ilev], ilev,  a_lbase, a_maxLevel, a_horizontalVel, a_rhs);
 	  residNorm0 += m_op[ilev]->dotProduct(*resid[ilev],*resid[ilev]);
 	  // residNorm0 = max(residNorm0,m_op[ilev]->localMaxNorm(*resid[ilev]);
 	}
       residNorm0 = sqrt(residNorm0);
       pout() << "PetscIceSolver::solve: Initial residual |r|_2 = " << residNorm0 << endl;
     }
-  
+
   // go up grid hierarchy
   for (ilev=a_lbase;ilev<=a_maxLevel;ilev++)
     {
@@ -370,28 +403,58 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       m_tcoordSys = a_coordSys[ilev];
       m_ttime = a_time;
 #ifdef CH_USE_PETSC
-      m_petscSolver[ilev]->m_ctx = (void*)this;
-      // does c-f interp for finer grids, computes c-f interp if crs_vel provided
-      computeMu( *a_horizontalVel[ilev], *faceAs[ilev],  a_muCoef[ilev],  a_coordSys[ilev], 0, ilev, a_time ); 
-      // creates Mat and Vecs, creates SNES
-      m_petscSolver[ilev]->setup_solver( *a_horizontalVel[ilev] );  
-      // set the level to index into this
-      ierr = SNESSetApplicationContext( m_petscSolver[ilev]->m_snes, (void*)&ilev );CHKERRQ(ierr);
-      m_petscSolver[ilev]->solve( *a_horizontalVel[ilev], *a_rhs[ilev] );
-      // this signals for next solve that its new (nonlinear)
-      m_petscSolver[ilev]->resetOperator();
+      int kk;
+      for(kk=0;kk<40;kk++)
+        {
+          Real opAlpha, opBeta;
+          getOperatorScaleFactors( opAlpha, opBeta );
+          m_petscSolver[ilev] = RefCountedPtr<PetscSolverViscousTensor<LevelData<FArrayBox> > >(new PetscSolverViscousTensor<LevelData<FArrayBox> >);
+          m_petscSolver[ilev]->define( &(*m_op[ilev]), false ); // dx & crdx
+          m_petscSolver[ilev]->setVTParams( opAlpha, opBeta,
+                                            &(*m_C[ilev]),
+                                            &(*m_Mu[ilev]),
+                                            &(*m_Lambda[ilev]) );
+          if(kk>2)m_petscSolver[ilev]->setFunctionAndJacobian( FormFunction, FormJacobian );
+          m_petscSolver[ilev]->m_ctx = (void*)this;
+          // does c-f interp for finer grids, computes c-f interp if crs_vel provided
+          computeMu( *a_horizontalVel[ilev], *faceAs[ilev],  a_muCoef[ilev],  a_coordSys[ilev], 0, ilev, a_time );
+          // creates Mat and Vecs, creates SNES
+          m_petscSolver[ilev]->setInitialGuessNonzero(true);
+          m_petscSolver[ilev]->setup_solver( *a_horizontalVel[ilev] );
+          // set the level to index into this
+          if(kk>2)SNESSetTolerances(m_petscSolver[ilev]->m_snes,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT,1,PETSC_DEFAULT);
+          if(kk>2)SNESSetApplicationContext( m_petscSolver[ilev]->m_snes,(void*)&ilev);
+          m_petscSolver[ilev]->solve( *a_horizontalVel[ilev], *a_rhs[ilev] );
+          // this signals for next solve that its new (nonlinear)
+          // m_petscSolver[ilev]->resetOperator();        
+          if(kk>2 && m_verbosity>=0)
+            {
+              PetscReal norm;
+              SNESGetFunctionNorm(m_petscSolver[ilev]->m_snes,&norm);
+              pout() << kk << ") SNES |r|_2 = " << norm << endl;
+              if(norm/residNorm0 < m_rtol){kk++; break;}
+            }
+          else if(m_verbosity>=0)
+            {
+              //pout() << kk << ") SNES |r|_2 = " << m_petscSolver[ilev]->m_ksp->rnorm0 << endl;
+            }
+        }
+      if(m_verbosity>=0)pout() << kk << " total nonlinear iterations with " << 2+1 << " Picard iterations" << endl;
+
+
 #endif
       if(ilev==a_maxLevel) break;
 
       // prolongate to ilev+1
-
+      AMRProlong( *a_horizontalVel[ilev+1], *a_horizontalVel[ilev], *m_fineCover[ilev], 
+		  m_projCopier[ilev], m_refRatio[ilev]);
     }
-
+  
   if (m_verbosity >= 0)
     {
       for (ilev=a_lbase,residNorm=0.;ilev<=a_maxLevel;ilev++)
 	{
-	  computeAMRLevelsResidual( resid[ilev], ilev,  a_lbase, a_maxLevel+1, a_horizontalVel, a_rhs);
+	  computeAMRLevelResidual( resid[ilev], ilev,  a_lbase, a_maxLevel, a_horizontalVel, a_rhs);
 	  residNorm += m_op[ilev]->dotProduct(*resid[ilev],*resid[ilev]);
 	}
       residNorm = sqrt(residNorm);

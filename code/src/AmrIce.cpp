@@ -1667,13 +1667,12 @@ AmrIce::defineSolver()
       
       // make sure that the IBC has the correct grid hierarchy info
       m_thicknessIBCPtr->setGridHierarchy(m_vect_coordSys, m_amrDomains);
-      
- 
 
       if (m_velSolver != NULL)
 	{
 	  // assume that any extant solver is also a JFNKSolver
-	  jfnkSolver = static_cast<JFNKSolver*>(m_velSolver);	  
+	  jfnkSolver = dynamic_cast<JFNKSolver*>(m_velSolver);
+	  CH_assert(jfnkSolver != NULL);
 	}
       else {
 	jfnkSolver = new JFNKSolver();
@@ -4395,8 +4394,6 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
     }
 #endif
 
-  
-
   if (m_doInitialVelSolve) 
     {      
       if (m_finest_level == 0 && m_doInitialVelGuess)
@@ -4431,6 +4428,7 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
 			 << " and constant initial velocity = " << m_initialGuessConstVel
 			 << endl;
 		}
+
 	      // compute initial guess by solving a linear problem with a
 	      // modest constant viscosity
 	      RealVect dxCrse = m_amrDx[0]*RealVect::Unit;
@@ -4447,6 +4445,7 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
 		    }
 
 		}
+
               // do this by saving the exisiting velSolver and 
               // constitutiveRelation, re-calling defineSolver, then 
               // doing solve.
@@ -4457,13 +4456,14 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
               // new values prior to calling defineSolver
              
               m_constitutiveRelation = static_cast<ConstitutiveRelation*>(newPtr);
-             
+
 	      Real finalNorm = 0.0, initialNorm = 0.0, convergenceMetric = -1.0;
 	      Vector<LevelData<FluxBox>* > muCoef(m_finest_level + 1,NULL);
 	      int rc;
-	      if (m_initialGuessSolverType == JFNK)
+	      if (m_initialGuessSolverType == JFNK && dynamic_cast<JFNKSolver*>(m_velSolver))
 		{
 		  //JFNK can be instructed to assume a linear solve
+		  m_solverType = JFNK;
 		  m_velSolver = NULL;
 		  defineSolver();
 		  JFNKSolver* jfnkSolver = dynamic_cast<JFNKSolver*>(m_velSolver);
@@ -4501,7 +4501,7 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
               m_velSolver = velSolverSave;
               m_constitutiveRelation = constRelSave;
               m_solverType = solverTypeSave;
-              
+
 #if 0	      
 	      //put the solver back how it was
 	      m_velSolver->define(m_amrDomains[0],
@@ -4618,7 +4618,6 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
 
   //calculate the face centred (flux) velocity and diffusion coefficients
   computeFaceVelocity(m_faceVelAdvection,m_faceVelTotal,m_diffusivity,m_layerXYFaceXYVel, m_layerSFaceXYVel);
-  
 
   for (int lev=0; lev<=m_finest_level; lev++)
     {

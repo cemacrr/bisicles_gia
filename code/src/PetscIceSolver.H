@@ -16,6 +16,8 @@
 #ifdef CH_USE_PETSC
 #include "PetscSolver.H"
 #endif
+#include "Copier.H"
+
 
 #include "NamespaceHeader.H"
 
@@ -61,10 +63,10 @@ public:
 
   void setVerbosity(int a_verbosity) {m_verbosity = a_verbosity;}
 
-  void computeAMRLevelsResidual( RefCountedPtr<LevelData<FArrayBox> > a_resid, 
-				 int a_ilev, int a_lbase, int a_maxLevel, 
-				 const Vector<LevelData<FArrayBox>* >& a_horizontalVel, 
-				 const Vector<LevelData<FArrayBox>* >& a_rhs );
+  void computeAMRLevelResidual( RefCountedPtr<LevelData<FArrayBox> > a_resid, 
+				int a_ilev, int a_lbase, int a_maxLevel, 
+				const Vector<LevelData<FArrayBox>* >& a_horizontalVel, 
+				const Vector<LevelData<FArrayBox>* >& a_rhs );
 
   // solve for isothermal ice -- returns 0 if converged, 1 if not
   virtual int solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
@@ -136,12 +138,22 @@ public:
   virtual void updateCoefs(LevelData<FArrayBox> &a_horizontalVel, int);
 
   // cache 
-  RefCountedPtr<LevelData<FArrayBox> >m_tphi;  // place to cache a vector
-  RefCountedPtr<LevelData<FArrayBox> >m_tphi2; // place to cache a vector
+  RefCountedPtr<LevelData<FArrayBox> >m_tphi;  // work vectors
+  RefCountedPtr<LevelData<FArrayBox> >m_tphi2; 
   RefCountedPtr<LevelData<FluxBox> >  m_tfaceA;
   LevelData<FluxBox>* m_tmuCoef;
   RefCountedPtr<LevelSigmaCS> m_tcoordSys;
   Real m_ttime;
+  // prolongation stuff
+  Vector<RefCountedPtr<LevelData<FArrayBox> > >m_fineCover;
+  Vector<Copier>                               m_restCopier;
+  Vector<Copier>                               m_projCopier;
+  void AMRProlong( LevelData<FArrayBox>&       a_fineU,
+		   const LevelData<FArrayBox>& a_CrsU,
+		   LevelData<FArrayBox>&       a_CrsCover,
+		   Copier a_copier,
+		   int a_refRatio );
+  
 };
 #include "NamespaceFooter.H"
 #endif
