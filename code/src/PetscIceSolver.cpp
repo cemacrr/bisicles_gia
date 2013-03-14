@@ -540,8 +540,8 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
   // should we use |b| for levelNorm0?
   jfnkSolve_private( ilev,
 		     *a_horizontalVel[ilev],*a_rhs[ilev],*faceAs[ilev],a_muCoef[ilev],a_coordSys[ilev],a_time,
-		     m_max_its - m_minPicardIterations, levelNorm0, it);
-  
+		     m_max_its, levelNorm0, it);
+
   if(m_verbosity>=0)pout() << it << " Level 0 total nonlinear iterations with " << m_minPicardIterations << 
 		      " Picard iterations" << endl;
   
