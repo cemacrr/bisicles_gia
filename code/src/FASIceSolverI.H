@@ -263,7 +263,7 @@ FASIceViscouseTensorOpFactory::AMRNewOp( int a_ilev, const DisjointBoxLayout& a_
 								       m_bc
 								       ) );
 
-  // this is a defines the newOp's base class stuff
+  // this defines the newOp's base class stuff
   AMRFAS_LDFOpFactory::AMRNewOp( a_ilev, newOp, false );
 
   // define the VTO part

@@ -49,7 +49,7 @@ public:
     pout() << "PetscIceSolver::setSolverType=" << a_solver_type << endl;
   }
 
-  void setTolerance(Real a_tolerance) { 
+  void setTolerance(Real a_tolerance) {
     m_rtol = a_tolerance; 
   }
 
@@ -65,11 +65,12 @@ public:
 
   void setVerbosity(int a_verbosity) {m_verbosity = a_verbosity;}
 
-  void computeAMRLevelResidual( RefCountedPtr<LevelData<FArrayBox> > a_resid, 
-				int a_ilev, int a_lbase, int a_maxLevel, 
-				const Vector<LevelData<FArrayBox>* >& a_horizontalVel, 
-				const Vector<LevelData<FArrayBox>* >& a_rhs );
-
+  void computeAMRResidual( Vector<RefCountedPtr<LevelData<FArrayBox> > >& a_resid, 
+			   const Vector<LevelData<FArrayBox>* >& a_horizontalVel, 
+			   const Vector<LevelData<FArrayBox>* >& a_rhs,
+			   int a_lbase, int a_maxLevel
+			   );
+  
   // solve for isothermal ice -- returns 0 if converged, 1 if not
   virtual int solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 		     Real& a_initialResidualNorm, Real& a_finalResidualNorm,
@@ -86,28 +87,12 @@ public:
   void picardSolve_private( int a_ilev,
 			    LevelData<FArrayBox> &a_horizontalVel,
 			    const LevelData<FArrayBox> &a_rhs,
-			    LevelData<FluxBox> &a_faceAs,
-			    LevelData<FluxBox> *a_muCoef,
-			    RefCountedPtr<LevelSigmaCS> a_coordSys,
-			    Real a_time, int a_numIts, int &a_it );
+			    int a_numIts, Real a_norm0, int &a_it );
 
   void jfnkSolve_private( int a_ilev,
 			  LevelData<FArrayBox> &a_horizontalVel,
 			  const LevelData<FArrayBox> &a_rhs,
-			  LevelData<FluxBox> &a_faceAs,
-			  LevelData<FluxBox> *a_muCoef,
-			  RefCountedPtr<LevelSigmaCS> a_coordSys,
-			  Real a_time, 
 			  int a_numIts, Real a_norm0, int &a_it );
-
-  void jfnkSolve_reuse( int a_ilev,
-			LevelData<FArrayBox> &a_horizontalVel,
-			const LevelData<FArrayBox> &a_rhs,
-			LevelData<FluxBox> &a_faceAs,
-			LevelData<FluxBox> *a_muCoef,
-			RefCountedPtr<LevelSigmaCS> a_coordSys,
-			Real a_time, 
-			int a_numIts, Real a_norm0,Real a_norm, int &a_it );
   
   Vector<ProblemDomain> m_domain;
   ViscousTensorOpFactory *m_opFactoryPtr;
@@ -129,12 +114,8 @@ protected:
   int m_minPicardIterations;
 
   Vector<int> m_refRatio;
-#ifdef CH_USE_PETSC
-public:
-  Vector<RefCountedPtr<PetscSolverViscousTensor<LevelData<FArrayBox> > > > m_petscSolver;
-protected:
-#endif
 
+protected:
   // materials
   Vector<RefCountedPtr<LevelData<FluxBox> > > m_Mu;
   Vector<RefCountedPtr<LevelData<FluxBox> > > m_Lambda;
@@ -160,6 +141,7 @@ public:
 		  const LevelData<FluxBox> *a_muCoef,
 		  const RefCountedPtr<LevelSigmaCS> &a_coordSys,
 		  LevelData<FArrayBox>* crseVelPtr,
+		  LevelData<FArrayBox>* fineVelPtr,
 		  int a_ilev,
 		  Real a_time);
   // abstract methods for (PETSc) nonlinear solvers
@@ -169,6 +151,8 @@ public:
   RefCountedPtr<LevelData<FArrayBox> >m_twork1;  // work vectors
   RefCountedPtr<LevelData<FArrayBox> >m_twork2; 
   RefCountedPtr<LevelData<FluxBox> >  m_tfaceA;
+  LevelData<FArrayBox>* m_tfineVel;
+  LevelData<FArrayBox>* m_tcrseVel;
   LevelData<FArrayBox> *m_tphi0; 
   LevelData<FluxBox>* m_tmuCoef;
   RefCountedPtr<LevelSigmaCS> m_tcoordSys;

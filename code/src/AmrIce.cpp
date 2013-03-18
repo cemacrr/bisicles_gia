@@ -1652,7 +1652,6 @@ AmrIce::defineSolver()
       if (m_maxSolverIterations > 0)
         {
           m_velSolver->setMaxIterations(m_maxSolverIterations);
-
         }
     }
   else  if (m_solverType == JFNK)
@@ -4475,11 +4474,19 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
 		}
 	      else if (m_initialGuessSolverType == Picard)
 		{
+		  ParmParse pp("picardSolver");
+		  Real tol = 1.e-4; int nits = 1;
 		  // since the constant-viscosity solve is a linear solve,
 		  // Picard is the best option.
 		  m_solverType = Picard;
 		  m_velSolver = NULL;
 		  defineSolver();
+
+		  pp.query("linearsolver_tolerance", tol );
+		  pp.query("max_picard_iterations", nits );
+		  m_velSolver->setTolerance(nits);		  
+		  m_velSolver->setMaxIterations(tol);
+
 		  rc = m_velSolver->solve(m_velocity, initialNorm,finalNorm,convergenceMetric,
 				     m_velRHS, m_velBasalC, vectC0, m_A, muCoef,
 				     m_vect_coordSys, m_time, 0, m_finest_level);
