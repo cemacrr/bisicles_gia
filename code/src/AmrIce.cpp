@@ -6216,6 +6216,18 @@ AmrIce::writePlotFile()
       vectName[comp] = basalThicknessSourceName; comp++;
       vectName[comp] = surfaceThicknessSourceName; comp++;
       vectName[comp] = surfaceThicknessBalanceName; comp++;	
+
+      //update the surface thickness sources 
+      for (int lev = 0; lev <= m_finest_level ; lev++)
+	{
+	  m_surfaceFluxPtr->surfaceThicknessFlux
+	    (*m_surfaceThicknessSource[lev], *this, lev, m_dt);
+	  m_basalFluxPtr->surfaceThicknessFlux
+	    (*m_basalThicknessSource[lev], *this, lev, m_dt);
+	  m_calvingModelPtr->modifySurfaceThicknessFlux
+	    (*m_basalThicknessSource[lev],*this, lev, m_dt );
+	}
+
     }
 
   Box domain = m_amrDomains[0].domainBox();
@@ -6304,15 +6316,7 @@ AmrIce::writePlotFile()
       LevelData<FArrayBox> levelZsurf(m_amrGrids[lev], 1, ghostVect);
       levelCS.getSurfaceHeight(levelZsurf);
 
-      if (m_write_thickness_sources)
-	{
-	  m_surfaceFluxPtr->surfaceThicknessFlux
-	    (*m_surfaceThicknessSource[lev], *this, lev, m_dt);
-	  m_basalFluxPtr->surfaceThicknessFlux
-	    (*m_basalThicknessSource[lev], *this, lev, m_dt);
-	  m_calvingModelPtr->modifySurfaceThicknessFlux
-	    (*m_basalThicknessSource[lev],*this, lev, m_dt );
-	}
+      
 
       DataIterator dit = m_amrGrids[lev].dataIterator();
       for (dit.begin(); dit.ok(); ++dit)
