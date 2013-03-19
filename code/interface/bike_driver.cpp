@@ -973,6 +973,33 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         FortranInterfaceIBC* fibcPtr = dynamic_cast<FortranInterfaceIBC*>(thicknessIBC);
         const Vector<RefCountedPtr<LevelSigmaCS> >& amrGeometry = amrObjectPtr->amrGeometry();
         fibcPtr->flattenIceGeometry(amrGeometry);
+
+        // now velocity
+        // velocity should have the same centering as basal friction
+        // (which should be opposite of thickness) -- can be over-ridden
+        // in inputs file if otherwise
+        bool nodalVel = !nodalGeom;
+        // first over-ride to friction centering if specified
+        interfacePP.query("nodalBasalFrictionData", nodalVel);
+        // then override the override if we want to specify velocity as 
+        // different from friction
+        interfacePP.query("nodalVelocityData", nodalVel);
+        
+        if (!nodalVel)
+          {
+            // velocity is cell centered
+            pout() << "flattening cell-centered velocity data" << endl;
+            const Vector<LevelData<FArrayBox>* >& amrVel = amrObjectPtr->amrVelocity();
+            const Vector<int>& refRatio = amrObjectPtr->refRatios();
+          }
+        else
+          {
+            // velocity is node-centered
+            pout() << "flattening node-centered velocity data" << endl;
+            
+          }
+        
+        
       }
     else
       {
