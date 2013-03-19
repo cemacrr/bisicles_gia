@@ -1154,7 +1154,7 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
       RealVect levelDx = a_amrGeometry[lev]->dx();
 
       // these can be useful for debugging..
-      bool resetInitialLevel = true;
+      bool resetInitialLevel = false;
       bool resetEachLevel = false;
       if (resetEachLevel || (resetInitialLevel && (lev == 0)))
         {
@@ -1272,6 +1272,43 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
         } // end dataIterator "loop"
     }
 
+}
+
+
+/// flatten an arbitrary dataset back to input FArrayBoxes
+void
+FortranInterfaceIBC::flattenData(Real* a_data_ptr,
+                                 const int* a_dimInfo,
+                                 const int* a_boxlo, const int* a_boxhi,
+                                 const Real* a_dew, const Real* a_dns,
+                                 const IntVect& a_offset,
+                                 const Vector<LevelData<FArrayBox>* >& a_amrData,
+                                 const Vector<int> a_vectRefRatio,
+                                 int a_srcComp,
+                                 int a_destComp,
+                                 int a_nComp,
+                                 const IntVect& a_nGhost,
+                                 const bool a_nodal)
+{
+
+  // first set up FArrayBox
+  FArrayBox dataFab, CCdataFab;
+
+  setFAB(a_data_ptr, a_dimInfo, a_boxlo, a_boxhi,
+         a_dew, a_dns, a_offset, a_nGhost,
+         dataFab, CCdataFab, a_nodal);
+
+
+  // create LevelData
+  // if nodal, we'd like at least one ghost cell for the LDF
+  // (since we'll eventually have to average back to nodes)
+  IntVect LDFghost = m_thicknessGhost;
+  if (a_nodal && (LDFghost[0] == 0))
+    {
+      LDFghost += IntVect::Unit;
+    }
+  LevelData<FArrayBox> ldf(m_grids, a_nComp, LDFghost);
+  
 }
 
 

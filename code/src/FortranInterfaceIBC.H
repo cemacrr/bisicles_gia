@@ -138,6 +138,20 @@ public:
   */
   virtual void flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS> > & a_amrGeometry);
 
+  /// flatten an arbitrary dataset back to input FArrayBoxes
+  virtual void flattenData(Real* a_data_ptr,
+                           const int* a_dimInfo,
+                           const int* a_boxlo, const int* a_boxhi,
+                           const Real* a_dew, const Real* a_dns,
+                           const IntVect& a_offset,
+                           const Vector<LevelData<FArrayBox>* >& a_amrData,
+                           const Vector<int> a_vectRefRatio,
+                           int a_srcComp, 
+                           int a_destComp,
+                           int a_nComp,
+                           const IntVect& a_nGhost,
+                           const bool a_nodal);
+                           
 
   /// Set boundary fluxes
   /**

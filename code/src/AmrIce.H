@@ -200,7 +200,9 @@ public:
   {
     return m_vect_coordSys;
   }
-  
+
+  const Vector<int>& refRatios() const { return m_refinement_ratios;}
+
   const LevelData<FArrayBox>* velocity(int a_level) const
   {
     return m_velocity[a_level];
@@ -210,6 +212,7 @@ public:
   {
     return m_velocity;
   }
+
 
   const LevelData<FArrayBox>* groundingLineProximity(int a_level) const;
   
