@@ -1233,10 +1233,9 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
     {
       // have to average back to nodes
       DataIterator dit= m_inputTopographyLDF->dataIterator();
-      const DisjointBoxLayout& grids = m_inputTopographyLDF->getBoxes();
+      //const DisjointBoxLayout& grids = m_inputTopographyLDF->getBoxes();
       for (dit.begin(); dit.ok(); ++dit)
         {
-          
           const Box nodeBox = m_inputTopography.box();
           Box grownCCBox = nodeBox;
           grownCCBox.enclosedCells();
@@ -1283,22 +1282,23 @@ FortranInterfaceIBC::flattenData(Real* a_data_ptr,
                                  const Real* a_dew, const Real* a_dns,
                                  const IntVect& a_offset,
                                  const Vector<LevelData<FArrayBox>* >& a_amrData,
-                                 const Vector<int> a_vectRefRatio,
+                                 const Vector<int>& a_vectRefRatio,
+                                 const Vector<Real>& a_amrDx,
                                  int a_srcComp,
                                  int a_destComp,
                                  int a_nComp,
                                  const IntVect& a_nGhost,
                                  const bool a_nodal)
 {
-
+  RealVect dx(D_DECL(*a_dew,*a_dns,*a_dew) );
+              
   // first set up FArrayBox
   FArrayBox dataFab, CCdataFab;
 
   setFAB(a_data_ptr, a_dimInfo, a_boxlo, a_boxhi,
          a_dew, a_dns, a_offset, a_nGhost,
          dataFab, CCdataFab, a_nodal);
-
-
+              
   // create LevelData
   // if nodal, we'd like at least one ghost cell for the LDF
   // (since we'll eventually have to average back to nodes)
@@ -1308,7 +1308,59 @@ FortranInterfaceIBC::flattenData(Real* a_data_ptr,
       LDFghost += IntVect::Unit;
     }
   LevelData<FArrayBox> ldf(m_grids, a_nComp, LDFghost);
-  
+              
+  // start with coarsest level, calling FillFromReference
+  int numLevels = a_amrData.size();
+  for (int lev=0; lev<numLevels; lev++)
+    {
+      RealVect levelDx = a_amrDx[lev]*RealVect::Unit;
+      FillFromReference(ldf, *a_amrData[lev],
+                        dx, levelDx,
+                        m_verbose);
+    }
+    
+  ldf.exchange();
+
+  // finally, either copy or average to nodes
+  if (a_nodal)
+    {
+      // have to average back to nodes
+      DataIterator dit= ldf.dataIterator();
+      const DisjointBoxLayout& grids = ldf.getBoxes();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          const Box nodeBox = dataFab.box();
+          Box grownCCBox = nodeBox;
+          grownCCBox.enclosedCells();
+          grownCCBox.grow(1);
+          
+          FArrayBox ccGrownFAB(grownCCBox,1);
+          ccGrownFAB.copy(ldf[dit]);
+
+          // Cell->Node looks a lot like Node->Cell...
+          FORT_NODETOCELL(CHF_CONST_FRA1(ccGrownFAB,0),
+                          CHF_FRA1(dataFab,0),
+                          CHF_BOX(nodeBox));
+          
+          
+        } // end dataIterator "loop"
+      
+    } // end if nodal thickness    
+  else
+    {
+      // simple copy will do
+      DataIterator dit= ldf.dataIterator();
+      const DisjointBoxLayout& grids = ldf.getBoxes();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          Box intersectBox(grids[dit]);
+          intersectBox &= CCdataFab.box();
+                           
+          CCdataFab.copy(ldf[dit], intersectBox);
+          
+        } // end dataIterator "loop"
+    } // end if not nodal
+
 }
 
 

@@ -132,6 +132,36 @@ void initData(LevelData<FArrayBox>& a_thickness,
 }
 
 
+void
+initAMRLevelData(LevelData<FArrayBox>& a_data,
+                 const RealVect& a_dx,
+                 const RealVect& a_domainSize)
+{
+  DataIterator dit=a_data.dataIterator();
+  for (dit.begin(); dit.ok(); ++dit)
+    {
+      // sinusoid product here
+      FArrayBox& thisData = a_data[dit];
+      RealVect ccOffset = 0.5*RealVect::Unit;
+      BoxIterator ccBit(thisData.box());
+      for (ccBit.begin(); ccBit.ok(); ++ccBit)
+        {
+          IntVect iv = ccBit();
+          RealVect mappedLoc(iv);
+          mappedLoc += ccOffset;
+          mappedLoc *= a_dx;
+
+          Real scale = 10.0;
+          thisData(iv,0) =scale*D_TERM(sin(2*Pi*mappedLoc[0]/a_domainSize[0]),
+                                       *sin(2*Pi*mappedLoc[1]/a_domainSize[1]),
+                                       *sin(2*Pi*mappedLoc[2]/a_domainSize[2]));
+        } // end loop over box
+
+    } // end loop over grids
+  
+
+}
+
 int
 testFortranInterfaceIBC();
 
@@ -232,9 +262,16 @@ testFortranInterfaceIBC()
          diminfo[3] = numCells[1];,
          diminfo[1] = numCells[2]);
 
+  // nodal version
+  int diminfoNode[4];
+  diminfo[0] = SpaceDim;
+  D_TERM(diminfo[2] = numCells[0]+1;,
+         diminfo[3] = numCells[1]+1;,
+         diminfo[1] = numCells[2]+1);
+
 
   // second dx is a bit of a kluge so that this will work in 1D
-  // assume that there is only one box per processor.
+  // assume that there is no more than one box per processor.
   DataIterator dit = baseThickness.dataIterator();
   dit.begin();
 
@@ -533,10 +570,62 @@ testFortranInterfaceIBC()
     }
 
   
+  // test arbitrary flattening function to nodes
+  {
+    // first set up an AMR hierarchy with data in it
+    bool nodal = true;
+    int ncomp = 1;
+    IntVect ghostVect = IntVect::Unit;
+    Vector<LevelData<FArrayBox>* > amrData(numLevels,NULL);
+    Vector<Real> amrDx(numLevels, -1);
+    for (int lev=0; lev<amrData.size(); lev++)
+      {
+        RealVect dxLevel = vectCS[lev]->dx();
+        amrDx[lev] = dxLevel[0];
+        amrData[lev] = new LevelData<FArrayBox>(vectGrids[lev],
+                                                ncomp, ghostVect);
+
+        initAMRLevelData(*amrData[lev],dxLevel,domainSize);
+        
+      }
+    
+    // define node-centered storage
+    FArrayBox nodeFAB;
+    DataIterator sourceDit = sourceGrids.dataIterator();
+    for (sourceDit.begin(); sourceDit.ok(); ++sourceDit)
+      {
+        Box nodeBox(sourceGrids[sourceDit]);
+        nodeBox.surroundingNodes();
+        nodeFAB.define(nodeBox,ncomp);
+      }
+    
+    baseIBC.flattenData(nodeFAB.dataPtr(),
+                        diminfoNode,
+                        lb, ub,
+                        &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]),
+                        offset,
+                        amrData,
+                        vectNref,
+                        amrDx,
+                        0,0,ncomp,
+                        ghostVect,nodal);
+    
+    
+    // clean up memory
+    for (int lev=0; lev<amrData.size(); lev++)
+      {
+        if (amrData[lev] != NULL)
+          {
+            delete amrData[lev];
+            amrData[lev] = NULL;
+          }
+      }
+  }
+
   // clean up memory
     for (int lev=0; lev<vectCS.size(); lev++)
     {
-#if 0 
+#if 0
       // switched to RefCountedPtrs...
       if (vectCS[lev] != NULL)
         {

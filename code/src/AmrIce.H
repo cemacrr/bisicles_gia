@@ -203,6 +203,8 @@ public:
 
   const Vector<int>& refRatios() const { return m_refinement_ratios;}
 
+  const Vector<Real>& amrDx() const {return m_amrDx;}
+
   const LevelData<FArrayBox>* velocity(int a_level) const
   {
     return m_velocity[a_level];
