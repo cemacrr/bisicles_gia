@@ -1,14 +1,20 @@
 <html>
 <head>
-  <title>BISICLES build instructions</title>
+  <title>Older BISICLES build instructions</title>
 </head>
 <body>
 
 <a href='index.html'>User documentation index<a/>
 
-<h1>BISICLES build instructions</h1>
+<h1>Older BISICLES build instructions</h1>
 
-<p>To build (and run) BISICLES you need to</p>
+<p>
+<strong>These older instructions work with older gcc (4.1.2 for example) but since
+you cannot build Glimmer-CISM with gcc 4.1.2 it is probably worth updating your compilers. </strong>
+</p>
+<p>
+To build (and run) BISICLES you need to
+</p>
 <ol>
   <li> Meet the <a href='#sysreq'>system requirements</a></li>
   <li> <a href='#svnco'>Check out</a> the source code</li>
@@ -18,7 +24,7 @@
   <li> <a href='#bisicles'> Compile driver</a>, the main standalone BISICLES executable.</li>
   <li> <a href='#example'> Run driver on a simple problem </a> to ensure that it works</li>
 </ol>
-<p> Optionally, you might also</p>
+<p> Optionally, you might also
 <ol>
   <!--<li> visualize BISICLES output using <a href='https://wci.llnl.gov/codes/visit/home.html'>VisIt</a></li>!-->
   <li> <a href='#nctoamr'> Compile the filetools</a>, including nctoamr, a tool to convert NetCDF files into hdf5 files that BISICLES can read.</li>
@@ -35,8 +41,7 @@
   BISICLES requires the GNU/Linux operating system (actually, it should compile and run elsewhere,
   but we never do that), plus both C++ and FORTRAN compilers, a GNU-compatible make, and Perl.
   On the whole, life is easiest with gcc (including g++ and gfortran), and we shall assume that
-  is what will be used. A modernish gcc is required - see the <a href='oldbuild.html'>older build instructions<a> if
-   you want to build with gcc 4.1.2, for example. To build the parallel version, you need an MPI environment, which provides 
+  is what will be used. To build the parallel version, you need an MPI environment, which provides 
   the mpicc and mpicxx  (or equivalents). You will also need 
   <a href='https://wci.llnl.gov/codes/visit/home.html'>VisIt</a></li> to view the data BISICLES 
 produces (other programs can be put to use, but VisIt is by far the most convenient)</p>
@@ -62,56 +67,45 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
 
 <h2><a name="deps"> Dependencies.</a> </h2>
 <p>
-  Chombo requires the hdf5 libraries. The current version of hdf5 is 1.8. However, Chombo was written to build against version 1.6, which has a somewhat different interface than 1.8. Luckily, the hdf5 developers took this into account and provided a backwards compatible 1.6 interface in the current release. Three approaches to hdf5 will work:
+  Chombo requires the hdf5 libraries. The current version of hdf5 is 1.8. However, Chombo was written to build against version 1.6, which has a somewhat different interface than 1.8. Luckily, the hdf5 developers took this into account and provided a backwards compatible 1.6 interface in the current release. Two approaches to hdf5 will work:
 <ul>
-<li> Download the older 1.6 version of hdf5 and build against that one. </li>
-<li> Download the current 1.8 release and make sure the compilation flag "-DH5_USE_16_API" is present to Make.defs.local</li>
-<li> Use an already installed hdf5, and modify Make.defs.local accordingly </li>
+<li> One could simply download the older 1.6 version of hdf5 and build against that one. </li>
+<li> Alternatively, the current 1.8 release may be used as long as the compilation flag "-DH5_USE_16_API" is added.</li>
 </ul> 
 
-<p>The rest of the instructions in this document employ the second approach. 
-An <a href='oldbuild.html'>earlier set</a> employed the first, and works with older ggc (e.g 4.1.2)
+<p>The rest of the instructions in this document employ the first approach, but the compatibility flag is included in the provided Makefile setup, so one can also use hdf5 1.8 if that is more convenient (and is recommended if using a shared resource which may already have an up-to-date hdf5 installation.)
 
-</p>
 <p>  Glimmer-CISM also requires netcdf, and in a non-standard configuration to boot. BISICLES
   includes some complementary tools which require netcdf. So, while you could use the
   version installed on your system 
   it is often simpler to compile netCDF from source.
 </p>
 <p>
-  There should be a script, download_dependencies.sh that will get the (version 1.8
-) hdf5 sources and  
+  There should be a script, older_download_dependencies.sh that will get the (version 1.6) hdf5 sources and  
   unpack them, twice : once into hdf5/serial/src and once into hdf5/parallel/src. 
   It assumes $BISICLES_HOME is set. It should contain the following
 <pre>
 cd $BISICLES_HOME
-echo `pwd`
-
-
 
 #get hdf5 sources
-if !(test -e hdf5-1.8.9.tar.bz2) then
-    echo "downloading hdf5-1.8.10.tar.gz"
-    wget http://www.hdfgroup.org/ftp/HDF5/prev-releases/hdf5-1.8.9/src/hdf5-1.8.9.tar.bz2
+
+if !(test -e hdf5-1.6.10.tar.gz) then
+    echo "downloading hdf5-1.6.10.tar.gz"
+    wget http://www.hdfgroup.org/ftp/HDF5/prev-releases/hdf5-1.6.10/src/hdf5-1.6.10.tar.gz
 fi
-mkdir -p hdf5/parallel/src
-tar -jxf  hdf5-1.8.9.tar.bz2 -C hdf5/parallel/src
 
-mkdir -p hdf5/serial/src
-tar -jxf  hdf5-1.8.9.tar.bz2 -C hdf5/serial/src
-
+tar -zxf hdf5-1.6.10.tar.gz -C hdf5/parallel/src
+tar -zxf hdf5-1.6.10.tar.gz -C hdf5/serial/src
 
 #get netcdf sources
 
-if !(test -e netcdf-4.1.3.tar.gz) then
-    echo "downloading netcdf-4.1.3.tar.gz"
-    wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.1.3.tar.gz
+if !(test -e netcdf-4.1.2.tar.gz) then
+    echo "downloading netcdf-4.1.2.tar.gz"
+    wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.1.2.tar.gz
 fi
-mkdir -p netcdf/parallel/src
-tar -zxf netcdf-4.1.3.tar.gz -C netcdf/parallel/src
 
-mkdir -p netcdf/serial/src
-tar -zxf netcdf-4.1.3.tar.gz -C netcdf/serial/src
+tar -zxf netcdf-4.1.2.tar.gz -C netcdf/parallel/src
+tar -zxf netcdf-4.1.2.tar.gz -C netcdf/serial/src
 </pre>
 
 
@@ -123,7 +117,7 @@ tar -zxf netcdf-4.1.3.tar.gz -C netcdf/serial/src
 Before starting, make sure that you can run gcc.
 Enter the appropriate source directory
 <pre>
-> cd $BISICLES_HOME/hdf5/serial/src/hdf5-1.8.9/
+> cd $BISICLES_HOME/hdf5/serial/src/hdf5-1.6.10/
 </pre>
 and configure hdf5 like so
 <pre>
@@ -137,38 +131,39 @@ that support a plain C function calling convention, like FORTRAN 90 and GNU R (a
 Configure will spit out a long list of tests, and hopefully pass the all to produce a report
 that reads as follows:
 <pre>
-
-            SUMMARY OF THE HDF5 CONFIGURATION
-            =================================
-
-...
+Configure Summary
+Compiling Options:
+               Compilation Mode:  Production
+                     C Compiler:  gcc
+                         CFLAGS:  -fPIC -std=c99 -Wno-long-long -O -fomit-frame-pointer -finline-functions
+                       CPPFLAGS:  -UH5_DEBUG_API -DNDEBUG -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_POSIX_SOURCE -D_BSD_SOURCE 
+                        LDFLAGS:  
+                     Debug Mode:  None
+               Shared Libraries:  No
+               Static Libraries:  Yes
+  Statically Linked Executables:  No
+                        Tracing:  No
+   Optimization Instrumentation:  No
 
 Languages:
 ----------
-                        Fortran: no
-
-                            C++: no
+                            C++:  No
+                        Fortran:  No
 
 Features:
 ---------
-                  Parallel HDF5: no
-             High Level library: yes
-                   Threadsafety: no
-            Default API Mapping: v18
- With Deprecated Public Symbols: yes
-         I/O filters (external): deflate(zlib)
-         I/O filters (internal): shuffle,fletcher32,nbit,scaleoffset
-                            MPE: no
-                     Direct VFD: no
-                        dmalloc: no
-Clear file buffers before write: yes
-           Using memory checker: no
-         Function Stack Tracing: no
-                           GPFS: no
-      Strict File Format Checks: no
-   Optimization Instrumentation: no
-       Large File Support (LFS): yes
-
+                        dmalloc:  No
+         Function Stack Tracing:  Disabled
+                           GPFS:  No
+      Strict File Format Checks:  Disabled
+        HDF5 v1.4 Compatibility:  No
+         I/O filters (external):  deflate
+         I/O filters (internal):  shuffle,fletcher32
+ Linux Large File Support (LFS):  Enabled
+                            MPE:  No
+                  Parallel HDF5:  No
+                   Threadsafety:  Disabled
+             High Level library:  Enabled
 
 </pre>
 Don't worry that the C++ and Fortran languages are not enabled : Chombo uses the C interface, 
@@ -184,7 +179,7 @@ should see that the hdf5 libraries bin,doc,include and src have appeared in $BIS
 Before starting, make sure that the mpi environment is in place and that you can run mpicc.
 Enter hdf5/parallel/src/hdf5-1.6.10/ directory
 <pre>
-> cd $BISICLES_HOME/hdf5/parallel/src/hdf5-1.8.9/
+> cd $BISICLES_HOME/hdf5/parallel/src/hdf5-1.6.10/
 </pre>
 and configure hdf5, this time enabling MPI through the use of mpicc in place of gcc
 <pre>
@@ -192,38 +187,42 @@ and configure hdf5, this time enabling MPI through the use of mpicc in place of 
 </pre>
 This time, configure's final report should read
 <pre>
-
-            SUMMARY OF THE HDF5 CONFIGURATION
-            =================================
-(...)
+Configure Summary
+Compiling Options:
+               Compilation Mode:  Production
+                     C Compiler:  mpicc
+                         CFLAGS:   -std=c99 -Wno-long-long -O -fomit-frame-pointer -finline-functions
+                       CPPFLAGS:  -UH5_DEBUG_API -DNDEBUG -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_POSIX_SOURCE -D_BSD_SOURCE 
+                        LDFLAGS:  
+                     Debug Mode:  None
+               Shared Libraries:  No
+               Static Libraries:  Yes
+  Statically Linked Executables:  No
+                        Tracing:  No
+   Optimization Instrumentation:  No
 
 Languages:
 ----------
-                        Fortran: no
-
-                            C++: no
+                            C++:  No
+                        Fortran:  No
 
 Features:
 ---------
-                  Parallel HDF5: mpicc
-             High Level library: yes
-                   Threadsafety: no
-            Default API Mapping: v18
- With Deprecated Public Symbols: yes
-         I/O filters (external): deflate(zlib)
-         I/O filters (internal): shuffle,fletcher32,nbit,scaleoffset
-                            MPE: 
-                     Direct VFD: no
-                        dmalloc: no
-Clear file buffers before write: yes
-           Using memory checker: no
-         Function Stack Tracing: no
-                           GPFS: no
-      Strict File Format Checks: no
-   Optimization Instrumentation: no
-       Large File Support (LFS): yes
+                        dmalloc:  No
+         Function Stack Tracing:  Disabled
+                           GPFS:  No
+      Strict File Format Checks:  Disabled
+        HDF5 v1.4 Compatibility:  No
+         I/O filters (external):  deflate
+         I/O filters (internal):  shuffle,fletcher32
+ Linux Large File Support (LFS):  Enabled
+                            MPE:  No
+                  Parallel HDF5:  Yes
+                   Threadsafety:  Disabled
+             High Level library:  Enabled
+
 </pre>
-Note especially the line 'Parallel HDF5: mpicc '
+Note especially the line 'Parallel HDF5:  Yes'
 </body>
 Assuming this is all OK, type
 <pre>
@@ -234,33 +233,40 @@ this time, the bin,doc,include and src directories should end up  in $BISICLES_H
 
 <h3>Building serial netcdf </h3>
 <p>
+<strong>This doesn't work with NetCDF 4.1.3</strong>, which wants some part of the hdf5 library than only exists in version 1.8. Hopefully, we should
+be able to resolve this by building hdf5 1.8 to be compatible with hdf5 1.6 (the option exists) but for now, we'll stick with netcdf 4.1.2.
+</p>
+<p>
 Before starting, make sure that you can run gcc,g++ and gfortran.
 Enter the appropriate source directory
 <pre>
-> cd $BISICLES_HOME/netcdf/serial/src/netcdf-4.1.3/
+> cd $BISICLES_HOME/netcdf/serial/src/netcdf-4.1.2/
 </pre>
 Now, netcdf needs to link hdf5 : it doesn't really matter which version but we might as
 well use the one we have. Also, we want to avoid building a separate fortran library (libnetcdff.a);
 instead we want to include both C and FORTRAN stubs in libnetcdf.a. So, we have 
 a custom configure line
 <pre>
-> CC=gcc CPPFLAGS=-I$BISICLES_HOME/hdf5/serial/include/ CXX=g++ FC=gfortran LDFLAGS=-L$BISICLES_HOME/hdf5/serial/lib/  ./configure --prefix=$BISICLES_HOME/netcdf/serial  --enable-separate-fortran=no --enable-shared=no --enable-static=yes --enable-dap=no
+> CC=gcc  CPPFLAGS=-I$BISICLES_HOME/hdf5/serial/include/ CXX=g++ FC=gfortran LDFLAGS=-L$BISICLES_HOME/hdf5/serial/lib/  ./configure --prefix=$BISICLES_HOME/netcdf/serial  --enable-separate-fortran=no --enable-shared=no --enable-static=yes --enable-dap=no
 </pre>
 Next, compile, test, and install netcdf
 <pre>
 > make check install
 </pre>
-and assuming all goes well, netcdf 4.1.3 will now be installed in $BISICLES_HOME/netcdf/serial
+and assuming all goes well, netcdf 4.1.2 will now be installed in $BISICLES_HOME/netcdf/serial
 </p>
 <h3>Building parallel netcdf </h3>
-
+<p>
+<strong>This doesn't work with NetCDF 4.1.3</strong>, which wants some part of the hdf5 library than only exists in version 1.8. Hopefully, we should
+be able to resolve this by building hdf5 1.8 to be compatible with hdf5 1.6 (the option exists) but for now, we'll stick with netcdf 4.1.2.
+</p>
 <p>
 So far, the only difference between parallel and serial netcdf installs 
 is the link to parallel hdf5 and the use of the MPI compiler wrapper. 
 Possibly, building two versions of netcdf is a waste of time.
 <pre>
-> cd $BISICLES_HOME/netcdf/parallel/src/netcdf-4.1.3/
-> CC=mpicc CXX=mpicxx CPPFLAGS=-I$BISICLES_HOME/hdf5/parallel/include/ LDFLAGS=-L$BISICLES_HOME/hdf5/parallel/lib/  ./configure --prefix=$BISICLES_HOME/netcdf/parallel  --enable-separate-fortran=no --enable-shared=no --enable-static=yes --enable-dap=no
+> cd $BISICLES_HOME/netcdf/parallel/src/netcdf-4.1.2/
+> CC=mpicc CXX=mpicxx  CPPFLAGS=-I$BISICLES_HOME/hdf5/parallel/include/ LDFLAGS=-L$BISICLES_HOME/hdf5/parallel/lib/  ./configure --prefix=$BISICLES_HOME/netcdf/parallel  --enable-separate-fortran=no --enable-shared=no --enable-static=yes --enable-dap=no
 > make check install
 </pre>
 </p>

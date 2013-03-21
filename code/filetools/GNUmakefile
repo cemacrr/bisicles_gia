@@ -1,3 +1,4 @@
+
 # -*- Mode: Makefile -*- 
 
 ### This makefile produces an executable for each 
@@ -28,11 +29,12 @@ EXEC_DIR = .
 
 src_dirs = src 
 
+
+XTRACPPFLAGS=-I$(NETCDF_HOME)/include
+XTRALIBFLAGS=-L$(NETCDF_HOME)/lib -lnetcdf -lhdf5_hl
 include $(CHOMBO_HOME)/mk/Make.example
-
-
-CPPFLAGS+=-I$(NETCDF_HOME)/include 
-LIBFLAGS+=-L$(NETCDF_HOME)/lib -lnetcdf
+#CPPFLAGS+=-I$(NETCDF_HOME)/include 
+#LIBFLAGS+=-L$(NETCDF_HOME)/lib -lnetcdf -lhdf5_hl -lhdf5
 
 ifneq ($(PYTHON_INC),)
 CPPFLAGS+=-I$(PYTHON_INC)	

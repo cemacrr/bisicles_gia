@@ -17,12 +17,28 @@
 <h2><a name='uob'>University of Bristol</a></h2>
 
 <h3>Glaciology servers</h3>
+
 <p>
-On the Bristol glaciology machines (dartagnan,athos,porthos) include
+The Bristol glaciology machines (dartagnan,athos,porthos) have a very old
+gcc available by defualt (4.1.2), so you need to either build with the
+<a href='oldbuild.html'>old instructions</a> or get access to newer compilers.
+For the old way, just add
 <pre>
-  > module add openmpi/gnu_fc_gfortran
+module add openmpi/gnu_fc_gfortran
 </pre>
-in .bashrc.
+to .bashrc. and the follow the <a href='oldbuild.html'>old instructions</a>.
+For the new way, add
+<pre>
+GCCDIR=/data/ggslc/opt
+export PATH=$GCCDIR/bin:$PATH
+export LD_LIBRARY_PATH=$GCCDIR/lib64:$LD_LIBRARY_PATH
+#also openmpi
+OPENMPIDIR=$DDIR/openmpi
+export PATH=$OPENMPIDIR/bin:$PATH
+export LD_LIBRARY_PATH=$OPENMPIDIR/lib:$LD_LIBRARY_PATH
+</pre>
+to .bashrc (at least till we can get CentOS upgraded) and 
+<strong>remove the line that reads module add glacio-default-gnu</strong>
 <p>
 
 <p>
