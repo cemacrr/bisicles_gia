@@ -24,8 +24,8 @@ basalFlux.type = zeroFlux
 
 CalvingModel.type = NoCalvingModel
 
-amr.maxLevel = 0   # finest level allowed in simulation
-amr.ref_ratio = 2 2
+amr.maxLevel = 3   # finest level allowed in simulation
+amr.ref_ratio = 2 2 2 2 2 2 2
 #amr.num_cells = 0016 0016 16   #number of cells in base grid
 amr.num_cells = 0032 0032 16   #number of cells in base grid
 #amr.num_cells = 0064 0064 16   #number of cells in base grid
@@ -56,10 +56,11 @@ amr.fill_ratio = 0.8          # how efficient are the grids
 amr.nestingRadius = 1         # proper nesting radius required
 amr.tags_grow = 1             # amount to buffer tags
 amr.max_box_size = 32         # largest box length allowed
-#amr.tagging_val = 0.001       # min undivided grad(vel) resulting in tagging
+#amr.tagging_val = .0001       # min undivided grad(vel) resulting in tagging
 
 amr.tag_on_laplacian_velocity = 1
-amr.lap_vel_tagging_val = 10
+amr.lap_vel_tagging_val = 1000
+#amr.lap_vel_tagging_val = 1
 
 #initial guess 
 amr.do_initial_velocity_guess = 1
@@ -68,12 +69,21 @@ amr.initial_velocity_guess_type = 1 # linear PDE
 amr.initial_velocity_guess_const_mu = 1.0e+6
 amr.initial_velocity_guess_solver_type = 0 # use Picard solver's linear mode
 
-# this problem seems to need more picard iterations
-amr.max_solver_iterations = 20
-amr.velocity_solver_tolerance = 1.e-3
+picardSolver.linearSolver = petsc
+picardSolver.linearsolver_tolerance = 1.0e-4
+picardSolver.max_picard_iterations = 0
+
+amr.max_solver_iterations = 50
+amr.velocity_solver_tolerance = 1.e-8
 
 #velocity solve type -- 0=Picard, 1=JFNK, 2=knownVel, 3=petsc, 4=FAS-MG
 amr.velocity_solver_type = 3
+
+petsc.maxIter = 50
+petsc.absNLTol = 1.e-30
+petsc.relNLTol = 1.e-8
+petsc.minPicardIterations = 3
+petsc.plotResidual = true
 
 #input file for solver benchmark
 main.filename = stream.L1L2.0032.r2.l0.000000.2d.hdf5

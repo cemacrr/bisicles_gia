@@ -70,6 +70,11 @@ public:
 			   const Vector<LevelData<FArrayBox>* >& a_rhs,
 			   int a_lbase, int a_maxLevel
 			   );
+  void computeAMRResidualLevel( Vector<RefCountedPtr<LevelData<FArrayBox> > >& a_resid, 
+				const Vector<LevelData<FArrayBox>* >& a_horizontalVel, 
+				const Vector<LevelData<FArrayBox>* >& a_rhs,
+				int a_lbase, int a_maxLevel, int a_ilev
+				);
   
   // solve for isothermal ice -- returns 0 if converged, 1 if not
   virtual int solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
@@ -87,12 +92,12 @@ public:
   void picardSolve_private( int a_ilev,
 			    LevelData<FArrayBox> &a_horizontalVel,
 			    const LevelData<FArrayBox> &a_rhs,
-			    int a_numIts, Real a_norm0, int &a_it );
+			    Real a_norm0, Real &a_norm, int a_numIts, int &a_it );
 
   void jfnkSolve_private( int a_ilev,
 			  LevelData<FArrayBox> &a_horizontalVel,
 			  const LevelData<FArrayBox> &a_rhs,
-			  int a_numIts, Real a_norm0, int &a_it );
+			  Real a_norm0, int a_numIts, int &a_it );
   
   Vector<ProblemDomain> m_domain;
   ViscousTensorOpFactory *m_opFactoryPtr;
@@ -112,6 +117,8 @@ protected:
   Real m_rtol;
   Real m_atol;
   int m_minPicardIterations;
+  int m_amr_max_level;
+  bool m_plotResidual;
 
   Vector<int> m_refRatio;
 
@@ -151,7 +158,6 @@ public:
   RefCountedPtr<LevelData<FArrayBox> >m_twork1;  // work vectors
   RefCountedPtr<LevelData<FArrayBox> >m_twork2; 
   RefCountedPtr<LevelData<FluxBox> >  m_tfaceA;
-  LevelData<FArrayBox>* m_tfineVel;
   LevelData<FArrayBox>* m_tcrseVel;
   LevelData<FArrayBox> *m_tphi0; 
   LevelData<FluxBox>* m_tmuCoef;

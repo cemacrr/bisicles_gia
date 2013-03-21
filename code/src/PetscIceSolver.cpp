@@ -26,8 +26,6 @@
 PetscIceSolver::PetscIceSolver()
 {
   // default constructor leaves things in an undefined state
-
-
   m_bc = NULL;
   m_constRelPtr = NULL;
   m_basalFrictionRelPtr = NULL;
@@ -43,12 +41,17 @@ PetscIceSolver::PetscIceSolver()
   m_rtol = 1.e-6;
   m_atol = 1.e-30;
   m_minPicardIterations = 3;
+  m_plotResidual = false;
 
   ParmParse pp("petsc");
   pp.query("maxIter",m_max_its);
   pp.query("absNLTol",m_atol);
   pp.query("relNLTol",m_rtol);
   pp.query("minPicardIterations",m_minPicardIterations);
+  pp.query("plotResidual",m_plotResidual);
+
+  ParmParse pp2("amr");
+  pp2.get("maxLevel",m_amr_max_level);
 
   // these ones don't need to be stored (at least for now), but should be set
   int mgAverageType  = CoarseAverageFace::arithmetic;
@@ -112,7 +115,7 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *ctx )
   tthis->updateCoefs( *tthis->m_twork2, (int)*pilev ); 
   if ( tthis->m_tphi0 ) tthis->m_op[*pilev]->incr( *tthis->m_twork2, *tthis->m_tphi0, -1.);
 
-  tthis->m_op[*pilev]->applyOp( *tthis->m_twork1, *tthis->m_twork2 ); 
+  tthis->m_op[*pilev]->applyOp( *tthis->m_twork1, *tthis->m_twork2, true ); 
 
   ierr = solver->putChomboInPetsc( f, *tthis->m_twork1 );  CHKERRQ(ierr);
 
@@ -265,45 +268,50 @@ PetscIceSolver::computeAMRResidual( Vector<RefCountedPtr<LevelData<FArrayBox> > 
 {
   for (int ilev=a_lbase;ilev<=a_maxLevel;ilev++)
     {
-      if (ilev==a_lbase) 
+      computeAMRResidualLevel( a_resid, a_horizontalVel, a_rhs, 
+			       a_lbase, a_maxLevel, ilev );
+    }
+}
+
+void
+PetscIceSolver::computeAMRResidualLevel( Vector<RefCountedPtr<LevelData<FArrayBox> > >& a_resid, 
+					 const Vector<LevelData<FArrayBox>* >& a_horizontalVel, 
+					 const Vector<LevelData<FArrayBox>* >& a_rhs,
+					 int a_lbase, int a_maxLevel, int a_ilev
+					 )
+{
+  if (a_ilev==a_lbase) 
+    {
+      if (a_ilev==a_maxLevel) // one level
 	{
-	  if (ilev==a_maxLevel) // one level
-	    {
-	      m_op[ilev]->residual(*a_resid[ilev], 
-				   *a_horizontalVel[ilev], 
-				   *a_rhs[ilev], true ); 
-	    }
-	  else // coarse grid
-	    {
-	      m_op[ilev]->AMRResidualNC( *a_resid[ilev], 
-					 *a_horizontalVel[ilev+1], 
-					 *a_horizontalVel[ilev], 
-					 *a_rhs[ilev], true, 
-					 &(*m_op[ilev+1]));
-	    }
+	  m_op[a_ilev]->residual(*a_resid[a_ilev], 
+				 *a_horizontalVel[a_ilev], 
+				 *a_rhs[a_ilev], true ); 
 	}
-      else if (ilev == a_maxLevel) // fine grid
+      else // coarse grid
 	{
-	  m_op[ilev]->AMRResidualNF( *a_resid[ilev], 
-				     *a_horizontalVel[ilev],
-				     *a_horizontalVel[ilev-1],
-				     *a_rhs[ilev], true );
+	  m_op[a_ilev]->AMRResidualNC( *a_resid[a_ilev], 
+				       *a_horizontalVel[a_ilev+1], 
+				       *a_horizontalVel[a_ilev], 
+				       *a_rhs[a_ilev], true, 
+				       &(*m_op[a_ilev+1]));
 	}
-      else
-	{
-	  m_op[ilev]->AMRResidual( *a_resid[ilev], 
-				   *a_horizontalVel[ilev+1], 
-				   *a_horizontalVel[ilev], 
-				   *a_horizontalVel[ilev-1], 
-				   *a_rhs[ilev], true, 
-				   &(*m_op[ilev+1]));
-	}
-      
-      // zero covered
-      // if (ilev != a_maxLevel) // not finest grid
-      //   {
-      //     m_op[ilev]->zeroCovered(*a_resid,*m_fineCover[ilev],m_restCopier[ilev]); 
-      //   }
+    }
+  else if (a_ilev == a_maxLevel) // fine grid
+    {
+      m_op[a_ilev]->AMRResidualNF( *a_resid[a_ilev], 
+				   *a_horizontalVel[a_ilev],
+				   *a_horizontalVel[a_ilev-1],
+				   *a_rhs[a_ilev], true );
+    }
+  else
+    {
+      m_op[a_ilev]->AMRResidual( *a_resid[a_ilev], 
+				 *a_horizontalVel[a_ilev+1], 
+				 *a_horizontalVel[a_ilev], 
+				 *a_horizontalVel[a_ilev-1], 
+				 *a_rhs[a_ilev], true, 
+				 &(*m_op[a_ilev+1]));
     }
 }
 
@@ -338,37 +346,42 @@ CH_TIME("PetscIceSolver::AMRProlong");
 void PetscIceSolver::picardSolve_private( int a_ilev,
 					  LevelData<FArrayBox> &a_horizontalVel,
 					  const LevelData<FArrayBox> &a_rhs,
-					  int a_numIts, Real a_norm0, int &a_it )
+					  Real a_norm0, 
+					  Real &a_norm, // out
+					  int a_numIts, 
+					  int &a_it   // in-out
+					  )
 {
 #ifdef CH_USE_PETSC
   for (int ii=0;a_it<a_numIts;a_it++,ii++)
     {
       // keep in loop to refresh solver completely
-      Real opAlpha, opBeta;
+      Real opAlpha, opBeta; 
       PetscSolverViscousTensor<LevelData<FArrayBox> > *solver = new PetscSolverViscousTensor<LevelData<FArrayBox> >();
       getOperatorScaleFactors( opAlpha, opBeta );
-      solver->define( &(*m_op[a_ilev]), false ); // dx & crdx
+      solver->define( &(*m_op[a_ilev]), true ); // dx & crdx
       solver->setVTParams( opAlpha, opBeta,
 			   &(*m_C[a_ilev]),
 			   &(*m_Mu[a_ilev]),
 			   &(*m_Lambda[a_ilev]) );
       solver->m_ctx = (void*)this;
 
-      // update coeficients 
-      if ( m_tphi0 ) m_op[a_ilev]->incr( a_horizontalVel, *m_tphi0, 1.);
-      updateCoefs( a_horizontalVel, a_ilev ); // needed because called before FormJacobian      
-      if ( m_tphi0 ) m_op[a_ilev]->incr( a_horizontalVel, *m_tphi0, -1.);
-
+      // update coeficients
+      updateCoefs( a_horizontalVel, a_ilev ); 
+      
       // in residual correction form (m_tphi0) and first iteration - no init guess.
       solver->setInitialGuessNonzero(true);
+
       // linear KSP solve
       solver->solve(a_horizontalVel,a_rhs);
-
+      KSPGetResidualNorm(solver->m_ksp,&a_norm);
+      delete solver;
+      
       if (m_verbosity>0)
 	{
-	  pout() << a_it+1 << "/" << m_max_its <<  ") Picard iteration" << endl;	  
+	  pout() << a_it+1 << "/" << m_max_its <<  ") Picard iteration, |r|_2=" << a_norm << ", rate=" << a_norm/a_norm0 << endl;
 	}
-      delete solver;
+      if (a_norm/a_norm0 < m_rtol){ a_it++; break; }
     }
 #endif
 }
@@ -376,44 +389,30 @@ void PetscIceSolver::picardSolve_private( int a_ilev,
 void PetscIceSolver::jfnkSolve_private( int a_ilev,
 					LevelData<FArrayBox> &a_horizontalVel,
 					const LevelData<FArrayBox> &a_rhs,
-					int a_numIts, Real a_norm0, int &a_it
+					Real a_norm0, int a_numIts, int &a_it // in-out
 					)
 {  
 #ifdef CH_USE_PETSC
+  Real opAlpha, opBeta; PetscInt its;
+  getOperatorScaleFactors( opAlpha, opBeta );
+  PetscSolverViscousTensor<LevelData<FArrayBox> > *solver = new PetscSolverViscousTensor<LevelData<FArrayBox> >;
+  solver->define( &(*m_op[a_ilev]), true ); // dx & crdx
+  solver->setVTParams( opAlpha, opBeta,
+		       &(*m_C[a_ilev]),
+		       &(*m_Mu[a_ilev]),
+		       &(*m_Lambda[a_ilev]) );
+  solver->setFunctionAndJacobian( FormFunction, FormJacobian ); // NL solve
+  solver->m_ctx = (void*)this;
   
-  for (/* void */;a_it<a_numIts;a_it++)
-    {
-      Real opAlpha, opBeta, norm;
-      getOperatorScaleFactors( opAlpha, opBeta );
-      PetscSolverViscousTensor<LevelData<FArrayBox> > *solver = new PetscSolverViscousTensor<LevelData<FArrayBox> >;
-      solver->define( &(*m_op[a_ilev]), false ); // dx & crdx
-      solver->setVTParams( opAlpha, opBeta,
-			   &(*m_C[a_ilev]),
-			   &(*m_Mu[a_ilev]),
-			   &(*m_Lambda[a_ilev]) );
-      solver->setFunctionAndJacobian( FormFunction, FormJacobian ); // NL solve
-      solver->m_ctx = (void*)this;
-
-      // update coeficients 
-      if ( m_tphi0 ) m_op[a_ilev]->incr( a_horizontalVel, *m_tphi0, 1.);
-      updateCoefs( a_horizontalVel, a_ilev ); // needed because called before FormJacobian      
-      if ( m_tphi0 ) m_op[a_ilev]->incr( a_horizontalVel, *m_tphi0, -1.);
-      
-      // creates Mat and Vecs, creates SNES
-      solver->setup_solver(a_horizontalVel); // creates SNES
-      // set the level to index into this
-      SNESSetTolerances(solver->m_snes,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT,1,PETSC_DEFAULT);
-      SNESSetApplicationContext( solver->m_snes,(void*)&a_ilev );
-      solver->solve(a_horizontalVel,a_rhs);
-      SNESGetFunctionNorm(solver->m_snes,&norm);
-      delete solver;
-      if (m_verbosity>0)
-	{
-	  pout() << a_it+1 << "/" << m_max_its <<  ") SNES |r|_2 = " << norm << ", rel norm = " << norm/a_norm0 << "/" << m_rtol << endl;	  
-	}
-      if (norm/a_norm0 < m_rtol){a_it++; break;}
-    }
-
+  // creates Mat and Vecs, creates SNES
+  solver->setup_solver(a_horizontalVel); // creates SNES
+  // set the level to index into this
+  SNESSetTolerances(solver->m_snes,(PetscReal)m_atol,(PetscReal)m_rtol,PETSC_DEFAULT,a_numIts-a_it,PETSC_DEFAULT);
+  SNESSetApplicationContext( solver->m_snes,(void*)&a_ilev );
+  solver->solve(a_horizontalVel,a_rhs);
+  SNESGetIterationNumber(solver->m_snes,&its);
+  a_it += its;
+  delete solver;
 #endif
 }
 
@@ -442,7 +441,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 
   // copy betas and form faceA
   Vector<RefCountedPtr<LevelData<FluxBox> > > faceAs(a_maxLevel+1);
-  for (ilev=a_maxLevel;ilev<=a_maxLevel;ilev++)
+  for (ilev=a_lbase;ilev<=a_maxLevel;ilev++)
     {
       m_Beta[ilev] = a_beta[ilev];
       m_Beta0[ilev] = a_beta0[ilev];
@@ -459,7 +458,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
   Vector<RefCountedPtr<LevelData<FArrayBox> > > tempv(a_maxLevel+1);
   Vector<RefCountedPtr<LevelData<FArrayBox> > > tempv2(a_maxLevel+1);
   Vector<RefCountedPtr<LevelData<FArrayBox> > > tempv3(a_maxLevel+1);
-  for (ilev=a_maxLevel;ilev<=a_maxLevel;ilev++)
+  for (ilev=a_lbase;ilev<=a_maxLevel;ilev++)
     {
       RefCountedPtr<LevelData<FArrayBox> > v1(new LevelData<FArrayBox>(m_grid[ilev],nc,IntVect::Zero));
       resid[ilev] = v1;
@@ -470,29 +469,25 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       RefCountedPtr<LevelData<FArrayBox> > v4(new LevelData<FArrayBox>(m_grid[ilev],nc,ghostVect));
       tempv3[ilev] = v4;
     }
-  
-  // update coeficients to get correct residuals, sets c-f values
-  for (ilev=a_maxLevel;ilev<=a_maxLevel;ilev++)
-    {
-      computeMu( *a_horizontalVel[ilev],
-      		 *faceAs[ilev],
-      		 a_muCoef[ilev],
-      		 a_coordSys[ilev], 
-      		 ilev==a_lbase ? 0 : a_horizontalVel[ilev-1],
-		 ilev==a_maxLevel ? 0 : a_horizontalVel[ilev+1], // 0
-      		 ilev,
-      		 a_time );
-    }
 
-  // residual
-  ilev = a_maxLevel;
+
+  // coarse grid solve 
+  ilev = a_lbase;
+
+  // update coeficients to get correct residuals, sets c-f values
+  computeMu( *a_horizontalVel[ilev],
+	     *faceAs[ilev],
+	     a_muCoef[ilev],
+	     a_coordSys[ilev], 
+	     0,
+	     0,
+	     ilev,
+	     a_time );
+  // c-f just done so no need here
   m_op[ilev]->residual( *resid[ilev], 
 			*a_horizontalVel[ilev], 
 			*a_rhs[ilev], true ); 
-  residNorm0 = levelNorm = m_op[ilev]->norm( *resid[ilev], 2 );
 
-  pout() << "\tPetscIceSolver::solve: Initial AMR residual |r|_2 = " << residNorm0 << endl;
-  
   // cache stuff for nonlinear solver
   m_twork1 = tempv2[ilev];
   m_twork2 = tempv3[ilev];
@@ -500,63 +495,225 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
   m_tmuCoef = a_muCoef[ilev];
   m_tcoordSys = a_coordSys[ilev];
   m_ttime = a_time;
-  m_tfineVel = ilev==a_maxLevel ? 0 : a_horizontalVel[ilev+1]; // always 0
-  
-  int it = 0;
-  if (a_lbase==a_maxLevel) // coursest grid
-    {      
-      m_tphi0 = 0;    // not defect correction form
-      m_tcrseVel = 0;
+  m_tphi0 = 0;    // not defect correction form
+  m_tcrseVel = 0;
 
-      levelNorm = m_op[ilev]->norm(*a_rhs[ilev], 2); // use |b| to compare against
-
-      // start with Picard solve
-      picardSolve_private(ilev,*a_horizontalVel[ilev],*a_rhs[ilev],m_minPicardIterations,levelNorm,it);
-
-      // finish wit jfnk
-      jfnkSolve_private(ilev,*a_horizontalVel[ilev],*a_rhs[ilev],m_max_its,levelNorm,it);
-
-      if (m_verbosity>0)pout() << "\t\tLevel 0: " << it << " total nonlinear iterations with " << 
-			  m_minPicardIterations << " Picard iterations" << endl;
-    }
-  else
-    {
-      m_tphi0 = a_horizontalVel[ilev]; // cache phi_0 to get correct linearization
-      m_tcrseVel = a_lbase==ilev ? 0 : a_horizontalVel[ilev-1]; 
-
-      pout() << "PetscIceSolver::solve: in FMG level " << ilev << endl;
-      
-      // prolongate to ilev - done in AmrIce.cpp, use higher order?
-      m_op[ilev]->setToZero( *a_horizontalVel[ilev] );
-      //AMRProlong( *a_horizontalVel[ilev], *a_horizontalVel[ilev-1], *m_fineCover[ilev-1], 
-      //	  m_projCopier[ilev-1], m_refRatio[ilev-1] );
-            
-      // start with Picard solve
-      levelNorm = m_op[ilev]->norm(*a_rhs[ilev], 2); // use |b| to compare against
-      it = 0;
-      m_op[ilev]->setToZero( *tempv[ilev] );
-      picardSolve_private( ilev, *tempv[ilev], *resid[ilev], m_minPicardIterations, levelNorm, it );
-      m_op[ilev]->incr( *a_horizontalVel[ilev], *tempv[ilev], 1.); 
-
-      // put in residual correction form, finish with jfnk
-      m_op[ilev]->residual( *resid[ilev], *a_horizontalVel[ilev], *a_rhs[ilev], true );
-      pout() << "\t\tLevel "<< ilev <<" |r|_2 = " << m_op[ilev]->norm(*resid[ilev], 2) << endl;
-
-      m_op[ilev]->setToZero(*tempv[ilev]);
-      jfnkSolve_private( ilev, *tempv[ilev], *resid[ilev], m_max_its, levelNorm, it );      
-      m_op[ilev]->incr( *a_horizontalVel[ilev], *tempv[ilev], 1.);
-
-      if (m_verbosity>0)pout() << "\t\tLevel "<< ilev <<" done with " << it << " nonlinear iterations " << endl;      
-    }
-  
+  // start with Picard solve
+  residNorm0 = m_op[ilev]->norm(*a_rhs[ilev], 2); // use |b| to compare against
   if (m_verbosity>0)
     {
-      m_op[ilev]->residual( *resid[ilev], *a_horizontalVel[ilev], *a_rhs[ilev], true );
-      levelNorm = m_op[ilev]->norm(*resid[ilev], 2);
-      pout() << "\t\t|r|_2 on level " << ilev << " = " << levelNorm << endl;
+      pout() << "\t\tLevel 0: |b|_2 = " << residNorm0 << endl;
+    }  
+
+  // solve
+  int it = 0;
+  picardSolve_private(ilev,*a_horizontalVel[ilev],*a_rhs[ilev],residNorm0,levelNorm,m_minPicardIterations,it);
+
+  if (levelNorm/residNorm0 > m_rtol)
+    { 
+      // finish wit jfnk
+      jfnkSolve_private(ilev,*a_horizontalVel[ilev],*a_rhs[ilev],residNorm0,m_max_its,it);
+    }
+
+  if (m_verbosity>0)
+    {
+      m_op[ilev]->residual( *resid[ilev], 
+			    *a_horizontalVel[ilev], 
+			    *a_rhs[ilev], true );      
+      levelNorm = m_op[ilev]->norm(*resid[ilev],2);
+      pout() << "\t\tLevel 0: " << it << " total nonlinear iterations with " << m_minPicardIterations << " Picard iterations" << " Picard |r|_2 = " << levelNorm <<endl;
+    }
+
+  for (ilev=a_lbase+1;ilev<=a_maxLevel;ilev++)
+    {
+      // update coeficients to get correct residuals, sets c-f values
+      computeMu( *a_horizontalVel[ilev],
+		 *faceAs[ilev],
+		 a_muCoef[ilev],
+		 a_coordSys[ilev], 
+		 ilev==a_lbase ? 0 : a_horizontalVel[ilev-1],
+		 0,
+		 ilev,
+		 a_time );
+      // c-f just done so no need here
+      m_op[ilev]->residual( *resid[ilev], 
+			    *a_horizontalVel[ilev], 
+			    *a_rhs[ilev], true ); 
+
+      m_twork1 = tempv2[ilev];
+      m_twork2 = tempv3[ilev];
+      m_tfaceA = faceAs[ilev];
+      m_tmuCoef = a_muCoef[ilev];
+      m_tcoordSys = a_coordSys[ilev];
+      m_ttime = a_time;
+      m_tphi0 = a_horizontalVel[ilev]; // cache phi_0 to get correct linearization
+      m_tcrseVel = a_horizontalVel[ilev-1]; 
+
+      // prolongate to ilev - done in AmrIce.cpp, use higher order? -- need before residaul calc & c-c interp!
+      // m_op[ilev]->setToZero( *a_horizontalVel[ilev] );
+      // AMRProlong( *a_horizontalVel[ilev], *a_horizontalVel[ilev-1], *m_fineCover[ilev-1], 
+      // 	  m_projCopier[ilev-1], m_refRatio[ilev-1] );
+
+      residNorm0 = m_op[ilev]->norm(*a_rhs[ilev], 2); // use |b| to compare against
+      if (m_verbosity>0)
+	{
+	  pout() << "\t\tLevel " << ilev << " |b|_2 = " << residNorm0 << endl;
+	}  
+
+      // start with Picard solve
+      for( it = 0; it < m_max_its ; it++ )
+	{
+	  Real opAlpha, opBeta;
+	  PetscSolverViscousTensor<LevelData<FArrayBox> > *solver = new PetscSolverViscousTensor<LevelData<FArrayBox> >();
+	  getOperatorScaleFactors( opAlpha, opBeta );
+	  solver->define( &(*m_op[ilev]), true ); // dx & crdx
+	  solver->setVTParams( opAlpha, opBeta,
+			       &(*m_C[ilev]),
+			       &(*m_Mu[ilev]),
+			       &(*m_Lambda[ilev]) );
+	  solver->m_ctx = (void*)this;
+	  solver->setInitialGuessNonzero(false);
+	  
+	  // linear KSP solve
+	  m_op[ilev]->setToZero(*tempv[ilev]);
+	  solver->solve(*tempv[ilev], *resid[ilev]);
+	  m_op[ilev]->incr( *a_horizontalVel[ilev], *tempv[ilev], 1.); 
+	  
+	  updateCoefs( *a_horizontalVel[ilev], ilev ); 
+	  // put in residual correction form
+	  m_op[ilev]->residual( *resid[ilev], 
+				*a_horizontalVel[ilev], 
+				*a_rhs[ilev], true );
+	  levelNorm = m_op[ilev]->norm(*resid[ilev],2);
+	  pout() <<it+1<<") Level "<< ilev <<" Picard |r|_2 = " << levelNorm << endl;
+	  if (levelNorm/residNorm0 < m_rtol){it++; break;}
+	}
+
+      // for( /* void */; it < m_max_its ; it++)
+      // 	{
+      // 	  Real opAlpha, opBeta;
+      // 	  getOperatorScaleFactors( opAlpha, opBeta );
+      // 	  PetscSolverViscousTensor<LevelData<FArrayBox> > *solver = new PetscSolverViscousTensor<LevelData<FArrayBox> >;
+      // 	  solver->define( &(*m_op[ilev]), true ); // dx & crdx
+      // 	  solver->setVTParams( opAlpha, opBeta,
+      // 			       &(*m_C[ilev]),
+      // 			       &(*m_Mu[ilev]),
+      // 			       &(*m_Lambda[ilev]) );
+      // 	  solver->setFunctionAndJacobian( FormFunction, FormJacobian ); // NL solve
+      // 	  solver->m_ctx = (void*)this;
+	  
+      // 	  // creates Mat and Vecs, creates SNES
+      // 	  solver->setup_solver(*a_horizontalVel[ilev]); // creates SNES
+      // 	  // set the level to index into this
+      // 	  SNESSetTolerances(solver->m_snes,(PetscReal)m_atol,PETSC_DEFAULT,PETSC_DEFAULT,1,PETSC_DEFAULT);
+      // 	  SNESSetApplicationContext( solver->m_snes, (void*)&ilev );
+      // 	  m_op[ilev]->setToZero( *tempv[ilev] );
+      // 	  solver->solve(*tempv[ilev], *resid[ilev]);
+      // 	  delete solver;
+      // 	  m_op[ilev]->incr( *a_horizontalVel[ilev], *tempv[ilev], 1.); 
+	  
+      // 	  updateCoefs( *a_horizontalVel[ilev], ilev ); 	  
+      // 	  // put in residual correction form
+      // 	  m_op[ilev]->residual( *resid[ilev], 
+      // 				*a_horizontalVel[ilev], 
+      // 				*a_rhs[ilev], true ); 
+      // 	  levelNorm = m_op[ilev]->norm(*resid[ilev],2);
+      // 	  pout() <<it+1<<") Level "<< ilev <<" SNES |r|_2 = " << levelNorm << endl;
+      // 	  if (levelNorm/residNorm0 < m_rtol){it++; break;}
+      // 	}
+      if (m_verbosity>0)pout() << "\t\tLevel "<< ilev <<" done with " << it << " nonlinear iterations " << endl;      
+    }
+
+  // m_op[a_lbase]->residual( *resid[a_lbase], 
+  // 			   *a_horizontalVel[a_lbase], 
+  // 			   *a_rhs[a_lbase], true ); 
+  // levelNorm = m_op[a_lbase]->norm(*resid[a_lbase],2);
+  // pout() << " base |r|_2 = " << levelNorm << endl;
+  // writeLevelname(resid[a_lbase],"res0.hdf5");
+  // writeLevelname(resid[a_maxLevel],"res1.hdf5");
+  // if(a_lbase==a_maxLevel)
+  //   writeLevelname(a_horizontalVel[a_lbase],"phi0.hdf5");
+  
+  if(a_maxLevel==m_amr_max_level)
+    {
+      int numLevels = a_maxLevel + 1;
+      Vector<LevelData<FArrayBox>* > plotData(numLevels, NULL);
+      
+      for (ilev=a_maxLevel;ilev>=a_lbase;ilev--)
+	{
+	  // this does c-f interp & coarsens fine
+	  computeMu( *a_horizontalVel[ilev],
+		     *faceAs[ilev],
+		     a_muCoef[ilev],
+		     a_coordSys[ilev], 
+		     ilev==a_lbase ? 0 : a_horizontalVel[ilev-1],
+		     0,
+		     ilev,
+		     a_time );
+
+	  if(m_plotResidual)
+	    {
+	      // c-f just done so no need here
+	      if(ilev==a_maxLevel||true)
+		{ 
+		  m_op[ilev]->residual( *resid[ilev], 
+					*a_horizontalVel[ilev], 
+					*a_rhs[ilev], true ); 
+		}
+	      else
+		{ 
+		  m_op[ilev]->AMRResidualNC( *resid[ilev], 
+					     *a_horizontalVel[ilev+1], 
+					     *a_horizontalVel[ilev], 
+					     *a_rhs[ilev], true, 
+					     &(*m_op[ilev+1]));
+		}
+	      
+	      levelNorm = m_op[ilev]->norm(*resid[ilev],2);
+	      pout() << "\t\t\t" << ilev << " |r|_2 = " << levelNorm << endl;
+	      plotData[ilev] = new LevelData<FArrayBox>( m_grid[ilev],
+							 2, IntVect::Zero);
+	      Interval phiInterval(0,1);
+	      resid[ilev]->copyTo(phiInterval, *plotData[ilev], phiInterval);
+	    }
+	}
+
+      if(m_plotResidual)
+	{
+	  string fname = "residual.";
+	  
+	  char suffix[30];
+	  sprintf(suffix, "%dd.hdf5",SpaceDim);
+	  fname += suffix;
+	  
+	  Vector<string> varNames(2);
+	  varNames[0] = "phi";
+	  varNames[1] = "rhs";
+	  
+	  Real bogusVal = 1.0;
+	  
+	  WriteAMRHierarchyHDF5(fname,
+				m_grid,
+				plotData,
+				varNames,
+				m_domain[0].domainBox(),
+				m_op[0]->dx(),
+				bogusVal,
+				bogusVal,
+				m_refRatio,
+				numLevels);
+	  // clean up
+	  for (ilev=0; ilev<plotData.size(); ilev++)
+	    {
+	      delete plotData[ilev];
+	    }
+	}
+
+      // clean up with full JFNK solve
+
     }
   
-  // clean up with full JFNK solve
+
 
   
   return returnCode;
@@ -628,7 +785,7 @@ PetscIceSolver::updateCoefs( LevelData<FArrayBox> &a_horizontalVel, int a_ilev )
 	     m_tmuCoef,
 	     m_tcoordSys, 
 	     m_tcrseVel, 
-	     m_tfineVel,
+	     0,
 	     a_ilev,
 	     m_ttime );
 }
@@ -636,6 +793,7 @@ PetscIceSolver::updateCoefs( LevelData<FArrayBox> &a_horizontalVel, int a_ilev )
 ////////////////////////////////////////////////////////////////////////
 // PetscIceSolver::computeMu()
 //   side effect: sets m_Mu & m_Lambda & m_C
+//   a_horizontalVel has fine grid interpoled up to it
 ////////////////////////////////////////////////////////////////////////
 // isothermal version -- for the ViscousTensorOp, lambda = 2*mu
 void 
@@ -654,7 +812,7 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
   const LevelSigmaCS& levelCS = *a_coordSys;
   LevelData<FArrayBox>& levelVel = a_horizontalVel;
   LevelData<FluxBox>& levelMu = *m_Mu[a_ilev];
-pout() << "\tPetscIceSolver::computeMu: crseVelPtr = " << crseVelPtr << endl;
+
   const LevelData<FluxBox>& levelA = a_faceA;
   LevelData<FluxBox>& levelLambda = *m_Lambda[a_ilev];
   const LevelData<FArrayBox>& levelBeta = *m_Beta[a_ilev];
