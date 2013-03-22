@@ -85,5 +85,28 @@ petsc.relNLTol = 1.e-8
 petsc.minPicardIterations = 3
 petsc.plotResidual = true
 
+#JFNK parameters
+JFNKSolver.vtopSafety = 0.95
+JFNKSolver.minPicardIterations = 3
+JFNKSolver.maxIter = 20
+JFNKSolver.absTol = 1.0e-30
+JFNKSolver.relTol = 1.0e-8
+# 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = MultiGrid, 4 = petsc
+JFNKSolver.solverType = 3
+JFNKSolver.RelaxRelTol = 2.0e-3
+JFNKSolver.RelaxHang = 0.8
+JFNKSolver.maxRelaxIter = 30
+JFNKSolver.normType = 0
+JFNKSolver.verbosity = 5
+JFNKSolver.vtopRelaxTol = 0.005
+JFNKSolver.vtopRelaxMinIter = 8
+JFNKSolver.numMGSmooth = 8
+JFNKSolver.numMGIter = 1
+JFNKSolver.h = 0.025
+JFNKSolver.switchRate = 2.0
+#JFNKSolver.writeResiduals = true
+#JFNKSolver.muMin = 1.0e+4
+#JFNKSolver.uMaxAbs = 1.0e+6
+
 #input file for solver benchmark
 main.filename = stream.L1L2.0032.r2.l0.000000.2d.hdf5

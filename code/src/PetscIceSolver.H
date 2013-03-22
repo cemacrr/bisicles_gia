@@ -105,7 +105,7 @@ public:
 protected:
   ConstitutiveRelation* m_constRelPtr;
   BasalFrictionRelation* m_basalFrictionRelPtr;
-  Vector<DisjointBoxLayout> m_grid;
+  Vector<DisjointBoxLayout> m_grids;
   Real m_vtopSafety;
   int m_verbosity;
   bool m_isOpDefined;
