@@ -353,36 +353,36 @@ void PetscIceSolver::picardSolve_private( int a_ilev,
 					  )
 {
 #ifdef CH_USE_PETSC
+  Real opAlpha, opBeta; 
+  PetscSolverViscousTensor<LevelData<FArrayBox> > *solver = new PetscSolverViscousTensor<LevelData<FArrayBox> >();
+  getOperatorScaleFactors( opAlpha, opBeta );
+  solver->define( &(*m_op[a_ilev]), true ); // dx & crdx
+  solver->setVTParams( opAlpha, opBeta,
+		       &(*m_C[a_ilev]),
+		       &(*m_Mu[a_ilev]),
+		       &(*m_Lambda[a_ilev]) );
+  solver->m_ctx = (void*)this;
+
+  // in residual correction form (m_tphi0) and first iteration - no init guess.
+  solver->setInitialGuessNonzero(true);
+  
   for (int ii=0;a_it<a_numIts;a_it++,ii++)
     {
-      // keep in loop to refresh solver completely
-      Real opAlpha, opBeta; 
-      PetscSolverViscousTensor<LevelData<FArrayBox> > *solver = new PetscSolverViscousTensor<LevelData<FArrayBox> >();
-      getOperatorScaleFactors( opAlpha, opBeta );
-      solver->define( &(*m_op[a_ilev]), true ); // dx & crdx
-      solver->setVTParams( opAlpha, opBeta,
-			   &(*m_C[a_ilev]),
-			   &(*m_Mu[a_ilev]),
-			   &(*m_Lambda[a_ilev]) );
-      solver->m_ctx = (void*)this;
-
       // update coeficients
       updateCoefs( a_horizontalVel, a_ilev ); 
       
-      // in residual correction form (m_tphi0) and first iteration - no init guess.
-      solver->setInitialGuessNonzero(true);
-
       // linear KSP solve
       solver->solve(a_horizontalVel,a_rhs);
       KSPGetResidualNorm(solver->m_ksp,&a_norm);
-      delete solver;
       
       if (m_verbosity>0)
 	{
 	  pout() << a_it+1 << "/" << m_max_its <<  ") Picard iteration, |r|_2=" << a_norm << ", rate=" << a_norm/a_norm0 << endl;
 	}
       if (a_norm/a_norm0 < m_rtol){ a_it++; break; }
+      solver->resetOperator();
     }
+  delete solver;
 #endif
 }
 
@@ -654,7 +654,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	  if(m_plotResidual)
 	    {
 	      // c-f just done so no need here
-	      if(ilev==a_maxLevel||true)
+	      if(ilev==a_maxLevel)
 		{ 
 		  m_op[ilev]->residual( *resid[ilev], 
 					*a_horizontalVel[ilev], 
@@ -687,8 +687,8 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	  fname += suffix;
 	  
 	  Vector<string> varNames(2);
-	  varNames[0] = "phi";
-	  varNames[1] = "rhs";
+	  varNames[0] = "phi-x";
+	  varNames[1] = "phi-y";
 	  
 	  Real bogusVal = 1.0;
 	  
