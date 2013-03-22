@@ -44,7 +44,7 @@ amr.initial_cfl = 0.1  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
 
 amr.plot_interval = 1  
-amr.plot_prefix = stream.L1L2.0032.petsc.
+amr.plot_prefix = stream.L1L2.0032.jfnk.
 amr.write_solver_rhs = 1
 amr.check_interval = -1
 amr.check_prefix = chk
@@ -69,7 +69,7 @@ amr.initial_velocity_guess_type = 1 # linear PDE
 amr.initial_velocity_guess_const_mu = 1.0e+6
 amr.initial_velocity_guess_solver_type = 0 # use Picard solver's linear mode
 
-picardSolver.linearSolver = petsc
+#picardSolver.linearSolver = petsc
 picardSolver.linearsolver_tolerance = 1.0e-4
 picardSolver.max_picard_iterations = 0
 
@@ -77,18 +77,12 @@ amr.max_solver_iterations = 50
 amr.velocity_solver_tolerance = 1.e-8
 
 #velocity solve type -- 0=Picard, 1=JFNK, 2=knownVel, 3=petsc, 4=FAS-MG
-amr.velocity_solver_type = 3
-
-petsc.maxIter = 50
-petsc.absNLTol = 1.e-30
-petsc.relNLTol = 1.e-8
-petsc.minPicardIterations = 5
-petsc.plotResidual = true
+amr.velocity_solver_type = 1
 
 #JFNK parameters
 JFNKSolver.vtopSafety = 0.95
-JFNKSolver.minPicardIterations = 1
-JFNKSolver.maxIter = 1
+JFNKSolver.minPicardIterations = 3
+JFNKSolver.maxIter = 20
 JFNKSolver.absTol = 1.0e-30
 JFNKSolver.relTol = 1.0e-8
 # 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = MultiGrid, 4 = petsc
