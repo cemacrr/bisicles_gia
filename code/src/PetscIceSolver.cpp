@@ -564,6 +564,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       // start with Picard solve
       for( it = 0; it < m_max_its ; it++ )
 	{
+#ifdef CH_USE_PETSC
 	  Real opAlpha, opBeta;
 	  PetscSolverViscousTensor<LevelData<FArrayBox> > *solver = new PetscSolverViscousTensor<LevelData<FArrayBox> >();
 	  getOperatorScaleFactors( opAlpha, opBeta );
@@ -581,6 +582,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	  m_op[ilev]->incr( *a_horizontalVel[ilev], *tempv[ilev], 1.); 
 	  
 	  updateCoefs( *a_horizontalVel[ilev], ilev ); 
+#endif // CH_USE_PETSC
 	  // put in residual correction form
 	  m_op[ilev]->residual( *resid[ilev], 
 				*a_horizontalVel[ilev], 
