@@ -85,8 +85,8 @@ JFNKSolver.minPicardIterations = 3
 JFNKSolver.maxIter = 20
 JFNKSolver.absTol = 1.0e-30
 JFNKSolver.relTol = 1.0e-8
-# 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = MultiGrid, 4 = petsc
-JFNKSolver.solverType = 3
+# 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = CG, 4 = petsc
+JFNKSolver.solverType = 0
 JFNKSolver.RelaxRelTol = 2.0e-3
 JFNKSolver.RelaxHang = 0.8
 JFNKSolver.maxRelaxIter = 30

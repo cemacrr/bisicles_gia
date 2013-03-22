@@ -648,29 +648,30 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       int normType = 0; Real dx = m_op[0]->dx();
 
       // clean up with full JFNK solve
-      {
-	RealVect cdx(D_DECL6(dx,dx,dx,dx,dx,dx));
-	JFNKSolver* jfnkSolver;
-	jfnkSolver = new JFNKSolver();
-	jfnkSolver->define( m_domain[0],
-			    m_constRelPtr,
-			    m_basalFrictionRelPtr,
-			    m_grids,
-			    m_refRatio,
-			    cdx,
-			    m_bc,
-			    numLevels);
-	
-	returnCode = jfnkSolver->solve( a_horizontalVel, a_initialResidualNorm,  a_finalResidualNorm,
-					a_convergenceMetric, a_rhs, a_beta, a_beta0, a_A, a_muCoef,
-					a_coordSys, a_time, a_lbase, a_maxLevel);
-	delete jfnkSolver;
-	if (m_verbosity>0)
-	  {
-	    pout() << "JFNK clean up solve done" << endl;      
-	  }
-      }
-
+      if(a_lbase!=a_maxLevel)
+	{
+	  RealVect cdx(D_DECL6(dx,dx,dx,dx,dx,dx));
+	  JFNKSolver* jfnkSolver;
+	  jfnkSolver = new JFNKSolver();
+	  jfnkSolver->define( m_domain[0],
+			      m_constRelPtr,
+			      m_basalFrictionRelPtr,
+			      m_grids,
+			      m_refRatio,
+			      cdx,
+			      m_bc,
+			      numLevels);
+	  
+	  returnCode = jfnkSolver->solve( a_horizontalVel, a_initialResidualNorm,  a_finalResidualNorm,
+					  a_convergenceMetric, a_rhs, a_beta, a_beta0, a_A, a_muCoef,
+					  a_coordSys, a_time, a_lbase, a_maxLevel);
+	  delete jfnkSolver;
+	  if (m_verbosity>0)
+	    {
+	      pout() << "JFNK clean up solve done" << endl;      
+	    }
+	}
+      
       // plot residual
       if(m_plotResidual)
 	{
