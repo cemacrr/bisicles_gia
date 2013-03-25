@@ -529,7 +529,8 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
 		  levelMu[dit][dir].mult( (*muCoefPtr)[dit][dir] );
 		}
 
-	      CH_assert(levelMu[dit][dir].min() >= 0.0);
+	      Box facebox = levelGrids[dit].surroundingNodes(dir);
+	      CH_assert(levelMu[dit][dir].min(facebox) >= 0.0);
 
               levelMu[dit][dir].mult(faceH[dit][dir],
                                     levelMu[dit][dir].box(),0,0,1);
