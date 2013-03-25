@@ -26,7 +26,7 @@ main.domain_size = 256.0e+3 384.0e+3 1.0e+3
 main.num_cells = 256 384 11
 main.num_cells = 128 192 11
 main.num_cells = 64 96 11
-main.max_box_size = 1024
+main.max_box_size = 32
 main.is_periodic = 0 0 0
 
 #bulk constitutive relation and parameters
