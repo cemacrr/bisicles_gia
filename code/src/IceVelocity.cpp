@@ -389,7 +389,11 @@ void IceVelocity::computeFaceVelocity
   // We need the flux at F, but since there is no x_n+1, the interpolated
   // value makes no sense. Using the margin boundary condition to get
   // du/dx at the face is perhaps the ideal approach , but for now we just
-  // take x_{n-1} and o_{n-1} and extrapolate. 
+  // take x_{n-1} and o_{n-1} and extrapolate.
+  // 
+  // On top of that, the face velocity is reduced by a factor 
+  // f = min( (surface(n)-topography(n+1) , thickness(n) ), / thickness(n)
+  // which prevents ice from flowing up vertical walls
   for (DataIterator dit(grids); dit.ok(); ++dit)
     {
       for (int dir = 0; dir < SpaceDim; ++dir)
@@ -401,9 +405,16 @@ void IceVelocity::computeFaceVelocity
 	  CH_assert(faceVel.box().contains(faceBox));
 	  const FArrayBox& cellVel = grownVel[dit];
 	  const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
+	  const FArrayBox& usrf = a_coordSys.getSurfaceHeight()[dit];
+	  const FArrayBox& topg = a_coordSys.getTopography()[dit];
+	  const FArrayBox& thk = a_coordSys.getH()[dit];
+
 	  //CH_assert(faceVel.norm(faceBox,0) < HUGE_NORM);
 	  FORT_EXTRAPTOMARGIN(CHF_FRA1(faceVel,0),
 			      CHF_CONST_FRA1(cellVel,dir),
+			      CHF_CONST_FRA1(usrf,0),
+			      CHF_CONST_FRA1(topg,0),
+			      CHF_CONST_FRA1(thk,0),
 			      CHF_CONST_FIA1(mask,0),
 			      CHF_CONST_INT(dir),
 			      CHF_BOX(faceBox));
