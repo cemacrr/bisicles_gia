@@ -78,7 +78,7 @@ void DomainEdgeCalvingModel::endTimeStepModifyState
 		    {
 		      const IntVect& iv = bit();
 		      const IntVect ip = iv + BASISV(dir);
-		      if (levelMask[dit](ip) != GROUNDEDMASKVAL)
+		      //if (levelMask[dit](ip) != GROUNDEDMASKVAL)
 			a_thickness[dit](iv) = 0.0;
 		    }
 		}
@@ -91,7 +91,7 @@ void DomainEdgeCalvingModel::endTimeStepModifyState
 		    {
 		      const IntVect& iv = bit();
 		      const IntVect ip = iv - BASISV(dir);
-		      if (levelMask[dit](ip) != GROUNDEDMASKVAL)
+		      //if (levelMask[dit](ip) != GROUNDEDMASKVAL)
 			a_thickness[dit](iv) = 0.0;
 		    }
 		} 
