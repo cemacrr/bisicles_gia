@@ -484,7 +484,8 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	     0,
 	     ilev,
 	     a_time );
-  // c-f just done so no need here
+  // level 0, so no need for C/F
+  CH_assert(ilev == 0);
   m_op[ilev]->residual( *resid[ilev], 
 			*a_horizontalVel[ilev], 
 			*a_rhs[ilev], true ); 
@@ -537,9 +538,10 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 		 ilev,
 		 a_time );
       // c-f just done so no need here
-      m_op[ilev]->residual( *resid[ilev], 
-			    *a_horizontalVel[ilev], 
-			    *a_rhs[ilev], true ); 
+      m_op[ilev]->AMRResidualNF( *resid[ilev], 
+                                 *a_horizontalVel[ilev], 
+                                 *a_horizontalVel[ilev-1], 
+                                 *a_rhs[ilev], true ); 
 
       m_twork1 = tempv2[ilev];
       m_twork2 = tempv3[ilev];
@@ -584,9 +586,21 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	  updateCoefs( *a_horizontalVel[ilev], ilev ); 
 #endif // CH_USE_PETSC
 	  // put in residual correction form
-	  m_op[ilev]->residual( *resid[ilev], 
-				*a_horizontalVel[ilev], 
-				*a_rhs[ilev], true );
+          if (ilev == 0)
+            {
+              // no coarser level
+              m_op[ilev]->residual( *resid[ilev], 
+                                    *a_horizontalVel[ilev], 
+                                    *a_rhs[ilev], false );
+            }
+          else
+            {
+              m_op[ilev]->AMRResidualNF( *resid[ilev], 
+                                         *a_horizontalVel[ilev],
+                                         *a_horizontalVel[ilev-1],
+                                         *a_rhs[ilev], false );
+            }
+
 	  levelNorm = m_op[ilev]->norm(*resid[ilev],2);
 	  if (m_verbosity>0)
 	    {
