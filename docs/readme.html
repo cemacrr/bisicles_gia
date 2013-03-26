@@ -260,8 +260,8 @@ is the link to parallel hdf5 and the use of the MPI compiler wrapper.
 Possibly, building two versions of netcdf is a waste of time.
 <pre>
 > cd $BISICLES_HOME/netcdf/parallel/src/netcdf-4.1.3/
-> CC=mpicc CXX=mpicxx CPPFLAGS=-I$BISICLES_HOME/hdf5/parallel/include/ LDFLAGS=-L$BISICLES_HOME/hdf5/parallel/lib/  ./configure --prefix=$BISICLES_HOME/netcdf/parallel  --enable-separate-fortran=no --enable-shared=no --enable-static=yes --enable-dap=no
-> make check install
+> CC=mpicc CXX=mpicxx  CPPFLAGS=-I$BISICLES_HOME/hdf5/parallel/include/ LDFLAGS=-L$BISICLES_HOME/hdf5/parallel/lib/  ./configure --prefix=$BISICLES_HOME/netcdf/parallel  --enable-separate-fortran=no --enable-shared=no --enable-static=yes --enable-dap=no
+> make  install
 </pre>
 </p>
 <h2><a name="chombo">Chombo configuration</a></h2>
