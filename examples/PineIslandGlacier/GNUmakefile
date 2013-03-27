@@ -2,8 +2,8 @@ FC = gfortran
 
 include ../../code/mk/Make.defs
 
-FFLAGS = -g -I. -I$(NETCDF_HOME)/include 
-LIBFLAGS = -L$(NETCDF_HOME)/lib -lnetcdf 
+FFLAGS = -g -I. -I$(NETCDF_HOME)/include $(HDFINCFLAGS)   
+LIBFLAGS = -L$(NETCDF_HOME)/lib -L$(NETCDF_HOME)/lib -lnetcdff -lnetcdf -lhdf5_hl $(HDFLIBFLAGS)
 LDFLAGS = -g
 
 OBJS = mgrelax.o friction.o
