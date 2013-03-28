@@ -661,26 +661,57 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       // clean up with full JFNK solve
       if(a_lbase!=a_maxLevel)
 	{
-	  RealVect cdx(D_DECL6(dx,dx,dx,dx,dx,dx));
-	  JFNKSolver* jfnkSolver;
-	  jfnkSolver = new JFNKSolver();
-	  jfnkSolver->define( m_domains[0],
-			      m_constRelPtr,
-			      m_basalFrictionRelPtr,
-			      m_grids,
-			      m_refRatios,
-			      cdx,
-			      m_bc,
-			      numLevels);
-
-	  returnCode = jfnkSolver->solve( a_horizontalVel, a_initialResidualNorm,  a_finalResidualNorm,
-					  a_convergenceMetric, a_rhs, a_beta, a_beta0, a_A, a_muCoef,
-					  a_coordSys, a_time, a_lbase, a_maxLevel);
-	  delete jfnkSolver;
-	  if (m_verbosity>0)
+	  if (m_verbosity>3)
 	    {
-	      pout() << "JFNK clean up solve done" << endl;      
+	      Vector<LevelData<FArrayBox>*> res(m_grids.size());
+	      {
+		MultilevelIceVelOp mlOp;
+		Vector<RealVect> dxs(m_grids.size());	    
+		for (ilev=a_maxLevel;ilev>=a_lbase;ilev--)
+		  {
+		    dxs[ilev] = m_op[ilev]->dx()*RealVect::Unit;
+		    res[ilev] = &(*resid[ilev]);
+		  }
+		// like a cast 
+		RefCountedPtr<AMRLevelOpFactory<LevelData<FArrayBox> > > 
+		  opFactoryPtr = RefCountedPtr<AMRLevelOpFactory<LevelData<FArrayBox> > >(m_opFactoryPtr);
+		
+		mlOp.define( m_grids, m_refRatios, m_domains, dxs, 
+			     opFactoryPtr, a_lbase);
+		
+		mlOp.applyOp(res, a_horizontalVel, true);
+		mlOp.incr(res, a_rhs, -1);
+		mlOp.scale(res, -1.0);
+		m_opFactoryPtr = opFactoryPtr; // take this back
+	      }
+	      Real gnorm =  computeNorm(res,m_refRatios,m_op[0]->dx(),Interval(0,1),normType);
+	      pout() << "AMR |r|_"<< normType << " = " << gnorm << endl;      
 	    }
+	  {
+	    RealVect cdx(D_DECL6(dx,dx,dx,dx,dx,dx));
+	    JFNKSolver* jfnkSolver;
+	    jfnkSolver = new JFNKSolver();
+	    jfnkSolver->define( m_domains[0],
+				m_constRelPtr,
+				m_basalFrictionRelPtr,
+				m_grids,
+				m_refRatios,
+				cdx,
+				m_bc,
+				numLevels);
+	    if (m_verbosity>0)
+	      {
+		pout() << "call JFNK for clean up solve" << endl;      
+	      }
+	    returnCode = jfnkSolver->solve( a_horizontalVel, a_initialResidualNorm,  a_finalResidualNorm,
+					    a_convergenceMetric, a_rhs, a_beta, a_beta0, a_A, a_muCoef,
+					    a_coordSys, a_time, a_lbase, a_maxLevel);
+	    delete jfnkSolver;
+	    if (m_verbosity>0)
+	      {
+		pout() << "JFNK clean up solve done" << endl;      
+	      }
+	  }
 	}
       
       // plot residual
