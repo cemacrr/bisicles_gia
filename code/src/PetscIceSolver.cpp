@@ -725,6 +725,14 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	      {
 		dxs[ilev] = m_op[ilev]->dx()*RealVect::Unit;
 		res[ilev] = &(*resid[ilev]);
+		computeMu( *a_horizontalVel[ilev],
+			   *faceAs[ilev],
+			   a_muCoef[ilev],
+			   a_coordSys[ilev], 
+			   ilev==a_lbase ? 0 : a_horizontalVel[ilev-1],
+			   ilev==a_maxLevel ? 0 : a_horizontalVel[ilev+1],
+			   ilev,
+			   a_time );
 	      }
 	    // like a cast 
 	    RefCountedPtr<AMRLevelOpFactory<LevelData<FArrayBox> > > 
@@ -737,6 +745,12 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	    mlOp.incr(res, a_rhs, -1);
 	    mlOp.scale(res, -1.0);
 	    m_opFactoryPtr = opFactoryPtr; // take this back
+
+	    if (m_verbosity>3)
+	      {
+		Real gnorm =  computeNorm(res,m_refRatios,m_op[0]->dx(),Interval(0,1),normType);
+		pout() << "plot AMR resid. |r|_"<< normType << " = " << gnorm << endl;      
+	      }
 	  }
 
 	  for (ilev=a_maxLevel;ilev>=a_lbase;ilev--)
