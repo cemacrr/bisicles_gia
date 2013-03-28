@@ -99,8 +99,8 @@ public:
 			  const LevelData<FArrayBox> &a_rhs,
 			  Real a_norm0, int a_numIts, int &a_it );
   
-  Vector<ProblemDomain> m_domain;
-  ViscousTensorOpFactory *m_opFactoryPtr;
+  Vector<ProblemDomain> m_domains;
+  RefCountedPtr<ViscousTensorOpFactory> m_opFactoryPtr;
   Vector<RefCountedPtr<ViscousTensorOp> > m_op;
 protected:
   ConstitutiveRelation* m_constRelPtr;
@@ -120,7 +120,7 @@ protected:
   int m_amr_max_level;
   bool m_plotResidual;
 
-  Vector<int> m_refRatio;
+  Vector<int> m_refRatios;
 
 protected:
   // materials

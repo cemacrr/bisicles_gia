@@ -27,8 +27,8 @@ CalvingModel.type = NoCalvingModel
 amr.maxLevel = 1   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2 2 2 2 2
 #amr.num_cells = 0016 0016 16   #number of cells in base grid
-amr.num_cells = 0032 0032 16   #number of cells in base grid
-#amr.num_cells = 0064 0064 16   #number of cells in base grid
+#amr.num_cells = 0032 0032 16   #number of cells in base grid
+amr.num_cells = 0064 0064 16   #number of cells in base grid
 #amr.num_cells = 0128 0128 16   #number of cells in base grid
 #amr.num_cells = 0256 0256 16   #number of cells in base grid
 #amr.num_cells = 0512 0512 16   #number of cells in base grid
@@ -88,11 +88,11 @@ petsc.plotResidual = true
 #JFNK parameters
 JFNKSolver.vtopSafety = 0.95
 JFNKSolver.minPicardIterations = 1
-JFNKSolver.maxIter = 1
-JFNKSolver.absTol = 1.0e-30
+JFNKSolver.maxIter = 10
+JFNKSolver.absTol = 1.0e-3
 JFNKSolver.relTol = 1.0e-8
 # 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = CG, 4 = petsc
-JFNKSolver.solverType = 3
+JFNKSolver.solverType = 0
 JFNKSolver.RelaxRelTol = 2.0e-3
 JFNKSolver.RelaxHang = 0.8
 JFNKSolver.maxRelaxIter = 30

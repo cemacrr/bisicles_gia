@@ -18,6 +18,7 @@
 #include "TensorCFInterp.H"
 #include "AMRIO.H"
 #include "JFNKSolver.H"
+#include "computeNorm.H"
 
 #include "NamespaceHeader.H"
 
@@ -30,7 +31,6 @@ PetscIceSolver::PetscIceSolver()
   m_bc = NULL;
   m_constRelPtr = NULL;
   m_basalFrictionRelPtr = NULL;
-  m_opFactoryPtr = NULL;
 
   // use isothermal ice temp from Pattyn(2003)
   m_constThetaVal = 238.15;
@@ -67,12 +67,6 @@ PetscIceSolver::PetscIceSolver()
 ////////////////////////////////////////////////////////////////////////
 PetscIceSolver::~PetscIceSolver() 
 {
-  if (m_opFactoryPtr != NULL)
-    {
-      delete m_opFactoryPtr;
-      m_opFactoryPtr = NULL;
-    }
-  
   if (m_bc != NULL)
     {
       delete m_bc;
@@ -195,8 +189,8 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
 
   m_op.resize(a_numLevels);
   m_grids.resize(a_numLevels);
-  m_domain.resize(a_numLevels);
-  m_refRatio.resize(a_numLevels-1);
+  m_domains.resize(a_numLevels);
+  m_refRatios.resize(a_numLevels-1);
   m_fineCover.resize(a_numLevels-1);
   m_projCopier.resize(a_numLevels-1);
   m_restCopier.resize(a_numLevels-1);
@@ -206,13 +200,13 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
   m_Beta0.resize(a_numLevels);
   m_C.resize(a_numLevels);
 
-  m_domain[0] = a_coarseDomain;
+  m_domains[0] = a_coarseDomain;
   for (int ilev=0;ilev<a_numLevels;ilev++)
     {
       m_grids[ilev] = a_vectGrids[ilev];
       if ( ilev < a_numLevels-1 )
 	{
-	  m_refRatio[ilev] = a_vectRefRatio[ilev];
+	  m_refRatios[ilev] = a_vectRefRatio[ilev];
 	}
 
       m_Mu[ilev] = RefCountedPtr<LevelData<FluxBox> >(new LevelData<FluxBox>(m_grids[ilev], 
@@ -230,14 +224,14 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
       if (ilev>0)
 	{
 	  // make domain
-	  m_domain[ilev] = m_domain[ilev-1];
-	  m_domain[ilev].refine(m_refRatio[ilev-1]);
+	  m_domains[ilev] = m_domains[ilev-1];
+	  m_domains[ilev].refine(m_refRatios[ilev-1]);
 
 	  // make prologation stuff (index to coarse grid)
 	  const int nc = 2;
 	  const DisjointBoxLayout& finedbl = m_grids[ilev];
 	  DisjointBoxLayout dblCoarsenedFine;
-	  coarsen( dblCoarsenedFine, finedbl, m_refRatio[ilev-1]);	  
+	  coarsen( dblCoarsenedFine, finedbl, m_refRatios[ilev-1]);	  
 	  m_fineCover[ilev-1]=RefCountedPtr<LevelData<FArrayBox> >(new LevelData<FArrayBox>(dblCoarsenedFine,nc,IntVect::Unit));
 	  // prolongator copier, from data to cover
 	  m_projCopier[ilev-1].define(m_grids[ilev-1],dblCoarsenedFine,IntVect::Unit);
@@ -253,7 +247,7 @@ PetscIceSolver::define(const ProblemDomain& a_coarseDomain,
   for (int ilev=0;ilev<a_numLevels;ilev++)
     {
       // this copies the unset data above, just needed here for dx &crdx.
-      m_op[ilev] = RefCountedPtr<ViscousTensorOp>(m_opFactoryPtr->AMRnewOp(m_domain[ilev])); 
+      m_op[ilev] = RefCountedPtr<ViscousTensorOp>(m_opFactoryPtr->AMRnewOp(m_domains[ilev])); 
     }
 }
 
@@ -542,20 +536,21 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
                                  *a_horizontalVel[ilev], 
                                  *a_horizontalVel[ilev-1], 
                                  *a_rhs[ilev], true ); 
-
-      m_twork1 = tempv2[ilev];
-      m_twork2 = tempv3[ilev];
+      
+      // cashes for nonlinear and updateCoefs
+      //m_twork1 = tempv2[ilev];
+      //m_twork2 = tempv3[ilev];
       m_tfaceA = faceAs[ilev];
       m_tmuCoef = a_muCoef[ilev];
       m_tcoordSys = a_coordSys[ilev];
       m_ttime = a_time;
-      m_tphi0 = a_horizontalVel[ilev]; // cache phi_0 to get correct linearization
+      //m_tphi0 = a_horizontalVel[ilev]; // cache phi_0 to get correct linearization
       m_tcrseVel = a_horizontalVel[ilev-1]; 
 
       // prolongate to ilev - done in AmrIce.cpp, use higher order? -- need before residaul calc & c-c interp!
       // m_op[ilev]->setToZero( *a_horizontalVel[ilev] );
       // AMRProlong( *a_horizontalVel[ilev], *a_horizontalVel[ilev-1], *m_fineCover[ilev-1], 
-      // 	  m_projCopier[ilev-1], m_refRatio[ilev-1] );
+      // 	  m_projCopier[ilev-1], m_refRatios[ilev-1] );
 
       residNorm0 = m_op[ilev]->norm(*a_rhs[ilev], 2); // use |b| to compare against
       if (m_verbosity>0)
@@ -669,15 +664,15 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	  RealVect cdx(D_DECL6(dx,dx,dx,dx,dx,dx));
 	  JFNKSolver* jfnkSolver;
 	  jfnkSolver = new JFNKSolver();
-	  jfnkSolver->define( m_domain[0],
+	  jfnkSolver->define( m_domains[0],
 			      m_constRelPtr,
 			      m_basalFrictionRelPtr,
 			      m_grids,
-			      m_refRatio,
+			      m_refRatios,
 			      cdx,
 			      m_bc,
 			      numLevels);
-	  
+
 	  returnCode = jfnkSolver->solve( a_horizontalVel, a_initialResidualNorm,  a_finalResidualNorm,
 					  a_convergenceMetric, a_rhs, a_beta, a_beta0, a_A, a_muCoef,
 					  a_coordSys, a_time, a_lbase, a_maxLevel);
@@ -691,47 +686,37 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       // plot residual
       if(m_plotResidual)
 	{
+	  Vector<LevelData<FArrayBox>*> res(m_grids.size());
+	  {
+	    MultilevelIceVelOp mlOp;
+	    Vector<RealVect> dxs(m_grids.size());	    
+	    for (ilev=a_maxLevel;ilev>=a_lbase;ilev--)
+	      {
+		dxs[ilev] = m_op[ilev]->dx()*RealVect::Unit;
+		res[ilev] = &(*resid[ilev]);
+	      }
+	    // like a cast 
+	    RefCountedPtr<AMRLevelOpFactory<LevelData<FArrayBox> > > 
+	      opFactoryPtr = RefCountedPtr<AMRLevelOpFactory<LevelData<FArrayBox> > >(m_opFactoryPtr);
+
+	    mlOp.define( m_grids, m_refRatios, m_domains, dxs, 
+			 opFactoryPtr, a_lbase);
+
+	    mlOp.applyOp(res, a_horizontalVel, true);
+	    mlOp.incr(res, a_rhs, -1);
+	    mlOp.scale(res, -1.0);
+	    m_opFactoryPtr = opFactoryPtr; // take this back
+	  }
+
 	  for (ilev=a_maxLevel;ilev>=a_lbase;ilev--)
 	    {
-	      // this does c-f interp & coarsens fine
-	      computeMu( *a_horizontalVel[ilev],
-			 *faceAs[ilev],
-			 a_muCoef[ilev],
-			 a_coordSys[ilev], 
-			 ilev==a_lbase ? 0 : a_horizontalVel[ilev-1],
-			 0,
-			 ilev,
-			 a_time );
-	      
-	      // c-f just done so no need here
-	      if(ilev==a_maxLevel)
-		{ 
-		  m_op[ilev]->residual( *resid[ilev], 
-					*a_horizontalVel[ilev], 
-					*a_rhs[ilev], true ); 
-		}
-	      else
-		{ 
-		  m_op[ilev]->AMRResidualNC( *resid[ilev], 
-					     *a_horizontalVel[ilev+1], 
-					     *a_horizontalVel[ilev], 
-					     *a_rhs[ilev], true, 
-					     &(*m_op[ilev+1]));
-		  // zero covered
-		  m_op[ilev]->zeroCovered(*resid[ilev],*m_fineCover[ilev],m_restCopier[ilev]); 
-		}
-	      
-	      levelNorm = m_op[ilev]->norm(*resid[ilev],normType);
-	      if (m_verbosity>0)
+	      // zero covered
+	      if( ilev!=a_maxLevel)
 		{
-		  pout() << "\t\t\t" << ilev << " |r|_"<< normType <<" = " << levelNorm << endl;
+		  m_op[ilev]->zeroCovered(*resid[ilev],*m_fineCover[ilev], m_restCopier[ilev]); 
 		}
-	      plotData[ilev] = new LevelData<FArrayBox>( m_grids[ilev],
-							 2, IntVect::Zero);
-	      Interval phiInterval(0,1);
-	      resid[ilev]->copyTo(phiInterval, *plotData[ilev], phiInterval);
 	    }
-	  
+
 	  string fname = "residual.";
 	  
 	  char suffix[30];
@@ -746,13 +731,13 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	  
 	  WriteAMRHierarchyHDF5(fname,
 				m_grids,
-				plotData,
+				res,
 				varNames,
-				m_domain[0].domainBox(),
+				m_domains[0].domainBox(),
 				m_op[0]->dx(),
 				bogusVal,
 				bogusVal,
-				m_refRatio,
+				m_refRatios,
 				numLevels);
 	  // clean up
 	  for (ilev=0; ilev<plotData.size(); ilev++)
@@ -776,7 +761,6 @@ void PetscIceSolver::defineOpFactory( RealVect a_Crsdx,
     {
       if (SpaceDim == 2)
 	{
-	  CH_assert(m_opFactoryPtr==NULL);	  
 	  Real alpha, beta;
 	  BCHolder velSolveBC = m_bc->velocitySolveBC();
   	  
@@ -794,9 +778,10 @@ void PetscIceSolver::defineOpFactory( RealVect a_Crsdx,
 
 	  // OpFactory grabs a pointer to mu,lambda,acoef,etc.
 	  getOperatorScaleFactors( alpha, beta );
-	  m_opFactoryPtr = new ViscousTensorOpFactory( m_grids, m_Mu, m_Lambda, m_C, alpha, 
-						       beta, m_refRatio, a_domainCoar, a_Crsdx[0], 
-						       velSolveBC, m_vtopSafety);
+	  m_opFactoryPtr = RefCountedPtr<ViscousTensorOpFactory> 
+	    (new ViscousTensorOpFactory( m_grids, m_Mu, m_Lambda, m_C, alpha, 
+					 beta, m_refRatios, a_domainCoar, a_Crsdx[0], 
+					 velSolveBC, m_vtopSafety));
 	}
       else 
 	{
@@ -853,7 +838,7 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
 			   Real a_time)
 {
   CH_TIME("PetscIceSolver::computeMu");
-  ProblemDomain levelDomain = m_domain[a_ilev];
+  ProblemDomain levelDomain = m_domains[a_ilev];
   const DisjointBoxLayout& levelGrids = m_grids[a_ilev];
   const LevelSigmaCS& levelCS = *a_coordSys;
   LevelData<FArrayBox>& levelVel = a_horizontalVel;
@@ -873,7 +858,7 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
       CoarseAverage averager(fineVelPtr->getBoxes(),
 			     levelGrids,
 			     fineVelPtr->nComp(),
-			     m_refRatio[a_ilev]);
+			     m_refRatios[a_ilev]);
       
       averager.averageToCoarse(levelVel, *fineVelPtr);
     }
@@ -907,7 +892,7 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
   // 			    true);
   // levelVel.exchange(cornerCopier);
 
-  int refToCrs = crseVelPtr ? m_refRatio[a_ilev-1] : -1;
+  int refToCrs = crseVelPtr ? m_refRatios[a_ilev-1] : -1;
   IntVect muGhost = IntVect::Zero;
   m_constRelPtr->computeFaceMu( levelMu,
 				levelVel,
