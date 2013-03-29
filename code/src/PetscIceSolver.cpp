@@ -352,7 +352,7 @@ void PetscIceSolver::picardSolve_private( int a_ilev,
   PetscSolverViscousTensor<LevelData<FArrayBox> > *solver = new PetscSolverViscousTensor<LevelData<FArrayBox> >();
   getOperatorScaleFactors( opAlpha, opBeta );
   solver->define( &(*m_op[a_ilev]), true ); // dx & crdx
-  solver->setVTParams( opAlpha, opBeta,
+  solver->define( opAlpha, opBeta,
 		       &(*m_C[a_ilev]),
 		       &(*m_Mu[a_ilev]),
 		       &(*m_Lambda[a_ilev]) );
@@ -392,7 +392,7 @@ void PetscIceSolver::jfnkSolve_private( int a_ilev,
   getOperatorScaleFactors( opAlpha, opBeta );
   PetscSolverViscousTensor<LevelData<FArrayBox> > *solver = new PetscSolverViscousTensor<LevelData<FArrayBox> >;
   solver->define( &(*m_op[a_ilev]), true ); // dx & crdx
-  solver->setVTParams( opAlpha, opBeta,
+  solver->define( opAlpha, opBeta,
 		       &(*m_C[a_ilev]),
 		       &(*m_Mu[a_ilev]),
 		       &(*m_Lambda[a_ilev]) );
@@ -566,7 +566,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	  PetscSolverViscousTensor<LevelData<FArrayBox> > *solver = new PetscSolverViscousTensor<LevelData<FArrayBox> >();
 	  getOperatorScaleFactors( opAlpha, opBeta );
 	  solver->define( &(*m_op[ilev]), true ); // dx & crdx
-	  solver->setVTParams( opAlpha, opBeta,
+	  solver->define( opAlpha, opBeta,
 			       &(*m_C[ilev]),
 			       &(*m_Mu[ilev]),
 			       &(*m_Lambda[ilev]) );
@@ -610,7 +610,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       // 	  getOperatorScaleFactors( opAlpha, opBeta );
       // 	  PetscSolverViscousTensor<LevelData<FArrayBox> > *solver = new PetscSolverViscousTensor<LevelData<FArrayBox> >;
       // 	  solver->define( &(*m_op[ilev]), true ); // dx & crdx
-      // 	  solver->setVTParams( opAlpha, opBeta,
+      // 	  solver->define( opAlpha, opBeta,
       // 			       &(*m_C[ilev]),
       // 			       &(*m_Mu[ilev]),
       // 			       &(*m_Lambda[ilev]) );

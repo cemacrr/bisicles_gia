@@ -1025,7 +1025,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
             } // end if allocating new petsc solver
         
 
-	  m_petscSolver->setVTParams( opAlpha, opBeta, &(*current.m_alpha[0]), &(*current.m_mu[0]), &(*current.m_lambda[0]));
+	  m_petscSolver->define( opAlpha, opBeta, &(*current.m_alpha[0]), &(*current.m_mu[0]), &(*current.m_lambda[0]));
           m_petscSolver->setInitialGuessNonzero();          
           // can't convert this
           //krylovSolver = m_petscSolver;

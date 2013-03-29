@@ -696,7 +696,7 @@ PicardSolver::defineLinearSolver()
 	  LinearOp<LevelData<FArrayBox> >* op = m_opFactoryPtr->AMRnewOp(m_domains[0]);      
 	  m_petscSolver->define( op, false ); // just sets dx & crdx
 	}      
-      m_petscSolver->setVTParams( opAlpha, opBeta, &(*m_vectC[0]), &(*m_vectMu[0]), &(*m_vectLambda[0]) );
+      m_petscSolver->define( opAlpha, opBeta, &(*m_vectC[0]), &(*m_vectMu[0]), &(*m_vectLambda[0]) );
     }
 #endif
   else
