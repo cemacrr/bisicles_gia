@@ -415,15 +415,17 @@ c               end if
 c     LI | SH (this cell) | LI (a bad place to be)
                rhs(CHF_AUTOIX[i]) = zero
             endif
-         else if ((lmask.eq.SH).and.(rmask.eq.OL)) then
+         !else if ((lmask.eq.SH).and.(rmask.eq.OL)) then
 c     SH | SH | OL
-            rhs(CHF_AUTOIX[i]) = zero
-         else if ((rmask.eq.SH).and.(lmask.eq.OL)) then
+            !rhs(CHF_AUTOIX[i]) = zero
+         !else if ((rmask.eq.SH).and.(lmask.eq.OL)) then
 c     OL | SH | SH
-            rhs(CHF_AUTOIX[i]) = zero
-         else if ((lmask.ne.SH).and.(rmask.ne.SH)) then
-c     no ice | SH (this cell) | no ice
-            rhs(CHF_AUTOIX[i]) = zero
+          !  rhs(CHF_AUTOIX[i]) = zero
+            
+         !else if ((lmask.ne.SH).and.(rmask.ne.SH)) then
+c     no ice | SH (this cell) | no ice (don't tinker)
+            !rhs(CHF_AUTOIX[i]) = zero
+          !  rhs(CHF_AUTOIX[i]) = rhs(CHF_AUTOIX[i])
          end if
 
       else if (cmask.eq.LI) then

@@ -386,6 +386,7 @@ AmrIce::setDefaults()
 #endif
 
   m_tags_grow = 1;
+  m_tags_grow_dir = IntVect::Zero;
   m_cfl = 0.25;
   m_max_dt_grow = 1.5;
   m_dt = 1.0e20;
@@ -1061,7 +1062,14 @@ AmrIce::initialize()
     }
   
   ppAmr.query("tags_grow", m_tags_grow);
-
+  {
+    Vector<int> tgd(SpaceDim,0);
+    ppAmr.queryarr("tags_grow_dir", tgd, 0, tgd.size());
+    for (int dir =0; dir < SpaceDim; dir++)
+      {
+	m_tags_grow_dir[dir] = tgd[dir];
+      } 
+  }
   ppAmr.query("max_box_size", m_max_box_size);
 
   if (ppAmr.contains("max_base_grid_size") )
@@ -3759,8 +3767,8 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
 #ifdef HAVE_PYTHON
   if (m_tagPython)
     {
-      //tag via a python function f(x,y,dx,dy,H) (more args to come)
-      
+      //tag via a python function f(x,y,dx,H,R) (more args to come)
+      // 
       Vector<Real> args(SpaceDim + 3);
       Vector<Real> rval;
       for (dit.begin(); dit.ok(); ++dit)
@@ -3785,7 +3793,13 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
 #endif
 
   // now buffer tags
-  local_tags.grow(m_tags_grow); 
+  
+  local_tags.grow(m_tags_grow);
+  for (int dir = 0; dir < SpaceDim; dir++)
+    {
+      if (m_tags_grow_dir[dir] > m_tags_grow)
+	local_tags.grow(dir, std::max(0,m_tags_grow_dir[dir]-m_tags_grow));
+    }
   local_tags &= m_amrDomains[a_level];
 
   a_tags = local_tags;

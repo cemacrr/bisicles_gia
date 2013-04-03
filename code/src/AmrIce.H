@@ -639,7 +639,10 @@ protected:
   PyObject* m_tagPythonFunction;
 #endif
   /// amount to buffer tags used in regridding
-  int m_tags_grow;
+  // grow tags in all directions by m_tags_grow
+  int m_tags_grow; 
+  //grow tags in all direction dir by max(0,m_tags_grow_dir[dir] -  m_tags_grow)
+  IntVect m_tags_grow_dir; 
 
   /// refinement ratios
   Vector<int>  m_refinement_ratios;
