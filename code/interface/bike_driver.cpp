@@ -985,6 +985,39 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         // different from friction
         interfacePP.query("nodalVelocityData", nodalVel);
         
+        long ewlb, ewub, nslb, nsub;
+
+        ewlb = *(btg_ptr -> getLongVar("ewlb","geometry"));
+        ewub = *(btg_ptr -> getLongVar("ewub","geometry"));
+        nslb = *(btg_ptr -> getLongVar("nslb","geometry"));
+        nsub = *(btg_ptr -> getLongVar("nsub","geometry"));
+        cout << "In bike_driver: ewlb, ewub = " << ewlb << "  " << ewub <<  endl;
+        cout << "In bike_driver: nslb, nsub = " << nslb << "  " << nsub <<  endl;
+
+        int lb[SpaceDim];
+        int ub[SpaceDim];
+
+        D_TERM(lb[0] = ewlb;
+               ub[0] = ewub;,
+               lb[1] = nslb;
+               ub[1] = nsub;,
+               lb[2] = 0;
+               ub[2] = numCells[2]-1;)
+
+        int lbvel[SpaceDim];
+        int ubvel[SpaceDim];
+
+        D_TERM(lbvel[0] = ewlb+1;
+               ubvel[0] = ewub;,
+               lbvel[1] = nslb+1;
+               ubvel[1] = nsub;,
+               lbvel[2] = 0;
+               ubvel[2] = numCells[2]-1;)
+
+          // this is to convert between C- and Fortran ordering
+          IntVect offset(IntVect::Unit);
+
+
         if (!nodalVel)
           {
             // velocity is cell centered
@@ -996,6 +1029,32 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
           {
             // velocity is node-centered
             pout() << "flattening node-centered velocity data" << endl;
+
+            const Vector<LevelData<FArrayBox>* >& amrVel = amrObjectPtr->amrVelocity();
+            const Vector<int>& refRatio = amrObjectPtr->refRatios();
+
+            // get uvel and vvel from registry
+            double* uVelPtr = btg_ptr->getDoubleVar("uvel", "velocity");
+            double* vVelPtr = btg_ptr->getDoubleVar("vvel", "velocity");
+            
+            // in this case, grab face-centered velocities and average to nodes
+            const Vector<LevelData<FluxBox>* >& faceVel = amrObjectPtr->faceVelocities();
+           
+            const Vector<Real>& sigmaLevels = amrObjectPtr->getFaceSigma();
+            const Vector<Real>& amrDx = amrObjectPtr->amrDx();
+            
+            // velocity has one less ghost layer
+            IntVect velGhost = ghostVect;
+            velGhost -= IntVect::Unit;
+
+            // first cut, just flatten basal velocity and ignore vertical shear
+            fibcPtr->flattenVelocity(uVelPtr, vVelPtr, dimInfoVelo,
+                                     lbvel, ubvel,
+                                     &dew, &dns, offset,
+                                     amrVel, refRatio, amrDx, velGhost,
+                                     nodalVel);
+                                     
+            
             
           }
         
