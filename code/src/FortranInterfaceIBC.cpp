@@ -333,8 +333,9 @@ void FortranInterfaceIBC::setFAB(Real* a_data_ptr,
     {
 
       a_ccFab.define(fabBox, 1);
-      Box nodeBox(IntVect::Zero, hiVect + IntVect::Unit);
-      nodeBox.shift(-a_nGhost);
+      Box nodeBox(fabBox);
+      nodeBox.surroundingNodes();
+      //nodeBox.shift(-a_nGhost);
       FArrayBox nodeFAB;
       a_fab.define(nodeBox,1,a_data_ptr);
       FORT_NODETOCELL(CHF_CONST_FRA1(a_fab,0),
@@ -346,6 +347,128 @@ void FortranInterfaceIBC::setFAB(Real* a_data_ptr,
       // both of these are aliased to point to the input data
       a_fab.define(fabBox, 1, a_data_ptr);
       a_ccFab.define(fabBox, 1, a_data_ptr);
+    }
+}
+
+
+/// version of setFAB for (horizontal) velocity data 
+void FortranInterfaceIBC::setVelFAB(Real* a_uVelPtr,
+                                    Real* a_vVelPtr,
+                                    const int* a_dimInfo,
+                                    const int* a_boxlo, const int* a_boxhi, 
+                                    const Real* a_dew, const Real* a_dns,
+                                    const IntVect& a_offset,
+                                    const IntVect& a_nGhost,
+                                    FArrayBox & a_uFab,
+                                    FArrayBox & a_vFab,
+                                    FArrayBox & a_uccFab,
+                                    FArrayBox & a_vccFab,
+                                    const bool a_nodal,
+                                    const bool a_fillData)
+{
+  if (m_verbose)
+    {
+      pout() << "in FortranInterfaceIBC::setVelFAB" << endl;
+      pout() << " -- doing box calculus" << endl;
+    }
+
+  IntVect loVect(D_DECL(a_boxlo[0],a_boxlo[1], a_boxlo[2]-1));
+  IntVect hiVect(D_DECL(a_boxhi[0],a_boxhi[1], a_boxhi[2]-1));
+
+  // vertical layering for velocity makes this a bit odd --
+  // need to rotate everything
+  int nLayers = a_dimInfo[1];
+
+  IntVect CISMloVect(D_DECL(0,a_boxlo[0], a_boxlo[1]));
+  IntVect CISMhiVect(D_DECL(nLayers-1,a_boxhi[0], a_boxhi[1]));
+  int velNcomp = a_boxhi[1]-a_boxlo[1]+1;
+  
+  if (m_verbose)
+    {
+      pout () << "loVect = " << loVect << endl;
+      pout () << "hiVect = " << hiVect << endl;
+
+      pout() << "CISM Vel loVect = " << CISMloVect << endl;
+      pout() << "CISM Vel hiVect = " << CISMhiVect << endl;
+    }
+
+  Box fabBox, CISMvelBox;
+  if (loVect <= hiVect)
+    {
+      fabBox.define(loVect, hiVect);
+      CISMvelBox.define(CISMloVect,CISMhiVect);
+      if (m_verbose)
+        {
+          pout() << "done defining box" << endl;
+        }
+      fabBox.shift(-a_nGhost);
+      fabBox.shift(a_offset);
+      // first direction is "layers", which makes this a bit stranger.
+      CISMvelBox.shift(1,-a_nGhost[0]);
+      CISMvelBox.shift(1,a_offset[0]);
+      if (m_verbose)
+        {
+          pout() << "... done! " << endl;
+        }
+    }
+
+  // if we haven't already set the grids, do it now
+  if (!gridsSet())
+    {
+      if (m_verbose) 
+        {
+          pout() << " -- entering setGrids" << endl;
+        }
+      Box gridBox(fabBox);
+      gridBox.grow(-a_nGhost);
+      setGrids(gridBox);
+      if (m_verbose)
+        {
+          pout() << " -- out of setGrids" << endl;
+        }
+    }
+  if (a_nodal)
+    {
+      // this is going to be a bit screwy -- this FAB will have the 
+      // right amount of storage
+      
+      a_uccFab.define(CISMvelBox, velNcomp);
+      a_vccFab.define(CISMvelBox, velNcomp);
+      Box nodeBox(CISMvelBox);
+      nodeBox.surroundingNodes();
+      // back to cell-centered in "vertical" direction
+      nodeBox.enclosedCells(0);
+
+      // 
+      int nodeVelNcomp = velNcomp +1;
+      //nodeBox.shift(-a_nGhost);
+      FArrayBox nodeFAB;
+      a_uFab.define(nodeBox,nodeVelNcomp,a_uVelPtr);
+      a_vFab.define(nodeBox, nodeVelNcomp,a_vVelPtr);
+      if (a_fillData)
+        {
+          int yGhost = a_nGhost[1];
+          int yoffset = a_offset[1];
+          FORT_NODETOCELLCISMVEL(CHF_CONST_FRA(a_uFab),
+                                 CHF_FRA(a_uccFab),
+                                 CHF_CONST_INT(yGhost),
+                                 CHF_CONST_INT(yoffset),
+                                 CHF_BOX(fabBox));
+          
+          FORT_NODETOCELLCISMVEL(CHF_CONST_FRA(a_vFab),
+                                 CHF_FRA(a_vccFab),
+                                 CHF_CONST_INT(yGhost),
+                                 CHF_CONST_INT(yoffset),
+                                 CHF_BOX(fabBox));
+        }
+    }
+  else 
+    {
+      // both of these are aliased to point to the input data
+      a_uFab.define(CISMvelBox, velNcomp, a_uVelPtr);
+      a_vFab.define(CISMvelBox, velNcomp, a_vVelPtr);
+      a_uccFab.define(CISMvelBox, velNcomp, a_uVelPtr);
+      a_vccFab.define(CISMvelBox, velNcomp, a_vVelPtr);
     }
 }
 
@@ -1337,9 +1460,8 @@ FortranInterfaceIBC::flattenData(Real* a_data_ptr,
           FArrayBox ccGrownFAB(grownCCBox,1);
           ccGrownFAB.copy(ldf[dit]);
 
-          // Cell->Node looks a lot like Node->Cell...
-          FORT_NODETOCELL(CHF_CONST_FRA1(ccGrownFAB,0),
-                          CHF_FRA1(dataFab,0),
+          FORT_CELLTONODE(CHF_FRA1(dataFab,0),
+                          CHF_CONST_FRA1(ccGrownFAB,0),
                           CHF_BOX(nodeBox));
           
           
@@ -1360,6 +1482,113 @@ FortranInterfaceIBC::flattenData(Real* a_data_ptr,
           
         } // end dataIterator "loop"
     } // end if not nodal
+
+}
+
+/// flatten velocity field to the 3D velocity data holder
+void
+FortranInterfaceIBC::flattenVelocity(Real* a_uVelPtr, Real* a_vVelPtr,
+                                     const int* a_dimInfo,
+                                     const int* a_boxlo, const int* a_boxhi,
+                                     const Real* a_dew, const Real* a_dns,
+                                     const IntVect& a_offset,
+                                     const Vector<LevelData<FArrayBox>* >& a_amrVel,
+                                     const Vector<int>& a_vectRefRatio,
+                                     const Vector<Real>& a_amrDx,
+                                     const IntVect& a_nGhost,
+                                     const bool a_nodal)
+{
+
+  RealVect dx(D_DECL(*a_dew,*a_dns,*a_dew) );
+              
+  // first set up FArrayBox
+  FArrayBox uDataFab, vDataFab, uCCdataFab, vCCdataFab;
+  
+  setVelFAB(a_uVelPtr, a_vVelPtr,a_dimInfo, a_boxlo, a_boxhi,
+            a_dew, a_dns, a_offset, a_nGhost,
+            uDataFab, vDataFab, uCCdataFab, vCCdataFab, a_nodal,
+            false);
+
+              
+  // create LevelData
+  // if nodal, we'd like one more ghost cell for the LDF than nghost
+  // (since we'll need to average back to nodes)
+  IntVect LDFghost = a_nGhost;
+  LDFghost += IntVect::Unit;
+
+  LevelData<FArrayBox> ldf(m_grids, SpaceDim, LDFghost);
+              
+  // start with coarsest level, calling FillFromReference
+  // this creates a flattened cell-centered velocity
+  int numLevels = a_amrVel.size();
+  for (int lev=0; lev<numLevels; lev++)
+    {
+      RealVect levelDx = a_amrDx[lev]*RealVect::Unit;
+      FillFromReference(ldf, *a_amrVel[lev],
+                        dx, levelDx,
+                        m_verbose);
+    }
+    
+  ldf.exchange();
+
+  // finally, either copy or average to nodes
+  if (a_nodal)
+    {
+      // have to average back to nodes
+      DataIterator dit= ldf.dataIterator();
+      const DisjointBoxLayout& grids = ldf.getBoxes();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          Box nodeBox = grids[dit];
+          nodeBox.surroundingNodes();
+          nodeBox.grow(a_nGhost);
+
+          // first do u...
+          int xghost = a_nGhost[0];
+          int xoffset = a_offset[0];
+          FORT_CELLTONODECISMVELNOSHEAR(CHF_FRA(uDataFab),
+                                        CHF_CONST_FRA1(ldf[dit],0),
+                                        CHF_CONST_INT(xghost),
+                                        CHF_CONST_INT(xoffset),
+                                        CHF_BOX(nodeBox));
+
+
+          if (SpaceDim > 1)
+            {
+              // ...then do v
+              int yghost = a_nGhost[1];
+              int yoffset = a_offset[1];
+              FORT_CELLTONODECISMVELNOSHEAR(CHF_FRA(vDataFab),
+                                            CHF_CONST_FRA1(ldf[dit],1),
+                                            CHF_CONST_INT(yghost),
+                                            CHF_CONST_INT(yoffset),
+                                            CHF_BOX(nodeBox));
+            }
+
+        } // end dataIterator "loop"
+      
+    } // end if nodal 
+  else
+    {
+      // simple copy will do
+      DataIterator dit= ldf.dataIterator();
+      const DisjointBoxLayout& grids = ldf.getBoxes();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          Box intersectBox(grids[dit]);
+          intersectBox &= uCCdataFab.box();
+                           
+          // first copy u...
+          uCCdataFab.copy(ldf[dit], intersectBox, 0, 
+                          intersectBox, 0, 1);
+
+          // ... then v
+          vCCdataFab.copy(ldf[dit], intersectBox, 1, 
+                          intersectBox, 0, 1);
+          
+        } // end dataIterator "loop"
+    } // end if not nodal
+
 
 }
 

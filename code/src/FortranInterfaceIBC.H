@@ -69,6 +69,26 @@ public:
                        FArrayBox& a_ccFab,
 		       const bool a_nodal = false);
 
+  /// sets reference fabs for (horizontal) velocity
+  /** if a_nodal is false, then data is cell-centered and both a_fab and 
+      a_ccFab are set to be aliases which point to a_data_ptr. If a_nodal is
+      true, then a_fab is set to be an aliase which points to a_data_ptr, 
+      while a_ccFab is allocated and filled with cell-averaged data.
+  */
+  virtual void  setVelFAB(Real* a_uVelPtr, Real* a_vVelPtr,
+                          const int* a_dimInfo,
+                          const int* boxlo, const int* boxhi, 
+                          const Real* a_dew, const Real* a_dns,
+                          const IntVect& a_offset,
+                          const IntVect& a_nGhost,
+                          FArrayBox& a_uFab,
+                          FArrayBox& a_vFab,
+                          FArrayBox& a_uccFab,
+                          FArrayBox& a_vccFab,
+                          const bool a_nodal = false,
+                          const bool a_fillData = false);
+
+
   /// nGhost is the number of ghost cells in in the input data (which are ignored)
   virtual void setThickness(Real* a_data_ptr,
 			    const int* a_dimInfo,
@@ -152,7 +172,20 @@ public:
                            int a_nComp,
                            const IntVect& a_nGhost,
                            const bool a_nodal);
-                           
+               
+
+  /// flatten velocity field to the 3D velocity data holder
+  void flattenVelocity(Real* a_uVelPtr, Real* a_vVelPtr,
+                       const int* a_dimInfo,
+                       const int* a_boxlo, const int* a_boxhi,
+                       const Real* a_dew, const Real* a_dns,
+                       const IntVect& a_offset,
+                       const Vector<LevelData<FArrayBox>* >& a_amrVel,
+                       const Vector<int>& a_vectRefRatio,
+                       const Vector<Real>& a_amrDx,
+                       const IntVect& a_nGhost,
+                       const bool a_nodal);
+  
 
   /// Set boundary fluxes
   /**

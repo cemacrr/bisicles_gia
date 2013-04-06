@@ -224,6 +224,13 @@ public:
   const LevelData<FArrayBox>* dragCoefficient(int a_level) const;
   const LevelData<FArrayBox>* viscosityCoefficient(int a_level) const;
 
+  /// access function for face-centered velocities
+  const Vector<LevelData<FluxBox>* >& faceVelocities() const {return m_faceVelTotal;}
+
+  /// access function for layered face-centered velocities
+  const Vector<LevelData<FluxBox>* >& faceVelocitiesLayered() const {return m_layerXYFaceXYVel;} 
+
+  /// access function to vertical 
  
 protected:
   /// compute tags for regridding
