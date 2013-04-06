@@ -335,6 +335,7 @@ testFortranInterfaceIBC()
  
   // now set up grid hiearchy, starting with level 0 one level coarser 
   int numLevels = 4;
+  //int numLevels = 1;
   
   ProblemDomain levelDomain = entireDomain;
   levelDomain.coarsen(2);
@@ -595,6 +596,7 @@ testFortranInterfaceIBC()
     for (sourceDit.begin(); sourceDit.ok(); ++sourceDit)
       {
         Box nodeBox(sourceGrids[sourceDit]);
+        nodeBox.grow(baseGhostVect);
         nodeBox.surroundingNodes();
         nodeFAB.define(nodeBox,ncomp);
       }
@@ -608,7 +610,7 @@ testFortranInterfaceIBC()
                         vectNref,
                         amrDx,
                         0,0,ncomp,
-                        ghostVect,nodal);
+                        baseGhostVect,nodal);
     
     
     // clean up memory
