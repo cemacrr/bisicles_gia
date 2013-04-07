@@ -1008,9 +1008,9 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         int ubvel[SpaceDim];
 
         D_TERM(lbvel[0] = ewlb+1;
-               ubvel[0] = ewub;,
+               ubvel[0] = ewub-1;,
                lbvel[1] = nslb+1;
-               ubvel[1] = nsub;,
+               ubvel[1] = nsub-1;,
                lbvel[2] = 0;
                ubvel[2] = numCells[2]-1;)
 
@@ -1043,14 +1043,24 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
             const Vector<Real>& sigmaLevels = amrObjectPtr->getFaceSigma();
             const Vector<Real>& amrDx = amrObjectPtr->amrDx();
             
-            // velocity has one less ghost layer
-            IntVect velGhost = ghostVect;
-            velGhost -= IntVect::Unit;
+            // velocity apparently has no ghosting
+            //IntVect velGhost = ghostVect;
+            IntVect velGhost = IntVect::Zero;
 
+            // also, node-centering apparently doesn't require an offset
+            IntVect velOffset(IntVect::Zero);
+            
+            if (verbose) 
+              {
+                pout () << "entering flattenVelocity: lbvel = (" 
+                        << lbvel[0] << ", " << lbvel[1] << "), ubvel = (" 
+                        << ubvel[0] << ", " << ubvel[1] << ")" << endl;
+              }
+            
             // first cut, just flatten basal velocity and ignore vertical shear
             fibcPtr->flattenVelocity(uVelPtr, vVelPtr, dimInfoVelo,
                                      lbvel, ubvel,
-                                     &dew, &dns, offset,
+                                     &dew, &dns, velOffset,
                                      amrVel, refRatio, amrDx, velGhost,
                                      nodalVel);
                                      

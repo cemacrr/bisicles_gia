@@ -184,6 +184,7 @@ c---------------------------------------------------------
      &     CHF_CONST_FRA1[cellData],
      &     CHF_CONST_INT[nGhost],
      &     CHF_CONST_INT[offset],
+     &     CHF_CONST_INTVECT[boxlovect],
      &     CHF_BOX[nodeBox])
 
       integer CHF_DDECL[i;j;k]
@@ -198,9 +199,9 @@ c---------------------------------------------------------
       nlayers = (CHF_UBOUND[nodeData;0] - CHF_LBOUND[nodeData;0] +1)
 
 c third "component" is offset to begin at zero in poor-man's multidim mode
-      verticalOffset = -CHF_LBOUND[nodeData;0]
+      verticalOffset = -boxlovect(0)
 #if (CH_SPACEDIM== 2)
-      verticalOffset = -CHF_LBOUND[nodeData;1]
+      verticalOffset = -boxlovect(1)
 #endif
 
       CHF_MULTIDO[nodeBox; i; j; k]

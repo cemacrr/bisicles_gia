@@ -930,7 +930,10 @@ FortranInterfaceIBC::setGrids(const Box& a_gridBox)
             pout() << "box " << i << ": " << filteredBoxes[i] << "  on processor " << filteredProcAssign[i] << endl;
           }
 
-        pout () << " before DBL define" << endl;
+        if (m_verbose)
+          {
+            pout () << " before DBL define" << endl;
+          }
         
       }
 
@@ -1509,7 +1512,15 @@ FortranInterfaceIBC::flattenVelocity(Real* a_uVelPtr, Real* a_vVelPtr,
             uDataFab, vDataFab, uCCdataFab, vCCdataFab, a_nodal,
             false);
 
-              
+  
+  if (m_verbose)
+    {
+      pout() << "exited setVelFAB function: uDataFAB box: " 
+             << uDataFab.box() << ", ncomp = " << uDataFab.nComp() << endl;
+      pout() << "                           vDataFAB box: "
+             << vDataFab.box() << ", ncomp = " << vDataFab.nComp() << endl;
+    }
+
   // create LevelData
   // if nodal, we'd like one more ghost cell for the LDF than nghost
   // (since we'll need to average back to nodes)
@@ -1528,8 +1539,12 @@ FortranInterfaceIBC::flattenVelocity(Real* a_uVelPtr, Real* a_vVelPtr,
                         dx, levelDx,
                         m_verbose);
     }
-    
+
+  pout () << "before exchange" << endl;
   ldf.exchange();
+
+  pout() << "after exchange" << endl;
+
 
   // finally, either copy or average to nodes
   if (a_nodal)
@@ -1546,22 +1561,29 @@ FortranInterfaceIBC::flattenVelocity(Real* a_uVelPtr, Real* a_vVelPtr,
           // first do u...
           int xghost = a_nGhost[0];
           int xoffset = a_offset[0];
+ 
+          pout () << "entering cell-to-node" << endl;
+          
+          IntVect boxloVect(a_boxlo[0], a_boxlo[1]);
+
           FORT_CELLTONODECISMVELNOSHEAR(CHF_FRA(uDataFab),
                                         CHF_CONST_FRA1(ldf[dit],0),
                                         CHF_CONST_INT(xghost),
                                         CHF_CONST_INT(xoffset),
+                                        CHF_INTVECT(boxloVect),
                                         CHF_BOX(nodeBox));
-
 
           if (SpaceDim > 1)
             {
               // ...then do v
               int yghost = a_nGhost[1];
               int yoffset = a_offset[1];
+
               FORT_CELLTONODECISMVELNOSHEAR(CHF_FRA(vDataFab),
                                             CHF_CONST_FRA1(ldf[dit],1),
                                             CHF_CONST_INT(yghost),
                                             CHF_CONST_INT(yoffset),
+                                            CHF_INTVECT(boxloVect),
                                             CHF_BOX(nodeBox));
             }
 
