@@ -7822,7 +7822,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 {
 
   //update the temperature fields, 2D case
-#ifdef TARMAC
+  //#ifdef TARMAC
   Vector<LevelData<FluxBox>* > vectLayerFluxes(m_finest_level+1, NULL);
   Vector<LevelData<FluxBox>* > vectLayerThicknessFluxes(m_finest_level+1, NULL);
   Vector<LevelData<FArrayBox>* > vectUSigma(m_finest_level+1, NULL);
@@ -8188,7 +8188,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 
   //finally, A is no longer valid 
   m_A_valid = false;
-#endif
+  //#endif
 
 }
 #endif

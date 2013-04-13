@@ -699,7 +699,7 @@ c -----------------------------------------------------------
       return
       end 
 
-#ifdef TARMAC 
+c#ifdef TARMAC 
 c -------------------------------------------------------------
 c calculation of the vertical velocity from div(u) = 0
 c plus surface / basal mass balance, surface and thickness gradients
@@ -836,4 +836,4 @@ c     call ice floating if it is nor grounded (ie open sea or floating)
 
       return
       end 
-#endif
+c#endif

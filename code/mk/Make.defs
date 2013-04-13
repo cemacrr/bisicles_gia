@@ -44,7 +44,7 @@ ifeq ($(UNAMEN),geog-bsq92.ggy.bris.ac.uk)
 PYTHON_VERSION=2.4
 endif
 
-ifeq ($(UNAMEN),smbp)
+ifeq ($(UNAMEN),smbpp)
 PYTHON_VERSION=2.7
 endif
 
