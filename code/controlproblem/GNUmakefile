@@ -28,8 +28,9 @@ UTIL_DIR = ../util
 src_dirs = src $(SRC_DIR) $(UTIL_DIR)  
 #src_dirs += /home/ranken/util/pglimdev/parallel/src/external_dycore
 
-include $(CHOMBO_HOME)/mk/Make.example
-
+#include $(CHOMBO_HOME)/mk/Make.example
+BISICLES_MK = ../mk/
+include $(BISICLES_MK)/Make.example
 
 
 
