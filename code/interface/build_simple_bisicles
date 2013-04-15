@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Note: The hopper-pgi-cmake file in your CISM build dir needs to
+# Note: A cmake file in your CISM build dir needs to
 # be run once, before using this script.
 
 CHOMBO_DIR=${PWD}/../../../Chombo
@@ -12,8 +12,8 @@ CISM_CMAKE_BUILD_DIR=${CISM_DIR}/builds/linux-gnu-bisicles
 
 # Note: If this is the first CISM build, uncomment the following 3 lines:
 #source /etc/profile.d/modules.sh
-#cd ${CISM_CMAKE_BUILD_DIR}
-#source hopper-pgi-cmake
+cd ${CISM_CMAKE_BUILD_DIR}
+#source linux-gnu-bisicles-cmake
 
 cd ${CHOMBO_DIR}/lib
 make include
@@ -27,9 +27,10 @@ make -f GNUmakefile libs MPI=TRUE OPT=FALSE DEBUG=TRUE
 
 cd ${CISM_CMAKE_BUILD_DIR}
 rm example-drivers/simple_bisicles/src/simple_bisicles
-make -j 8
+make 
 
 #move to seacism bin directory for convenience
+mkdir -p ${CISM_DIR}/bin #this directory doesn't always exist...
 mv ${CISM_CMAKE_BUILD_DIR}/example-drivers/simple_bisicles/src/simple_bisicles ${CISM_DIR}/bin
 
 cd ${BISICLES_DIR}/code/interface

@@ -127,11 +127,11 @@ libBisicles.a: o/$(config)/bike_driver.o ../exec2D/o/$(config) libChomboLibs.a
 
 
 
-driver.o: driver.cpp
-	$(CC) -c -g driver.cpp -I $(CHOMBO_HOME)/include -I ../src \
-	-DCH_SPACEDIM=2 -DCH_USE_DOUBLE -DCH_Linux -DCH_LANG_CC \
-	-DCH_USE_SETVAL -DCH_USE_COMPLEX -DUSE_MEMORY_TRACKING \
-	-DCH_USE_64 -DCH_MPI
+#driver.o: driver.cpp
+#	pwd && $(CC) -c -g driver.cpp -I $(CHOMBO_HOME)/include -I ../src \
+#	-DCH_SPACEDIM=2 -DCH_USE_DOUBLE -DCH_Linux -DCH_LANG_CC \
+#	-DCH_USE_SETVAL -DCH_USE_COMPLEX -DUSE_MEMORY_TRACKING \
+#	-DCH_USE_64 -DCH_MPI
 
 
 bike_driver_call: bike_driver_call.o
@@ -141,7 +141,7 @@ bike_driver_call: bike_driver_call.o
 	libBisicles.a \
 	libChomboLibs.a \
 	$(HDF5)/lib/libhdf5.a \
-	/home/ranken/util/hdf/szip-2.1/src/.libs/libsz.a \
+	-lz \
 	-lstdc++	
 
 bike_driver_call.o: bike_driver_call.F90
@@ -172,4 +172,6 @@ testGradientCall.o: testGradientCall.F90
 
 #	@echo "$(config)"
 
-include $(CHOMBO_HOME)/mk/Make.example
+#include $(CHOMBO_HOME)/mk/Make.example
+BISICLES_MK = ../mk/
+include $(BISICLES_MK)/Make.example
