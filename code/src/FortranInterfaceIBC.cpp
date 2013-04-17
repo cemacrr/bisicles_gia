@@ -1272,12 +1272,21 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
   
   // start with coarsest level and call FillFromReference
   int numLevels = a_amrGeometry.size();
+
+  Vector<LevelData<FArrayBox>* > vectH(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > vectTopo(numLevels, NULL);
+  Vector<RealVect> vectDx(numLevels);
   for (int lev=0; lev<numLevels; lev++)
     {
       const LevelData<FArrayBox>& levelThickness = a_amrGeometry[lev]->getH();
       const LevelData<FArrayBox>& levelTopography = a_amrGeometry[lev]->getTopography();
-
       RealVect levelDx = a_amrGeometry[lev]->dx();
+
+      // can cast away const-ness here because they will be sent in as 
+      // const arguments
+      vectH[lev] = const_cast<LevelData<FArrayBox>* >(&levelThickness);
+      vectTopo[lev] = const_cast<LevelData<FArrayBox>* >(&levelTopography);
+      vectDx[lev] = levelDx;
 
       // these can be useful for debugging..
       bool resetInitialLevel = false;
@@ -1291,6 +1300,7 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
             }
         }
 
+#if 0
       // first do thickness
       FillFromReference((*m_inputThicknessLDF),
                         levelThickness,
@@ -1304,8 +1314,16 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
                         m_inputTopographyDx,
                         levelDx,
                         m_verbose);
-
+#endif
     } // end loop over levels
+  
+  flattenCellData(*m_inputThicknessLDF, m_inputThicknessDx,
+                  vectH, vectDx, m_verbose);
+
+  flattenCellData(*m_inputTopographyLDF, m_inputTopographyDx,
+                  vectTopo, vectDx, m_verbose);
+
+
   
   m_inputThicknessLDF->exchange();
   m_inputTopographyLDF->exchange();
@@ -1528,18 +1546,16 @@ FortranInterfaceIBC::flattenVelocity(Real* a_uVelPtr, Real* a_vVelPtr,
   LDFghost += IntVect::Unit;
 
   LevelData<FArrayBox> ldf(m_grids, SpaceDim, LDFghost);
-              
-  // start with coarsest level, calling FillFromReference
-  // this creates a flattened cell-centered velocity
-  int numLevels = a_amrVel.size();
-  for (int lev=0; lev<numLevels; lev++)
+
+  // need to create Vector<RealVect> form of dx
+  Vector<RealVect> realVectDx(a_amrDx.size());
+  for (int i=0; i<a_amrDx.size(); i++)
     {
-      RealVect levelDx = a_amrDx[lev]*RealVect::Unit;
-      FillFromReference(ldf, *a_amrVel[lev],
-                        dx, levelDx,
-                        m_verbose);
+      realVectDx[i] = a_amrDx[i]*RealVect::Unit;
     }
 
+  flattenCellData(ldf, dx, a_amrVel, realVectDx, m_verbose);
+  
   pout () << "before exchange" << endl;
   ldf.exchange();
 

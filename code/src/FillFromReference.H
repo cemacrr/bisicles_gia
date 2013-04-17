@@ -53,6 +53,14 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 		       const bool a_verbose);
 
 
+// fill a single LevelData wth a flattened AMR hierarchy's worth of data
+void
+flattenCellData(LevelData<FArrayBox>& a_destData,
+                const RealVect& a_destDx,
+                const Vector<LevelData<FArrayBox>* >& a_srcData,
+                const Vector<RealVect>& a_srcDx,
+                const bool a_verbose);
+
 #include "NamespaceFooter.H"
 
 #endif
