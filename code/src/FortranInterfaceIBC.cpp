@@ -1580,7 +1580,7 @@ FortranInterfaceIBC::flattenVelocity(Real* a_uVelPtr, Real* a_vVelPtr,
  
           pout () << "entering cell-to-node" << endl;
           
-          IntVect boxloVect(a_boxlo[0], a_boxlo[1]);
+          IntVect boxloVect(D_DECL(a_boxlo[0], a_boxlo[1], a_boxlo[2]));
 
           FORT_CELLTONODECISMVELNOSHEAR(CHF_FRA(uDataFab),
                                         CHF_CONST_FRA1(ldf[dit],0),
