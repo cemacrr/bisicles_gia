@@ -88,6 +88,9 @@ libChomboLibs.a: $(CHOMBO_HOME)/libamrelliptic$(config).a $(CHOMBO_HOME)/libamrt
 ../exec2D/driver.o:
 ../exec2D/driver$(config).ex:
 
+clean::
+	$(RM) -rf [odfp] libBisicles.a libChomboLibs.a
+
 bisiclesObjects:
 	cd ../exec2D; $(MAKE) nolink
 
