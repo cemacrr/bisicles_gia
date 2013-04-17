@@ -313,10 +313,17 @@ testFortranInterfaceIBC()
     {
       pout () << "Setting thickness..." << endl;
     }
+  
+  Real dew = dx[0];
+  Real dns = dx[0];
+  if (SpaceDim > 1)
+    {
+      dns = dx[1];
+    }
   baseIBC.setThickness(thickness_data_ptr,
                        diminfo,
                        lb, ub,
-                       &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]),
+                       &dew, &dns,
                        offset);
   
   if (verbose) 
@@ -326,7 +333,7 @@ testFortranInterfaceIBC()
   baseIBC.setTopography(topo_data_ptr,
                         diminfo,
                         lb, ub,
-                        &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]),
+                        &dew, &dns,
                         offset);
       
   if (verbose)
@@ -605,7 +612,7 @@ testFortranInterfaceIBC()
     baseIBC.flattenData(nodeFAB.dataPtr(),
                         diminfoNode,
                         lb, ub,
-                        &dx[0], D_SELECT(&dx[0],&dx[1],&dx[1]),
+                        &dew, &dns,
                         offset,
                         amrData,
                         vectNref,
