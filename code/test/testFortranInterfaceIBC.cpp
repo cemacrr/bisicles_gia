@@ -203,7 +203,8 @@ testFortranInterfaceIBC()
   int status = 0;
 
   // this is the resolution of the "fortran" mesh...  
-  IntVect numCells(32*IntVect::Unit);
+  int ncell = 64;
+  IntVect numCells(ncell*IntVect::Unit);
   if (CH_SPACEDIM == 3)
     {
       numCells[0] = 8;
@@ -227,7 +228,7 @@ testFortranInterfaceIBC()
   //int maxBoxSize = 8;
   int numSplit = int(sqrt(float(numProc())));
 
-  int maxBoxSize = 32/numSplit;
+  int maxBoxSize = ncell/numSplit;
 
   if (verbose)
     {
@@ -333,16 +334,16 @@ testFortranInterfaceIBC()
       pout() << "... done!" << endl;
     }
  
-  // now set up grid hiearchy, starting with level 0 one level coarser 
+  // now set up grid hiearchy, starting with level 0 two levels coarser 
   int numLevels = 4;
   //int numLevels = 1;
   
   ProblemDomain levelDomain = entireDomain;
-  levelDomain.coarsen(2);
+  levelDomain.coarsen(4);
 
 
   RealVect dxLevel(dx);
-  dxLevel *= 2;
+  dxLevel *= 4;
 
   ProblemDomain level0domain = levelDomain;
   RealVect dx0 = dxLevel;
@@ -556,14 +557,14 @@ testFortranInterfaceIBC()
       pout() << "L" << normType << "Err(topography) = " << topoErrNorm << endl;
     }
 
-  Real flattenTol = 0.006;
+  Real flattenTol = 0.03;
   if (thickErrNorm > flattenTol) 
     {
       pout () << "failed thickness flattening test" << endl;
       status += 1;
     }
 
-  flattenTol = 0.04;
+  flattenTol = 0.07;
   if (topoErrNorm > flattenTol) 
     {
       pout () << "failed topography flattening test" << endl;
