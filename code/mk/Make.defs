@@ -21,7 +21,7 @@ include $(CHOMBO_HOME)/mk/Make.defs.config
 NETCDF_HOME=$(BISICLES_HOME)/netcdf/serial
 
 
-ifeq ($(UNAMEN),martins)
+ifeq ($(UNAMEN),martin)
 NETCDF_HOME = /usr/local/netcdf
 endif
 
