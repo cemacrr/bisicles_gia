@@ -722,10 +722,12 @@ PicardSolver::defineLinearSolver()
         {
           m_solver_type = multigrid;
         }
+#ifdef CH_USE_ICE_MF
       else if (solverTypeString == "multiFluidSolver")
         {
           m_solver_type = multiFluidSolver;
         }
+#endif
       else if (solverTypeString == "BiCGStab")
         {
           m_solver_type = BiCGStab;
@@ -853,10 +855,12 @@ PicardSolver::defineLinearSolver()
       m_petscSolver->setVTParams( opAlpha, opBeta, &(*m_vectC[0]), &(*m_vectMu[0]), &(*m_vectLambda[0]) );
     }
 #endif
+#ifdef CH_USE_ICE_MF
   else if (m_solver_type == multiFluidSolver)
     {
       // do nothing
     }
+#endif
   else
     {
       MayDay::Error("invalid solver type");
