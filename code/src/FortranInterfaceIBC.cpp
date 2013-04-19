@@ -603,14 +603,63 @@ FortranInterfaceIBC::setTopography(Real* a_data_ptr,
 }
 
 
-  /// regions where we artificially set thickness to zero
-  /** this is done in setThickness, for lack of a better place, so 
-      this needs to be set before setThickness is called. 
-      a_clearRegions defines logically-rectangular regions where 
-      the thickness is artificially set to zero. These regions are 
-      defined relative to the original input data (i.e. before any shifting 
-      due to ghost cells)
-  */
+void
+FortranInterfaceIBC::setSurface(Real* a_data_ptr,
+                                const int* a_dimInfo,
+                                const int* a_boxlo, const int* a_boxhi, 
+                                const Real* a_dew, const Real* a_dns,
+                                const IntVect& a_offset,
+                                const IntVect& a_nGhost, 
+                                const bool a_nodal)
+{
+
+  // dimInfo is (SPACEDIM, nx, ny)
+
+  // assumption is that data_ptr is indexed using fortran 
+  // ordering from (1:dimInfo[1])1,dimInfo[2])
+  // we want to use c ordering
+
+  m_surfaceGhost = a_nGhost;
+  m_nodalSurface = a_nodal;
+  setFAB(a_data_ptr, a_dimInfo,a_boxlo, a_boxhi, a_dew,a_dns,
+         a_offset, a_nGhost,m_inputSurface, m_ccInputSurface,
+         a_nodal);
+  m_inputSurfaceDx = RealVect(D_DECL(*a_dew, *a_dns, 1));
+
+  // now define LevelData and copy from FAB->LevelData 
+  // (at some point will likely change this to be an aliased 
+  // constructor for the LevelData, but this should be fine for now....
+
+  // if nodal, we'd like at least one ghost cell for the LDF
+  // (since we'll eventually have to average back to nodes)
+  
+  IntVect LDFghost = m_surfaceGhost;
+  if (a_nodal && (LDFghost[0] == 0) )
+    {
+      LDFghost += IntVect::Unit;
+    }
+  RefCountedPtr<LevelData<FArrayBox> > localLDFPtr(new LevelData<FArrayBox>(m_grids, 1, LDFghost));
+  m_inputSurfaceLDF = localLDFPtr;
+  // fundamental assumption that there is no more than one box per processor/
+  DataIterator dit = m_grids.dataIterator();
+  for (dit.begin(); dit.ok(); ++dit)
+    {
+      Box copyBox = (*m_inputSurfaceLDF)[dit].box();
+      copyBox &= m_inputSurface.box();
+      (*m_inputSurfaceLDF)[dit].copy(m_inputSurface, copyBox);
+    }
+
+}
+
+
+/// regions where we artificially set thickness to zero
+/** this is done in setThickness, for lack of a better place, so 
+    this needs to be set before setThickness is called. 
+    a_clearRegions defines logically-rectangular regions where 
+    the thickness is artificially set to zero. These regions are 
+    defined relative to the original input data (i.e. before any shifting 
+    due to ghost cells)
+*/
 void
 FortranInterfaceIBC::setThicknessClearRegions(const Vector<Box>& a_clearRegions)
 {
@@ -1275,17 +1324,20 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
 
   Vector<LevelData<FArrayBox>* > vectH(numLevels, NULL);
   Vector<LevelData<FArrayBox>* > vectTopo(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > vectSurface(numLevels, NULL);
   Vector<RealVect> vectDx(numLevels);
   for (int lev=0; lev<numLevels; lev++)
     {
       const LevelData<FArrayBox>& levelThickness = a_amrGeometry[lev]->getH();
       const LevelData<FArrayBox>& levelTopography = a_amrGeometry[lev]->getTopography();
+      const LevelData<FArrayBox>& levelSurface = a_amrGeometry[lev]->getSurfaceHeight();
       RealVect levelDx = a_amrGeometry[lev]->dx();
 
       // can cast away const-ness here because they will be sent in as 
       // const arguments
       vectH[lev] = const_cast<LevelData<FArrayBox>* >(&levelThickness);
       vectTopo[lev] = const_cast<LevelData<FArrayBox>* >(&levelTopography);
+      vectSurface[lev] = const_cast<LevelData<FArrayBox>* >(&levelSurface);
       vectDx[lev] = levelDx;
 
       // these can be useful for debugging..
@@ -1300,21 +1352,6 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
             }
         }
 
-#if 0
-      // first do thickness
-      FillFromReference((*m_inputThicknessLDF),
-                        levelThickness,
-                        m_inputThicknessDx,
-                        levelDx,
-                        m_verbose);
-      
-      // now do topography
-      FillFromReference((*m_inputTopographyLDF),
-                        levelTopography,
-                        m_inputTopographyDx,
-                        levelDx,
-                        m_verbose);
-#endif
     } // end loop over levels
   
   flattenCellData(*m_inputThicknessLDF, m_inputThicknessDx,
@@ -1323,10 +1360,14 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
   flattenCellData(*m_inputTopographyLDF, m_inputTopographyDx,
                   vectTopo, vectDx, m_verbose);
 
+  flattenCellData(*m_inputSurfaceLDF, m_inputSurfaceDx,
+                  vectSurface, vectDx, m_verbose);
+
 
   
   m_inputThicknessLDF->exchange();
   m_inputTopographyLDF->exchange();
+  m_inputSurfaceLDF->exchange();
 
   // now copy back to original storage
   if (m_nodalThickness)
@@ -1411,6 +1452,50 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
           intersectBox &= m_ccInputTopography.box();
                            
           m_ccInputTopography.copy((*m_inputTopographyLDF)[dit], intersectBox);
+                                  
+        } // end dataIterator "loop"
+    }
+
+
+  // now copy back to original storage
+  if (m_nodalSurface)
+    {
+      // have to average back to nodes
+      DataIterator dit= m_inputSurfaceLDF->dataIterator();
+      //const DisjointBoxLayout& grids = m_inputTopographyLDF->getBoxes();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          const Box nodeBox = m_inputSurface.box();
+          Box grownCCBox = nodeBox;
+          grownCCBox.enclosedCells();
+          grownCCBox.grow(1);
+          
+          FArrayBox ccGrownFAB(grownCCBox,1);
+          ccGrownFAB.copy((*m_inputSurfaceLDF)[dit]);
+
+          // Cell->Node looks a lot like Node->Cell...
+          FORT_NODETOCELL(CHF_CONST_FRA1(ccGrownFAB,0),
+                          CHF_FRA1(m_inputSurface,0),
+                          CHF_BOX(nodeBox));
+          
+          // don't think I really need to do anything with 
+          // m_ccInputTopography 
+
+        } // end dataIterator "loop"
+      
+    } // end if nodal surface
+  else
+    {
+      // simple copy will do
+      DataIterator dit= m_inputSurfaceLDF->dataIterator();
+      const DisjointBoxLayout& grids = m_inputSurfaceLDF->getBoxes();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          
+          Box intersectBox(grids[dit]);
+          intersectBox &= m_ccInputSurface.box();
+                           
+          m_ccInputSurface.copy((*m_inputSurfaceLDF)[dit], intersectBox);
                                   
         } // end dataIterator "loop"
     }

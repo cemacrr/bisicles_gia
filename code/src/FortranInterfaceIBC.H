@@ -108,6 +108,19 @@ public:
                              const IntVect& a_nGhost = IntVect::Zero, 
 			     const bool a_nodal = false);
 
+  /// sets storage for upper surface. 
+  /** Currently only needed in order to return BISICLES-computed upper 
+      surface to CISM */
+  virtual void setSurface(Real* a_data_ptr,
+                          const int* a_dimInfo,
+                          const int* boxlo, const int* boxhi, 
+                          const Real* a_dew, const Real* a_dns,
+                          /// amount to offset indices (due to C-Fortran numbering, for example)
+                          const IntVect& a_offset,
+                          const IntVect& a_nGhost = IntVect::Zero, 
+                          const bool a_nodal = false);
+  
+
   /// regions where we artificially set thickness to zero
   /** this is done in setThickness, for lack of a better place, so 
       this needs to be set before setThickness is called. 
@@ -307,8 +320,8 @@ protected:
   bool m_nodalTopography;
   /// cell-centered input topography
   /**
-     if nodalTopography is true, this is identical to m_inputTopography.
-     if nodalTopography is false, this contains the cell-averaged version
+     if nodalTopography is false, this is identical to m_inputTopography.
+     if nodalTopography is true, this contains the cell-averaged version
      of the inputTopography
   */
   FArrayBox m_ccInputTopography;
@@ -317,6 +330,24 @@ protected:
   IntVect m_topographyGhost;
   /// distributed version of topography
   RefCountedPtr<LevelData<FArrayBox> > m_inputTopographyLDF;
+
+
+  /// alias to data array passed in from glimmer-CISM
+  FArrayBox m_inputSurface;
+  // true if m_inputSurface is nodal
+  bool m_nodalSurface;
+  /// cell-centered input upper ice surface
+  /**
+     if nodalSurface is false, this is identical to m_inputSurface;
+     if nodalSurface is true, this contains the cell-averaged version
+     of the inputSurface
+  */
+  FArrayBox m_ccInputSurface;
+
+  RealVect m_inputSurfaceDx;
+  IntVect m_surfaceGhost;
+  /// distributed version of topography
+  RefCountedPtr<LevelData<FArrayBox> > m_inputSurfaceLDF;
 
 private:
   // Disallowed for all the usual reasons
