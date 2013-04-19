@@ -531,12 +531,13 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 	  }
 
         double * thicknessDataPtr, *topographyDataPtr;
+        double* upperSurfaceDataPtr;
         int i, reg_index;      
 
         dimInfo = btg_ptr -> getLongVar("dimInfo","geometry");
         thicknessDataPtr = btg_ptr -> getDoubleVar("thck","geometry");
         topographyDataPtr = btg_ptr -> getDoubleVar("topg","geometry");
-
+        upperSurfaceDataPtr = btg_ptr -> getDoubleVar("usrf","geometry");
 
         //dew = 1000.;
         //dns = 1000.;
@@ -635,6 +636,11 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
         ibcPtr->setTopography(topographyDataPtr, dimInfoGeom, lb, ub, 
                               &dew, &dns, 
                               offset, ghostVect, nodalGeom);
+
+        ibcPtr->setSurface(upperSurfaceDataPtr, dimInfoGeom, lb, ub, 
+                           &dew, &dns, 
+                           offset, ghostVect, nodalGeom);
+
 #else
 	domainSize[0] = dew*(dimInfoGeom[2]); 
 	domainSize[1] = dns*(dimInfoGeom[3]);	
