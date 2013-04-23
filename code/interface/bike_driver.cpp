@@ -151,6 +151,275 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 
     ParmParse interfacePP("glimmerInterface");
 
+    if (verbose)
+      {
+	cout << "... done" << endl;
+	
+	cout << "setting geometry IBC..." << endl;
+      }
+
+    ParmParse geomPP("geometry");
+    Real dew, dns;
+    long * dimInfo;        
+    int * dimInfoVelo;
+    IntVect ghostVect = IntVect::Zero;
+    bool nodalGeom;
+
+    // ---------------------------------------------
+    // set IBC -- this includes initial ice thickness, 
+    // and basal geometry
+    // ---------------------------------------------
+   
+    
+    IceThicknessIBC* thicknessIBC = NULL;
+    std::string problem_type; 
+    
+    // geometry info from CISM
+    int i, reg_index;      
+    dimInfo = btg_ptr -> getLongVar("dimInfo","geometry");
+    
+    //dew = 1000.;
+    //dns = 1000.;
+    
+    dew = *(btg_ptr -> getDoubleVar("dew","numerics"));
+    dns = *(btg_ptr -> getDoubleVar("dns","numerics"));
+    cout << "In bike_driver: dew, dns = " << dew << "  " << dns << endl;
+    
+    int * dimInfoGeom = new int[dimInfo[0]+1];    
+    
+    for (i=0;i<=dimInfo[0];i++) dimInfoGeom[i] = dimInfo[i];   
+    cout << "DimInfoGeom  in bike_driver: " << endl;
+    for (i=0;i<=dimInfoGeom[0];i++) cout << dimInfoGeom[i] << " ";
+    cout << endl;
+    
+    long ewlb, ewub, nslb, nsub;
+    
+    ewlb = *(btg_ptr -> getLongVar("ewlb","geometry"));
+    ewub = *(btg_ptr -> getLongVar("ewub","geometry"));
+    nslb = *(btg_ptr -> getLongVar("nslb","geometry"));
+    nsub = *(btg_ptr -> getLongVar("nsub","geometry"));
+    cout << "In bike_driver: ewlb, ewub = " << ewlb << "  " << ewub <<  endl;
+    cout << "In bike_driver: nslb, nsub = " << nslb << "  " << nsub <<  endl;
+    
+    int lb[SpaceDim];
+    int ub[SpaceDim];
+    
+    D_TERM(lb[0] = ewlb;
+           ub[0] = ewub;,
+           lb[1] = nslb;
+           ub[1] = nsub;,
+           lb[2] = 0;
+           ub[2] = numCells[2]-1;)
+      
+      
+      
+      // bit of a hack, since we need to have periodicity info here,
+      // which is normally taken care of inside AmrIce
+      ParmParse ppAmr("amr");
+    // default is that domains are not periodic
+    bool is_periodic[SpaceDim];
+    for (int dir=0; dir<SpaceDim; dir++)
+      is_periodic[dir] = false;
+    Vector<int> is_periodic_int(SpaceDim, 0);
+    
+    ppAmr.getarr("is_periodic", is_periodic_int, 0, SpaceDim);
+    for (int dir=0; dir<SpaceDim; dir++) 
+      {
+        is_periodic[dir] = (is_periodic_int[dir] == 1);
+      }
+    
+    
+    // define domain using dim_info
+    int ewn = dimInfoGeom[2];
+    int nsn = dimInfoGeom[3];
+    
+    // convert to 0->n-1 ordering to suit Chombo's preferences
+    IntVect domLo = IntVect::Zero;
+    IntVect domHi = IntVect(D_DECL(ewn-1, nsn-1, dimInfoGeom[1]));
+    
+    Box domainBox(domLo, domHi);
+    ProblemDomain baseDomain(domainBox);
+    for (int dir=0; dir<SpaceDim; dir++)
+      {
+        baseDomain.setPeriodic(dir, is_periodic[dir]);
+      }
+    
+    if (verbose)
+      {
+        pout() << "Base Domain = " << baseDomain << endl;
+      }
+
+    // this is to convert Fortran indexing to C indexing.
+    IntVect offset = IntVect::Unit;
+
+    geomPP.get("problem_type", problem_type);
+    if (problem_type =="fortran")
+      {
+        FortranInterfaceIBC* ibcPtr = new FortranInterfaceIBC;
+        // need to set thickness and topography
+
+        // default is that CISM is using 2 ghost cells 
+        Vector<int> nGhost(SpaceDim, 2);
+        interfacePP.queryarr("numGhost", nGhost, 0, SpaceDim);
+        {
+          ghostVect = IntVect(D_DECL(nGhost[0], nGhost[1], nGhost[2]));
+        }
+
+        nodalGeom = true;
+        interfacePP.query("nodalInitialData", nodalGeom);
+        
+	if (verbose)
+	  {
+	    cout << "nodal initial data = " << nodalGeom << endl;
+	  }
+	
+        // this is about removing ice from regions which
+        // don't affect the dynamics of the region, but which 
+        // can cause our solvers problems. Siple Island comes to mind here
+        // for now, store these regions in a separate file. There's probably 
+        // a better way to do this.
+        
+        // this will contain the boxes in the index space of the 
+        // original data in which the thickness will be cleared.
+        Vector<Box> clearBoxes;
+
+        bool clearThicknessRegions = false;
+        if (interfacePP.contains("clearThicknessRegionsFile"))
+          {
+            clearThicknessRegions = true;
+            std::string clearFile;
+            interfacePP.get("clearThicknessRegionsFile", clearFile);
+
+            if (procID() == uniqueProc(SerialTask::compute))
+              {
+                ifstream is(clearFile.c_str(), ios::in);
+                if (is.fail())
+                  {
+                    MayDay::Error("Cannot open file with regions for thickness clearing");
+                  }
+                // format of file: number of boxes, then list of boxes.
+                int numRegions;
+                is >> numRegions;
+
+                // advance pointer in file
+                while (is.get() != '\n');
+
+                clearBoxes.resize(numRegions);
+
+                for (int i=0; i<numRegions; i++)
+                  {
+                    Box bx;
+                    is >> bx;
+                    while (is.get() != '\n');
+
+                    clearBoxes[i] = bx;
+                  }
+                    
+              } // end if serial proc
+            // broadcast results
+            broadcast(clearBoxes, uniqueProc(SerialTask::compute));
+            
+            ibcPtr->setThicknessClearRegions(clearBoxes);
+          }
+        
+	if (verbose)
+	  {
+	    cout << "...done" << endl;
+	  }
+
+        double * thicknessDataPtr, *topographyDataPtr;
+        double* upperSurfaceDataPtr;
+        thicknessDataPtr = btg_ptr -> getDoubleVar("thck","geometry");
+        topographyDataPtr = btg_ptr -> getDoubleVar("topg","geometry");
+        upperSurfaceDataPtr = btg_ptr -> getDoubleVar("usrf","geometry");
+
+
+	// this is mainly to get the ProblemDomain info into the mix
+	ibcPtr->define(baseDomain, dew);
+
+        CH_assert(SpaceDim == 2);
+#if 1
+        if (nodalGeom)
+          {
+            // slc : thck and topg are defined at cell nodes on the glimmer grid,
+            //       while bisicles needs them at cell centers. To get round this,
+            //       decrement the grid dimensions by 1, then interpolate to the
+            //       cell centers. This means  extra work, but is required
+            //       if we think the domain boundaries should be  in the same place.
+            dimInfoGeom[2] -= 1; dimInfoGeom[3] -=1;
+          }
+        domainSize[0] = dew*(dimInfoGeom[2]); 
+        domainSize[1] = dns*(dimInfoGeom[3]);     
+                 
+        ibcPtr->setThickness(thicknessDataPtr, dimInfoGeom, lb,ub,
+                             &dew, &dns, 
+                             offset, ghostVect, nodalGeom);                             
+        ibcPtr->setTopography(topographyDataPtr, dimInfoGeom, lb, ub, 
+                              &dew, &dns, 
+                              offset, ghostVect, nodalGeom);
+
+        ibcPtr->setSurface(upperSurfaceDataPtr, dimInfoGeom, lb, ub, 
+                           &dew, &dns, 
+                           offset, ghostVect, nodalGeom);
+
+#else
+	domainSize[0] = dew*(dimInfoGeom[2]); 
+	domainSize[1] = dns*(dimInfoGeom[3]);	
+        ibcPtr->setThickness(thicknessDataPtr, dimInfoGeom, lb,ub,
+                             &dew, &dns, offset, ghostVect);
+        ibcPtr->setTopography(topographyDataPtr, dimInfoGeom, lb, ub,
+                              &dew, &dns, offset, ghostVect);
+#endif
+        // if desired, smooth out topography to fill in holes
+        bool fillTopographyHoles = false;
+        geomPP.query("fill_topography_holes", fillTopographyHoles);
+        if (fillTopographyHoles)
+          {
+            Real holeVal = 0.0;
+            geomPP.query("holeFillValue", holeVal);
+            int numPasses = 1;
+            geomPP.query("num_fill_passes", numPasses);
+
+            for (int pass=0; pass<numPasses; pass++)
+              {
+                ibcPtr->fillTopographyHoles(holeVal);
+              }
+          }
+
+        thicknessIBC = static_cast<IceThicknessIBC*>(ibcPtr);
+
+	dimInfo = btg_ptr -> getLongVar("dimInfo","velocity");
+        
+        dimInfoVelo = new int[dimInfo[0]+1];
+    
+        for (i=0;i<=dimInfo[0];i++) dimInfoVelo[i] = dimInfo[i];      
+        
+        cout << "DimInfoVelo in bike_driver: " << endl;
+        for (i=0;i<=dimInfoVelo[0];i++) cout << dimInfoVelo[i] << " ";
+        cout << endl; 
+
+        // get Glimmer surface mass balance
+        double * surfMassBalPtr;
+
+        dimInfo = btg_ptr -> getLongVar("dimInfo","climate"); 
+
+        int * dimInfoClim = new int[dimInfo[0]+1];
+
+        for (i=0;i<=dimInfo[0];i++) dimInfoClim[i] = dimInfo[i];      
+        surfMassBalPtr = btg_ptr -> getDoubleVar("acab","climate");
+        cout << "DimInfoClim in bike_driver: " << endl;
+        for (i=0;i<=dimInfoClim[0];i++) cout << dimInfoClim[i] << " ";
+        cout << endl;      
+        
+      }
+    else 
+      {
+        MayDay::Error("bad problem type");
+      }
+
+
+
+
     // ---------------------------------------------
     // set constitutive relation & rate factor
     // ---------------------------------------------
@@ -241,6 +510,8 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 
     SurfaceFlux* surf_flux_ptr = SurfaceFlux::parseSurfaceFlux("surfaceFlux");
 
+    
+
     if (surf_flux_ptr == NULL)
       {
 	// chunk for compatiblity with older input files
@@ -264,7 +535,55 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 	    surf_flux_ptr = static_cast<SurfaceFlux*>(constFluxPtr);
 	  }
       }
-    
+    else
+      {
+        // we allocated a SurfaceFlux, but we need to test to see if
+        // it was a  fortranInterfaceFlux, in which case we didn't have 
+        // the context to actually set things up. Do that here...
+        ParmParse surfaceFluxPP("surfaceFlux");
+        std::string type = "";
+        
+        surfaceFluxPP.query("type",type);
+
+        if (type == "fortran")
+          {
+            // set things up here
+            fortranInterfaceFlux* fluxPtr = dynamic_cast<fortranInterfaceFlux*>(surf_flux_ptr);
+            int nghostFlux = 2;
+            IntVect ghostVect = nghostFlux*IntVect::Unit;
+            // flux has same centering as thickness and topography
+            bool nodalFlux = nodalGeom;
+            interfacePP.query("nodalSurfaceFlux", nodalFlux);
+            
+            if (verbose)
+              {
+                cout << "nodal surfaceFlux = " << nodalFlux << endl;
+              }
+
+            long int* dimInfoFluxPtr = (btg_ptr -> getLongVar("dimInfo","climate"));
+            double* fluxDataPtr = btg_ptr -> getDoubleVar("acab","climate");
+
+            int* dimInfoFlux = new int[dimInfoFluxPtr[0]+1];
+            if (verbose)
+              {
+                cout << "DimInfoFlux in bike_driver: ";
+              }
+
+            for (i=0; i<= dimInfoFluxPtr[0]; i++)
+              {
+                dimInfoFlux[i] = dimInfoFluxPtr[i];
+                if (verbose) cout << dimInfoFlux[i] << "  ";
+              }
+            if (verbose) cout << endl;
+
+            
+            fluxPtr->setFluxVal(fluxDataPtr, dimInfoFlux, lb,ub,
+                                &dew, &dns, offset, ghostVect, nodalGeom);
+            
+          }
+        
+      }
+        
     if (surf_flux_ptr == NULL)
       {
 	MayDay::Error("invalid surface flux type");
@@ -431,270 +750,6 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 	MayDay::Error("undefined MuCoefficient in inputs");
       }
 
-
-    if (verbose)
-      {
-	cout << "... done" << endl;
-	
-	cout << "setting IBC..." << endl;
-      }
-
-    ParmParse geomPP("geometry");
-    Real dew, dns;
-    long * dimInfo;        
-    int * dimInfoVelo;
-    IntVect ghostVect = IntVect::Zero;
-    bool nodalGeom;
-
-    // ---------------------------------------------
-    // set IBC -- this includes initial ice thickness, 
-    // and basal geometry
-    // ---------------------------------------------
-   
-    
-    IceThicknessIBC* thicknessIBC = NULL;
-    std::string problem_type; 
-    
-    geomPP.get("problem_type", problem_type);
-    if (problem_type =="fortran")
-      {
-        FortranInterfaceIBC* ibcPtr = new FortranInterfaceIBC;
-        // need to set thickness and topography
-
-        // default is that CISM is using 2 ghost cells 
-        Vector<int> nGhost(SpaceDim, 2);
-        interfacePP.queryarr("numGhost", nGhost, 0, SpaceDim);
-        {
-          ghostVect = IntVect(D_DECL(nGhost[0], nGhost[1], nGhost[2]));
-        }
-
-        nodalGeom = true;
-        interfacePP.query("nodalInitialData", nodalGeom);
-        
-	if (verbose)
-	  {
-	    cout << "nodal initial data = " << nodalGeom << endl;
-	  }
-	
-        // this is about removing ice from regions which
-        // don't affect the dynamics of the region, but which 
-        // can cause our solvers problems. Siple Island comes to mind here
-        // for now, store these regions in a separate file. There's probably 
-        // a better way to do this.
-        
-        // this will contain the boxes in the index space of the 
-        // original data in which the thickness will be cleared.
-        Vector<Box> clearBoxes;
-
-        bool clearThicknessRegions = false;
-        if (interfacePP.contains("clearThicknessRegionsFile"))
-          {
-            clearThicknessRegions = true;
-            std::string clearFile;
-            interfacePP.get("clearThicknessRegionsFile", clearFile);
-
-            if (procID() == uniqueProc(SerialTask::compute))
-              {
-                ifstream is(clearFile.c_str(), ios::in);
-                if (is.fail())
-                  {
-                    MayDay::Error("Cannot open file with regions for thickness clearing");
-                  }
-                // format of file: number of boxes, then list of boxes.
-                int numRegions;
-                is >> numRegions;
-
-                // advance pointer in file
-                while (is.get() != '\n');
-
-                clearBoxes.resize(numRegions);
-
-                for (int i=0; i<numRegions; i++)
-                  {
-                    Box bx;
-                    is >> bx;
-                    while (is.get() != '\n');
-
-                    clearBoxes[i] = bx;
-                  }
-                    
-              } // end if serial proc
-            // broadcast results
-            broadcast(clearBoxes, uniqueProc(SerialTask::compute));
-            
-            ibcPtr->setThicknessClearRegions(clearBoxes);
-          }
-        
-	if (verbose)
-	  {
-	    cout << "...done" << endl;
-	  }
-
-        double * thicknessDataPtr, *topographyDataPtr;
-        double* upperSurfaceDataPtr;
-        int i, reg_index;      
-
-        dimInfo = btg_ptr -> getLongVar("dimInfo","geometry");
-        thicknessDataPtr = btg_ptr -> getDoubleVar("thck","geometry");
-        topographyDataPtr = btg_ptr -> getDoubleVar("topg","geometry");
-        upperSurfaceDataPtr = btg_ptr -> getDoubleVar("usrf","geometry");
-
-        //dew = 1000.;
-        //dns = 1000.;
-
-        dew = *(btg_ptr -> getDoubleVar("dew","numerics"));
-        dns = *(btg_ptr -> getDoubleVar("dns","numerics"));
-	cout << "In bike_driver: dew, dns = " << dew << "  " << dns << endl;
-
-        int * dimInfoGeom = new int[dimInfo[0]+1];    
-
-        for (i=0;i<=dimInfo[0];i++) dimInfoGeom[i] = dimInfo[i];   
-        cout << "DimInfoGeom  in bike_driver: " << endl;
-        for (i=0;i<=dimInfoGeom[0];i++) cout << dimInfoGeom[i] << " ";
-        cout << endl;
-
-        long ewlb, ewub, nslb, nsub;
-
-        ewlb = *(btg_ptr -> getLongVar("ewlb","geometry"));
-        ewub = *(btg_ptr -> getLongVar("ewub","geometry"));
-        nslb = *(btg_ptr -> getLongVar("nslb","geometry"));
-        nsub = *(btg_ptr -> getLongVar("nsub","geometry"));
-        cout << "In bike_driver: ewlb, ewub = " << ewlb << "  " << ewub <<  endl;
-        cout << "In bike_driver: nslb, nsub = " << nslb << "  " << nsub <<  endl;
-
-        int lb[SpaceDim];
-        int ub[SpaceDim];
-
-        D_TERM(lb[0] = ewlb;
-               ub[0] = ewub;,
-               lb[1] = nslb;
-               ub[1] = nsub;,
-               lb[2] = 0;
-               ub[2] = numCells[2]-1;)
-               
-
-
-        // bit of a hack, since we need to have periodicity info here,
-	// which is normally taken care of inside AmrIce
-        ParmParse ppAmr("amr");
-        // default is that domains are not periodic
-	bool is_periodic[SpaceDim];
-	for (int dir=0; dir<SpaceDim; dir++)
-	  is_periodic[dir] = false;
-	Vector<int> is_periodic_int(SpaceDim, 0);
-
-	ppAmr.getarr("is_periodic", is_periodic_int, 0, SpaceDim);
-	for (int dir=0; dir<SpaceDim; dir++) 
-	  {
-	    is_periodic[dir] = (is_periodic_int[dir] == 1);
-	  }
-
-
-	// define domain using dim_info
-	int ewn = dimInfoGeom[2];
-	int nsn = dimInfoGeom[3];
-
-	// convert to 0->n-1 ordering to suit Chombo's preferences
-	IntVect domLo = IntVect::Zero;
-	IntVect domHi = IntVect(D_DECL(ewn-1, nsn-1, dimInfoGeom[1]));
-	
-	Box domainBox(domLo, domHi);
-	ProblemDomain baseDomain(domainBox);
-	for (int dir=0; dir<SpaceDim; dir++)
-	  {
-	    baseDomain.setPeriodic(dir, is_periodic[dir]);
-	  }
-
-	if (verbose)
-	  {
-	    pout() << "Base Domain = " << baseDomain << endl;
-	  }
-
-	// this is mainly to get the ProblemDomain info into the mix
-	ibcPtr->define(baseDomain, dew);
-
-	// this is to convert Fortran indexing to C indexing.
-	IntVect offset = IntVect::Unit;
-
-        CH_assert(SpaceDim == 2);
-#if 1
-        if (nodalGeom)
-          {
-            // slc : thck and topg are defined at cell nodes on the glimmer grid,
-            //       while bisicles needs them at cell centers. To get round this,
-            //       decrement the grid dimensions by 1, then interpolate to the
-            //       cell centers. This means  extra work, but is required
-            //       if we think the domain boundaries should be  in the same place.
-            dimInfoGeom[2] -= 1; dimInfoGeom[3] -=1;
-          }
-        domainSize[0] = dew*(dimInfoGeom[2]); 
-        domainSize[1] = dns*(dimInfoGeom[3]);     
-                 
-        ibcPtr->setThickness(thicknessDataPtr, dimInfoGeom, lb,ub,
-                             &dew, &dns, 
-                             offset, ghostVect, nodalGeom);                             
-        ibcPtr->setTopography(topographyDataPtr, dimInfoGeom, lb, ub, 
-                              &dew, &dns, 
-                              offset, ghostVect, nodalGeom);
-
-        ibcPtr->setSurface(upperSurfaceDataPtr, dimInfoGeom, lb, ub, 
-                           &dew, &dns, 
-                           offset, ghostVect, nodalGeom);
-
-#else
-	domainSize[0] = dew*(dimInfoGeom[2]); 
-	domainSize[1] = dns*(dimInfoGeom[3]);	
-        ibcPtr->setThickness(thicknessDataPtr, dimInfoGeom, lb,ub,
-                             &dew, &dns, offset, ghostVect);
-        ibcPtr->setTopography(topographyDataPtr, dimInfoGeom, lb, ub,
-                              &dew, &dns, offset, ghostVect);
-#endif
-        // if desired, smooth out topography to fill in holes
-        bool fillTopographyHoles = false;
-        geomPP.query("fill_topography_holes", fillTopographyHoles);
-        if (fillTopographyHoles)
-          {
-            Real holeVal = 0.0;
-            geomPP.query("holeFillValue", holeVal);
-            int numPasses = 1;
-            geomPP.query("num_fill_passes", numPasses);
-
-            for (int pass=0; pass<numPasses; pass++)
-              {
-                ibcPtr->fillTopographyHoles(holeVal);
-              }
-          }
-
-        thicknessIBC = static_cast<IceThicknessIBC*>(ibcPtr);
-
-	dimInfo = btg_ptr -> getLongVar("dimInfo","velocity");
-        
-        dimInfoVelo = new int[dimInfo[0]+1];
-    
-        for (i=0;i<=dimInfo[0];i++) dimInfoVelo[i] = dimInfo[i];      
-        
-        cout << "DimInfoVelo in bike_driver: " << endl;
-        for (i=0;i<=dimInfoVelo[0];i++) cout << dimInfoVelo[i] << " ";
-        cout << endl; 
-
-        // get Glimmer surface mass balance
-        double * surfMassBalPtr;
-
-        dimInfo = btg_ptr -> getLongVar("dimInfo","climate"); 
-
-        int * dimInfoClim = new int[dimInfo[0]+1];
-
-        for (i=0;i<=dimInfo[0];i++) dimInfoClim[i] = dimInfo[i];      
-        surfMassBalPtr = btg_ptr -> getDoubleVar("acab","climate");
-        cout << "DimInfoClim in bike_driver: " << endl;
-        for (i=0;i<=dimInfoClim[0];i++) cout << dimInfoClim[i] << " ";
-        cout << endl;      
-        
-      }
-    else 
-      {
-        MayDay::Error("bad problem type");
-      }
 
 
     // this lets us over-ride the Glimmer domain size
