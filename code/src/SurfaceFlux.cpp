@@ -20,6 +20,8 @@
 #include "BisiclesF_F.H"
 #include "ParmParse.H"
 #include "AmrIce.H"
+#include "FortranInterfaceIBC.H"
+
 #include "NamespaceHeader.H"
 
   /// factory method
@@ -115,8 +117,37 @@ fortranInterfaceFlux::fortranInterfaceFlux()
 SurfaceFlux* 
 fortranInterfaceFlux::new_surfaceFlux()
 {
+  if (m_verbose)
+    {
+      pout() << "in fortranInterfaceFlux::new_surfaceFlux" << endl;
+    }
+
   fortranInterfaceFlux* newPtr = new fortranInterfaceFlux;
-  newPtr->m_fluxVal.define(m_fluxVal.interval(), m_fluxVal);
+
+  newPtr->m_grids = m_grids;
+  newPtr->m_gridsSet = m_gridsSet;
+    // keep these as aliases, if they're actually defined
+  if (!m_inputFlux.box().isEmpty())
+    {
+      newPtr->m_inputFlux.define(m_inputFlux.box(), 
+                                 m_inputFlux.nComp(),
+                                 m_inputFlux.dataPtr());
+    }
+
+  if (!m_ccInputFlux.box().isEmpty())
+    {
+      newPtr->m_ccInputFlux.define(m_ccInputFlux.box(), 
+                                   m_ccInputFlux.nComp(),
+                                   m_ccInputFlux.dataPtr());
+    }      
+  
+  newPtr->m_inputFluxLDF = m_inputFluxLDF;
+  
+  newPtr->m_fluxGhost = m_fluxGhost;
+  newPtr->m_inputFluxDx = m_inputFluxDx;
+  
+  newPtr->m_verbose = m_verbose;
+
   newPtr->m_isValSet = m_isValSet;
   return static_cast<SurfaceFlux*>(newPtr);  
 }
@@ -134,22 +165,12 @@ fortranInterfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
   CH_assert(m_isValSet);
 
   // this looks a lot like the code in FortranInterfaceIBC
-  Vector<Box> importBoxes(1, m_fluxVal.box());
-  Vector<int> procAssign(1,0);
-  DisjointBoxLayout importDBL(importBoxes, procAssign);
-  LevelData<FArrayBox> importFlux(importDBL, 1, IntVect::Zero);
 
-  DataIterator importDit = importDBL.dataIterator();
-  for (importDit.begin(); importDit.ok(); ++importDit)
-    {
-      importFlux[importDit].copy(m_fluxVal);
-    }
-
-  DisjointBoxLayout levelGrids = a_flux.getBoxes();
+  DisjointBoxLayout levelGrids = m_grids;
   RealVect dx = a_amrIce.dx(a_level);
 
   // refinement ratio for flux
-  Real refRatio = m_fluxDx[0]/dx[0];
+  Real refRatio = m_inputFluxDx[0]/dx[0];
  
   Real tolerance = 1.0e-6;
 
@@ -167,7 +188,7 @@ fortranInterfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
   else
     {
       // same size, just copy  
-      importFlux.copyTo(a_flux);
+      m_inputFluxLDF->copyTo(a_flux);
     }
   
 
@@ -178,20 +199,68 @@ fortranInterfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 void
 fortranInterfaceFlux::setFluxVal(Real* a_data_ptr,
                                  const int* a_dimInfo,
-                                 const Real* a_dew, const Real* a_dns)
+                                 const int* a_boxlo, const int* a_boxhi, 
+                                 const Real* a_dew, const Real* a_dns,
+                                 const IntVect& a_offset,
+                                 const IntVect& a_nGhost,
+                                 const bool a_nodal)
+
 {
+
+  m_fluxGhost = a_nGhost;
+  m_nodalFlux = a_nodal;
+
   // dimInfo is (SPACEDIM, nz, nx, ny)
 
   // assumption is that data_ptr is indexed using fortran 
   // ordering from (1:dimInfo[1])1,dimInfo[2])
   // we want to use c ordering
-  IntVect hiVect(D_DECL(a_dimInfo[2]-1,a_dimInfo[3]-1, a_dimInfo[1]-1));
-  Box fabBox(IntVect::Zero, hiVect);
+  //cout << "a_dimonfo" << a_dimInfo[0] << a_dimInfo[1] << endl;  
 
-  //cout << "hiVect" << hiVect << endl;
+  if (m_verbose)
+    {
+      pout() << "In FortranInterfaceIBC::setFlux:" << endl;
+      pout() << " -- entering setFAB..." << endl;
+    }
   
-  m_fluxVal.define(fabBox, 1, a_data_ptr);
-  m_fluxDx = RealVect(D_DECL(*a_dew, *a_dns, 1));  
+  FortranInterfaceIBC::setFAB(a_data_ptr, a_dimInfo,a_boxlo, a_boxhi,
+                              a_dew,a_dns,a_offset,a_nGhost,
+                              m_inputFlux, m_ccInputFlux, a_nodal);
+
+  if (m_verbose)
+    {
+      pout() << "... done" << endl;
+    }
+
+  m_inputFluxDx = RealVect(D_DECL(*a_dew, *a_dns, 1));
+
+  // now define LevelData and copy from FAB->LevelData 
+  // (at some point will likely change this to be an  aliased 
+  // constructor for the LevelData, but this should be fine for now....
+  
+  // if nodal, we'd like at least one ghost cell for the LDF
+  // (since we'll eventually have to average back to nodes)
+  IntVect LDFghost = m_fluxGhost;
+  if (a_nodal && (LDFghost[0] == 0))
+    {
+      LDFghost += IntVect::Unit;
+    }
+      
+  RefCountedPtr<LevelData<FArrayBox> > localLDFPtr(new LevelData<FArrayBox>(m_grids, 1, LDFghost) );
+
+  m_inputFluxLDF = localLDFPtr;
+  // fundamental assumption that there is no more than one box/ processor 
+  // don't do anything if there is no data on this processor
+  DataIterator dit = m_grids.dataIterator();
+  for (dit.begin(); dit.ok(); ++dit)
+    {
+      Box copyBox = (*m_inputFluxLDF)[dit].box();
+      copyBox &= m_inputFlux.box();
+      (*m_inputFluxLDF)[dit].copy(m_inputFlux, copyBox);
+      
+    } // end DataIterator loop
+
+
 }
 
  /// constructor
@@ -495,6 +564,13 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       
       LevelDataSurfaceFlux* ldptr = new LevelDataSurfaceFlux(tf,name);
       ptr = static_cast<SurfaceFlux*>(ldptr);
+    }
+  else if (type == "fortran")
+    {
+      // don't have the context here to actually set values, but
+      // we can at least allocate the object here and return it 
+      fortranInterfaceFlux* fifptr = new fortranInterfaceFlux;
+      ptr = static_cast<SurfaceFlux*>(fifptr);
     }
   else if (type == "piecewiseLinearFlux")
     {

@@ -53,21 +53,22 @@ public:
   virtual void define(const ProblemDomain& a_domain,
                       const Real&          a_dx);
 
-  /// sets reference fabs
+  /// static function to set reference fabs
   /** if a_nodal is false, then data is cell-centered and both a_fab and 
       a_ccFab are set to be aliases which point to a_data_ptr. If a_nodal is
       true, then a_fab is set to be an aliase which points to a_data_ptr, 
       while a_ccFab is allocated and filled with cell-averaged data.
   */
-  virtual void  setFAB(Real* a_data_ptr,
-		       const int* a_dimInfo,
-                       const int* boxlo, const int* boxhi, 
-		       const Real* a_dew, const Real* a_dns,
-		       const IntVect& a_offset,
-		       const IntVect& a_nGhost,
-		       FArrayBox& a_fab,
-                       FArrayBox& a_ccFab,
-		       const bool a_nodal = false);
+  static void  setFAB(Real* a_data_ptr,
+                      const int* a_dimInfo,
+                      const int* boxlo, const int* boxhi, 
+                      const Real* a_dew, const Real* a_dns,
+                      const IntVect& a_offset,
+                      const IntVect& a_nGhost,
+                      FArrayBox& a_fab,
+                      FArrayBox& a_ccFab,
+                      const bool a_nodal,
+                      const bool a_verbose = false);
 
   /// sets reference fabs for (horizontal) velocity
   /** if a_nodal is false, then data is cell-centered and both a_fab and 

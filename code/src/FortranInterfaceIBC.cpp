@@ -17,7 +17,6 @@
 #include "FIBCF_F.H"
 #include "NamespaceHeader.H"
 
-
 void zeroBCValue_FIBC(Real* pos,
 		     int* dir,
 		     Side::LoHiSide* side,
@@ -271,9 +270,8 @@ FortranInterfaceIBC::define(const ProblemDomain& a_domain,
   m_isDefined = true;
 }
 
-// define cell centred a_fab, directly with cell centered data
+// static function which defines cell centred a_fab, directly with cell centered data
 // a_data_ptr if !a_nodal, or by averaging nodal data a_data_ptr.
-// if the data is nodal, also compute the change in value across the box
 void FortranInterfaceIBC::setFAB(Real* a_data_ptr,
 				 const int* a_dimInfo,
                                  const int* a_boxlo, const int* a_boxhi, 
@@ -282,9 +280,10 @@ void FortranInterfaceIBC::setFAB(Real* a_data_ptr,
 				 const IntVect& a_nGhost,
 				 FArrayBox & a_fab,
                                  FArrayBox & a_ccFab,
-				 const bool a_nodal)
+				 const bool a_nodal,
+                                 const bool a_verbose)
 {
-  if (m_verbose)
+  if (a_verbose)
     {
       pout() << "in FortranInterfaceIBC::setFAB" << endl;
       pout() << " -- doing box calculus" << endl;
@@ -292,7 +291,7 @@ void FortranInterfaceIBC::setFAB(Real* a_data_ptr,
 
   IntVect loVect(D_DECL(a_boxlo[0],a_boxlo[1], a_boxlo[2]-1));
   IntVect hiVect(D_DECL(a_boxhi[0],a_boxhi[1], a_boxhi[2]-1));
-  if (m_verbose)
+  if (a_verbose)
     {
       pout () << "loVect = " << loVect << endl;
       pout () << "hiVect = " << hiVect << endl;
@@ -302,33 +301,18 @@ void FortranInterfaceIBC::setFAB(Real* a_data_ptr,
   if (loVect <= hiVect)
     {
       fabBox.define(loVect, hiVect);
-      if (m_verbose)
+      if (a_verbose)
         {
           pout() << "done defining box" << endl;
         }
       fabBox.shift(-a_nGhost);
       fabBox.shift(a_offset);
-      if (m_verbose)
+      if (a_verbose)
         {
           pout() << "... done! " << endl;
         }
     }
 
-  // if we haven't already set the grids, do it now
-  if (!gridsSet())
-    {
-      if (m_verbose) 
-        {
-          pout() << " -- entering setGrids" << endl;
-        }
-      Box gridBox(fabBox);
-      gridBox.grow(-a_nGhost);
-      setGrids(gridBox);
-      if (m_verbose)
-        {
-          pout() << " -- out of setGrids" << endl;
-        }
-    }
   if (a_nodal)
     {
 
@@ -501,12 +485,29 @@ FortranInterfaceIBC::setThickness(Real* a_data_ptr,
 
   setFAB(a_data_ptr, a_dimInfo,a_boxlo, a_boxhi,
          a_dew,a_dns,a_offset,a_nGhost,
-	 m_inputThickness, m_ccInputThickness, a_nodal);
+	 m_inputThickness, m_ccInputThickness, a_nodal, m_verbose);
 
   if (m_verbose)
     {
       pout() << "... done" << endl;
     }
+
+  // if we haven't already set the grids, do it now
+  if (!gridsSet())
+    {
+      if (m_verbose) 
+        {
+          pout() << " -- entering setGrids" << endl;
+        }
+      Box gridBox(m_ccInputThickness.box());
+      gridBox.grow(-a_nGhost);
+      setGrids(gridBox);
+      if (m_verbose)
+        {
+          pout() << " -- out of setGrids" << endl;
+        }
+    }
+  
 
   m_inputThicknessDx = RealVect(D_DECL(*a_dew, *a_dns, 1));
 
@@ -574,7 +575,24 @@ FortranInterfaceIBC::setTopography(Real* a_data_ptr,
   m_nodalTopography = a_nodal;
   setFAB(a_data_ptr, a_dimInfo,a_boxlo, a_boxhi, a_dew,a_dns,
          a_offset, a_nGhost,m_inputTopography, m_ccInputTopography,
-         a_nodal);
+         a_nodal, m_verbose);
+
+  // if we haven't already set the grids, do it now
+  if (!gridsSet())
+    {
+      if (m_verbose) 
+        {
+          pout() << " -- entering setGrids" << endl;
+        }
+      Box gridBox(m_ccInputTopography.box());
+      gridBox.grow(-a_nGhost);
+      setGrids(gridBox);
+      if (m_verbose)
+        {
+          pout() << " -- out of setGrids" << endl;
+        }
+    }
+
   m_inputTopographyDx = RealVect(D_DECL(*a_dew, *a_dns, 1));
 
   // now define LevelData and copy from FAB->LevelData 
@@ -623,7 +641,24 @@ FortranInterfaceIBC::setSurface(Real* a_data_ptr,
   m_nodalSurface = a_nodal;
   setFAB(a_data_ptr, a_dimInfo,a_boxlo, a_boxhi, a_dew,a_dns,
          a_offset, a_nGhost,m_inputSurface, m_ccInputSurface,
-         a_nodal);
+         a_nodal, m_verbose);
+
+  // if we haven't already set the grids, do it now
+  if (!gridsSet())
+    {
+      if (m_verbose) 
+        {
+          pout() << " -- entering setGrids" << endl;
+        }
+      Box gridBox(m_ccInputSurface.box());
+      gridBox.grow(-a_nGhost);
+      setGrids(gridBox);
+      if (m_verbose)
+        {
+          pout() << " -- out of setGrids" << endl;
+        }
+    }
+
   m_inputSurfaceDx = RealVect(D_DECL(*a_dew, *a_dns, 1));
 
   // now define LevelData and copy from FAB->LevelData 
@@ -1526,8 +1561,24 @@ FortranInterfaceIBC::flattenData(Real* a_data_ptr,
 
   setFAB(a_data_ptr, a_dimInfo, a_boxlo, a_boxhi,
          a_dew, a_dns, a_offset, a_nGhost,
-         dataFab, CCdataFab, a_nodal);
-              
+         dataFab, CCdataFab, a_nodal, m_verbose);
+        
+  // if we haven't already set the grids, do it now
+  if (!gridsSet())
+    {
+      if (m_verbose) 
+        {
+          pout() << " -- entering setGrids" << endl;
+        }
+      Box gridBox(CCdataFab.box());
+      gridBox.grow(-a_nGhost);
+      setGrids(gridBox);
+      if (m_verbose)
+        {
+          pout() << " -- out of setGrids" << endl;
+        }
+    }
+      
   // create LevelData
   // if nodal, we'd like at least one ghost cell for the LDF
   // (since we'll eventually have to average back to nodes)

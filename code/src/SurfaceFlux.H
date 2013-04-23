@@ -188,11 +188,38 @@ public:
   /// set fortran array-valued surface flux
   void setFluxVal(Real* a_data_ptr,
                   const int* a_dimInfo,
-                  const Real* a_dew, const Real* a_dns);
+                  const int* a_boxlo, const int* a_boxhi, 
+                  const Real* a_dew, const Real* a_dns,
+                  const IntVect& a_offset,
+                  const IntVect& a_nGhost,
+                  const bool a_nodal);
+    
 
 protected:
-  FArrayBox m_fluxVal;
-  RealVect m_fluxDx;
+  IntVect m_fluxGhost;
+  bool m_verbose;
+  
+  DisjointBoxLayout m_grids;
+  bool m_gridsSet;
+
+  // input flux from CISM
+  // alias to data array passed in from CISM
+  FArrayBox m_inputFlux;
+  /// true if inputFlux is nodeal
+  bool m_nodalFlux;
+
+  /// cell-centered input flux
+  /**
+     if nodalFlux is false, this is identical to m_inputFlux.
+     if nodalFlux is true, this contains the cell-averaged version
+     of the inputFlux
+  */
+  FArrayBox m_ccInputFlux;
+
+  RealVect m_inputFluxDx;
+
+  /// distributed version of flux
+  RefCountedPtr<LevelData<FArrayBox> > m_inputFluxLDF;
 
   bool m_isValSet;
 
