@@ -19,7 +19,7 @@ include $(CHOMBO_HOME)/mk/Make.defs.config
 
 #netcdf location
 NETCDF_HOME=$(BISICLES_HOME)/netcdf/serial
-
+NETCDF_LIBS= -lnetcdff -lnetcdf
 
 ifeq ($(UNAMEN),martin)
 NETCDF_HOME = /usr/local/netcdf
@@ -27,6 +27,8 @@ endif
 
 ifeq ($(UNAMEN),loren)
 NETCDF_HOME =/home/loren/users/dmartin/util/netcdf/netcdf-4.1.2
+#loren doesn't have a separate libnetcdff
+NETCDF_LIBS = -lnetcdf
 endif
 
 #python includes and libs - don't define unless that makes sense
