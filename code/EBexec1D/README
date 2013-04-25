@@ -1,0 +1,31 @@
+#Plotting in 1D
+
+pushd ../filetools
+
+make all DIM=1 -j32
+
+popd 
+
+../filetools/amrtoplot1d* plot.groundingLine.0000001.1d.hdf5
+
+#This reads in the data and writes a set of txt which has data in format suitable for plottong tools, for e.g gnuplot or xmgrace. 
+
+  #each amr level is its own file
+  #for example, xVel.1.plot.groundingLine.0000001.1d.txt is the xVel variable for level 1 from the first plot file.
+
+#Using gnuplot
+
+gnuplot 
+
+#interactive mode
+
+#man tools and web site for documentation. Mainly use commands "plot" and "replot"
+
+#For example, for the data at level 0
+
+plot xVel.0.plot.groundingLine.0000001.1d.txt with lines
+
+#For the data a level 0 and level 1, add 
+
+replot xVel.1.plot.groundingLine.0000001.1d.txt with lines
+
