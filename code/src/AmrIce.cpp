@@ -5508,7 +5508,7 @@ void AmrIce::updateViscousTensor() const
 	{
 	  delete m_viscousTensorCell[lev];m_viscousTensorCell[lev]=NULL;
 	}
-      m_viscousTensorCell[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],SpaceDim*SpaceDim,IntVect::Zero);
+      m_viscousTensorCell[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],SpaceDim*SpaceDim,IntVect::Unit);
       
       if (m_dragCoef[lev] != NULL)
 	{
@@ -5588,6 +5588,24 @@ void AmrIce::updateViscousTensor() const
 
 
       EdgeToCell(*m_viscousTensorFace[lev],*m_viscousTensorCell[lev]);
+      if (lev > 0)
+	{
+	  PiecewiseLinearFillPatch ghostFiller
+	    (m_amrGrids[lev],
+	     m_amrGrids[lev-1],
+	     m_viscousTensorCell[lev-1]->nComp(),
+	     m_amrDomains[lev-1],
+	     m_refinement_ratios[lev-1],
+	     m_viscousTensorCell[lev-1]->ghostVect()[0]);
+	  
+	  ghostFiller.fillInterp(*m_viscousTensorCell[lev], 
+				 *m_viscousTensorCell[lev-1], 
+				 *m_viscousTensorCell[lev-1],1.0,0,0,
+				 m_viscousTensorCell[lev-1]->nComp());
+
+	}
+      m_viscousTensorCell[lev]->exchange();
+
       EdgeToCell(*viscosityCoef[lev],*m_viscosityCoefCell[lev]);
 
       for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
