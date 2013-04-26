@@ -253,10 +253,13 @@ public:
 			      const RealVect& a_dx,
 			      Real a_time, Real a_dt);
   
-  /// set grids using Boxes passed in from Glimmer-CISM
+  /// set grids using Boxes passed in from CISM
   /** creates a DisjointBoxLayout using the grid boxes and 
       processor distribution used by CISM. */
-  virtual void setGrids(const Box& a_gridBox);
+  static void setGrids(DisjointBoxLayout& a_grids,
+                       const Box& a_gridBox,
+                       const ProblemDomain& a_domain,
+                       bool a_verbose);
 
   /// has setGrids been called?
   bool gridsSet() const {return m_gridsSet;}

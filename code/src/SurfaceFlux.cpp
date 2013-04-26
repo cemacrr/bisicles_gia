@@ -203,12 +203,14 @@ fortranInterfaceFlux::setFluxVal(Real* a_data_ptr,
                                  const Real* a_dew, const Real* a_dns,
                                  const IntVect& a_offset,
                                  const IntVect& a_nGhost,
+                                 const ProblemDomain& a_domain,
                                  const bool a_nodal)
 
 {
 
   m_fluxGhost = a_nGhost;
   m_nodalFlux = a_nodal;
+  m_domain = a_domain;
 
   // dimInfo is (SPACEDIM, nz, nx, ny)
 
@@ -231,6 +233,25 @@ fortranInterfaceFlux::setFluxVal(Real* a_data_ptr,
     {
       pout() << "... done" << endl;
     }
+
+  // if we haven't already set the grids, do it now
+  if (!gridsSet())
+    {
+      if (m_verbose) 
+        {
+          pout() << " -- entering setGrids" << endl;
+        }
+      Box gridBox(m_ccInputFlux.box());
+      gridBox.grow(-a_nGhost);
+      FortranInterfaceIBC::setGrids(m_grids, gridBox, m_domain, m_verbose);
+      m_gridsSet = true;
+      if (m_verbose)
+        {
+          pout() << " -- out of setGrids" << endl;
+        }
+    }
+  
+
 
   m_inputFluxDx = RealVect(D_DECL(*a_dew, *a_dns, 1));
 

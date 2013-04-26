@@ -405,7 +405,8 @@ void FortranInterfaceIBC::setVelFAB(Real* a_uVelPtr,
         }
       Box gridBox(fabBox);
       gridBox.grow(-a_nGhost);
-      setGrids(gridBox);
+      setGrids(m_grids, gridBox, m_domain, m_verbose);
+      m_gridsSet = true;
       if (m_verbose)
         {
           pout() << " -- out of setGrids" << endl;
@@ -501,7 +502,8 @@ FortranInterfaceIBC::setThickness(Real* a_data_ptr,
         }
       Box gridBox(m_ccInputThickness.box());
       gridBox.grow(-a_nGhost);
-      setGrids(gridBox);
+      setGrids(m_grids, gridBox, m_domain, m_verbose);
+      m_gridsSet = true;
       if (m_verbose)
         {
           pout() << " -- out of setGrids" << endl;
@@ -586,7 +588,8 @@ FortranInterfaceIBC::setTopography(Real* a_data_ptr,
         }
       Box gridBox(m_ccInputTopography.box());
       gridBox.grow(-a_nGhost);
-      setGrids(gridBox);
+      setGrids(m_grids, gridBox, m_domain, m_verbose);
+      m_gridsSet = true;
       if (m_verbose)
         {
           pout() << " -- out of setGrids" << endl;
@@ -652,7 +655,8 @@ FortranInterfaceIBC::setSurface(Real* a_data_ptr,
         }
       Box gridBox(m_ccInputSurface.box());
       gridBox.grow(-a_nGhost);
-      setGrids(gridBox);
+      setGrids(m_grids, gridBox, m_domain, m_verbose);
+      m_gridsSet = true;
       if (m_verbose)
         {
           pout() << " -- out of setGrids" << endl;
@@ -928,15 +932,16 @@ FortranInterfaceIBC::setGeometryBCs(LevelSigmaCS& a_coords,
 /** creates a DisjointBoxLayout using the grid boxes and 
     processor distribution used by CISM. */
 void 
-FortranInterfaceIBC::setGrids(const Box& a_gridBox)
+FortranInterfaceIBC::setGrids(DisjointBoxLayout& a_grids, 
+                              const Box& a_gridBox,
+                              const ProblemDomain& a_domain,
+                              bool a_verbose)
 {
 
-  if (m_verbose)
+  if (a_verbose)
     {
       pout() << "in setGrids, box = " << a_gridBox << endl;
     }
-
-  CH_assert(m_isDefined);
 
   const int numBox = numProc();
   Vector<Box> boxes(numBox);
@@ -947,7 +952,7 @@ FortranInterfaceIBC::setGrids(const Box& a_gridBox)
 #ifdef CH_MPI
   int boxSize = sizeof(Box);
 
-  if (m_verbose)
+  if (a_verbose)
     {
       pout() << "entering allGather -- sending " << *nonConstBox << endl;
       pout () << "numBox = " << numBox << ", boxSize = " << boxSize << endl;
@@ -955,7 +960,7 @@ FortranInterfaceIBC::setGrids(const Box& a_gridBox)
   MPI_Allgather(nonConstBox,  boxSize,  MPI_BYTE, &(boxes[0]), 
                 boxSize , MPI_BYTE , Chombo_MPI::comm);
   
-  if (m_verbose)
+  if (a_verbose)
     {
       pout () << "after allGather" << endl;
       pout () << "nonConstbox = " << *nonConstBox << endl;
@@ -963,7 +968,7 @@ FortranInterfaceIBC::setGrids(const Box& a_gridBox)
 
 #endif
 
-  if (m_verbose) 
+  if (a_verbose) 
     {
       pout () << "numBoxes = " << boxes.size() << endl;
       for (int i=0; i< boxes.size(); i++)
@@ -978,7 +983,7 @@ FortranInterfaceIBC::setGrids(const Box& a_gridBox)
       procAssign[i] = i;
     }
   
-  if (m_verbose)
+  if (a_verbose)
     {
       pout() << "processor " << procID() << ": grids: " << endl;
       for (int i=0; i<boxes.size(); i++)
@@ -1006,7 +1011,7 @@ FortranInterfaceIBC::setGrids(const Box& a_gridBox)
           }
       }
 
-    if (m_verbose)
+    if (a_verbose)
       {
         pout() << "filtered Boxes and processor assignments: numBoxes = " << filteredBoxes.size() << endl;
         for (int i=0; i<filteredBoxes.size(); i++)
@@ -1014,7 +1019,7 @@ FortranInterfaceIBC::setGrids(const Box& a_gridBox)
             pout() << "box " << i << ": " << filteredBoxes[i] << "  on processor " << filteredProcAssign[i] << endl;
           }
 
-        if (m_verbose)
+        if (a_verbose)
           {
             pout () << " before DBL define" << endl;
           }
@@ -1022,13 +1027,12 @@ FortranInterfaceIBC::setGrids(const Box& a_gridBox)
       }
 
   // define DisjointBoxLayout
-  m_grids.define(filteredBoxes, filteredProcAssign, m_domain);
+  a_grids.define(filteredBoxes, filteredProcAssign, a_domain);
 
-  if (m_verbose)
+  if (a_verbose)
     {
       pout () << "after DBL define" << endl;
     }
-  m_gridsSet = true;
 }
 
 /// utility function to fill in holes in topography
@@ -1572,7 +1576,8 @@ FortranInterfaceIBC::flattenData(Real* a_data_ptr,
         }
       Box gridBox(CCdataFab.box());
       gridBox.grow(-a_nGhost);
-      setGrids(gridBox);
+      setGrids(m_grids, gridBox, m_domain, m_verbose);
+      m_gridsSet = true;
       if (m_verbose)
         {
           pout() << " -- out of setGrids" << endl;
@@ -1697,6 +1702,22 @@ FortranInterfaceIBC::flattenVelocity(Real* a_uVelPtr, Real* a_vVelPtr,
 
   pout() << "after exchange" << endl;
 
+
+#if 0
+  // debugging aid -- set velocity to a constant value
+  {
+    Real uVal = 5.0;
+    Real vVal = 10.0;
+    DataIterator dit = ldf.dataIterator();
+    for (dit.begin(); dit.ok(); ++dit)
+      {
+        FArrayBox& velFab = ldf[dit];
+        Box gridBox = m_grids[dit];
+        velFab.setVal(uVal, gridBox, 0);
+        velFab.setVal(vVal, gridBox, 1);
+      }
+  }
+#endif
 
   // finally, either copy or average to nodes
   if (a_nodal)

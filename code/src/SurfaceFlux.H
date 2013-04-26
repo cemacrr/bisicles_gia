@@ -192,13 +192,19 @@ public:
                   const Real* a_dew, const Real* a_dns,
                   const IntVect& a_offset,
                   const IntVect& a_nGhost,
+                  const ProblemDomain& a_domain,
                   const bool a_nodal);
     
+
+  /// has setGrids been called?
+  bool gridsSet() const {return m_gridsSet;}
+
 
 protected:
   IntVect m_fluxGhost;
   bool m_verbose;
-  
+
+  ProblemDomain m_domain;
   DisjointBoxLayout m_grids;
   bool m_gridsSet;
 
