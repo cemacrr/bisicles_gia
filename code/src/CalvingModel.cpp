@@ -273,7 +273,6 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
     }
   else if (type == "BennCalvingModel")
     {
-
       Real waterDepth = 0.0;
       pp.get("waterDepth",waterDepth);
       Vector<int> frontLo(2,false); 
@@ -284,7 +283,16 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
       pp.query("preserveSea",preserveSea);
       bool preserveLand = false;
       pp.query("preserveLand",preserveLand);
-      ptr = new BennCalvingModel(waterDepth, frontLo, frontHi,preserveSea,preserveLand);
+      bool inclBasalCrev = false;
+      pp.query("inclBasalCrev",inclBasalCrev);
+      bool oneDimCrev = false;
+      pp.query("oneDimCrev",oneDimCrev);
+      bool RedFreqCalv = false;
+      pp.query("RedFreqCalv",RedFreqCalv);
+      Real CalvingFreq = 1.0;
+      pp.query("CalvingFreq",CalvingFreq);
+      ptr = new BennCalvingModel(waterDepth, frontLo, frontHi,preserveSea,preserveLand,
+				 inclBasalCrev, oneDimCrev, RedFreqCalv, CalvingFreq);
     }
 //   else
 //     {

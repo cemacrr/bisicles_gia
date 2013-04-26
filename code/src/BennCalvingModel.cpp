@@ -37,63 +37,91 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
   const Real& rhoo = levelCoords.waterDensity();
   const Real& grav = levelCoords.gravity();
   const LevelData<FArrayBox>& vt  = *a_amrIce.viscousTensor(a_level);
+  const LevelData<FArrayBox>& levelVel = *(a_amrIce.velocity(a_level));
+
 
   for (DataIterator dit (levelCoords.grids()); dit.ok(); ++dit)
-    {
+   {
       FArrayBox& source = a_flux[dit];
-      const FArrayBox& VT = vt[dit];
       const FArrayBox& thck = levelCoords.getH()[dit];
+      const FArrayBox& VT = vt[dit];
       const FArrayBox& topg = levelCoords.getTopography()[dit];
       const FArrayBox& usrf = levelCoords.getSurfaceHeight()[dit];
+      const FArrayBox& vel = levelVel[dit];
       const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+      const FArrayBox& Hab = levelCoords.getThicknessOverFlotation()[dit];
+
       const Box& b = levelCoords.grids()[dit];
+
+      Box remnantBox = b; remnantBox.grow(1); //we need one layer of ghost cells to do upwind calculations
+      FArrayBox remnant(remnantBox,1);
+      //compute the total remnant size (surface + basal) [needs to go in a fortran kernel]
+	
+      for (BoxIterator bit(remnantBox); bit.ok(); ++bit)
+	{
+	  const IntVect& iv = bit();
+	  const Real& sxx = VT(iv,0);
+	  const Real& syy = VT(iv,3);
+	  const Real& sxy = 0.5 *(VT(iv,2) + VT(iv,1));
+
+	  //vertically integrated first principal stress
+	  Real s1 = 0.5 * (sxx + syy)  
+	    + std::sqrt (  std::pow ( 0.5*(sxx - syy), 2) + std::pow(sxy,2));
+
+	  //vertically averaged first principal stress
+	  s1 *= thck(iv) / (1.0e-6 + thck(iv)*thck(iv));
+
+	  //surface crevasse depth
+	  Real Ds = std::max(s1,0.0) / (grav*rhoi) + rhoi/rhoo * m_waterDepth;
+	  Real Pd = (usrf(iv) - Ds); // formula that assumes surface crevasses are hydrostatic
+	  
+	  if (m_inclBasalCrev == true)
+	    {
+	      //explicit basal crevasse depth calculation
+	      Real Db = (rhoi/(rhoo-rhoi)) * ((s1/(grav*rhoi)) - Hab(iv));
+	      remnant(iv) = std::min(thck(iv),thck(iv) - (Db + Ds)); 
+	    }
+	  else
+	    {
+	      //assume basal crevasse reaches water level if surface crevasses do 
+	      remnant(iv) = std::min(thck(iv),usrf(iv)-Ds);
+	    }
+
+	  remnant(iv) = std::max(-0.0, remnant(iv));
+	}
+      
       for (BoxIterator bit(b); bit.ok(); ++bit)
 	{
 	  const IntVect& iv = bit();
-	  if (mask(iv) == FLOATINGMASKVAL)
+
+	  //compute a melt-rate which should be dominated by the contribution
+	  //of thick upwind cells: it will only be large if all upwind cells
+	  //are close to fractured and the current cell
+	 
+	  Real upwRemnant = remnant(iv)*thck(iv) ;
+	  Real umod = std::sqrt(vel(iv,0)*vel(iv,0)+vel(iv,1)*vel(iv,1)) + 1.0e-10;
+	  Real upwThck = thck(iv) + 1.0e-10; 
+				   
+	  for (int dir = 0; dir < SpaceDim; dir++)
 	    {
-
-	      Real sxx = VT(iv,0);
-	      Real syy = VT(iv,3);
-	      Real sxy = 0.5 *(VT(iv,2) + VT(iv,1));
-
-	      Real s1 = 0.5 * (sxx + syy)  + std::sqrt ( std::pow ( 0.5*(sxx - syy), 2)
-							 + std::pow(sxy,2));
-
-	      s1 *= thck(iv) / (1.0e-6 + thck(iv)*thck(iv));
-	      Real Ds = s1 / (grav*rhoi) + rhoi/rhoo * m_waterDepth;
-	      if (usrf(iv) - Ds < 1.0e-10)
+	      for (int side = -1; side <=1; side += 2)
 		{
-		  for (int dir =0; dir < SpaceDim; dir++)
-		    {
-		      for (int sign = -1; sign <= 1; sign+=2)
-			{
-			  IntVect ivp = iv + sign*BASISV(dir);			  
-			  if (usrf(ivp) < 1.0)
-			    {
-			      source(iv) -= 10.0 * thck(iv);
-			    }
-			}
-		    }
+		  const IntVect ivu = iv + side*BASISV(dir);
+		  Real fu = (side < 0)?
+		    (std::max(vel(ivu,dir),0.0)):
+		    (std::max(-vel(ivu,dir),0.0));
+		  fu /= umod;
 
+		  upwThck += thck(ivu)*fu;
+		  upwRemnant += thck(ivu)*remnant(ivu)*fu;
+		    
 		}
-	      //single floating pixels have a stupid viscous tensor at the mo
-	      bool single = true;
-	      for (int dir =0; dir < SpaceDim; dir++)
-		{
-		  for (int sign = -1; sign <= 1; sign+=2)
-		    {
-		      IntVect ivp = iv + sign*BASISV(dir);
-		      single &= thck(ivp) < 1.0;
-		    }
-		}
-	      if (single)
-		source(iv) -=  10.0 *thck(iv);
-
 	    }
+	  const Real decay = 1.0e+3;
+	  source(iv) -= thck(iv)/a_dt * std::min(upwThck,1.0) * std::min(1.0, std::exp( - decay * upwRemnant/(upwThck)));
 
 	}
-    }
+   }
   
 }
 
@@ -137,8 +165,8 @@ void BennCalvingModel::endTimeStepModifyState
 		      single &= thck(ivp) < 1.0;
 		    }
 		}
-	      if (single || thck(iv) < 50.0)
-		thck(iv) = 0.0;
+	      //if (single )
+		//thck(iv) = 0.0;
 	    }
 
 	  

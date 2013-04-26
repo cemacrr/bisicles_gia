@@ -48,8 +48,16 @@ public:
 		    const Vector<int>& a_frontLo,
 		    const Vector<int>& a_frontHi,
 		    bool a_preserveSea, 
-		    bool a_preserveLand)
+		    bool a_preserveLand,
+		    bool a_inclBasalCrev,
+		    bool a_oneDimCrev,
+		    bool a_RedFreqCalv,
+		    const Real& a_CalvingFreq)
     : m_waterDepth(a_waterDepth),
+      m_inclBasalCrev(a_inclBasalCrev),
+      m_oneDimCrev(a_oneDimCrev),
+      m_RedFreqCalv(a_RedFreqCalv),
+      m_CalvingFreq(a_CalvingFreq),
       m_domainEdgeCalvingModel(a_frontLo,a_frontHi, 
 			       a_preserveSea, a_preserveLand)
   {
@@ -58,6 +66,10 @@ public:
 
 private:
   Real m_waterDepth;
+  bool m_inclBasalCrev;
+  bool m_oneDimCrev;
+  bool m_RedFreqCalv;
+  Real m_CalvingFreq;
   DomainEdgeCalvingModel(m_domainEdgeCalvingModel);
 
   //BennCalvingModel() : 
