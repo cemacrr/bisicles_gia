@@ -400,7 +400,10 @@ void IceJFNKstate::computeViscousTensorFace(const Vector<LevelData<FluxBox>*>& a
 	      Box faceBox =  surroundingNodes(grids[dit],dir);
 	      Box domFaceBox = surroundingNodes(m_domains[lev].domainBox(), dir);
 	      faceBox &= domFaceBox;
-	      vtop->getFlux(flux[dit][dir], vel[dit], grad[dit] , muFace, lambdaFace, faceBox, dir, 1);
+	      FArrayBox tmpFlux(faceBox,SpaceDim); //  vtop->getFlux tinkers with the FAB box
+	      vtop->getFlux(tmpFlux, vel[dit], grad[dit] , muFace, lambdaFace, faceBox, dir, 1);
+	      flux[dit][dir].setVal(0.0);
+	      flux[dit][dir].copy(tmpFlux,faceBox);
 	    }
 	}
       delete vtop;
