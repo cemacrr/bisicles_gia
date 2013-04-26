@@ -12,20 +12,6 @@ UNAMEM = $(shell uname -m)
 
 DIM=2
 
-ifeq ($(TARMAC),TRUE)
-TARMACDIR=../interface/libtarmac
-XTRALIBFLAGS += -L$(TARMACDIR) -ltarmac
-XTRACPPFLAGS += -DTARMAC
-endif
-
-ifeq ($(TARMAC),TRUE)
-all:  $(TARMACDIR)/libtarmac.a all-example
-$(TARMACDIR)/libtarmac.a: $(TARMACDIR)/tarmac.f90
-	$(RM) $(patsubst %,%$(config).ex,$(ebase)); \
-	echo $(TARMACDIR)
-	cd $(TARMACDIR); \
-	$(MAKE) all
-endif
 ##
 ## names of Chombo libraries needed by this program, in order of search.
 ##
@@ -46,7 +32,11 @@ UTIL_DIR = ../util
 src_dirs = $(SRC_DIR) $(UTIL_DIR)  
 #src_dirs += /home/ranken/util/pglimdev/parallel/src/external_dycore
 
-include $(CHOMBO_HOME)/mk/Make.example
+#include $(CHOMBO_HOME)/mk/Make.example
+VERBOSE=-v
+BISICLES_MK = ../mk/
+include ../mk/Make.example
+
 XTRALDFLAGS  += -llapack
 XTRACPPFLAGS += -DCH_USE_ICE_MF
 
