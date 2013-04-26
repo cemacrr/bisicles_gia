@@ -578,7 +578,8 @@ void bike_driver_init(int argc, int exec_mode,BisiclesToGlimmer * btg_ptr, const
 
             
             fluxPtr->setFluxVal(fluxDataPtr, dimInfoFlux, lb,ub,
-                                &dew, &dns, offset, ghostVect, nodalGeom);
+                                &dew, &dns, offset, ghostVect, baseDomain,
+                                nodalGeom);
             
           }
         
