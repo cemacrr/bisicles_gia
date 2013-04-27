@@ -399,6 +399,7 @@ AmrIce::setDefaults()
   m_gravity = 9.81;
 
   m_report_grounded_ice = false;
+  m_eliminate_remote_ice = false;
 
   m_plot_prefix = "plot";
   m_plot_interval = 10000000;
@@ -1083,6 +1084,8 @@ AmrIce::initialize()
 
   ppAmr.query("report_sum_grounded_ice",   m_report_grounded_ice);
   
+  ppAmr.query("eliminate_remote_ice", m_eliminate_remote_ice);
+
   // get temporal accuracy
   ppAmr.query("temporal_accuracy", m_temporalAccuracy);
 
@@ -4344,6 +4347,9 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
 
   CH_TIME("AmrIce::solveVelocityField");
 
+  if (m_eliminate_remote_ice)
+    eliminateRemoteIce();
+
   //ensure A is up to date
 #if BISICLES_Z == BISICLES_LAYERED
   if (!m_A_valid)
@@ -5674,134 +5680,89 @@ const LevelData<FArrayBox>* AmrIce::groundingLineProximity(int a_level) const
    lead to an ill-posed problem, with a zero
    basal traction coefficient and Neumann boundary
    conditions. Here, we attempt to identify them
-   by solving - div(A grad(phi)) + C phi = R with 
-   natural (or periodic) BCs
-
-   for ice, A = H * muCooef, elsewhere A = 0
-
-   for grounded ice, C = 1 and R = 1
-   for floating ice, C = 0 and R = 0
-   elsewhere, C = 1 and R = -1
-
-   The solution for the well-posed regions is
-   phi = 1, and tensd to be -1 in the ill-posed
-   regions.
+   by carrying out a procedure that in the worst case can be 
+   O(N^2). 
+   
 
  */ 
 void AmrIce::eliminateRemoteIce()
 {
-  
-  //Natural boundary conditions
-  BCHolder bc(ConstDiriNeumBC(IntVect::Zero, RealVect::Zero,
- 			      IntVect::Zero, RealVect::Zero));
-  
-  Vector<RefCountedPtr<LevelData<FArrayBox> > > C(m_finest_level + 1);
-  Vector<RefCountedPtr<LevelData<FluxBox> > > D(m_finest_level + 1);
-  Vector<LevelData<FArrayBox>* > rhs(m_finest_level+ 1,NULL);
+  CH_TIME("AmrIce::eliminateRemoteIce");
+  //Define phi = 1 on grounded ice, 0 elsewhere
   Vector<LevelData<FArrayBox>* > phi(m_finest_level + 1);
-  Vector<DisjointBoxLayout> grids(finestTimestepLevel() + 1);
-  Vector<ProblemDomain> domains(finestTimestepLevel() + 1);
-  Vector<RealVect> dx(finestTimestepLevel() + 1);
-  for (int lev=0; lev <= m_finest_level; ++lev)
+  for (int lev=0; lev <= m_finest_level ; ++lev)
     {
-      dx[lev] = m_amrDx[lev]*RealVect::Unit;
-      domains[lev] = m_amrDomains[lev];
-
-      LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
-      const LevelData<BaseFab<int> >& levelMask = levelCS.getFloatingMask();
       const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-      C[lev] = RefCountedPtr<LevelData<FArrayBox> >
- 	(new LevelData<FArrayBox>(levelGrids, 1, IntVect::Zero));
-      D[lev] = RefCountedPtr<LevelData<FluxBox> >
- 	(new LevelData<FluxBox>(levelGrids, 1, IntVect::Zero));
-      rhs[lev] = new LevelData<FArrayBox>(levelGrids, 1, IntVect::Zero);
-      phi[lev] = new LevelData<FArrayBox>(levelGrids, 1, IntVect::Unit);
-      grids[lev] = levelGrids;
+      LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
+      phi[lev] = new LevelData<FArrayBox>(levelGrids,1,IntVect::Unit);
       for (DataIterator dit(levelGrids); dit.ok(); ++dit)
- 	{
-	  FluxBox& d= (*D[lev])[dit];
-	  
-	  for (int dir = 0; dir < SpaceDim; dir++)
-	    {
-	      d[dir].copy(levelCS.getFaceH()[dit][dir]);
-	      d[dir] *= (*m_faceMuCoef[lev])[dit][dir];
-	      d[dir] += 1.0e+2;
-	    }
-
- 	  FArrayBox& r =  (*rhs[lev])[dit];
- 	  r.setVal(0.0);
-
-	  FArrayBox& p =  (*phi[lev])[dit];
- 	  p.setVal(1.0);
-
-	  FArrayBox& c =  (*C[lev])[dit];
-	  c.setVal(0.0);
-
- 	  const BaseFab<int>& mask = levelMask[dit];
- 	  const Box& gridBox = levelGrids[dit];
- 	  for (BoxIterator bit(gridBox);bit.ok();++bit)
- 	    {
- 	      const IntVect& iv = bit();
- 	      if (mask(iv) == GROUNDEDMASKVAL)
- 		{
- 		  c(iv) = 1.0;
-		  p(iv) = 1.0;
-		  r(iv) = 1.0;
- 		} 
-	      else if (mask(iv) == OPENSEAMASKVAL || mask(iv) == OPENLANDMASKVAL)
- 		{
- 		  c(iv) = 1.0;
-		  p(iv) = -1.0;
-		  r(iv) = -1.0;
- 		} 
-	      else
-		{
-		  c(iv) = 0.0;
-		  p(iv) = 0.0;
-		  r(iv) = 0.0;
-		}
-	      
- 	    }
- 
- 	}
-
-      rhs[lev]->exchange();
-      phi[lev]->exchange();
-      D[lev]->exchange();
-      C[lev]->exchange();
+	{
+	  const FArrayBox& thisH = levelCS.getH()[dit];
+	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
+	  FArrayBox& thisPhi = (*phi[lev])[dit];
+	  thisPhi.setVal(0.0);
+	  Real a = 1.0;
+	  int b = GROUNDEDMASKVAL;
+	  FORT_SETONMASK(CHF_FRA1(thisPhi,0),
+			 CHF_CONST_FIA1(mask,0),
+			 CHF_CONST_INT(b),CHF_CONST_REAL(a),
+			 CHF_BOX(levelGrids[dit]));
+			 
+	}
     }
 
-
-  VCAMRPoissonOp2Factory* poissonOpFactory = new VCAMRPoissonOp2Factory;
-  poissonOpFactory->define(domains[0], grids , m_refinement_ratios,
- 			   m_amrDx[0], bc, 1.0, C,  1.0 , D);
-  RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > > 
-    opFactoryPtr(poissonOpFactory);
-
-  MultilevelLinearOp<FArrayBox> poissonOp;
-  poissonOp.define(grids, m_refinement_ratios, domains, dx, opFactoryPtr, 0);
+  //
+  {
+    int maxIter = 10; // \todo make this a ParmParse option
+    int iter = 0; 
+    Real sumPhi = computeSum(phi, m_refinement_ratios,m_amrDx[0], Interval(0,0), 0);
+    Real oldSumPhi = 0.0;
     
-  RelaxSolver<Vector<LevelData<FArrayBox>* > >* relaxSolver
-    = new RelaxSolver<Vector<LevelData<FArrayBox>* > >();
+    do {
+      oldSumPhi = sumPhi;
 
-  relaxSolver->define(&poissonOp,false);
-  relaxSolver->m_verbosity = s_verbosity;
-  relaxSolver->m_normType = 0;
-  relaxSolver->m_eps = 1.0e-10;
-  relaxSolver->m_imax = 4;
-  relaxSolver->m_hang = 0.05;
-  relaxSolver->solve(phi,rhs);
+      
+      for (int lev=0; lev <= m_finest_level ; ++lev)
+	{
+	  LevelData<FArrayBox>& levelPhi = *phi[lev];
+	  LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
+	  const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+
+	  if (lev > 0)
+	    {
+	      //fill ghost cells
+	      PiecewiseLinearFillPatch ghostFiller(levelGrids, 
+						   m_amrGrids[lev-1],
+						   1, 
+						   m_amrDomains[lev-1],
+						   m_refinement_ratios[lev-1],
+						   1);
+
+	  ghostFiller.fillInterp(levelPhi, *phi[lev-1],*phi[lev-1] , 0.0, 0, 0, 1);
+	      
+	    }
+	  
+	   for  (DataIterator dit(levelGrids); dit.ok(); ++dit)
+	     {
+	       //sweep in all four directions, copying phi = 1 into cells with thickness > tol 
+	       Real tol = 1.0;
+	       FORT_SWEEPCONNECTED2D(CHF_FRA1(levelPhi[dit],0),
+				     CHF_CONST_FRA1(levelCS.getH()[dit],0),
+				     CHF_CONST_REAL(tol), 
+				     CHF_BOX(levelGrids[dit]));
+	     }
 
 
-  for (int lev = m_finest_level; lev > 0 ; --lev)
-    {
-      CoarseAverage averager(grids[lev],1,m_refinement_ratios[lev-1]);
-      averager.averageToCoarse(*phi[lev-1],*phi[lev]);
-    }
+	   levelPhi.exchange();
+	}
+      
 
-
-
-  Real threshold = -0.99;
+      sumPhi = computeSum(phi, m_refinement_ratios,m_amrDx[0], Interval(0,0), 0);
+      pout() << "sumPhi = " << sumPhi << std::endl;
+      iter++;
+    } while ( iter < maxIter && sumPhi > oldSumPhi );
+  }
+  //now destroy the doomed regions, and reset m_vect_coordSys
 
   for (int lev=0; lev <= m_finest_level ; ++lev)
     {
@@ -5818,7 +5779,7 @@ void AmrIce::eliminateRemoteIce()
 	  for (BoxIterator bit(levelGrids[dit]); bit.ok(); ++bit)
 	    {
 	      const IntVect& iv = bit();
-	      if (mask(iv) == FLOATINGMASKVAL && thisPhi(iv) < threshold)
+	      if (mask(iv) == FLOATINGMASKVAL && thisPhi(iv) < 0.5)
 	      	{
 		  thisH(iv) = 0.0;
 	      	}
@@ -5833,22 +5794,16 @@ void AmrIce::eliminateRemoteIce()
 
 
 
-  delete(relaxSolver);
+ 
 
   for (int lev=0; lev <= m_finest_level ; ++lev)
     {
-      if (rhs[lev] != NULL)
- 	{
- 	  delete rhs[lev];
-	  rhs[lev] = NULL;
- 	}
       if (phi[lev] != NULL)
  	{
  	  delete phi[lev];
  	  phi[lev] = NULL;
  	}
     }
-
 
 }
 

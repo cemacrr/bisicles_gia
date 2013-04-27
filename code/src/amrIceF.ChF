@@ -71,6 +71,77 @@ c     sweep direction, if required.
       return
       end      
       
+c---------------------------------------------------
+c set fab = fabval where mask == maskval
+c---------------------------------------------------
+
+      subroutine SETONMASK(CHF_FRA1[fab],
+     &     CHF_CONST_FIA1[mask], 
+     &     CHF_CONST_INT[maskval],
+     &     CHF_CONST_REAL[fabval],
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+
+      CHF_AUTOMULTIDO[box; i]
+      if (mask(CHF_AUTOIX[i]).eq.maskval) then
+         fab(CHF_AUTOIX[i]) = fabval
+      end if
+      CHF_ENDDO
+      
+      return
+      end
+
+c----------------------------------------------------
+c sweep in all four directions dir \in {east,west,south,north)
+c settting fab(i) = max(fab(i),fab(i-e[dir])) wherever
+c conn(i) > tol and conn(i-e[dir]) > tol. fab and conn must
+c be at least one cell bigger than box
+c----------------------------------------------------
+
+      subroutine sweepconnected2d(CHF_FRA1[fab],
+     &     CHF_CONST_FRA1[conn], 
+     &     CHF_CONST_REAL[tol],
+     &     CHF_BOX[box])
+
+      integer i,j
+
+      !sweeps along 0 directions
+      do j = CHF_LBOUND[box;1],CHF_UBOUND[box;1]
+
+         do i = CHF_LBOUND[box;0],CHF_UBOUND[box;0],1
+            if ((conn(i,j).gt.tol).and.(conn(i-1,j).gt.tol)) then
+               fab(i,j) = max(fab(i,j),fab(i-1,j) ) 
+            end if
+         end do
+
+         do i = CHF_UBOUND[box;0],CHF_LBOUND[box;0],-1
+            if ((conn(i,j).gt.tol).and.(conn(i+1,j).gt.tol)) then
+               fab(i,j) = max(fab(i,j),fab(i+1,j) )
+            end if
+         end do
+
+      end do
+
+      !sweeps along 1 direction
+      do i = CHF_LBOUND[box;0],CHF_UBOUND[box;0]
+
+         do j = CHF_LBOUND[box;1],CHF_UBOUND[box;1],1
+            if ((conn(i,j).gt.tol).and.(conn(i,j-1).gt.tol)) then
+               fab(i,j) = max(fab(i,j),fab(i,j-1)  )
+            end if
+         end do
+
+         do j = CHF_UBOUND[box;1],CHF_LBOUND[box;1],-1
+            if ((conn(i,j).gt.tol).and.(conn(i,j+1).gt.tol)) then
+               fab(i,j) = max(fab(i,j),fab(i,j+1)  )
+            end if
+         end do
+
+      end do
+
+      return 
+      end
 
 
 c ----------------------------------------------------

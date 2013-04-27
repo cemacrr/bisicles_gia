@@ -632,12 +632,14 @@ protected:
   /// threshold Basal friction coefficient at the grounding line : tag if C < value
   Real m_groundingLineTaggingMaxBasalFrictionCoef;
 
-
   /// tag at the ice margin
   bool m_tagMargin;
 
   /// tag any cell with ice in it
   bool m_tagAllIce;
+
+  //attempt to eliminate floating ice that is unconnected to grounded ice 
+  bool m_eliminate_remote_ice;
   
 #ifdef HAVE_PYTHON
   /// tag cells according to a python function
