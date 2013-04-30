@@ -21,6 +21,7 @@
 #include "ParmParse.H"
 #include "AmrIce.H"
 #include "FortranInterfaceIBC.H"
+#include "FillFromReference.H"
 
 #include "NamespaceHeader.H"
 
@@ -145,6 +146,8 @@ fortranInterfaceFlux::new_surfaceFlux()
   
   newPtr->m_fluxGhost = m_fluxGhost;
   newPtr->m_inputFluxDx = m_inputFluxDx;
+  newPtr->m_grids = m_grids;
+  newPtr->m_gridsSet = m_gridsSet;
   
   newPtr->m_verbose = m_verbose;
 
@@ -169,6 +172,11 @@ fortranInterfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
   DisjointBoxLayout levelGrids = m_grids;
   RealVect dx = a_amrIce.dx(a_level);
 
+  FillFromReference(a_flux,
+                    *m_inputFluxLDF,
+                    dx, m_inputFluxDx,
+                    m_verbose);
+#if 0
   // refinement ratio for flux
   Real refRatio = m_inputFluxDx[0]/dx[0];
  
@@ -191,7 +199,7 @@ fortranInterfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
       m_inputFluxLDF->copyTo(a_flux);
     }
   
-
+#endif
 
 }
 
@@ -281,7 +289,7 @@ fortranInterfaceFlux::setFluxVal(Real* a_data_ptr,
       
     } // end DataIterator loop
 
-
+  m_isValSet = true;
 }
 
  /// constructor

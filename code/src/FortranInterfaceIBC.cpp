@@ -1697,10 +1697,11 @@ FortranInterfaceIBC::flattenVelocity(Real* a_uVelPtr, Real* a_vVelPtr,
 
   flattenCellData(ldf, dx, a_amrVel, realVectDx, m_verbose);
   
-  pout () << "before exchange" << endl;
+  if (m_verbose)  pout () << "before exchange" << endl;
   ldf.exchange();
 
-  pout() << "after exchange" << endl;
+  //  writeLevel(&ldf);
+  if (m_verbose) pout() << "after exchange" << endl;
 
 
 #if 0
@@ -1734,8 +1735,8 @@ FortranInterfaceIBC::flattenVelocity(Real* a_uVelPtr, Real* a_vVelPtr,
           // first do u...
           int xghost = a_nGhost[0];
           int xoffset = a_offset[0];
- 
-          pout () << "entering cell-to-node" << endl;
+          
+          if (m_verbose) pout () << "entering cell-to-node" << endl;
           
           IntVect boxloVect(D_DECL(a_boxlo[0], a_boxlo[1], a_boxlo[2]));
 
@@ -1830,8 +1831,11 @@ FortranInterfaceIBC::setupBCs()
       
 void FortranInterfaceIBC::checkOK() const
 {
-  pout() << "FortranInterfaceIBC::checkOK() &m_inputTopography = " 
-	 << &m_inputTopography << std::endl;
+  if (m_verbose)
+    {
+      pout() << "FortranInterfaceIBC::checkOK() &m_inputTopography = " 
+             << &m_inputTopography << std::endl;
+    }
   CH_assert(m_inputTopography.norm(0) < 1.0e+5);
 }
 #include "NamespaceFooter.H"
