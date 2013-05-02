@@ -88,7 +88,8 @@ int main(int argc, char* argv[]) {
 	bool found = false;
 	for (int j =0; j < names.size(); j++)
 	  {
-	    if (found = (names[j] == var[i]))
+            found = (names[j] == var[i]);
+	    if (found)
 	      {
 		outToIn[i] = j;
 		break;
