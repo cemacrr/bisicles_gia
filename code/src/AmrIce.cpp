@@ -2980,15 +2980,6 @@ AmrIce::regrid()
 						       m_refinement_ratios[lev-1],
 						       m_interpolate_zb , true);
 
-		//Defer to m_thicknessIBCPtr for boundary values - 
-                //interpolation won't cut the mustard because it only fills
-                //ghost cells overlying the valid regions.
-		RealVect levelDx = m_amrDx[lev]*RealVect::Unit;
-		m_thicknessIBCPtr->setGeometryBCs(*m_vect_coordSys[lev],
-						    m_amrDomains[lev],levelDx, m_time, m_dt);
-						    
-						    	 
-		
 	
 		LevelData<FArrayBox>& thisLevelH = m_vect_coordSys[lev]->getH();
 		LevelData<FArrayBox>& thisLevelB = m_vect_coordSys[lev]->getTopography();
@@ -3000,6 +2991,13 @@ AmrIce::regrid()
 		  const LevelData<FArrayBox>& oldLevelB = oldCoordSys->getTopography();
                   oldLevelB.copyTo(thisLevelB);
                 }
+
+		//Defer to m_thicknessIBCPtr for boundary values - 
+                //interpolation won't cut the mustard because it only fills
+                //ghost cells overlying the valid regions.
+		RealVect levelDx = m_amrDx[lev]*RealVect::Unit;
+		m_thicknessIBCPtr->setGeometryBCs(*m_vect_coordSys[lev],
+						    m_amrDomains[lev],levelDx, m_time, m_dt);
 
 		// exchange is necessary to fill periodic ghost cells
                 // which aren't filled by the copyTo from oldLevelH
