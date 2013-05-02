@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
     Vector<Box> boxes(1,flatBox);
     Vector<int> procAssign(1,uniqueProc(SerialTask::compute));
     DisjointBoxLayout flatDBL(boxes, procAssign, pd);
-    LevelData<FArrayBox> flatLevelData(flatDBL,names.size(),IntVect::Zero);
+    LevelData<FArrayBox> flatLevelData(flatDBL,names.size(),IntVect::Unit);
     LevelData<FArrayBox> fiData;
     int nRef;
     int nComp = names.size();
@@ -140,7 +140,7 @@ int main(int argc, char* argv[]) {
 	refine(dbl,grids[lev],nRef);
 	FineInterp fi(dbl,nComp,nRef,dbl.physDomain());
 
-	fiData.define(dbl,names.size(),IntVect::Zero);
+	fiData.define(dbl,names.size(),IntVect::Unit);
 	fi.interpToFine(fiData,*data[lev]);
 	fiData.copyTo(ivl,flatLevelData,ivl);
       }
