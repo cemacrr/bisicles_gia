@@ -24,6 +24,12 @@
 #include "AMRIO.H"
 #include "LoadBalance.H"
 
+// if FINITE_VOLUME is defined, then plot finite-volume view of data
+// (constant over cells)
+// otherwise, only plot cell-center values
+//#define FINITE_VOLUME
+
+
 int main(int argc, char* argv[]) {
 
 #ifdef CH_MPI
@@ -139,15 +145,27 @@ int main(int argc, char* argv[]) {
                       {
                         const IntVect& iv = bit();
                         if ( (*mask[lev])[dit](iv) != 0)
-                          {                            
+                          {   
+#ifdef FINITE_VOLUME                            
+                            // low corner
+                            for (int dir = 0; dir < SpaceDim; dir++)
+                              os << (Real(iv[dir]))*dx[lev] << " ";
+                            os << fab(iv,var) << std::endl;
+#endif
+
+                            // cell center
                             for (int dir = 0; dir < SpaceDim; dir++)
                               os << (Real(iv[dir]) + 0.5)*dx[lev] << " ";
-                            os << fab(iv,var) << " ";
+                            os << fab(iv,var) << std::endl;
+
+#ifdef FINITE_VOLUME                            
+                            // high corner
+                            for (int dir = 0; dir < SpaceDim; dir++)
+                              os << (Real(iv[dir]) + 1.0)*dx[lev] << " ";
+                            os << fab(iv,var) << std::endl;
+#endif
 			  }
-                        
-                        
-			os << std::endl;
-		      }
+                      }
                     os << std::endl;
 		  }
                 os.close();

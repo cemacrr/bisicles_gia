@@ -14,6 +14,7 @@
 // as either a Chombo hdf5 file or a netcdf file
 //===========================================================================
 
+#include "CHOMBO_VERSION.H"
 #include <iostream>
 #include "AMRIO.H"
 #include "FineInterp.H"
@@ -136,13 +137,20 @@ int main(int argc, char* argv[]) {
 	  {
 	    nRef *= ratio[l];
 	  }
+
+#ifdef CHOMBO_TRUNK
+        const DisjointBoxLayout& fineGrids = flatLevelData.getBoxes();
+        FineInterp fi(fineGrids,nComp,nRef,fineGrids.physDomain());
+        fi.interpToFine(flatLevelData,*data[lev], true);
+#else        
 	DisjointBoxLayout dbl;
 	refine(dbl,grids[lev],nRef);
 	FineInterp fi(dbl,nComp,nRef,dbl.physDomain());
 
 	fiData.define(dbl,names.size(),IntVect::Unit);
-	fi.interpToFine(fiData,*data[lev]);
+        fi.interpToFine(fiData,*data[lev]);
 	fiData.copyTo(ivl,flatLevelData,ivl);
+#endif
       }
 
     //direct copy on same level
