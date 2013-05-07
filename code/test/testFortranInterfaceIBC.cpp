@@ -247,6 +247,7 @@ testFortranInterfaceIBC()
   DisjointBoxLayout sourceGrids(gridBoxes, procAssign, entireDomain);
   LevelData<FArrayBox> baseThickness(sourceGrids, 1, baseGhostVect );
   LevelData<FArrayBox> baseZb(sourceGrids, 1, baseGhostVect);
+  LevelData<FArrayBox> baseZsurf(sourceGrids, 1, baseGhostVect);
 
   initData(baseThickness, baseZb,
            dx, domainSize);
@@ -303,10 +304,12 @@ testFortranInterfaceIBC()
   
   Real* thickness_data_ptr = NULL;
   Real* topo_data_ptr = NULL;
+  Real* surf_data_ptr = NULL;
   if (dit.ok() )
     {
       thickness_data_ptr = baseThickness[dit].dataPtr();
       topo_data_ptr = baseZb[dit].dataPtr();
+      surf_data_ptr = baseZsurf[dit].dataPtr();
     }
 
   if (verbose) 
@@ -335,7 +338,18 @@ testFortranInterfaceIBC()
                         lb, ub,
                         &dew, &dns,
                         offset);
-      
+
+  if (verbose) 
+    {
+      pout () << "... Done.  Setting z_surface..." << endl;
+    }
+  
+  baseIBC.setSurface(surf_data_ptr,
+                     diminfo,
+                     lb, ub,
+                     &dew, &dns,
+                     offset);
+
   if (verbose)
     {
       pout() << "... done!" << endl;
@@ -560,8 +574,8 @@ testFortranInterfaceIBC()
 
   if (verbose)
     {
-      pout() << "L" << normType << "Err(thickness) = " << thickErrNorm << endl;
-      pout() << "L" << normType << "Err(topography) = " << topoErrNorm << endl;
+      pout() << "L" << normType << " Err(thickness) = " << thickErrNorm << endl;
+      pout() << "L" << normType << " Err(topography) = " << topoErrNorm << endl;
     }
 
   Real flattenTol = 0.03;
@@ -595,11 +609,12 @@ testFortranInterfaceIBC()
                                                 ncomp, ghostVect);
 
         initAMRLevelData(*amrData[lev],dxLevel,domainSize);
-        
       }
     
     // define node-centered storage
     FArrayBox nodeFAB;
+    Real* node_data_ptr = NULL;
+
     DataIterator sourceDit = sourceGrids.dataIterator();
     for (sourceDit.begin(); sourceDit.ok(); ++sourceDit)
       {
@@ -607,9 +622,14 @@ testFortranInterfaceIBC()
         nodeBox.grow(baseGhostVect);
         nodeBox.surroundingNodes();
         nodeFAB.define(nodeBox,ncomp);
+        node_data_ptr = nodeFAB.dataPtr();
       }
     
-    baseIBC.flattenData(nodeFAB.dataPtr(),
+    if (verbose)
+      {
+        pout() << "flattening node-centered data" << endl;
+      }
+    baseIBC.flattenData(node_data_ptr,
                         diminfoNode,
                         lb, ub,
                         &dew, &dns,
@@ -619,7 +639,10 @@ testFortranInterfaceIBC()
                         amrDx,
                         0,0,ncomp,
                         baseGhostVect,nodal);
-    
+    if (verbose)
+      {
+        pout() << "done flattening" << endl;
+      }
     
     // clean up memory
     for (int lev=0; lev<amrData.size(); lev++)
