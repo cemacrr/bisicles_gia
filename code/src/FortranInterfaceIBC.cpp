@@ -8,6 +8,8 @@
 */
 #endif
 
+#include "CHOMBO_VERSION.H"
+#include "LoadBalance.H"
 #include "FortranInterfaceIBC.H"
 #include "ParmParse.H"
 #include "FillFromReference.H"
@@ -311,26 +313,27 @@ void FortranInterfaceIBC::setFAB(Real* a_data_ptr,
         {
           pout() << "... done! " << endl;
         }
-    }
-
-  if (a_nodal)
-    {
-
-      a_ccFab.define(fabBox, 1);
-      Box nodeBox(fabBox);
-      nodeBox.surroundingNodes();
-      //nodeBox.shift(-a_nGhost);
-      FArrayBox nodeFAB;
-      a_fab.define(nodeBox,1,a_data_ptr);
-      FORT_NODETOCELL(CHF_CONST_FRA1(a_fab,0),
-		      CHF_FRA1(a_ccFab,0),
-		      CHF_BOX(fabBox));
-    }
-  else 
-    {
-      // both of these are aliased to point to the input data
-      a_fab.define(fabBox, 1, a_data_ptr);
-      a_ccFab.define(fabBox, 1, a_data_ptr);
+      //    }
+      
+      if (a_nodal)
+        {
+          
+          a_ccFab.define(fabBox, 1);
+          Box nodeBox(fabBox);
+          nodeBox.surroundingNodes();
+          //nodeBox.shift(-a_nGhost);
+          FArrayBox nodeFAB;
+          a_fab.define(nodeBox,1,a_data_ptr);
+          FORT_NODETOCELL(CHF_CONST_FRA1(a_fab,0),
+                          CHF_FRA1(a_ccFab,0),
+                          CHF_BOX(fabBox));
+        }
+      else 
+        {
+          // both of these are aliased to point to the input data
+          a_fab.define(fabBox, 1, a_data_ptr);
+          a_ccFab.define(fabBox, 1, a_data_ptr);
+        }
     }
 }
 
@@ -352,7 +355,7 @@ void FortranInterfaceIBC::setVelFAB(Real* a_uVelPtr,
 {
   if (m_verbose)
     {
-      pout() << "in FortranInterfaceIBC::setVelFAB" << endl;
+      pout() << "in FortranInterfaceIB:setVelFAB" << endl;
       pout() << " -- doing box calculus" << endl;
     }
 
@@ -943,8 +946,20 @@ FortranInterfaceIBC::setGrids(DisjointBoxLayout& a_grids,
       pout() << "in setGrids, box = " << a_gridBox << endl;
     }
 
+  int status;
+  Vector<Box> filteredBoxes;
+  Vector<int> filteredProcAssign;
+
+#ifdef CHOMBO_TRUNK
+  status = LoadBalance(filteredProcAssign,
+                       filteredBoxes,
+                       a_gridBox,
+                       numProc());
+#else
   const int numBox = numProc();
   Vector<Box> boxes(numBox);
+  Vector<int> procAssign(boxes.size());
+
 
   if (numBox == 1) boxes[0] = a_gridBox;
 
@@ -977,7 +992,6 @@ FortranInterfaceIBC::setGrids(DisjointBoxLayout& a_grids,
         }
     }
 
-  Vector<int> procAssign(boxes.size());
   for (int i=0; i< boxes.size(); i++)
     {
       procAssign[i] = i;
@@ -1000,8 +1014,6 @@ FortranInterfaceIBC::setGrids(DisjointBoxLayout& a_grids,
     // this isn't the most efficient way to do this -- assumption
     // is that we're not dealing with all that many boxes, and that 
     // this is only done once anyway...
-    Vector<Box> filteredBoxes;
-    Vector<int> filteredProcAssign;
     for (int i=0; i<boxes.size(); i++)
       {
         if (!boxes[i].isEmpty() )
@@ -1023,12 +1035,12 @@ FortranInterfaceIBC::setGrids(DisjointBoxLayout& a_grids,
           {
             pout () << " before DBL define" << endl;
           }
-        
-      }
+      }  
+#endif // end part where we try to create disj
 
   // define DisjointBoxLayout
   a_grids.define(filteredBoxes, filteredProcAssign, a_domain);
-
+  
   if (a_verbose)
     {
       pout () << "after DBL define" << endl;
@@ -1392,152 +1404,170 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
         }
 
     } // end loop over levels
+
+  if (!m_inputThicknessLDF.isNull())
+    {
+      flattenCellData(*m_inputThicknessLDF, m_inputThicknessDx,
+                      vectH, vectDx, m_verbose);
+      m_inputThicknessLDF->exchange();
+    }
+
+
+  if (!m_inputTopographyLDF.isNull())
+    {
+      flattenCellData(*m_inputTopographyLDF, m_inputTopographyDx,
+                      vectTopo, vectDx, m_verbose);
+      m_inputTopographyLDF->exchange();
+    }
   
-  flattenCellData(*m_inputThicknessLDF, m_inputThicknessDx,
-                  vectH, vectDx, m_verbose);
-
-  flattenCellData(*m_inputTopographyLDF, m_inputTopographyDx,
-                  vectTopo, vectDx, m_verbose);
-
-  flattenCellData(*m_inputSurfaceLDF, m_inputSurfaceDx,
-                  vectSurface, vectDx, m_verbose);
-
+  if (!m_inputSurfaceLDF.isNull())
+    {
+      flattenCellData(*m_inputSurfaceLDF, m_inputSurfaceDx,
+                      vectSurface, vectDx, m_verbose);
+      m_inputSurfaceLDF->exchange();
+    }
 
   
-  m_inputThicknessLDF->exchange();
-  m_inputTopographyLDF->exchange();
-  m_inputSurfaceLDF->exchange();
+  if (!m_inputThicknessLDF.isNull())
+    {
+      // now copy back to original storage
+      if (m_nodalThickness)
+        {
+          // have to average back to nodes
+          DataIterator dit= m_inputTopographyLDF->dataIterator();
+          const DisjointBoxLayout& grids = m_inputTopographyLDF->getBoxes();
+          for (dit.begin(); dit.ok(); ++dit)
+            {
+              
+              const Box nodeBox = m_inputThickness.box();
+              Box grownCCBox = nodeBox;
+              grownCCBox.enclosedCells();
+              grownCCBox.grow(1);
+              
+              FArrayBox ccGrownFAB(grownCCBox,1);
+              ccGrownFAB.copy((*m_inputTopographyLDF)[dit]);
+              
+              // Cell->Node looks a lot like Node->Cell...
+              FORT_NODETOCELL(CHF_CONST_FRA1(ccGrownFAB,0),
+                              CHF_FRA1(m_inputThickness,0),
+                              CHF_BOX(nodeBox));
+              
+              // don't think I really need to do anything with 
+              // m_ccInputThickness 
+              
+            } // end dataIterator "loop"
+          
+        } // end if nodal thickness    
+      else
+        {
+          // simple copy will do
+          DataIterator dit= m_inputThicknessLDF->dataIterator();
+          const DisjointBoxLayout& grids = m_inputThicknessLDF->getBoxes();
+          for (dit.begin(); dit.ok(); ++dit)
+            {
+              
+              Box intersectBox(grids[dit]);
+              intersectBox &= m_ccInputThickness.box();
+              
+              m_ccInputThickness.copy((*m_inputThicknessLDF)[dit], intersectBox);
+              
+            } // end dataIterator "loop"
+        }
+    } // end if thickness was defined 
+  
 
   // now copy back to original storage
-  if (m_nodalThickness)
+  if (!m_inputTopographyLDF.isNull())
     {
-      // have to average back to nodes
-      DataIterator dit= m_inputTopographyLDF->dataIterator();
-      const DisjointBoxLayout& grids = m_inputTopographyLDF->getBoxes();
-      for (dit.begin(); dit.ok(); ++dit)
+      if (m_nodalTopography)
         {
+          // have to average back to nodes
+          DataIterator dit= m_inputTopographyLDF->dataIterator();
+          //const DisjointBoxLayout& grids = m_inputTopographyLDF->getBoxes();
+          for (dit.begin(); dit.ok(); ++dit)
+            {
+              const Box nodeBox = m_inputTopography.box();
+              Box grownCCBox = nodeBox;
+              grownCCBox.enclosedCells();
+              grownCCBox.grow(1);
+              
+              FArrayBox ccGrownFAB(grownCCBox,1);
+              ccGrownFAB.copy((*m_inputTopographyLDF)[dit]);
+              
+              // Cell->Node looks a lot like Node->Cell...
+              FORT_NODETOCELL(CHF_CONST_FRA1(ccGrownFAB,0),
+                              CHF_FRA1(m_inputTopography,0),
+                              CHF_BOX(nodeBox));
+              
+              // don't think I really need to do anything with 
+              // m_ccInputTopography 
+              
+            } // end dataIterator "loop"
           
-          const Box nodeBox = m_inputThickness.box();
-          Box grownCCBox = nodeBox;
-          grownCCBox.enclosedCells();
-          grownCCBox.grow(1);
-          
-          FArrayBox ccGrownFAB(grownCCBox,1);
-          ccGrownFAB.copy((*m_inputTopographyLDF)[dit]);
-
-          // Cell->Node looks a lot like Node->Cell...
-          FORT_NODETOCELL(CHF_CONST_FRA1(ccGrownFAB,0),
-                          CHF_FRA1(m_inputThickness,0),
-                          CHF_BOX(nodeBox));
-          
-          // don't think I really need to do anything with 
-          // m_ccInputThickness 
-
-        } // end dataIterator "loop"
-      
-    } // end if nodal thickness    
-  else
-    {
-      // simple copy will do
-      DataIterator dit= m_inputThicknessLDF->dataIterator();
-      const DisjointBoxLayout& grids = m_inputThicknessLDF->getBoxes();
-      for (dit.begin(); dit.ok(); ++dit)
+        } // end if nodal thickness    
+      else
         {
-          
-          Box intersectBox(grids[dit]);
-          intersectBox &= m_ccInputThickness.box();
-                           
-          m_ccInputThickness.copy((*m_inputThicknessLDF)[dit], intersectBox);
-                                  
-        } // end dataIterator "loop"
-    }
-
+          // simple copy will do
+          DataIterator dit= m_inputTopographyLDF->dataIterator();
+          const DisjointBoxLayout& grids = m_inputTopographyLDF->getBoxes();
+          for (dit.begin(); dit.ok(); ++dit)
+            {
+              
+              Box intersectBox(grids[dit]);
+              intersectBox &= m_ccInputTopography.box();
+              
+              m_ccInputTopography.copy((*m_inputTopographyLDF)[dit], intersectBox);
+              
+            } // end dataIterator "loop"
+        }      
+    } // end if input topography is defined
+  
   // now copy back to original storage
-  if (m_nodalTopography)
+
+  if (!m_inputSurfaceLDF.isNull())
     {
-      // have to average back to nodes
-      DataIterator dit= m_inputTopographyLDF->dataIterator();
-      //const DisjointBoxLayout& grids = m_inputTopographyLDF->getBoxes();
-      for (dit.begin(); dit.ok(); ++dit)
+      if (m_nodalSurface)
         {
-          const Box nodeBox = m_inputTopography.box();
-          Box grownCCBox = nodeBox;
-          grownCCBox.enclosedCells();
-          grownCCBox.grow(1);
+          // have to average back to nodes
+          DataIterator dit= m_inputSurfaceLDF->dataIterator();
+          //const DisjointBoxLayout& grids = m_inputTopographyLDF->getBoxes();
+          for (dit.begin(); dit.ok(); ++dit)
+            {
+              const Box nodeBox = m_inputSurface.box();
+              Box grownCCBox = nodeBox;
+              grownCCBox.enclosedCells();
+              grownCCBox.grow(1);
+              
+              FArrayBox ccGrownFAB(grownCCBox,1);
+              ccGrownFAB.copy((*m_inputSurfaceLDF)[dit]);
+              
+              // Cell->Node looks a lot like Node->Cell...
+              FORT_NODETOCELL(CHF_CONST_FRA1(ccGrownFAB,0),
+                              CHF_FRA1(m_inputSurface,0),
+                              CHF_BOX(nodeBox));
+              
+              // don't think I really need to do anything with 
+              // m_ccInputTopography 
+              
+            } // end dataIterator "loop"
           
-          FArrayBox ccGrownFAB(grownCCBox,1);
-          ccGrownFAB.copy((*m_inputTopographyLDF)[dit]);
-
-          // Cell->Node looks a lot like Node->Cell...
-          FORT_NODETOCELL(CHF_CONST_FRA1(ccGrownFAB,0),
-                          CHF_FRA1(m_inputTopography,0),
-                          CHF_BOX(nodeBox));
-          
-          // don't think I really need to do anything with 
-          // m_ccInputTopography 
-
-        } // end dataIterator "loop"
-      
-    } // end if nodal thickness    
-  else
-    {
-      // simple copy will do
-      DataIterator dit= m_inputTopographyLDF->dataIterator();
-      const DisjointBoxLayout& grids = m_inputTopographyLDF->getBoxes();
-      for (dit.begin(); dit.ok(); ++dit)
+        } // end if nodal surface
+      else
         {
-          
-          Box intersectBox(grids[dit]);
-          intersectBox &= m_ccInputTopography.box();
-                           
-          m_ccInputTopography.copy((*m_inputTopographyLDF)[dit], intersectBox);
-                                  
-        } // end dataIterator "loop"
-    }
-
-
-  // now copy back to original storage
-  if (m_nodalSurface)
-    {
-      // have to average back to nodes
-      DataIterator dit= m_inputSurfaceLDF->dataIterator();
-      //const DisjointBoxLayout& grids = m_inputTopographyLDF->getBoxes();
-      for (dit.begin(); dit.ok(); ++dit)
-        {
-          const Box nodeBox = m_inputSurface.box();
-          Box grownCCBox = nodeBox;
-          grownCCBox.enclosedCells();
-          grownCCBox.grow(1);
-          
-          FArrayBox ccGrownFAB(grownCCBox,1);
-          ccGrownFAB.copy((*m_inputSurfaceLDF)[dit]);
-
-          // Cell->Node looks a lot like Node->Cell...
-          FORT_NODETOCELL(CHF_CONST_FRA1(ccGrownFAB,0),
-                          CHF_FRA1(m_inputSurface,0),
-                          CHF_BOX(nodeBox));
-          
-          // don't think I really need to do anything with 
-          // m_ccInputTopography 
-
-        } // end dataIterator "loop"
-      
-    } // end if nodal surface
-  else
-    {
-      // simple copy will do
-      DataIterator dit= m_inputSurfaceLDF->dataIterator();
-      const DisjointBoxLayout& grids = m_inputSurfaceLDF->getBoxes();
-      for (dit.begin(); dit.ok(); ++dit)
-        {
-          
-          Box intersectBox(grids[dit]);
-          intersectBox &= m_ccInputSurface.box();
-                           
-          m_ccInputSurface.copy((*m_inputSurfaceLDF)[dit], intersectBox);
-                                  
-        } // end dataIterator "loop"
-    }
+          // simple copy will do
+          DataIterator dit= m_inputSurfaceLDF->dataIterator();
+          const DisjointBoxLayout& grids = m_inputSurfaceLDF->getBoxes();
+          for (dit.begin(); dit.ok(); ++dit)
+            {
+              
+              Box intersectBox(grids[dit]);
+              intersectBox &= m_ccInputSurface.box();
+              
+              m_ccInputSurface.copy((*m_inputSurfaceLDF)[dit], intersectBox);
+              
+            } // end dataIterator "loop"
+        }
+    } // end if surface has been defined
 
 }
 
