@@ -510,8 +510,10 @@ void BoxBoundedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 }
 
 PiecewiseLinearFlux::PiecewiseLinearFlux(const Vector<Real>& a_abscissae, 
-					 const Vector<Real>& a_ordinates)
-  :m_abscissae(a_abscissae),m_ordinates(a_ordinates)
+					 const Vector<Real>& a_ordinates, 
+					 Real a_minWaterDepth)
+  :m_abscissae(a_abscissae),m_ordinates(a_ordinates),
+   m_minWaterDepth(a_minWaterDepth)
 {
   CH_assert(m_abscissae.size() == m_ordinates.size());
 }
@@ -519,7 +521,7 @@ PiecewiseLinearFlux::PiecewiseLinearFlux(const Vector<Real>& a_abscissae,
 
 SurfaceFlux* PiecewiseLinearFlux::new_surfaceFlux()
 {
-  return static_cast<SurfaceFlux*>(new PiecewiseLinearFlux(m_abscissae,m_ordinates));
+  return static_cast<SurfaceFlux*>(new PiecewiseLinearFlux(m_abscissae,m_ordinates,m_minWaterDepth));
 }
 
 void PiecewiseLinearFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
@@ -530,17 +532,37 @@ void PiecewiseLinearFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
   Vector<Real> db(m_abscissae.size());
 
   const LevelData<FArrayBox>& levelH = a_amrIce.geometry(a_level)->getH();
-
+  const LevelData<FArrayBox>& levelS = a_amrIce.geometry(a_level)->getSurfaceHeight();
+  const LevelData<FArrayBox>& levelR = a_amrIce.geometry(a_level)->getTopography();
   for (DataIterator dit(a_flux.dataIterator()); dit.ok(); ++dit)
     {
+
       FORT_PWLFILL(CHF_FRA1(a_flux[dit],0),
 		   CHF_CONST_FRA1(levelH[dit],0),
 		   CHF_CONST_VR(m_abscissae),
 		   CHF_CONST_VR(m_ordinates),
 		   CHF_VR(dx),CHF_VR(db),
 		   CHF_BOX(a_flux[dit].box()));
-    }
+       
+      if (m_minWaterDepth > 0.0)
+	{
+	  
+	  FArrayBox D(a_flux[dit].box(),1);
+	  FORT_WATERDEPTH(CHF_FRA1(D,0),
+			  CHF_CONST_FRA1(levelH[dit],0),
+			  CHF_CONST_FRA1(levelS[dit],0),
+			  CHF_CONST_FRA1(levelR[dit],0),
+			  CHF_BOX(a_flux[dit].box()));
+  
+	  
+	  FORT_ZEROIFLESS(CHF_FRA1(a_flux[dit],0),
+			  CHF_CONST_FRA1(D,0),
+			  CHF_CONST_REAL(m_minWaterDepth),
+			  CHF_BOX(a_flux[dit].box()));
 
+	}
+
+    }
 }
 
 
@@ -609,7 +631,11 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       Vector<Real> vord(n,0.0);
       pp.getarr("abscissae",vabs,0,n);
       pp.getarr("ordinates",vord,0,n);
-      PiecewiseLinearFlux* pptr = new PiecewiseLinearFlux(vabs,vord);
+      
+      Real dmin = -1.0;
+      pp.query("minWaterDepth",dmin);
+      
+      PiecewiseLinearFlux* pptr = new PiecewiseLinearFlux(vabs,vord,dmin);
       ptr = static_cast<SurfaceFlux*>(pptr);
     }
   else if (type == "maskedFlux")

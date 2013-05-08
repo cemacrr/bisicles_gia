@@ -454,13 +454,14 @@ private:
 };
 
 /// surface flux which has a piecwise linear dependence
-/// on thickness H. 
+/// on thk^a * usrf^b * max(0,(usrf-thk-topg))^c 
 class PiecewiseLinearFlux : public SurfaceFlux
 {
 public:
   //constructor
   PiecewiseLinearFlux(const Vector<Real>& a_abscissae, 
-		      const Vector<Real>& a_ordinates);
+		      const Vector<Real>& a_ordinates,
+		      const Real a_minWaterDepth = -1.0);
 
   /// destructor
   ~PiecewiseLinearFlux(){};
@@ -484,6 +485,7 @@ public:
 protected:
   Vector<Real> m_abscissae;
   Vector<Real> m_ordinates;
+  Real m_minWaterDepth;
 
 private:
    // Disallowed for all the usual reasons

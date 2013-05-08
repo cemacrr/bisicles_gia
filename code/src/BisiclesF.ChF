@@ -83,6 +83,46 @@ c--------------------------------------------------
       end
 
 c--------------------------------------------------
+c     depth = max(0.0, ursf - thck - topg)
+c--------------------------------------------------
+      subroutine waterdepth(CHF_FRA1[depth],
+     &     CHF_CONST_FRA1[thk],
+     &     CHF_CONST_FRA1[usrf],
+     &     CHF_CONST_FRA1[topg],
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      CHF_AUTOMULTIDO[box; i]
+
+      depth(CHF_AUTOIX[i]) = (max(zero,
+     &     usrf(CHF_AUTOIX[i])
+     &     -thk(CHF_AUTOIX[i])
+     &     -topg(CHF_AUTOIX[i])))
+      
+      CHF_ENDDO
+      return
+      end
+      
+c--------------------------------------------------
+c     fab = 0.0 if infab < tol
+c--------------------------------------------------
+      subroutine zeroifless(CHF_FRA1[fab],
+     &     CHF_CONST_FRA1[infab],
+     &     CHF_CONST_REAL[tol],
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      CHF_AUTOMULTIDO[box; i]
+
+      if (infab(CHF_AUTOIX[i]).lt.tol) then
+         fab(CHF_AUTOIX[i]) = zero
+      end if
+
+      CHF_ENDDO
+      return
+      end
+
+c--------------------------------------------------
 c piecewise linear interpolation of a(x) with
 c abscissae xn and ordinates bn. dx and db are
 c workspaces 
