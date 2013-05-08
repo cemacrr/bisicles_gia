@@ -871,7 +871,7 @@ void AMRIceControl::computeObjectiveAndGradient
 
   IceVelocity::setFloatingC(m_C, m_coordSys, m_grids, 0.0);
 
-  writeState("last_parameters.2d.hdf5", m_innerCounter, a_x, a_g);
+  
 
   if (!m_velocityInitialised)
     {
@@ -1079,13 +1079,19 @@ void AMRIceControl::computeObjectiveAndGradient
   //compute the objective function 
   Real vobj = computeSum(m_velocityMisfit, m_refRatio, m_dx[0][0]);
   Real mobj = computeSum(m_massBalanceMisfit, m_refRatio, m_dx[0][0]);
-  Real ctik = computeSum(m_gradCSq,m_refRatio, m_dx[0][0]);
-  Real mutik = computeSum(m_gradMuCoefSq,m_refRatio, m_dx[0][0]);
+  Real sumGradCSq = computeSum(m_gradCSq,m_refRatio, m_dx[0][0]);
+  Real sumGradMuSq = computeSum(m_gradMuCoefSq,m_refRatio, m_dx[0][0]);
+  Real normX0 = computeNorm(a_x,m_refRatio, m_dx[0][0], Interval(0,0));
+  Real normX1 = computeNorm(a_x,m_refRatio, m_dx[0][0], Interval(1,1));
+
   a_fm = vobj + mobj ;
-  a_fp =  m_gradCsqRegularization * ctik + m_gradMuCoefsqRegularization * mutik;
+  a_fp =  m_gradCsqRegularization * sumGradCSq
+    + m_gradMuCoefsqRegularization * sumGradMuSq
+    + m_X0Regularization * normX0*normX0
+    + m_X1Regularization * normX1*normX1;
 
   pout() << " ||velocity misfit||^2 = " << vobj
-	 << " ||mass balance misfit||^2 = " << mobj 
+	 << " ||mass balance misfit||^2 = " << mobj
 	 << std::endl;
   //solve the adjoint problem
   solveForwardProblem(m_adjVel,true,m_adjRhs,m_C,m_C0,m_A,m_faceMuCoef);
@@ -1226,6 +1232,7 @@ void AMRIceControl::computeObjectiveAndGradient
   //dump data
   if (a_inner)
     {
+      writeState("last_parameters.2d.hdf5", m_innerCounter, a_x, a_g);
       //writeState(innerStateFile(), m_innerCounter, a_x, a_g);
       m_innerCounter++;
     }
