@@ -117,8 +117,8 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 		    
 		}
 	    }
-	  const Real decay = 1.0e+3;
-	  source(iv) -= thck(iv)/a_dt * std::min(upwThck,1.0) * std::min(1.0, std::exp( - decay * upwRemnant/(upwThck)));
+	  const Real decay = 3.0e+2;
+	  source(iv) -= 10.0 * thck(iv)/a_dt * std::min(upwThck,1.0) * std::min(1.0, std::exp( - decay * upwRemnant/(upwThck)));
 
 	}
    }
