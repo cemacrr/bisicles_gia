@@ -8,7 +8,6 @@
 */
 #endif
 
-#include "CHOMBO_VERSION.H"
 #include "LoadBalance.H"
 #include "FortranInterfaceIBC.H"
 #include "ParmParse.H"
@@ -950,93 +949,10 @@ FortranInterfaceIBC::setGrids(DisjointBoxLayout& a_grids,
   Vector<Box> filteredBoxes;
   Vector<int> filteredProcAssign;
 
-#ifdef CHOMBO_TRUNK
   status = LoadBalance(filteredProcAssign,
                        filteredBoxes,
                        a_gridBox,
                        numProc());
-#else
-  const int numBox = numProc();
-  Vector<Box> boxes(numBox);
-  Vector<int> procAssign(boxes.size());
-
-
-  if (numBox == 1) boxes[0] = a_gridBox;
-
-  Box* nonConstBox = const_cast<Box*>(&a_gridBox);
-#ifdef CH_MPI
-  int boxSize = sizeof(Box);
-
-  if (a_verbose)
-    {
-      pout() << "entering allGather -- sending " << *nonConstBox << endl;
-      pout () << "numBox = " << numBox << ", boxSize = " << boxSize << endl;
-    }
-  MPI_Allgather(nonConstBox,  boxSize,  MPI_BYTE, &(boxes[0]), 
-                boxSize , MPI_BYTE , Chombo_MPI::comm);
-  
-  if (a_verbose)
-    {
-      pout () << "after allGather" << endl;
-      pout () << "nonConstbox = " << *nonConstBox << endl;
-    }
-
-#endif
-
-  if (a_verbose) 
-    {
-      pout () << "numBoxes = " << boxes.size() << endl;
-      for (int i=0; i< boxes.size(); i++)
-        {
-          pout () << "box " << i << ": " << boxes[i] << endl;
-        }
-    }
-
-  for (int i=0; i< boxes.size(); i++)
-    {
-      procAssign[i] = i;
-    }
-  
-  if (a_verbose)
-    {
-      pout() << "processor " << procID() << ": grids: " << endl;
-      for (int i=0; i<boxes.size(); i++)
-        {
-          pout () << procAssign[i] << ": " << boxes[i] << endl;
-        }
-    }
-
-    
-    // filter out any empty boxes (it's OK if there are fewer 
-    // boxes than processors, but DisjointBoxLayout will 
-    // choke if given an empty box, so remove them now...
-
-    // this isn't the most efficient way to do this -- assumption
-    // is that we're not dealing with all that many boxes, and that 
-    // this is only done once anyway...
-    for (int i=0; i<boxes.size(); i++)
-      {
-        if (!boxes[i].isEmpty() )
-          {
-            filteredBoxes.push_back(boxes[i]);
-            filteredProcAssign.push_back(procAssign[i]);
-          }
-      }
-
-    if (a_verbose)
-      {
-        pout() << "filtered Boxes and processor assignments: numBoxes = " << filteredBoxes.size() << endl;
-        for (int i=0; i<filteredBoxes.size(); i++)
-          {
-            pout() << "box " << i << ": " << filteredBoxes[i] << "  on processor " << filteredProcAssign[i] << endl;
-          }
-
-        if (a_verbose)
-          {
-            pout () << " before DBL define" << endl;
-          }
-      }  
-#endif // end part where we try to create disj
 
   // define DisjointBoxLayout
   a_grids.define(filteredBoxes, filteredProcAssign, a_domain);

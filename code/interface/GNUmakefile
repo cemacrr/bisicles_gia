@@ -175,6 +175,6 @@ testGradientCall.o: testGradientCall.F90
 
 #	@echo "$(config)"
 
-#include $(CHOMBO_HOME)/mk/Make.example
+include $(CHOMBO_HOME)/mk/Make.example
 BISICLES_MK = ../mk/
-include $(BISICLES_MK)/Make.example
+#include $(BISICLES_MK)/Make.example

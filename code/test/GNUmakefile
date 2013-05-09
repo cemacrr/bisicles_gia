@@ -27,11 +27,11 @@ INPUT = inputs
 
 
 # shared code for building example programs
-#include $(CHOMBO_HOME)/mk/Make.example
+include $(CHOMBO_HOME)/mk/Make.example
 
 VERBOSE=-v
 BISICLES_MK = ../mk/
-include ../mk/Make.example
+#include ../mk/Make.example
 
 # application-specific variables
 

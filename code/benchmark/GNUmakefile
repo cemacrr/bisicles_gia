@@ -43,9 +43,9 @@ ifeq ($(MPI),TRUE)
 RUNCOMMAND += mpirun -np 2
 endif
 
-#include $(CHOMBO_HOME)/mk/Make.example
+include $(CHOMBO_HOME)/mk/Make.example
 BISICLES_MK = ../mk/
-include $(BISICLES_MK)/Make.example
+#include $(BISICLES_MK)/Make.example
 
 all: all-example 
 

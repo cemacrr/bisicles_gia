@@ -16,7 +16,6 @@
 /// (in a LevelData<FArrayBox>) from a reference FArrayBox
 //
 
-#include "CHOMBO_VERSION.H"
 #include "FillFromReference.H"
 #include "QuadCFInterp.H"
 #include "PiecewiseLinearFillPatch.H"
@@ -122,15 +121,12 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 	}
 
       FineInterp interpolator(destGrids, 1, nRef, destDomain);
-#ifdef CHOMBO_TRUNK
+
       // (dfm -- 4/16/13) need this version of the function for flattening
       // back to CISM, but it currently only exists in the Chombo trunk
       // Until I manage to push it out to the release, assume that 
       // we're building the CISM interface against t
       interpolator.interpToFine(a_destData, srcLD, true);
-#else 
-      interpolator.interpToFine(a_destData, srcLD);      
-#endif
 
       // now fill in ghost cells, using PiecewiseLinearFillPatch
       IntVect ghostVect = a_destData.ghostVect();
@@ -234,15 +230,11 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 	   
 	   const ProblemDomain& fineDomain = destGrids.physDomain();
 	   FineInterp interpolator(destGrids, a_destData.nComp(), nRef, fineDomain);
-#ifdef CHOMBO_TRUNK
            // (dfm -- 4/16/13) need this version of the function for flattening
            // back to CISM, but it currently only exists in the Chombo trunk
            // Until I manage to push it out to the release, assume that 
            // we're building the CISM interface against t           
 	   interpolator.interpToFine(a_destData, a_srcData, true);
-#else
-           interpolator.interpToFine(a_destData, a_srcData);
-#endif
 	   
 	   // now fill in ghost cells, using PiecewiseLinearFillPatch
 	   IntVect ghostVect = a_destData.ghostVect();

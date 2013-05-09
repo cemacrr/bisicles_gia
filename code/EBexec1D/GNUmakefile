@@ -32,10 +32,10 @@ UTIL_DIR = ../util
 src_dirs = $(SRC_DIR) $(UTIL_DIR)  
 #src_dirs += /home/ranken/util/pglimdev/parallel/src/external_dycore
 
-#include $(CHOMBO_HOME)/mk/Make.example
+include $(CHOMBO_HOME)/mk/Make.example
 VERBOSE=-v
 BISICLES_MK = ../mk/
-include ../mk/Make.example
+#include ../mk/Make.example
 
 XTRALDFLAGS  += -llapack
 XTRACPPFLAGS += -DCH_USE_ICE_MF
