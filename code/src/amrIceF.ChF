@@ -107,40 +107,42 @@ c----------------------------------------------------
       integer i,j
 
       !sweeps along 0 directions
+#if (CH_SPACEDIM > 1)
       do j = CHF_LBOUND[box;1],CHF_UBOUND[box;1]
-
+#endif
          do i = CHF_LBOUND[box;0],CHF_UBOUND[box;0],1
-            if ((conn(i,j).gt.tol).and.(conn(i-1,j).gt.tol)) then
-               fab(i,j) = max(fab(i,j),fab(i-1,j) ) 
+            if ((conn(CHF_IX[i;j;k]).gt.tol).and.(conn(CHF_IX[i-1;j;k]).gt.tol)) then
+               fab(CHF_IX[i;j;k]) = max(fab(CHF_IX[i;j;k]),fab(CHF_IX[i-1;j;k]) ) 
             end if
          end do
 
          do i = CHF_UBOUND[box;0],CHF_LBOUND[box;0],-1
-            if ((conn(i,j).gt.tol).and.(conn(i+1,j).gt.tol)) then
-               fab(i,j) = max(fab(i,j),fab(i+1,j) )
+            if ((conn(CHF_IX[i;j;k]).gt.tol).and.(conn(CHF_IX[i+1;j;k]).gt.tol)) then
+               fab(CHF_IX[i;j;k]) = max(fab(CHF_IX[i;j;k]),fab(CHF_IX[i+1;j;k]) )
             end if
          end do
-
+#if (CH_SPACEDIM > 1)
       end do
 
       !sweeps along 1 direction
       do i = CHF_LBOUND[box;0],CHF_UBOUND[box;0]
 
          do j = CHF_LBOUND[box;1],CHF_UBOUND[box;1],1
-            if ((conn(i,j).gt.tol).and.(conn(i,j-1).gt.tol)) then
-               fab(i,j) = max(fab(i,j),fab(i,j-1)  )
+            if ((conn(CHF_IX[i;j;k]).gt.tol).and.(conn(CHF_IX[i;j-1;k]).gt.tol)) then
+               fab(CHF_IX[i;j;k]) = max(fab(CHF_IX[i;j;k]),fab(CHF_IX[i;j-1;k])  )
             end if
          end do
 
          do j = CHF_UBOUND[box;1],CHF_LBOUND[box;1],-1
-            if ((conn(i,j).gt.tol).and.(conn(i,j+1).gt.tol)) then
-               fab(i,j) = max(fab(i,j),fab(i,j+1)  )
+            if ((conn(CHF_IX[i;j;k]).gt.tol).and.(conn(CHF_IX[i;j+1;k]).gt.tol)) then
+               fab(CHF_IX[i;j;k]) = max(fab(CHF_IX[i;j;k]),fab(CHF_IX[i;j+1;k])  )
             end if
          end do
 
       end do
-
+#endif
       return 
+
       end
 
 
