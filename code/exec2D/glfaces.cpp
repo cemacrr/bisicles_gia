@@ -31,7 +31,7 @@
 int main(int argc, char* argv[]) {
 
 #ifdef CH_MPI
-#warning "Parallel  nctoamr might well not work";
+#warning "Parallel glfaces might well not work";
   MPI_Init(&argc, &argv);
 #endif
 

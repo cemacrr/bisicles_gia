@@ -122,7 +122,7 @@ void writeFaces(const IntVect& a_iv, int a_lev, Real a_dx,
 int main(int argc, char* argv[]) {
 
 #ifdef CH_MPI
-#warning "Parallel  nctoamr might well not work";
+#warning "Parallel faces might well not work";
   MPI_Init(&argc, &argv);
 #endif
 
