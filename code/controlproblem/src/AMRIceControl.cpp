@@ -770,22 +770,6 @@ void AMRIceControl::computeObjectiveAndGradient
 	  		    CHF_CONST_REAL(m_boundArgX0),
 	  		    CHF_BOX(box));
 
-	  // add drag due to ice in contact with ice-free rocky walls
-	 
-	  ParmParse ppamr("amr");
-	  bool wallDrag = true; 
-	  ppamr.query("wallDrag", wallDrag);
-	  if (wallDrag)
-	    {
-	      Real wallDragExtra = 0.0;
-	      ppamr.query("wallDragExtra", wallDragExtra);
-	      FArrayBox wallC(box,1);wallC.setVal(0.0);
-	      IceVelocity::addWallDrag(wallC, 
-				       levelCS.getFloatingMask()[dit], levelCS.getSurfaceHeight()[dit],
-				       levelCS.getH()[dit], levelCS.getTopography()[dit], 
-				       thisC, wallDragExtra,m_dx[lev], box);
-	      thisC += wallC;
-	    }
 
 	  FArrayBox& thisCcopy = levelCcopy[dit];
 	  thisCcopy.copy(thisC);
@@ -896,6 +880,37 @@ void AMRIceControl::computeObjectiveAndGradient
 
 
   IceVelocity::setFloatingC(m_C, m_coordSys, m_grids, 0.0);
+
+  // add drag due to ice in contact with ice-free rocky walls
+	 
+  ParmParse ppamr("amr");
+  bool wallDrag = true; 
+  ppamr.query("wallDrag", wallDrag);
+  if (wallDrag)
+    {
+      Real wallDragExtra = 0.0;
+      ppamr.query("wallDragExtra", wallDragExtra);
+
+      for (int lev=0; lev <= m_finestLevel;lev++)
+	{
+	  const LevelSigmaCS& levelCS =  *m_coordSys[lev];
+	  LevelData<FArrayBox>& levelC =  *m_C[lev];
+	  const DisjointBoxLayout levelGrids =  m_grids[lev];
+	  for (DataIterator dit(levelGrids);dit.ok();++dit)
+	    {
+
+	      FArrayBox wallC(levelGrids[dit],1);
+	      wallC.setVal(0.0);
+	      IceVelocity::addWallDrag(wallC, 
+				       levelCS.getFloatingMask()[dit], levelCS.getSurfaceHeight()[dit],
+				       levelCS.getH()[dit], levelCS.getTopography()[dit], 
+				       levelC[dit], wallDragExtra,m_dx[lev],levelGrids[dit]);
+	      
+	      levelC[dit] += wallC;
+	    }
+	}
+    }
+
 
   
 
