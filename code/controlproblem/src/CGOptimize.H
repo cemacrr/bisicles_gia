@@ -30,11 +30,12 @@ inline Real sqr(const Real& a)
 
 template <class O, class X>
 void CGOptimize(O& a_F, X& a_x, 
-		const int  a_maxIter, 
-		const Real a_tol,
-		const Real a_secantParameter,
-		const int  a_maxSecantIter,
-		const Real a_secantTol)
+		int  a_maxIter, 
+		Real a_tol,
+		Real a_secantParameter,
+	        Real a_secantStepMaxGrow,
+	        int  a_maxSecantIter,
+		Real a_secantTol)
 {
 
   //Preconditioned Nonlinear Conjugate Gradients 
@@ -74,81 +75,68 @@ void CGOptimize(O& a_F, X& a_x,
       Real alpha = -a_secantParameter;
       a_F.assign(y,x);
       a_F.incr(y,d,a_secantParameter);
-      Real fs,fps;
-      a_F.computeObjectiveAndGradient(fs,fps,p,y,true);
+      Real fms,fps;
+      a_F.computeObjectiveAndGradient(fms,fps,p,y,true);
       Real etaPrev = a_F.dotProduct(p,d);
       pout() << " ... initial secant ||f'(x+sd).f'(x)||^2 = " 
-	     << -etaPrev << " s = " << a_secantParameter << " f(x+sd) = " << fs << std::endl;
+	     << -etaPrev << " s = " << a_secantParameter << " f(x+sd) = " << fms << std::endl;
+      
+
+      {
+	int n = 1;
+	while ( (fms + fps < fm + fp) && (-etaPrev > -eta))
+	  {
+	    //we have a problem, because although we have a descent direction in the  objective
+	    //function f , we have an ascent direction for f'(x+sd).f'(x). For now, just walk along d till
+	    // we do have descent in both, then start the secant method offset by alpha + a_secantParameter
+	    pout() << " d is a descent direction for f(x+sd) but not for f'(x+sd).f'(x)  " 
+		   << " so walking the line (remind SLC to look up a better method) " << std::endl;
+	    alpha -= a_secantParameter;
+	    a_F.incr(y,d,a_secantParameter);
+	    a_F.computeObjectiveAndGradient(fms,fps,p,y,false);
+	    eta = etaPrev;
+	    etaPrev = a_F.dotProduct(p,d);
+	    pout() << " ... initial secant f'(x+ sd).f'(x) = " 
+		   << -etaPrev << " s = " << alpha << " f(x+ sd) = " << fms + fps << std::endl;
+	  }
+      }
       
       int j = 0;
-      Real q = 0.0;
+      Real q = -(alpha + a_secantParameter); // normally alpha = - a_secantParameter, but sometimes we needed to walk the line
+      if (q > 0.0)
+	a_F.incr(x,d,q);
       
-      //lowest known positive value of f(x+qd).f(x)
-      bool lposKnown = false;
-      Real lposQ = 1e+100,lposEta = -1.0e+100;
-      //highest known negative value of f(x+qd).f(x)
-      bool unegKnown = false;
-      Real unegQ = 1e+100,unegEta = 1.0e+100;
-	
+      alpha = -a_secantParameter;
+       
       do {
+	
 	if (j > 0)
 	  {
 	    a_F.computeObjectiveAndGradient(fm,fp,r,x,true);
 	    eta = a_F.dotProduct(r,d);
 	  }
-	if (eta > 0)
-	  {
-	    if (!lposKnown || (lposKnown && eta < lposEta))
-	      {
-		lposEta = eta;
-		lposQ = q;
-		lposKnown = true;
-	      }
-	  }
-	if (eta < 0)
-	  {
-	    if (!unegKnown || (unegKnown && eta > unegEta))
-	      {
-		unegEta = eta;
-		unegQ = q;
-		unegKnown = true;
-	      }
-	  }
-
-
+	
 	pout() <<  " ... secant iteration j = " << j << " f'(x[0]+qd).f'(x[0]) = " << -eta
 	       << " a = " << alpha << " q =  " << q << std::endl;
+	
+	Real absAlphaPrev = std::abs(alpha);
 	alpha = alpha * eta / (etaPrev-eta);
+	
+	//limit the rate at which alpha grows
+	if ( (a_secantStepMaxGrow > 0.0) && (std::abs(alpha) > a_secantStepMaxGrow * absAlphaPrev) )
+	  {
+	    alpha = ((alpha > 0.0)?(1.0):(-1.0)) * a_secantStepMaxGrow * absAlphaPrev;
+	  }
+	
 	q += alpha;
 	pout() << " ... testing a = " << alpha << "  q = " << q  << std::endl;
 	
-	if (lposKnown && unegKnown)
-	  {
-	    if (q > lposQ && q > unegQ)
-	      {
-		
-		Real newq = std::max(lposQ,unegQ);
-		alpha -= (q - newq);
-		q = newq;
-		pout() << " (q > lposQ = " << lposQ << " &&  q  >  unegQ = " << unegQ 
-		       << " ) so setting q = " << q << std::endl;
-	      }
-	    else if (q < lposQ && q < unegQ)
-	      {
-		Real newq = std::min(lposQ,unegQ);
-		alpha += (newq - q);
-		q = newq;
-		pout() << " (q < lposQ = " << lposQ << " &&  q  <  unegQ = " << unegQ 
-		       << " ) so setting q = " << q << std::endl;
-	      }
-	  }
-
 	a_F.incr(x,d,alpha);
 	etaPrev = eta;
 	j++;
       } while (j < a_maxSecantIter 
 	       && sqr(alpha) * deltaD > sqr(a_secantTol));
-    
+      
       
       a_F.computeObjectiveAndGradient(fm,fp,r,x,false);
       a_F.scale(r,-1.0);

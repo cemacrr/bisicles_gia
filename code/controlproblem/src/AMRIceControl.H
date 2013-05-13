@@ -160,7 +160,10 @@ class AMRIceControl
   int m_outerCounter;
   int m_innerCounter;
 
-  
+  //options for writing data
+  bool m_writeInnerSteps;
+  std::string m_innerStepFileNameBase;
+  std::string m_outerStepFileNameBase;
 
 public:
   ~AMRIceControl();

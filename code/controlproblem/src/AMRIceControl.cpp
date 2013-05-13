@@ -430,8 +430,14 @@ void AMRIceControl::solveControl()
   pp.query("CGtol",CGtol);
   Real CGsecantParameter = 1.0e-8;
   pp.query("CGsecantParameter",CGsecantParameter);
+ 
+  
+  Real CGsecantStepMaxGrow = -1.0;
+  pp.query("CGsecantStepMaxGrow",CGsecantStepMaxGrow);
+
   int CGsecantMaxIter = 10;
   pp.query("CGsecantMaxIter",CGsecantMaxIter);
+
   Real CGsecantTol = 1.0e-6;
   pp.query("CGsecantTol",CGsecantTol);
     
@@ -473,8 +479,19 @@ void AMRIceControl::solveControl()
   create(X,2,IntVect::Zero);
   setToZero(X);
 
+  m_writeInnerSteps = false;
+  pp.query("writeInnerSteps",m_writeInnerSteps);
+
+  m_innerStepFileNameBase = "ControlInner";
+  pp.query("innerStepFileNameBase",m_innerStepFileNameBase);
+  
+  m_outerStepFileNameBase = "ControlOuter";
+  pp.query("outerStepFileNameBase",m_outerStepFileNameBase);
+
   m_outerCounter = 0;
   pp.query("restart",m_outerCounter);
+
+
   
   if (m_outerCounter > 0)
     {
@@ -495,7 +512,8 @@ void AMRIceControl::solveControl()
   checkBounds(X);
 
   CGOptimize(*this ,  X , CGmaxIter , CGtol , 
-	     CGsecantParameter, CGsecantMaxIter , CGsecantTol);
+	     CGsecantParameter, CGsecantStepMaxGrow, 
+	     CGsecantMaxIter , CGsecantTol);
 
   free(X);
   
@@ -753,14 +771,22 @@ void AMRIceControl::computeObjectiveAndGradient
 	  		    CHF_BOX(box));
 
 	  // add drag due to ice in contact with ice-free rocky walls
-	  const Real wallDragExtra = 0.0;
-	  FArrayBox wallC(box,1);wallC.setVal(0.0);
-	  IceVelocity::addWallDrag(wallC, 
-				   levelCS.getFloatingMask()[dit], levelCS.getSurfaceHeight()[dit],
-				   levelCS.getH()[dit], levelCS.getTopography()[dit], 
-				   thisC, wallDragExtra,m_dx[lev], box);
-	  thisC += wallC;
-	  
+	 
+	  ParmParse ppamr("amr");
+	  bool wallDrag = true; 
+	  ppamr.query("wallDrag", wallDrag);
+	  if (wallDrag)
+	    {
+	      Real wallDragExtra = 0.0;
+	      ppamr.query("wallDragExtra", wallDragExtra);
+	      FArrayBox wallC(box,1);wallC.setVal(0.0);
+	      IceVelocity::addWallDrag(wallC, 
+				       levelCS.getFloatingMask()[dit], levelCS.getSurfaceHeight()[dit],
+				       levelCS.getH()[dit], levelCS.getTopography()[dit], 
+				       thisC, wallDragExtra,m_dx[lev], box);
+	      thisC += wallC;
+	    }
+
 	  FArrayBox& thisCcopy = levelCcopy[dit];
 	  thisCcopy.copy(thisC);
 
@@ -1232,8 +1258,8 @@ void AMRIceControl::computeObjectiveAndGradient
   //dump data
   if (a_inner)
     {
-      writeState("last_parameters.2d.hdf5", m_innerCounter, a_x, a_g);
-      //writeState(innerStateFile(), m_innerCounter, a_x, a_g);
+      if (m_writeInnerSteps)
+	writeState(innerStateFile(), m_innerCounter, a_x, a_g);
       m_innerCounter++;
     }
   else
@@ -1247,7 +1273,7 @@ void AMRIceControl::computeObjectiveAndGradient
 std::string AMRIceControl::outerStateFile() const
 {
   std::stringstream ss;
-  ss << "ControlOuter";
+  ss << m_outerStepFileNameBase;
   ss.width(6);ss.fill('0');ss << m_outerCounter;
   ss.width(0);ss << ".2d.hdf5";
   return ss.str(); 
@@ -1256,7 +1282,7 @@ std::string AMRIceControl::outerStateFile() const
 std::string AMRIceControl::innerStateFile() const
 {
   std::stringstream ss;
-  ss << "ControlInner";
+  ss << m_innerStepFileNameBase;
   ss.width(6);ss.fill('0');ss << m_innerCounter;
   ss.width(0);ss << ".2d.hdf5";
   return ss.str(); 
