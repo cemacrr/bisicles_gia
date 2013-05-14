@@ -895,6 +895,7 @@ void AMRIceControl::computeObjectiveAndGradient
 	{
 	  const LevelSigmaCS& levelCS =  *m_coordSys[lev];
 	  LevelData<FArrayBox>& levelC =  *m_C[lev];
+	  const LevelData<FArrayBox>& levelCCopy =  *m_Ccopy[lev]; //not set to zero in shelves
 	  const DisjointBoxLayout levelGrids =  m_grids[lev];
 	  for (DataIterator dit(levelGrids);dit.ok();++dit)
 	    {
@@ -904,7 +905,7 @@ void AMRIceControl::computeObjectiveAndGradient
 	      IceVelocity::addWallDrag(wallC, 
 				       levelCS.getFloatingMask()[dit], levelCS.getSurfaceHeight()[dit],
 				       levelCS.getH()[dit], levelCS.getTopography()[dit], 
-				       levelC[dit], wallDragExtra,m_dx[lev],levelGrids[dit]);
+				       levelCCopy[dit], wallDragExtra,m_dx[lev],levelGrids[dit]);
 	      
 	      levelC[dit] += wallC;
 	    }
