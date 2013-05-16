@@ -54,8 +54,8 @@ ifeq ($(UNAMEN),loren)
 PYTHON_VERSION=2.6
 endif
 
-ifeq ($(UNAMEN),martins)
-#PYTHON_VERSION=2.6
+ifeq ($(UNAMEN),martin)
+PYTHON_VERSION=2.7
 endif
 
 #handle hopper.nersc.gov specially 
