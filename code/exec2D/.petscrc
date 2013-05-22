@@ -1,8 +1,8 @@
 #-mat_view ::ascii_matlab
 #-help
 #-pc_mg_type full
-#-pc_type hypre
--pc_type gamg
+-pc_type hypre
+#-pc_type gamg
 -pc_use_amat false
 #-pc_mg_levels_pc_type bjacobi
 -pc_gamg_repartition true

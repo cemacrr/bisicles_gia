@@ -851,8 +851,10 @@ PicardSolver::defineLinearSolver()
 	  m_petscSolver = new PetscSolverViscousTensor<LevelData<FArrayBox> >;
 	  LinearOp<LevelData<FArrayBox> >* op = m_opFactoryPtr->AMRnewOp(m_domains[0]);      
 	  m_petscSolver->define( op, false ); // just sets dx & crdx
-	}      
-      m_petscSolver->setVTParams( opAlpha, opBeta, &(*m_vectC[0]), &(*m_vectMu[0]), &(*m_vectLambda[0]) );
+	}
+      // this is broken
+      //m_petscSolver->define( opAlpha, opBeta, &(*current.m_alpha[0]), &(*current.m_mu[0]), &(*current.m_lambda[0]));
+      m_petscSolver->setInitialGuessNonzero();         
     }
 #endif
 #ifdef CH_USE_ICE_MF

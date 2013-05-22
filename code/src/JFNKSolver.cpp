@@ -1017,8 +1017,6 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
           Real opAlpha, opBeta;
           opAlpha = -1.0;
           opBeta = 1.0;
-          // petsc only works for single-level at the moment...
-          CH_assert(du.size() == 1);
           
           if (m_petscSolver == NULL)
             {
