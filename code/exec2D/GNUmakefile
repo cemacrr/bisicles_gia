@@ -31,6 +31,11 @@ SRC_DIR = ../src  ../../../AMRFAS/src
 else
 SRC_DIR = ../src  
 endif
+ifeq ($(USE_PETSC), TRUE)
+SRC_DIR += ../../../AMRPETSC/src
+endif
+
+
 UTIL_DIR = ../util 
 
 src_dirs = $(SRC_DIR) $(UTIL_DIR)  

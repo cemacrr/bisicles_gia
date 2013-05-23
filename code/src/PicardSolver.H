@@ -18,7 +18,7 @@
 #include "LinearSolver.H"
 #include "MultilevelIceVelOp.H"
 #ifdef CH_USE_PETSC
-#include "PetscSolver.H"
+#include "PetscAMRSolver.H"
 #endif
 
 #include "NamespaceHeader.H"
@@ -136,9 +136,9 @@ protected:
   LinearSolver<LevelData<FArrayBox> >* m_bottomSolverPtr;
 
   AMRMultiGrid<LevelData<FArrayBox> >* m_MGSolverPtr;
-
+  
 #ifdef CH_USE_PETSC
-  PetscSolverViscousTensor<LevelData<FArrayBox> >* m_petscSolver;
+  PetscAMRSolver *m_petscSolver;
 #endif
 
   Vector<RefCountedPtr<LevelData<FluxBox> > > m_vectMu;

@@ -1,5 +1,6 @@
 #-mat_view ::ascii_matlab
 #-help
+#-info
 #-pc_mg_type full
 -pc_type hypre
 #-pc_type gamg
@@ -33,7 +34,7 @@
 #-mg_levels_ksp_chebyshev_estimate_eigenvalues 0,0.1,0,1.05 
 #-mg_levels_pc_type pbjacobi
 -mg_levels_pc_type sor 
--ksp_rtol 1.e-3
+-ksp_rtol 1.e-4
 #-ksp_view
 -mg_levels_ksp_max_it 2
 -mat_ascii_output_large
@@ -51,8 +52,8 @@
 -snes_mf_operator
 -snes_monitor
 -snes_linesearch_monitor
--snes_rtol 1.e-8
--snes_stol 1.e-8
+-snes_rtol 1.e-10
+-snes_stol 1.e-10
 -snes_converged_reason
 #-mat_mffd_type ds
 #-mat_mffd_err 1.e-9

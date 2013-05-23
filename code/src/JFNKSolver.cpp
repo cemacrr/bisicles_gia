@@ -1017,19 +1017,15 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
           Real opAlpha, opBeta;
           opAlpha = -1.0;
           opBeta = 1.0;
-          
           if (m_petscSolver == NULL)
             {
-              m_petscSolver = new PetscSolverViscousTensor<LevelData<FArrayBox> >;
-              LinearOp<LevelData<FArrayBox> >* op = current.opFactoryPtr()->AMRnewOp(m_domains[0]);      
-              m_petscSolver->define(op, false);
-            } // end if allocating new petsc solver
-        
-
-	  m_petscSolver->define( opAlpha, opBeta, &(*current.m_alpha[0]), &(*current.m_mu[0]), &(*current.m_lambda[0]));
-          m_petscSolver->setInitialGuessNonzero();          
-          // can't convert this
-          //krylovSolver = m_petscSolver;
+              m_petscSolver = new PetscAMRSolver;
+	      m_petscSolver->m_petscCompMat.setDiri(true);
+            }
+	  RefCountedPtr<ConstDiriBC> bcfunc = RefCountedPtr<ConstDiriBC>(new ConstDiriBC(1,m_petscSolver->m_petscCompMat.getGhostVect()));
+	  BCHolder bc(bcfunc);
+	  m_petscSolver->m_petscCompMat.define(m_domains[0],m_grids,m_refRatios,bc,m_dxs[0]); // generic AMR setup
+	  m_petscSolver->m_petscCompMat.defineCoefs(opAlpha,opBeta,current.m_mu,current.m_lambda,current.m_alpha);
         }
 #endif
       else 
@@ -1049,12 +1045,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 #ifdef CH_USE_PETSC
           else if (m_linearSolverType == petsc)
             {
-	      m_petscSolver->setInitialGuessNonzero(false);
-              //m_petscSolver->solve(*du[0],*residual[0]);
-	      LevelJFNKOp lop(newOp);
-	      m_petscSolver->solve_mfree(*du[0],*residual[0],&lop);
-              // this signals for next solve that its new (nonlinear)
-              m_petscSolver->resetOperator();
+	      m_petscSolver->solve_mfree(du,residual,&newOp);
             }
 #endif
           else 
@@ -1135,10 +1126,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 #ifdef CH_USE_PETSC
           else if (m_linearSolverType == petsc)          
             {
-              m_petscSolver->solve(*localU[0],*localRhs[0]);
-
-              // this signals for next solve that its new (nonlinear)
-              m_petscSolver->resetOperator(); 
+              m_petscSolver->solve(localU,localRhs);
             }
 #endif
           else

@@ -412,12 +412,15 @@ int PicardSolver::solve(Vector<LevelData<FArrayBox>* >       & a_horizontalVel,
               else if (m_solver_type == petsc)
                 {
 #ifdef CH_USE_PETSC
-                  // at the moment, this only works for single-level
-                  CH_assert(localVel.size() == 1);
-                  m_petscSolver->setInitialGuessNonzero(true);
-                  m_petscSolver->solve(*localVel[0], *localRHS[0]);	
-                  // this signals for next solve that its new (nonlinear)
-		  m_petscSolver->resetOperator(); 
+		  // finish define here as we have grids
+		  Real opAlpha, opBeta;
+		  RefCountedPtr<ConstDiriBC> bcfunc = RefCountedPtr<ConstDiriBC>(new ConstDiriBC(1,m_petscSolver->m_petscCompMat.getGhostVect()));
+		  BCHolder bc(bcfunc);
+		  getOperatorScaleFactors(opAlpha, opBeta);
+		  m_petscSolver->m_petscCompMat.define(m_coarseDomain,m_vectGrids,m_vectRefRatio,bc,m_dxCrse,0,a_maxLevel); // generic AMR setup
+		  m_petscSolver->m_petscCompMat.defineCoefs(opAlpha,opBeta,m_vectMu,m_vectLambda,m_vectC);
+		  // solve
+                  m_petscSolver->solve(localVel, localRHS);
 #endif
                 }
 
@@ -841,20 +844,11 @@ PicardSolver::defineLinearSolver()
 #ifdef CH_USE_PETSC
   else if (m_solver_type == petsc)
     {
-      Real opAlpha, opBeta;
-      getOperatorScaleFactors(opAlpha, opBeta);
-      
-      // single-level only
       if( !m_petscSolver )
 	{
-	  // we could delete this everytime and redo coarse grids -- should make an interval!!!
-	  m_petscSolver = new PetscSolverViscousTensor<LevelData<FArrayBox> >;
-	  LinearOp<LevelData<FArrayBox> >* op = m_opFactoryPtr->AMRnewOp(m_domains[0]);      
-	  m_petscSolver->define( op, false ); // just sets dx & crdx
+	  m_petscSolver = new PetscAMRSolver;
+	  m_petscSolver->m_petscCompMat.setDiri(true);
 	}
-      // this is broken
-      //m_petscSolver->define( opAlpha, opBeta, &(*current.m_alpha[0]), &(*current.m_mu[0]), &(*current.m_lambda[0]));
-      m_petscSolver->setInitialGuessNonzero();         
     }
 #endif
 #ifdef CH_USE_ICE_MF

@@ -17,7 +17,7 @@
 #include "MultilevelIceVelOp.H"
 #include "ViscousTensorOp.H"
 #ifdef CH_USE_PETSC
-#include "PetscSolver.H"
+#include "PetscAMRSolver.H"
 #endif
 
 #include "NamespaceHeader.H"
@@ -63,9 +63,11 @@ class JFNKSolver;
 
 
 class JFNKOp :  public LinearOp<Vector<LevelData<FArrayBox>*> >
-{
-  
+{  
   friend class JFNKSolver;
+#ifdef CH_USE_PETSC
+  friend class PetscAMRSolver;
+#endif
   //CoefficientProvider* m_coeffProvider;
   
   JFNKState* m_u; // current state
@@ -251,118 +253,6 @@ public:
 
 };
 
-//a single level wrapper around jfnkop... 
-//just for use with the petsc solver
-//while it is also single level
-class LevelJFNKOp :  public LinearOp< LevelData<FArrayBox> >
-{
-  
-public:
-
-  JFNKOp* m_jfnkOp;
-  virtual ~LevelJFNKOp(){}
-  LevelJFNKOp(JFNKOp& a_op)
-  {m_jfnkOp = &a_op;}
-
- 
-  // a_lhs = (f(u+ h * (a_v) ) -f(u))/ h (in JFNK mode)
-  // or L[u](a_v) (in Picard mode)
-  virtual void applyOp(LevelData<FArrayBox>& a_lhs, 
-		       const LevelData<FArrayBox>& a_v, 
-		       bool a_homogeneous = false)
-  {
-    Vector<LevelData<FArrayBox>*> veclhs(1,&a_lhs);
-    Vector<LevelData<FArrayBox>*> vecv(1,const_cast<LevelData<FArrayBox>*>(&a_v));
-    m_jfnkOp->applyOp(veclhs,vecv, a_homogeneous);
-  }
-
-  // a_lhs = (f(u+ h * (a_v) )-f(u))/h - a_rhs (in JFNK mode)
-  // or L[u](a_v) (in Picard mode)
-  virtual void residual(LevelData<FArrayBox>& a_lhs, 
-			const LevelData<FArrayBox>& a_v, 
-			const LevelData<FArrayBox>& a_rhs, 
-			bool a_homogeneous = false)
-  {
-    Vector<LevelData<FArrayBox>*> veclhs(1,&a_lhs);
-    Vector<LevelData<FArrayBox>*> vecv(1,const_cast<LevelData<FArrayBox>*>(&a_v));
-    Vector<LevelData<FArrayBox>*> vecrhs(1,const_cast<LevelData<FArrayBox>*>(&a_rhs));
-    m_jfnkOp->residual(veclhs,vecv,vecrhs, a_homogeneous);
-  };
-   
-
-
-  //the rest of LinearOp can be palmed off on m_mlOp.
-  virtual void preCond(LevelData<FArrayBox>& a_cor,
-		       const LevelData<FArrayBox>& a_residual)
-  {
-    MayDay::Error("LevelJFNKOp::preCond not implemented");
-  }
-
-    
-  virtual void create(LevelData<FArrayBox>& a_lhs,
-		      const LevelData<FArrayBox>& a_rhs)
-  { 
-    a_lhs.define(a_rhs);
-  }
-
-  virtual void clear(LevelData<FArrayBox>& a_lhs)
-  {
-
-  }
-
-  virtual void assign(LevelData<FArrayBox>& a_lhs,
-		      const LevelData<FArrayBox>& a_rhs)
-  { 
-    MayDay::Error("LevelJFNKOp::assign not implemented");
-  }
-    
-    
-  virtual Real dotProduct(const LevelData<FArrayBox>& a_1,
-			  const LevelData<FArrayBox>& a_2)
-  {
-    MayDay::Error("LevelJFNKOp::dot product not implemented");
-    return 0.0;
-  }
-
-  virtual void incr(LevelData<FArrayBox>& a_lhs,
-		    const LevelData<FArrayBox>& a_x,
-		    Real a_scale)
-  {
-    MayDay::Error("LevelJFNKOp::incr not implemented");
-  }
-
-    
-  virtual void axby(LevelData<FArrayBox>& a_lhs,
-		    const LevelData<FArrayBox>& a_x,
-		    const LevelData<FArrayBox>& a_y,
-		    Real a_a,
-		    Real a_b)
-  {
-   MayDay::Error("LevelJFNKOp::axby not implemented");
-  }
-
-  virtual void scale(LevelData<FArrayBox>& a_lhs,
-		     const Real& a_scale)
-  {
-    MayDay::Error("LevelJFNKOp::scale not implemented");
-  }
-
-  virtual Real norm(const LevelData<FArrayBox>& a_rhs,
-		    int a_ord)
-  {
-    MayDay::Error("LevelJFNKOp::norm not implemented");
-    return 0.0;
-  }
-
-  virtual void setToZero(LevelData<FArrayBox>& a_lhs)
-  {
-    MayDay::Error("LevelJFNKOp::setToSZero not implemented");
-  }
-  
-};
-
-
-
 //manage coeffients mu(u), lambda(u) = 2*mu(u) and alpha(u) 
 //in L[u] = div( mu(theta) * (grad(u) + grad(u)^T) + lambda * div(u)*I)  - alpha*u
 //and provide the appropriate ViscousTensorOpFactory
@@ -528,7 +418,7 @@ class JFNKSolver : public IceVelocitySolver
 
   /// petsc solvers are more expensive to set up, so keep one around
 #ifdef CH_USE_PETSC
-  PetscSolverViscousTensor<LevelData<FArrayBox> >* m_petscSolver;
+  PetscAMRSolver *m_petscSolver;
 #endif
 
 
