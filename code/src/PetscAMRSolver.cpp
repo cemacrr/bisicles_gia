@@ -16,7 +16,8 @@
 PetscAMRSolver::PetscAMRSolver() : m_op_mfree(0),m_mfree_homogeneous(true)
 {
 }
-
+#undef __FUNCT__
+#define __FUNCT__ "apply_mfree"
 PetscErrorCode PetscAMRSolver::apply_mfree(Mat A, Vec x, Vec f)
 {
   CH_TIME("PetscAMRSolver::apply_mfree");
@@ -30,7 +31,8 @@ PetscErrorCode PetscAMRSolver::apply_mfree(Mat A, Vec x, Vec f)
   tthis->m_petscCompMat.putChomboInPetsc(tthis->m_Lphi_mfree,f);
   PetscFunctionReturn(0);
 }
-
+#undef __FUNCT__
+#define __FUNCT__ "solve_mfree"
 PetscErrorCode
 PetscAMRSolver::solve_mfree( Vector<LevelData<FArrayBox>*>& a_phi, 
 			     const Vector<LevelData<FArrayBox>*>& a_rhs, 
@@ -82,7 +84,8 @@ PetscAMRSolver::solve_mfree( Vector<LevelData<FArrayBox>*>& a_phi,
   a_op->clear(m_Lphi_mfree);
   PetscFunctionReturn(0); 
 }
-
+#undef __FUNCT__
+#define __FUNCT__ "solve"
 PetscErrorCode
 PetscAMRSolver::solve( Vector<LevelData<FArrayBox>*>& a_phi, 
 		       const Vector<LevelData<FArrayBox>*>& a_rhs )
