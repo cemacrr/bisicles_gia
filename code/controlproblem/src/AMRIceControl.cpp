@@ -323,12 +323,12 @@ void AMRIceControl::levelTag(int a_lev, IntVectSet& a_tagset)
 
   a_tagset.grow(m_tagsGrow);
   
-  if ( a_lev == 0)
-    {
-      Box box(m_domain[0].domainBox());
-      box.grow(-m_blockFactor);
-      a_tagset &= box;
-    }
+  // if ( a_lev == 0)
+  //   {
+  //     Box box(m_domain[0].domainBox());
+  //     box.grow(-m_blockFactor);
+  //     a_tagset &= box;
+  //   }
 
 
 }

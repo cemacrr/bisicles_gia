@@ -99,24 +99,36 @@ int main(int argc, char* argv[]) {
 	std::string xvelName = "xvel";
 	ildPP.query("xvelName",xvelName);
 	names.push_back(xvelName);
-	std::string yvelName = "yvel";
+
+	std::string yvelName = "";
 	ildPP.query("yvelName",yvelName);
-	names.push_back(yvelName);
+	if (yvelName != "")
+	  {
+	    //loading yvel is optional
+	    names.push_back(yvelName);
+	  }
+
 	std::string velcoefName = "velcoef";
 	ildPP.query("velcoefName",velcoefName);
 	names.push_back(velcoefName);
-	std::string divuhName = "divuh";
-	ildPP.query("divuhName",divuhName);
-	names.push_back(divuhName);
-	std::string divuhcoefName = "divuhcoef";
-	ildPP.query("divuhcoefName",divuhcoefName);
-	names.push_back(divuhcoefName);
 
+	std::string divuhName = "";
+	ildPP.query("divuhName",divuhName);
+	if (divuhName != "")
+	  {
+	    //loading divuh is optional
+	    names.push_back(divuhName);
+	    //but divuhcoef is required as well
+	    std::string divuhcoefName = "divuhcoef";
+	    ildPP.query("divuhcoefName",divuhcoefName);
+	    names.push_back(divuhcoefName);
+	  }
+
+	
 	Vector<Vector<RefCountedPtr<LevelData<FArrayBox> > > > vectData;
 	Real dx;
 	Vector<int> refRatio;
 	readMultiLevelData(vectData,dx,refRatio,infile,names,1);
-
 	
 
 	for (int lev =0 ; lev < vectData[0].size(); lev++)
@@ -141,10 +153,50 @@ int main(int argc, char* argv[]) {
 		  }
 	      }
 	    xVelObs.push_back( vectData[j++][lev]);
-	    yVelObs.push_back( vectData[j++][lev]);
+	    if (yvelName != "")
+	      {
+		yVelObs.push_back( vectData[j++][lev]);
+	      }
+	    else
+	      {
+		//yvelobs = 0 by default (in which case mod(u) = u_x)
+		yVelObs.push_back
+		  (RefCountedPtr<LevelData<FArrayBox> >
+		   (new  LevelData<FArrayBox>
+		    (originC[lev]->disjointBoxLayout(),originC[lev]->nComp(),originC[lev]->ghostVect())));
+		for (DataIterator dit(yVelObs[lev]->disjointBoxLayout());dit.ok();++dit)
+		  {
+		    (*yVelObs[lev])[dit].setVal(0.0);
+		  }
+	      }
+
 	    velCoef.push_back( vectData[j++][lev]);
-	    divUHObs.push_back( vectData[j++][lev]);
-	    divUHCoef.push_back( vectData[j++][lev]);
+
+	    if (divuhName != "")
+	      {
+		divUHObs.push_back( vectData[j++][lev]);
+		divUHCoef.push_back( vectData[j++][lev]);
+	      }
+	    else
+	      {
+		//divuh,divuhcoef = 0,1 by default (in which case mod(u) = u_x)
+		divUHObs.push_back
+		  (RefCountedPtr<LevelData<FArrayBox> >
+		   (new  LevelData<FArrayBox>
+		    (originC[lev]->disjointBoxLayout(),originC[lev]->nComp(),originC[lev]->ghostVect())));
+
+		divUHCoef.push_back
+		  (RefCountedPtr<LevelData<FArrayBox> >
+		   (new  LevelData<FArrayBox>
+		    (originC[lev]->disjointBoxLayout(),originC[lev]->nComp(),originC[lev]->ghostVect())));
+
+		for (DataIterator dit(divUHObs[lev]->disjointBoxLayout());dit.ok();++dit)
+		  {
+		    (*divUHObs[lev])[dit].setVal(0.0);
+		    (*divUHCoef[lev])[dit].setVal(1.0);
+		  }
+	      }
+
 	    velObs.push_back 
 	      (RefCountedPtr<LevelData<FArrayBox> > 
 	       (new LevelData<FArrayBox>
