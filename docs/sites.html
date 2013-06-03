@@ -75,17 +75,70 @@ CPP           = $(CXX) -E
 </pre>
 Confirmed working with the MISMIP3D test on 1 and 2 nodes (4 and 8 processors).
 
-
-<h3>Blue Crystal Phase 2, GNU Compilers</h3>
-To use the GNU compliers on Blue Crystal II, include
+<h3>Blue Crystal Phase 2</h3>
+<p>
+Blue Crystal II has, at least some of the time, slow access to networked
+file systems. The major problem occurs with log output, such that when the
+cluster is under heavy load BISICLES spends most of its time waiting to
+write (a few bytes) to the pout.* files. The situation can be improved by
+specifying that the pout.* files should be written to each node's local storage. 
+Adding a line
+</p>
 <pre>
-  > module add ofed/openmpi/gcc/
+main.poutBaseName = /local/mydir/pout
+</pre> 
+<p>
+would do the trick, provided that the directory mydir exists. Of course, you then
+need to find a way to retrieve the pout.* files at the end of a run.
+</p>
+<p>
+Creating the directories and retrieving the files can all be organized in the
+submission script. Insert the lines
+</p>
+<pre>
+for iii in `cat $PBS_NODEFILE | uniq` ; do 
+  ssh $iii mkdir -p /local/$USER/
+done
 </pre>
-in .bashrc
+<p>
+somewhere in the script prior to the mpirun command. This will result in 
+a directory /local/$USER being created on each node
+that is being used.  To have the files moved to a network visible directory
+$MYDIR, add 
+</p>
+<pre>
+for iii in `cat $PBS_NODEFILE | uniq`;do 
+   ssh $iii "cp /local/$USER/pout.* $MYDIR && rm /local/$USER/pout.*" 
+done
+</pre>
+<p>
+after the mpirun command. If the job is terminated before completion, the files
+will remain on the nodes
 </p>
 
-<h3>Blue Crystal Phase 2, Intel Compilers</h3>
-To use the Intel compliers on Blue Crystal II, include
+<p>
+We have used the GNU compilers extensively on Blue Crystal Phase 2, and have just started to test the Intel 12.0 compilers.
+only runs with Intel...)
+</p>
+
+<h4>Blue Crystal Phase 2, GNU Compilers</h4>
+To use the GNU compilers on Blue Crystal II, include
+<pre>
+  > module add ofed/openmpi/gcc/
+  > module load languages/gcc-4.7
+  > module load languages/python-2.7 #assuming you want the python interface
+</pre>
+in .bashrc. 
+To build with the Python interface, $BISICLES_HOME/BISICLES/code/mk/Make.defs
+needs the lines
+<pre>
+PYTHON_INC = usr/local/languages/python-2.7/include
+PYTHON_LIBS = -lpython2.7
+</pre>
+
+
+<h4>Blue Crystal Phase 2, Intel Compilers</h4>
+To use the Intel compilers on Blue Crystal II, include
 <pre>
   > module load ofed/openmpi/intel
   > module load languages/python-2.7 #assuming you want the python interface
