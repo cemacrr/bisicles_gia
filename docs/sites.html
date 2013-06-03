@@ -76,13 +76,73 @@ CPP           = $(CXX) -E
 Confirmed working with the MISMIP3D test on 1 and 2 nodes (4 and 8 processors).
 
 
-<h3>Blue Crystal Phase 2</h3>
-On Blue Crystal II, include
+<h3>Blue Crystal Phase 2, GNU Compilers</h3>
+To use the GNU compliers on Blue Crystal II, include
 <pre>
   > module add ofed/openmpi/gcc/
 </pre>
 in .bashrc
 </p>
+
+<h3>Blue Crystal Phase 2, GNU Compilers</h3>
+To use the Intel compliers on Blue Crystal II, include
+<pre>
+  > module load ofed/openmpi/intel
+  > module load languages/python-2.7 #assuming you want the python interface
+</pre>
+in .bashrc. As of June 2013, ofed/openmpi/intel  loads two modules, languages/Intel-Composer-12 and ofed/openmpi/intel/64/1.4.2-qlc-testing
+</p>
+Compilers (for serial builds) are
+</p>
+<pre>
+CC=icc
+CXX=icpc
+FC=ifort
+</pre>
+and for parallel builds the mpi wrappers are
+<pre>
+CC=mpicc
+CXX=mpiCC
+FC=mpif90
+</pre>
+Make.defs.local needs
+<pre>
+CXX           = icpc
+FC            = ifort
+MPICXX        = mpiCC
+</pre>
+To build with the Python interface, $BISICLES_HOME/BISICLES/code/mk/Make.defs
+needs the lines
+<pre>
+PYTHON_INC = usr/local/languages/python-2.7/include
+PYTHON_LIBS = -lpython2.7
+</pre>
+<p>
+If we try to build in the usual way, we get an error
+</p>
+<pre>
+../src/tarmac.f90(7): error #5149: Illegal character in statement label field  [m]
+module glunnamed
+...
+../src/tarmac.f90(67): catastrophic error: Too many errors, exiting
+</pre>
+<p>
+Which is caused by a flag (-FI) that is supplied to ifort by Chombo's build
+system. For now , edit the file $BISICLES_HOME/Chombo/lib/mk/compiler/Make.defs.Intel
+and change the lines
+</p>
+<pre>
+  ifeq (0,$(shell test $(_ifcmajorver) -le 11 ; echo $$?))
+    # -w95 gets rid of some annoying warnings about REAL*8, etc
+    deffcomflags = -w95 -FI -u
+  else
+    deffcomflags = -FI -u
+  endif
+</pre>
+<p>
+to remove the '-FI' flags. 
+</p>
+
 
 <h2><a name='nersc'>NERSC</a></h2>
 The US DOE-run National Energy Research Supercomputing Center ( <a href='http://www.nersc.gov'>NERSC</a>) has several machines which BISICLES users may find useful. 
