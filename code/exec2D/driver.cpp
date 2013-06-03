@@ -98,6 +98,11 @@ int main(int argc, char* argv[]) {
     ParmParse pp(argc-2,argv+2,NULL,in_file);
     ParmParse pp2("main");
 
+    std::string poutBaseName = "pout";
+    pp2.query("poutBaseName",poutBaseName);
+    setPoutBaseName(poutBaseName);
+
+
     RealVect domainSize;
     Vector<Real> domSize(SpaceDim);
     pp2.getarr("domain_size", domSize, 0, SpaceDim);
