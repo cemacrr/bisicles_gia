@@ -28,6 +28,7 @@
 #include "BisiclesF_F.H"
 #include "ReflectGhostCells.H"
 #include "QuadCFInterp.H"
+#include "PiecewiseLinearFillPatch.H"
 #include "CoarseAverage.H"
 #include "CoarseAverageFace.H"
 #include "computeNorm.H"
@@ -836,12 +837,37 @@ void AMRIceControl::computeObjectiveAndGradient
 	  avg.averageToCoarse(*m_C[lev-1],*m_C[lev]);
 	  avg.averageToCoarse(*m_muCoef[lev-1],*m_muCoef[lev]);
 		  
-	  QuadCFInterp qcfi(levelGrids, &m_grids[lev-1], m_dx[lev][0], 
-			    m_refRatio[lev-1],1, m_domain[lev]);
+	  //  QuadCFInterp qcfi(levelGrids, &m_grids[lev-1], m_dx[lev][0], 
+	  //		    m_refRatio[lev-1],1, m_domain[lev]);
+	  //
+	  //qcfi.coarseFineInterp(levelC, *m_C[lev-1]);
+	  //qcfi.coarseFineInterp(levelMuCoef, *m_muCoef[lev-1]);
+	  int nGhost = 1;
+	  PiecewiseLinearFillPatch li(levelGrids, 
+				      m_grids[lev-1],
+				      1, 
+				      m_domain[lev-1],
+				      m_refRatio[lev-1],
+				      nGhost);
+              
+	  // since we're not subcycling, don't need to interpolate in time
+	  Real time_interp_coeff = 0.0;
+	  li.fillInterp(levelMuCoef,
+			*m_muCoef[lev-1],
+			*m_muCoef[lev-1],
+			time_interp_coeff,
+			0, 0, 1);
+	  li.fillInterp(levelC,
+			*m_C[lev-1],
+			*m_C[lev-1],
+			time_interp_coeff,
+			0, 0, 1);
 
-	  qcfi.coarseFineInterp(levelC, *m_C[lev-1]);
-	  qcfi.coarseFineInterp(levelMuCoef, *m_muCoef[lev-1]);
-	}
+             
+
+        }
+
+    
       levelC.exchange();
       levelMuCoef.exchange();
     
