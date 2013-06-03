@@ -60,6 +60,10 @@ int main(int argc, char* argv[]) {
     ParmParse pp(argc-2,argv+2,NULL,in_file);
     ParmParse ppMain("main");
 
+    std::string poutBaseName = "pout";
+    ppMain.query("poutBaseName",poutBaseName);
+    setPoutBaseName(poutBaseName);
+
     Vector<RealVect> dataDx;
     Vector<RefCountedPtr<LevelData<FArrayBox> > > xVelObs;
     Vector<RefCountedPtr<LevelData<FArrayBox> > > yVelObs;
