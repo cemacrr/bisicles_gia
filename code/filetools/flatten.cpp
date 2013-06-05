@@ -112,12 +112,25 @@ int main(int argc, char* argv[]) {
 
     Box flatBox(crseBox);
     Real flatDx = crseDx;
-    for (int lev=0; lev < flatLevel;lev++)
+    if (flatLevel >= 0)
       {
-        flatBox.refine(ratio[lev]);
-        flatDx /= Real(ratio[lev]);
+        for (int lev=0; lev < flatLevel;lev++)
+          {
+            flatBox.refine(ratio[lev]);
+            flatDx /= Real(ratio[lev]);
+          }
       }
-    
+    else
+      {
+        // if flatlevel < 0, then coarsen level 0 domain by a factor of 2 
+        // for each level
+        for (int lev=0; lev>flatLevel; lev--)
+          {
+            flatBox.coarsen(2);
+            flatDx *= 2.0;
+          }
+      }
+
     ProblemDomain pd(flatBox);
     Vector<Box> boxes(1,flatBox);
     Vector<int> procAssign(1,uniqueProc(SerialTask::compute));
@@ -143,13 +156,27 @@ int main(int argc, char* argv[]) {
       }
 
     //direct copy on same level
-    data[flatLevel]->copyTo(ivl,flatLevelData,ivl);
-   
+    if (flatLevel >= 0)
+      {
+        data[flatLevel]->copyTo(ivl,flatLevelData,ivl);
+      }
+    
     //average from finer levels
     nRef = 1;
-    for (int lev = flatLevel + 1 ; lev < data.size() ; lev++)
+    int startLevel = max(0,flatLevel +1);
+    if (flatLevel < 0)
       {
-	nRef *= ratio[lev-1];
+        for (int lev=flatLevel; lev<startLevel; lev++)
+          {
+            nRef *= 2;
+          }
+      }
+    for (int lev = startLevel ; lev < data.size() ; lev++)
+      {
+        if (lev > 0)
+          {
+            nRef *= ratio[lev-1];
+          }
 	CoarseAverage av(grids[lev], nComp, nRef);
 	av.averageToCoarse(flatLevelData,*data[lev]);		 
       }
