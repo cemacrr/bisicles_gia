@@ -124,7 +124,20 @@ public:
   /// compute one timestep
   void timeStep(Real a_dt);
 
+  // compute face-centered half-time ice thickness using ppm
+  void computeH_half(Vector<LevelData<FluxBox>* >& a_H_half, Real a_dt);
 
+  // compute thickness fluxes
+  void computeThicknessFluxes(Vector<LevelData<FluxBox>* >& a_vectFluxes,
+                              const Vector<LevelData<FluxBox>* >& a_H_half,
+                              const Vector<LevelData<FluxBox>* >& a_faceVelAdvection);
+
+// update ice thickness
+  void updateThickness(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new, 
+                       Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoords_old, 
+                       const Vector<LevelData<FluxBox>* >& a_vectFluxes, 
+                       Real a_dt);
+    
   /// do regridding
   void regrid();
 

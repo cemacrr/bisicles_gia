@@ -1940,771 +1940,255 @@ AmrIce::timeStep(Real a_dt)
   // field, most likely at initialization or at the end of the last timestep...
   // so, we don't need to recompute the velocity at the start.
 
-  if (m_temporalAccuracy < 3)
-    {
-      // use PatchGodunov hyperbolic solver
-
-      // need a grown velocity field
-      IntVect grownVelGhost(2*IntVect::Unit);
-      Vector<LevelData<FArrayBox>* > grownVel(m_finest_level+1, NULL);
-      Vector<LevelData<FluxBox>* > H_half(m_finest_level+1,NULL);
-     
-
-      for (int lev = finestTimestepLevel() ; lev>=0 ; lev--)
-        {
-	  
-          const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-	
-          H_half[lev] = new LevelData<FluxBox>(m_amrGrids[lev], 1, 
-                                               IntVect::Unit);
-          LevelData<FArrayBox>& levelOldThickness = *m_old_thickness[lev];
-
-         
-          
-          // ensure that ghost cells for thickness  are filled in
-          if (lev > 0)
-            {          
-              int nGhost = levelOldThickness.ghostVect()[0];
-              PiecewiseLinearFillPatch thicknessFiller(levelGrids, 
-                                                       m_amrGrids[lev-1],
-                                                       1, 
-                                                       m_amrDomains[lev-1],
-                                                       m_refinement_ratios[lev-1],
-                                                       nGhost);
-              
-              // since we're not subcycling, don't need to interpolate in time
-              Real time_interp_coeff = 0.0;
-              thicknessFiller.fillInterp(levelOldThickness,
-                                         *m_old_thickness[lev-1],
-                                         *m_old_thickness[lev-1],
-                                         time_interp_coeff,
-                                         0, 0, 1);
-
-             
-              
-            }
-          // these are probably unnecessary...
-          levelOldThickness.exchange();
-          	     
-	 
-          // do we need to also do a coarseAverage for the vel here?
-        }
-      
-      
-      for (int lev=0; lev<= finestTimestepLevel();  lev++)
-        {
-          
-          // get AdvectPhysics object from PatchGodunov object
-          PatchGodunov* patchGod = m_thicknessPatchGodVect[lev];
-          AdvectPhysics* advectPhysPtr = dynamic_cast<AdvectPhysics*>(patchGod->getGodunovPhysicsPtr());
-          if (advectPhysPtr == NULL)
-            {
-              MayDay::Error("AmrIce::timestep -- unable to upcast GodunovPhysics to AdvectPhysics");
-            }
-          
-          patchGod->setCurrentTime(m_time);
-          
-          // loop over grids on this level and compute H-Half
-          const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-          LevelData<FluxBox>& levelFaceVel = *m_faceVelAdvection[lev];
-          LevelData<FArrayBox>& levelOldThickness = *m_old_thickness[lev];
-          LevelData<FluxBox>& levelHhalf = *H_half[lev];
-
-	  LevelData<FArrayBox>& levelSTS = *m_surfaceThicknessSource[lev];
-	  LevelData<FArrayBox>& levelBTS = *m_basalThicknessSource[lev];
-          CH_assert(m_surfaceFluxPtr != NULL);
-
-          // set surface thickness source
-          m_surfaceFluxPtr->surfaceThicknessFlux(levelSTS, *this, lev, a_dt);
-	  
-	  // set basal thickness source
-	  m_basalFluxPtr->surfaceThicknessFlux(levelBTS, *this, lev, a_dt);
-
-	  m_calvingModelPtr->modifySurfaceThicknessFlux(levelBTS, *this, lev, a_dt);
-
-	  LevelData<FArrayBox> levelCCVel(levelGrids, SpaceDim, IntVect::Unit);
-	  EdgeToCell( levelFaceVel, levelCCVel);
-          
-          DataIterator dit = levelGrids.dataIterator();
-          for (dit.begin(); dit.ok(); ++dit)
-            {
-              patchGod->setCurrentBox(levelGrids[dit]);
-              advectPhysPtr->setVelocities(&(levelCCVel[dit]), 
-                                           &(levelFaceVel[dit]));
-              
-	    
-	     
-	      FArrayBox advectiveSource(levelSTS[dit].box(),1);
-	      advectiveSource.copy(levelSTS[dit]);
-	      advectiveSource.plus(levelBTS[dit]);
-	       
-	      // add a diffusive source term div(D grad H)) to  advectiveSource
-	      if (m_diffusionTreatment == IMPLICIT)
-	       	{
-		  for (int dir=0; dir<SpaceDim; dir++)
-		    {
-		      Box faceBox = levelGrids[dit].surroundingNodes(dir);
-		      FArrayBox flux(faceBox,1);
-		      FORT_FACEDERIV(CHF_FRA1(flux,0),
-				     CHF_CONST_FRA1(levelOldThickness[dit],0),
-				     CHF_BOX(faceBox),
-				     CHF_CONST_REAL(dx(lev)[dir]),
-				     CHF_INT(dir),
-				     CHF_INT(dir));
-		      CH_assert(flux.norm(0) < HUGE_NORM);
-		      flux *= (*m_diffusivity[lev])[dit][dir];
-		      CH_assert(flux.norm(0) < HUGE_NORM);
-		      FORT_DIVERGENCE(CHF_CONST_FRA(flux),
-				      CHF_FRA(advectiveSource),
-				      CHF_BOX(levelGrids[dit]),
-				      CHF_CONST_REAL(dx(lev)[dir]),
-				      CHF_INT(dir));
-		     
-		    }
-	       	}
-              
-	      
-
-	      patchGod->computeWHalf(levelHhalf[dit],
-                                     levelOldThickness[dit],
-                                     advectiveSource,
-                                     a_dt,
-                                     levelGrids[dit]);
-	     
-
-            } //end loop over grids
-
-	 
-	} // end loop over levels for computing Whalf
-      
-      // coarse average new H-Half to covered regions
-      for (int lev= finestTimestepLevel(); lev>0; lev--)
-        {
-          CoarseAverageFace faceAverager(m_amrGrids[lev],
-                                         1, m_refinement_ratios[lev-1]);
-          faceAverager.averageToCoarse(*H_half[lev-1], *H_half[lev]);
-        }
-       
-      Vector<LevelData<FluxBox>* > layerTH_half(m_finest_level+1,NULL);
-      Vector<LevelData<FluxBox>* > layerH_half(m_finest_level+1,NULL);
-      if (!m_isothermal)
-	computeTHalf(layerTH_half, layerH_half, m_layerXYFaceXYVel, a_dt, m_time);
-     
-      // slc : having found H_half we can define temporary LevelSigmaCS at t + dt / 2
-      // We want this for the metric terms in  temperature advection, and also when
-      // m_temporalAccuracy == 2 to compute a new velocity field 
-      Vector<RefCountedPtr<LevelSigmaCS> > vectCoords_half (m_finest_level+1);
-     
-      if (m_temporalAccuracy == 1)
-	{
-	  // just use the old time LevelSigmaCS
-	  for (int lev=0; lev<= m_finest_level; lev++)
-	    vectCoords_half[lev] = m_vect_coordSys[lev];
-	}
-      else if (m_temporalAccuracy == 2)
-	{
-	  for (int lev=0; lev<= finestTimestepLevel(); lev++)
-	    {
-	      IntVect sigmaCSGhost = m_vect_coordSys[lev]->ghostVect();
-	      RealVect dx = m_amrDx[lev]*RealVect::Unit;
-	      vectCoords_half[lev] = RefCountedPtr<LevelSigmaCS> 
-		(new LevelSigmaCS(m_amrGrids[lev], dx, sigmaCSGhost));
-	      LevelSigmaCS& levelCoords_half = *vectCoords_half[lev];
-	      LevelSigmaCS& levelCoords = *m_vect_coordSys[lev];
-	      
-	      ///todo : Here, assume that the base height doesn't change during the
-	      ///timestep, which is not strictly true. Instead, we should perform 
-	      ///an isostasy calculation at this point.
-	      levelCoords_half.setTopography(levelCoords.getTopography());
-	      levelCoords_half.setFaceSigma(levelCoords.getFaceSigma());
-	      levelCoords_half.setIceDensity(levelCoords.iceDensity());
-	      levelCoords_half.setGravity(levelCoords.gravity());
-	      levelCoords_half.setWaterDensity(levelCoords.waterDensity());
-	      //now set the thickness from H_half
-	      LevelData<FluxBox>& levelH = *H_half[lev];
-	      LevelData<FluxBox>& levelFaceH = levelCoords_half.getFaceH();
-	      for (DataIterator dit( m_amrGrids[lev]); dit.ok(); ++dit)
-		{
-		  FluxBox& faceH = levelFaceH[dit];
-		  faceH.copy(levelH[dit], levelH[dit].box());
-		}
-	      {
-		LevelSigmaCS* crseCoords = (lev > 0)?&(*vectCoords_half[lev-1]):NULL;
-		int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
-		levelCoords_half.recomputeGeometryFace(crseCoords, refRatio);
-	      }
-	    }
-	  // updateSurfaceGradient(vectCoords_half, m_amrGrids, 
-	  // 			m_amrDomains, m_refinement_ratios, 
-	  // 			m_amrDx, m_basalSlope, m_time, m_dt,
-	  // 			(m_limitVelRHS)?m_gradLimitRadius:0,
-	  // 			0, m_finest_level, m_thicknessIBCPtr);
-	}
-
-      // do velocity solve for half-time velocity field
-      if (m_temporalAccuracy == 2)
-        {
-
-          // first, reset H in coordSys using H_half 
-	  // (slc :: calculation was already done above and we will need the old time
-          // also, so change solveVelocityField so we can just swap LevelSigmaCSPointers)
-	  MayDay::Error("m_temporalAccuracy ==  doesn't work yet");
-          for (int lev=0; lev<= m_finest_level; lev++)
-            {
-              LevelData<FluxBox>& levelH = *H_half[lev];
-              LevelSigmaCS& levelCoords = *m_vect_coordSys[lev];
-              LevelData<FluxBox>& levelFaceH = levelCoords.getFaceH();
-              DataIterator dit = levelH.dataIterator();
-              for (dit.begin(); dit.ok(); ++dit)
-                {
-                  FluxBox& faceH = levelFaceH[dit];
-                  faceH.copy(levelH[dit], levelH[dit].box());
-                }
-	      {
-		LevelSigmaCS* crseCoords = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
-		int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
-		levelCoords.recomputeGeometryFace(crseCoords, refRatio);
-              }
-                  
-            } // end loop over levels
-          
-          // compute new ice velocity field
-          solveVelocityField();
-          
-          // average cell-centered velocity field to faces just like before
-          
-        }
-      
-      // construct fluxes (could also store in face Velocity holder
-      // instead of creating new data holder, but do it this way for now
-      Vector<LevelData<FluxBox>* > vectFluxes(m_finest_level+1, NULL);
-      
-      for (int lev=0; lev<=finestTimestepLevel(); lev++)
-        {
-          LevelData<FluxBox>& levelFaceVel = *m_faceVelAdvection[lev];
-          LevelData<FluxBox>& levelFaceH = *H_half[lev];
-          // if we're doing AMR, we'll need to average these fluxes
-          // down to coarser levels. As things stand now, 
-          // CoarseAverageFace requires that the coarse LevelData<FluxBox>
-          // have a ghost cell. 
-          IntVect ghostVect = IntVect::Unit;
-          vectFluxes[lev] = new LevelData<FluxBox>(m_amrGrids[lev],1, ghostVect);
-          const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-          DataIterator dit = levelGrids.dataIterator();
-          for (dit.begin(); dit.ok(); ++dit)
-            {
-              FluxBox& faceVel = levelFaceVel[dit];
-              FluxBox& faceH = levelFaceH[dit];
-              FluxBox& flux = (*vectFluxes[lev])[dit];
-	      
-              const Box& gridBox = levelGrids[dit];
-              
-              for (int dir=0; dir<SpaceDim; dir++)
-                {
-                  Box faceBox(gridBox);
-                  faceBox.surroundingNodes(dir);
-                  flux[dir].copy(faceH[dir], faceBox);
-                  flux[dir].mult(faceVel[dir], faceBox, 0, 0, 1);
-                }
-            }
-        } // end loop over levels
-      
-      // average fine fluxes down to coarse levels
-      for (int lev=finestTimestepLevel(); lev>0; lev--)
-        {
-          CoarseAverageFace faceAverager(m_amrGrids[lev],
-                                         1, m_refinement_ratios[lev-1]);
-          faceAverager.averageToCoarse(*vectFluxes[lev-1], *vectFluxes[lev]);
-        }
-      
-      // make a copy of m_vect_coordSys before it is overwritten
-     
-      Vector<RefCountedPtr<LevelSigmaCS> > vectCoords_old (m_finest_level+1);
-      for (int lev=0; lev<= m_finest_level; lev++)
-	 {
-	   IntVect sigmaCSGhost = m_vect_coordSys[lev]->ghostVect();
-	   RealVect dx = m_amrDx[lev]*RealVect::Unit;
-	   vectCoords_old[lev] = RefCountedPtr<LevelSigmaCS> 
-	     (new LevelSigmaCS(m_amrGrids[lev], dx, sigmaCSGhost));
-	   LevelSigmaCS& levelCoords_old = *vectCoords_old[lev];
-	   const LevelSigmaCS& levelCoords = *m_vect_coordSys[lev];
-	   
-	   
-	   levelCoords_old.setIceDensity(levelCoords.iceDensity());
-	   levelCoords_old.setWaterDensity(levelCoords.waterDensity());
-	   levelCoords_old.setGravity(levelCoords.gravity());
-	   // todo replace the copies below with a deepCopy of levelCoords
-	   for (DataIterator dit( m_amrGrids[lev]); dit.ok(); ++dit)
-	      {
-		FArrayBox& oldH = levelCoords_old.getH()[dit];
-		const FArrayBox& H = levelCoords.getH()[dit];
-		oldH.copy(H);
-	      }
-	   levelCoords_old.setTopography(levelCoords.getTopography());
-	   {
-	     LevelSigmaCS* crseCoords = (lev > 0)?&(*vectCoords_old[lev-1]):NULL;
-	     int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
-	     levelCoords_old.recomputeGeometry( crseCoords, refRatio);
-	   }
-	   //levelCoords_old.setSurfaceHeight(levelCoords.getSurfaceHeight());
-	   //levelCoords_old.setGradSurface(levelCoords.getGradSurface());
-	   //levelCoords_old.setGradSurfaceFace(levelCoords.getGradSurfaceFace());
-	   
-#if BISICLES_Z == BISICLES_LAYERED
-	   levelCoords_old.setFaceSigma(levelCoords.getFaceSigma());
-#endif
-	 }
-    
-      // compute div(F) and update solution
-      
-
-      for (int lev=0; lev <= finestTimestepLevel() ; lev++)
-        {
-          DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-          LevelData<FluxBox>& levelFlux = *vectFluxes[lev];
-          LevelSigmaCS& levelCoords = *(m_vect_coordSys[lev]);
-          LevelData<FArrayBox>& levelNewH = levelCoords.getH();
-	  LevelData<FArrayBox>& levelOldH = (*vectCoords_old[lev]).getH();
-	  LevelData<FArrayBox>& levelBalance = *m_balance[lev];
-          const RealVect& dx = levelCoords.dx();              
-
-          DataIterator dit = levelGrids.dataIterator();          
-          
-          for (dit.begin(); dit.ok(); ++dit)
-            {
-              const Box& gridBox = levelGrids[dit];
-              FArrayBox& newH = levelNewH[dit];
-              FArrayBox& oldH = levelOldH[dit];//(*m_old_thickness[lev])[dit];
-              FluxBox& thisFlux = levelFlux[dit];
-              newH.setVal(0.0);
-              
-              // loop over directions and increment with div(F)
-              for (int dir=0; dir<SpaceDim; dir++)
-                {
-                  // use the divergence from 
-                  // Chombo/example/fourthOrderMappedGrids/util/DivergenceF.ChF
-                  FORT_DIVERGENCE(CHF_CONST_FRA(thisFlux[dir]),
-                                  CHF_FRA(newH),
-                                  CHF_BOX(gridBox),
-                                  CHF_CONST_REAL(dx[dir]),
-                                  CHF_INT(dir));
-
-		  
-                }
-              // add in thickness source
-	      // if there are still diffusive fluxes to deal
-	      // with, the source term will be included then
-	      if (m_diffusionTreatment != IMPLICIT)
-		{
-		  newH.minus((*m_surfaceThicknessSource[lev])[dit], gridBox,0,0,1);
-		  newH.minus((*m_basalThicknessSource[lev])[dit], gridBox,0,0,1);
-		}
-		  
-	      levelBalance[dit].copy(newH);
-
-
-              if (m_evolve_thickness)
-                {
-
-
-
-		  if (m_floating_ice_stable)
-		    {
-		      //keep floating ice stable if required
-		      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
-		      for (BoxIterator bit(gridBox); bit.ok(); ++bit)
-			{
-			  const IntVect& iv = bit();
-			  if (mask(iv) == FLOATINGMASKVAL)
-			    {
-			      newH(iv) = 0.0;
-			    }
-			}
-		    }
-		  
-		  if (m_grounded_ice_stable)
-		    {
-		      //keep grounded ice stable if required
-		      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
-		      for (BoxIterator bit(gridBox); bit.ok(); ++bit)
-			{
-			  const IntVect& iv = bit();
-			  if (mask(iv) == GROUNDEDMASKVAL)
-			    {
-			      newH(iv) = 0.0;
-			    }
-			}
-		    }
-
-
-                  newH *= -1*a_dt;
-		  
-                }
-              else 
-                {
-                  newH.setVal(0.0);
-                }
-	      
-	      newH.plus(oldH, 0, 0, 1);
-
-            } // end loop over grids
-        } // end loop over levels
-      
-
-
-      //include any diffusive fluxes
-      if (m_evolve_thickness && m_diffusionTreatment == IMPLICIT)
-	{
-	  //MayDay::Error("m_diffusionTreatment == IMPLICIT no yet implemented");
-	  //implicit thickness correction
-	  implicitThicknessCorrection(a_dt, m_surfaceThicknessSource,  m_basalThicknessSource);
-	}
-      
-
-      
-
-
-      // average down thickness to coarser levels and fill in ghost cells
-      // before calling recomputeGeometry. 
-      int Hghost = 2;
-      Vector<LevelData<FArrayBox>* > vectH(m_finest_level+1, NULL);
-      for (int lev=0; lev<vectH.size(); lev++)
-        {
-          IntVect HghostVect = Hghost*IntVect::Unit;
-          LevelSigmaCS& levelCoords = *(m_vect_coordSys[lev]);
-          vectH[lev] = &levelCoords.getH();
-        }
-
-      //average from the finest level down
-      for (int lev =  finestTimestepLevel() ; lev > 0 ; lev--)
-	{
-	  CoarseAverage averager(m_amrGrids[lev],
-                                 1, m_refinement_ratios[lev-1]);
-          averager.averageToCoarse(*vectH[lev-1],
-                                   *vectH[lev]);
-          
-	}
-
-      // //interpolate H to any levels above finestTimestepLevel()
-      // for (int lev=finestTimestepLevel() + 1; lev < vectH.size(); lev++)
-      // 	{
-      // 	  FineInterp interpolator(m_amrGrids[lev],1,
-      // 				  m_refinement_ratios[lev-1],
-      // 				  m_amrDomains[lev]);
-	  
-      // 	  interpolator.interpToFine(*vectH[lev], *vectH[lev-1]);
-
-      // 	}
-      // now pass back over and do PiecewiseLinearFillPatch
-      for (int lev=1; lev<vectH.size(); lev++)
-        {
-      
-          PiecewiseLinearFillPatch filler(m_amrGrids[lev],
-                                          m_amrGrids[lev-1],
-                                          1, 
-                                          m_amrDomains[lev-1],
-                                          m_refinement_ratios[lev-1],
-                                          Hghost);
-
-          Real interp_coef = 0;
-          filler.fillInterp(*vectH[lev],
-                            *vectH[lev-1],
-                            *vectH[lev-1],
-                            interp_coef,
-                            0, 0, 1);
-        }
-    
-      
-      //re-fill ghost cells ouside the domain
-      for (int lev=0; lev <= finestTimestepLevel()  ; ++lev)
-	{
-	  RealVect levelDx = m_amrDx[lev]*RealVect::Unit;
-	  m_thicknessIBCPtr->setGeometryBCs(*m_vect_coordSys[lev],
-					    m_amrDomains[lev],levelDx, m_time, m_dt);
-	}
+  // use PatchGodunov hyperbolic solver
   
-      //allow calving model to modify geometry and velocity
-      for (int lev=0; lev<= m_finest_level; lev++)
-	{
-	  m_calvingModelPtr->endTimeStepModifyState
-	    (m_vect_coordSys[lev]->getH(), *this, lev);
-	}
-
-   
-
-
-      //dont allow thickness to be negative
-      for (int lev=0; lev<= m_finest_level; lev++)
-	{
-	  DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-          LevelSigmaCS& levelCoords = *(m_vect_coordSys[lev]);
-          LevelData<FArrayBox>& levelH = levelCoords.getH();
-          DataIterator dit = levelGrids.dataIterator();          
-          
-          for (DataIterator dit(levelGrids); dit.ok(); ++dit)
-	    {
-	      Real lim = 0.0;
-	      FORT_MAXFAB1(CHF_FRA(levelH[dit]), 
-			  CHF_CONST_REAL(lim), 
-			  CHF_BOX(levelH[dit].box()));
-	    }
-	}
-
-      //average from the finest level down
-      for (int lev =  finestTimestepLevel() ; lev > 0 ; lev--)
-	{
-	  CoarseAverage averager(m_amrGrids[lev],
-                                 1, m_refinement_ratios[lev-1]);
-          averager.averageToCoarse(*vectH[lev-1],
-                                   *vectH[lev]);
-          
-	}
-
-      for (int lev=1; lev<vectH.size(); lev++)
-        {
-      
-          PiecewiseLinearFillPatch filler(m_amrGrids[lev],
-                                          m_amrGrids[lev-1],
-                                          1, 
-                                          m_amrDomains[lev-1],
-                                          m_refinement_ratios[lev-1],
-                                          Hghost);
-
-          Real interp_coef = 0;
-          filler.fillInterp(*vectH[lev],
-                            *vectH[lev-1],
-                            *vectH[lev-1],
-                            interp_coef,
-                            0, 0, 1);
-        }
-
-      //interpolate levelSigmaCS to any levels above finestTimestepLevel()
-      for (int lev = finestTimestepLevel()+1 ; lev<= m_finest_level; lev++)
-	{
-	  m_vect_coordSys[lev]->interpFromCoarse(*m_vect_coordSys[lev-1],
-						 m_refinement_ratios[lev-1],
-						 false , true);
-	}
-
-
-
-      // recompute thickness-derived data in SigmaCS
-      for (int lev=0; lev<= m_finest_level; lev++)
-        {
-	  LevelSigmaCS& levelCoords = *(m_vect_coordSys[lev]);
-	  //slc : I think we need an exchange here
-	  levelCoords.getH().exchange();
-	  LevelSigmaCS* crseCoords = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
-	  int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
-	  levelCoords.recomputeGeometry(crseCoords, refRatio);            
-        }
-     
-
-      //original location
-      if (!m_isothermal)
-      	updateTemperature(layerTH_half, layerH_half, m_layerXYFaceXYVel,
-      			  m_layerSFaceXYVel,  a_dt, m_time,
-      			  m_vect_coordSys, vectCoords_old, 
-      			  m_surfaceThicknessSource, m_basalThicknessSource);
-
-      // clean up temp storage
-      for (int lev=0; lev<=m_finest_level; lev++)
-        {
-          if (grownVel[lev] != NULL)
-            {
-              delete grownVel[lev];
-              grownVel[lev] = NULL;
-            }
-          
-          
-          if (H_half[lev] != NULL)
-            {
-              delete H_half[lev];
-              H_half[lev] = NULL;
-            }
-
-	  if (layerTH_half[lev] != NULL)
-            {
-              delete layerTH_half[lev];
-              layerTH_half[lev] = NULL;
-            }
-	   if (layerH_half[lev] != NULL)
-            {
-              delete layerH_half[lev];
-              layerH_half[lev] = NULL;
-            }
-	  
-
-
-          if (vectFluxes[lev] != NULL)
-            {
-              delete vectFluxes[lev];
-              vectFluxes[lev] = NULL;
-            }
-
-        }
-
-    } // end if 1st or 2nd-order temporal accuracy
-  else if (m_temporalAccuracy == 3)
-    {
-      MayDay::Error("AmrIce::timestep -- RK3 not implemented");
-    }
-  else if (m_temporalAccuracy == 4)
-    {
-      // storage for fluxes 
-      Vector<LevelData<FluxBox>* > vectFluxes(m_finest_level+1, NULL);
-      
-      // temp storage for div(flux)
-      Vector<LevelData<FArrayBox>* > divFlux(m_finest_level+1, NULL);
-
-      // temp storage for new thickness
-      Vector<LevelData<FArrayBox>* > tempThickness(m_finest_level+1, NULL);
-      Vector<LevelData<FArrayBox>* > newThickness(m_finest_level+1, NULL);
-
-      for (int lev=0; lev<=m_finest_level; lev++)
-        {
-          // if we're doing AMR, we'll need to average these fluxes
-          // down to coarser levels. As things stand now, 
-          // CoarseAverageFace requires that the coarse LevelData<FluxBox>
-          // have a ghost cell. 
-          IntVect ghostVect = IntVect::Unit;
-          vectFluxes[lev] = new LevelData<FluxBox>(m_amrGrids[lev],1, 
-                                                   ghostVect);
-          divFlux[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1,
-                                                  IntVect::Zero);
-          
-          tempThickness[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1,
-                                                        ghostVect);
-
-
-          newThickness[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1,
-                                                       ghostVect);
-
-          m_old_thickness[lev]->copyTo(*tempThickness[lev]);
-          m_old_thickness[lev]->copyTo(*newThickness[lev]);
-        }
-      
-
-      Real time = m_time;
-      
-      // RK Stage 1: compute RHS.at old time
-      computeDivThicknessFlux(divFlux,vectFluxes, 
-                              m_old_thickness, time, a_dt/6);
-
-      // first part of update
-      incrementWithDivFlux(newThickness, divFlux, a_dt/6);
-      
-      // predict half-time value using divFlux
-      incrementWithDivFlux(tempThickness, divFlux, a_dt/2);
-
-#if 0      
-      // RHSTmp gets RHS(tOld)
-      // flux registers are also incremented if appropriate
-      a_op.evalRHS(RHSTmp,a_oldSoln,
-                   a_time,a_dt/6);
-      
-      // RK Stage 1: compute update {phi}_1, partial update to new vals.
-      
-      // first part of update...
-      a_op.updateODE(a_newSoln,RHSTmp,a_dt/6);
-      
-      
-      // predict half-time value using LofPhiTmp
-      a_op.updateODE(solnTmp, RHSTmp,a_dt/2);
-      
+#if 0 // this doesn't appear to be used anywhere anymore
+  // need a grown velocity field
+  IntVect grownVelGhost(2*IntVect::Unit);
+  Vector<LevelData<FArrayBox>* > grownVel(m_finest_level+1, NULL);
 #endif
+
+  // holder for half-time face velocity
+  Vector<LevelData<FluxBox>* > H_half(m_finest_level+1,NULL);
+  // thickness fluxes 
+  Vector<LevelData<FluxBox>* > vectFluxes(m_finest_level+1, NULL);
+  
+  
+  // allocate storage
+  for (int lev = finestTimestepLevel() ; lev>=0 ; lev--)
+    {
+      
+      const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+
+      IntVect ghostVect = IntVect::Unit;      
+      H_half[lev] = new LevelData<FluxBox>(m_amrGrids[lev], 1, 
+                                           ghostVect);
+
+      // if we're doing AMR, we'll need to average these fluxes
+      // down to coarser levels. As things stand now, 
+      // CoarseAverageFace requires that the coarse LevelData<FluxBox>
+      // have a ghost cell. 
+      vectFluxes[lev] = new LevelData<FluxBox>(m_amrGrids[lev],1, ghostVect);
+
+      LevelData<FArrayBox>& levelOldThickness = *m_old_thickness[lev];
       
       
-      // RK Stage 2: compute RHS based on first predicted value
-      updateCoordSysWithNewThickness(tempThickness);
-      solveVelocityField();
       
-      time = m_time + a_dt/2;
-      
-      computeDivThicknessFlux(divFlux,vectFluxes, 
-                              tempThickness, time, a_dt/3);
-      
-      
-      // RK Stage 2: compute update {phi}_2, partial update to new vals.
-      incrementWithDivFlux(newThickness, divFlux, a_dt/3);  
-      
-      // now predict half-time value using latest estimate of RHS
-      for (int lev=0; lev<= m_finest_level; lev++)
-        {
-          m_old_thickness[lev]->copyTo(*tempThickness[lev]);
+      // ensure that ghost cells for thickness  are filled in
+      if (lev > 0)
+        {          
+          int nGhost = levelOldThickness.ghostVect()[0];
+          PiecewiseLinearFillPatch thicknessFiller(levelGrids, 
+                                                   m_amrGrids[lev-1],
+                                                   1, 
+                                                   m_amrDomains[lev-1],
+                                                   m_refinement_ratios[lev-1],
+                                                   nGhost);
+          
+          // since we're not subcycling, don't need to interpolate in time
+          Real time_interp_coeff = 0.0;
+          thicknessFiller.fillInterp(levelOldThickness,
+                                     *m_old_thickness[lev-1],
+                                     *m_old_thickness[lev-1],
+                                     time_interp_coeff,
+                                     0, 0, 1);
+          
+          
+          
         }
-      incrementWithDivFlux(tempThickness, divFlux, a_dt/2);
-      
-      // RK Stage 3: compute new RHS.
-      updateCoordSysWithNewThickness(tempThickness);
-      
-      solveVelocityField();
-
-      computeDivThicknessFlux(divFlux,vectFluxes, 
-                              tempThickness, time, a_dt/3);
+      // these are probably unnecessary...
+      levelOldThickness.exchange();
       
       
-      // RK Stage 3: compute update {phi}_3, partial update to new vals.
-      incrementWithDivFlux(newThickness, divFlux, a_dt/3);  
-      
-      // predict value at new time
-      for (int lev=0; lev<= m_finest_level; lev++)
-        {
-          m_old_thickness[lev]->copyTo(*tempThickness[lev]);
-        }
-      incrementWithDivFlux(tempThickness, divFlux, a_dt);
-      
-      
-      // RK Stage 4: compute RHS.
-      
-      time = m_time+a_dt;
-      updateCoordSysWithNewThickness(tempThickness);
-      
-      solveVelocityField();
-
-      computeDivThicknessFlux(divFlux,vectFluxes, 
-                              tempThickness, time, a_dt/6);
-      
-      // RK Stage 4: compute final update of solution.
-      
-      incrementWithDivFlux(newThickness, divFlux, a_dt/6);
-      
-      
-      // now update coordSys
-      updateCoordSysWithNewThickness(newThickness);
-
-      // clean up temp storage
-      for (int lev=0; lev<= m_finest_level; lev++)
-        {
-          if (vectFluxes[lev] != NULL)
-            {
-              delete vectFluxes[lev];
-              vectFluxes[lev] = NULL;
-            }
-
-
-          if (divFlux[lev] != NULL)
-            {
-              delete divFlux[lev];
-              divFlux[lev]= NULL;
-            }
-
-
-          if (tempThickness[lev] != NULL)
-            {
-              delete tempThickness[lev];
-              tempThickness[lev] = NULL;
-            }
-
-
-          if (newThickness[lev] != NULL)
-            {
-              delete newThickness[lev];
-              newThickness[lev] = NULL;
-            }
-        }
+      // do we need to also do a coarseAverage for the vel here?
     }
-  else
+  
+  // compute H_half
+  computeH_half(H_half, a_dt);
+  
+  Vector<LevelData<FluxBox>* > layerTH_half(m_finest_level+1,NULL);
+  Vector<LevelData<FluxBox>* > layerH_half(m_finest_level+1,NULL);
+  if (!m_isothermal)
+    computeTHalf(layerTH_half, layerH_half, m_layerXYFaceXYVel, a_dt, m_time);
+  
+  // slc : having found H_half we can define temporary LevelSigmaCS at t + dt / 2
+  // We want this for the metric terms in  temperature advection, and also when
+  // m_temporalAccuracy == 2 to compute a new velocity field 
+  Vector<RefCountedPtr<LevelSigmaCS> > vectCoords_half (m_finest_level+1);
+  
+  if (m_temporalAccuracy == 1)
+    {
+      // just use the old time LevelSigmaCS
+      for (int lev=0; lev<= m_finest_level; lev++)
+        vectCoords_half[lev] = m_vect_coordSys[lev];
+    }
+  else if (m_temporalAccuracy == 2)
+    {
+      for (int lev=0; lev<= finestTimestepLevel(); lev++)
+        {
+          IntVect sigmaCSGhost = m_vect_coordSys[lev]->ghostVect();
+          RealVect dx = m_amrDx[lev]*RealVect::Unit;
+          vectCoords_half[lev] = RefCountedPtr<LevelSigmaCS> 
+            (new LevelSigmaCS(m_amrGrids[lev], dx, sigmaCSGhost));
+          LevelSigmaCS& levelCoords_half = *vectCoords_half[lev];
+          LevelSigmaCS& levelCoords = *m_vect_coordSys[lev];
+	  
+          ///todo : Here, assume that the base height doesn't change during the
+          ///timestep, which is not strictly true. Instead, we should perform 
+          ///an isostasy calculation at this point.
+          levelCoords_half.setTopography(levelCoords.getTopography());
+          levelCoords_half.setFaceSigma(levelCoords.getFaceSigma());
+          levelCoords_half.setIceDensity(levelCoords.iceDensity());
+          levelCoords_half.setGravity(levelCoords.gravity());
+          levelCoords_half.setWaterDensity(levelCoords.waterDensity());
+          //now set the thickness from H_half
+          LevelData<FluxBox>& levelH = *H_half[lev];
+          LevelData<FluxBox>& levelFaceH = levelCoords_half.getFaceH();
+          for (DataIterator dit( m_amrGrids[lev]); dit.ok(); ++dit)
+            {
+              FluxBox& faceH = levelFaceH[dit];
+              faceH.copy(levelH[dit], levelH[dit].box());
+            }
+          {
+            LevelSigmaCS* crseCoords = (lev > 0)?&(*vectCoords_half[lev-1]):NULL;
+            int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
+            levelCoords_half.recomputeGeometryFace(crseCoords, refRatio);
+          }
+        }
+      // updateSurfaceGradient(vectCoords_half, m_amrGrids, 
+      // 			m_amrDomains, m_refinement_ratios, 
+      // 			m_amrDx, m_basalSlope, m_time, m_dt,
+      // 			(m_limitVelRHS)?m_gradLimitRadius:0,
+      // 			0, m_finest_level, m_thicknessIBCPtr);
+    }
+  
+  // do velocity solve for half-time velocity field
+  if (m_temporalAccuracy == 2)
+    {
+      
+      // first, reset H in coordSys using H_half 
+      // (slc :: calculation was already done above and we will need the old time
+      // also, so change solveVelocityField so we can just swap LevelSigmaCSPointers)
+      MayDay::Error("m_temporalAccuracy ==  doesn't work yet");
+      for (int lev=0; lev<= m_finest_level; lev++)
+        {
+          LevelData<FluxBox>& levelH = *H_half[lev];
+          LevelSigmaCS& levelCoords = *m_vect_coordSys[lev];
+          LevelData<FluxBox>& levelFaceH = levelCoords.getFaceH();
+          DataIterator dit = levelH.dataIterator();
+          for (dit.begin(); dit.ok(); ++dit)
+            {
+              FluxBox& faceH = levelFaceH[dit];
+              faceH.copy(levelH[dit], levelH[dit].box());
+            }
+          {
+            LevelSigmaCS* crseCoords = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
+            int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
+            levelCoords.recomputeGeometryFace(crseCoords, refRatio);
+          }
+          
+        } // end loop over levels
+      
+          // compute new ice velocity field
+      solveVelocityField();
+      
+      // average cell-centered velocity field to faces just like before
+      
+    }
+
+
+  // compute thickness fluxes
+  computeThicknessFluxes(vectFluxes, H_half, m_faceVelAdvection);
+
+
+  // make a copy of m_vect_coordSys before it is overwritten
+  
+  Vector<RefCountedPtr<LevelSigmaCS> > vectCoords_old (m_finest_level+1);
+  for (int lev=0; lev<= m_finest_level; lev++)
+    {
+      IntVect sigmaCSGhost = m_vect_coordSys[lev]->ghostVect();
+      RealVect dx = m_amrDx[lev]*RealVect::Unit;
+      vectCoords_old[lev] = RefCountedPtr<LevelSigmaCS> 
+        (new LevelSigmaCS(m_amrGrids[lev], dx, sigmaCSGhost));
+      LevelSigmaCS& levelCoords_old = *vectCoords_old[lev];
+      const LevelSigmaCS& levelCoords = *m_vect_coordSys[lev];
+      
+      
+      levelCoords_old.setIceDensity(levelCoords.iceDensity());
+      levelCoords_old.setWaterDensity(levelCoords.waterDensity());
+      levelCoords_old.setGravity(levelCoords.gravity());
+      // todo replace the copies below with a deepCopy of levelCoords
+      for (DataIterator dit( m_amrGrids[lev]); dit.ok(); ++dit)
+        {
+          FArrayBox& oldH = levelCoords_old.getH()[dit];
+          const FArrayBox& H = levelCoords.getH()[dit];
+          oldH.copy(H);
+        }
+      levelCoords_old.setTopography(levelCoords.getTopography());
+      {
+        LevelSigmaCS* crseCoords = (lev > 0)?&(*vectCoords_old[lev-1]):NULL;
+        int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
+        levelCoords_old.recomputeGeometry( crseCoords, refRatio);
+      }
+      //levelCoords_old.setSurfaceHeight(levelCoords.getSurfaceHeight());
+      //levelCoords_old.setGradSurface(levelCoords.getGradSurface());
+      //levelCoords_old.setGradSurfaceFace(levelCoords.getGradSurfaceFace());
+      
+#if BISICLES_Z == BISICLES_LAYERED
+      levelCoords_old.setFaceSigma(levelCoords.getFaceSigma());
+#endif
+    }
+  
+
+  // compute div(F) and update solution  
+  updateThickness(m_vect_coordSys, vectCoords_old, vectFluxes, a_dt);
+
+  //original location
+  if (!m_isothermal)
+    updateTemperature(layerTH_half, layerH_half, m_layerXYFaceXYVel,
+                      m_layerSFaceXYVel,  a_dt, m_time,
+                      m_vect_coordSys, vectCoords_old, 
+                      m_surfaceThicknessSource, m_basalThicknessSource);
+  
+  // clean up temp storage
+  for (int lev=0; lev<=m_finest_level; lev++)
+    {
+#if 0
+      if (grownVel[lev] != NULL)
+        {
+          delete grownVel[lev];
+          grownVel[lev] = NULL;
+        }
+#endif      
+      
+      if (H_half[lev] != NULL)
+        {
+          delete H_half[lev];
+          H_half[lev] = NULL;
+        }
+      
+      if (layerTH_half[lev] != NULL)
+        {
+          delete layerTH_half[lev];
+          layerTH_half[lev] = NULL;
+        }
+      if (layerH_half[lev] != NULL)
+        {
+          delete layerH_half[lev];
+          layerH_half[lev] = NULL;
+        }
+      
+      
+      
+      if (vectFluxes[lev] != NULL)
+        {
+          delete vectFluxes[lev];
+          vectFluxes[lev] = NULL;
+        }
+      
+    }
+  
+  if (m_temporalAccuracy > 2)
     {
       MayDay::Error("AmrIce::timestep -- un-defined temporal accuracy");
     }
@@ -2814,7 +2298,390 @@ AmrIce::timeStep(Real a_dt)
 }
 
 
+// compute half-time face-centered thickness using unsplit PPM
+void
+AmrIce::computeH_half(Vector<LevelData<FluxBox>* >& a_H_half, Real a_dt)
+{
+  for (int lev=0; lev<= finestTimestepLevel();  lev++)
+    {
+      
+      // get AdvectPhysics object from PatchGodunov object
+      PatchGodunov* patchGod = m_thicknessPatchGodVect[lev];
+      AdvectPhysics* advectPhysPtr = dynamic_cast<AdvectPhysics*>(patchGod->getGodunovPhysicsPtr());
+      if (advectPhysPtr == NULL)
+        {
+          MayDay::Error("AmrIce::timestep -- unable to upcast GodunovPhysics to AdvectPhysics");
+        }
+      
+      patchGod->setCurrentTime(m_time);
+      
+      // loop over grids on this level and compute H-Half
+      const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+      LevelData<FluxBox>& levelFaceVel = *m_faceVelAdvection[lev];
+      LevelData<FArrayBox>& levelOldThickness = *m_old_thickness[lev];
+      LevelData<FluxBox>& levelHhalf = *a_H_half[lev];
+      
+      LevelData<FArrayBox>& levelSTS = *m_surfaceThicknessSource[lev];
+      LevelData<FArrayBox>& levelBTS = *m_basalThicknessSource[lev];
+      CH_assert(m_surfaceFluxPtr != NULL);
+      
+      // set surface thickness source
+      m_surfaceFluxPtr->surfaceThicknessFlux(levelSTS, *this, lev, a_dt);
+      
+      // set basal thickness source
+      m_basalFluxPtr->surfaceThicknessFlux(levelBTS, *this, lev, a_dt);
+      
+      m_calvingModelPtr->modifySurfaceThicknessFlux(levelBTS, *this, lev, a_dt);
+      
+      LevelData<FArrayBox> levelCCVel(levelGrids, SpaceDim, IntVect::Unit);
+      EdgeToCell( levelFaceVel, levelCCVel);
+      
+      DataIterator dit = levelGrids.dataIterator();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          patchGod->setCurrentBox(levelGrids[dit]);
+          advectPhysPtr->setVelocities(&(levelCCVel[dit]), 
+                                       &(levelFaceVel[dit]));
+          
+	  
+	  
+          FArrayBox advectiveSource(levelSTS[dit].box(),1);
+          advectiveSource.copy(levelSTS[dit]);
+          advectiveSource.plus(levelBTS[dit]);
+	  
+          // add a diffusive source term div(D grad H)) to  advectiveSource
+          if (m_diffusionTreatment == IMPLICIT)
+            {
+              for (int dir=0; dir<SpaceDim; dir++)
+                {
+                  Box faceBox = levelGrids[dit].surroundingNodes(dir);
+                  FArrayBox flux(faceBox,1);
+                  FORT_FACEDERIV(CHF_FRA1(flux,0),
+                                 CHF_CONST_FRA1(levelOldThickness[dit],0),
+                                 CHF_BOX(faceBox),
+                                 CHF_CONST_REAL(dx(lev)[dir]),
+                                 CHF_INT(dir),
+                                 CHF_INT(dir));
+                  CH_assert(flux.norm(0) < HUGE_NORM);
+                  flux *= (*m_diffusivity[lev])[dit][dir];
+                  CH_assert(flux.norm(0) < HUGE_NORM);
+                  FORT_DIVERGENCE(CHF_CONST_FRA(flux),
+                                  CHF_FRA(advectiveSource),
+                                  CHF_BOX(levelGrids[dit]),
+                                  CHF_CONST_REAL(dx(lev)[dir]),
+                                  CHF_INT(dir));
+                  
+                }
+            }
+          
+	  
+          
+          patchGod->computeWHalf(levelHhalf[dit],
+                                 levelOldThickness[dit],
+                                 advectiveSource,
+                                 a_dt,
+                                 levelGrids[dit]);
+          
+          
+        } //end loop over grids
+      
+      
+    } // end loop over levels for computing Whalf
+  
+  // coarse average new H-Half to covered regions
+  for (int lev= finestTimestepLevel(); lev>0; lev--)
+    {
+      CoarseAverageFace faceAverager(m_amrGrids[lev],
+                                     1, m_refinement_ratios[lev-1]);
+      faceAverager.averageToCoarse(*a_H_half[lev-1], *a_H_half[lev]);
+    }
+  
 
+}
+
+
+void 
+AmrIce::computeThicknessFluxes(Vector<LevelData<FluxBox>* >& a_vectFluxes,
+                               const Vector<LevelData<FluxBox>* >& a_H_half,
+                               const Vector<LevelData<FluxBox>* >& a_faceVelAdvection)
+{
+  for (int lev=0; lev<=finestTimestepLevel(); lev++)
+    {
+      LevelData<FluxBox>& levelFaceVel = *a_faceVelAdvection[lev];
+      LevelData<FluxBox>& levelFaceH = *a_H_half[lev];
+      const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+      DataIterator dit = levelGrids.dataIterator();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          FluxBox& faceVel = levelFaceVel[dit];
+          FluxBox& faceH = levelFaceH[dit];
+          FluxBox& flux = (*a_vectFluxes[lev])[dit];
+	  
+          const Box& gridBox = levelGrids[dit];
+          
+          for (int dir=0; dir<SpaceDim; dir++)
+            {
+              Box faceBox(gridBox);
+              faceBox.surroundingNodes(dir);
+              flux[dir].copy(faceH[dir], faceBox);
+              flux[dir].mult(faceVel[dir], faceBox, 0, 0, 1);
+            }
+        }
+    } // end loop over levels
+  
+  // average fine fluxes down to coarse levels
+  for (int lev=finestTimestepLevel(); lev>0; lev--)
+    {
+      CoarseAverageFace faceAverager(m_amrGrids[lev],
+                                     1, m_refinement_ratios[lev-1]);
+      faceAverager.averageToCoarse(*a_vectFluxes[lev-1], *a_vectFluxes[lev]);
+    }
+  
+}
+
+// update ice thickness
+void
+AmrIce::updateThickness(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new, 
+                        Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoords_old, 
+                        const Vector<LevelData<FluxBox>* >& a_vectFluxes, 
+                        Real a_dt)
+{
+
+  for (int lev=0; lev <= finestTimestepLevel() ; lev++)
+    {
+      DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+      LevelData<FluxBox>& levelFlux = *a_vectFluxes[lev];
+      LevelSigmaCS& levelCoords = *(a_vect_coordSys_new[lev]);
+      LevelData<FArrayBox>& levelNewH = levelCoords.getH();
+      LevelData<FArrayBox>& levelOldH = (*a_vectCoords_old[lev]).getH();
+      LevelData<FArrayBox>& levelBalance = *m_balance[lev];
+      const RealVect& dx = levelCoords.dx();              
+      
+      DataIterator dit = levelGrids.dataIterator();          
+      
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          const Box& gridBox = levelGrids[dit];
+          FArrayBox& newH = levelNewH[dit];
+          FArrayBox& oldH = levelOldH[dit];//(*m_old_thickness[lev])[dit];
+          FluxBox& thisFlux = levelFlux[dit];
+          newH.setVal(0.0);
+          
+          // loop over directions and increment with div(F)
+          for (int dir=0; dir<SpaceDim; dir++)
+            {
+              // use the divergence from 
+              // Chombo/example/fourthOrderMappedGrids/util/DivergenceF.ChF
+              FORT_DIVERGENCE(CHF_CONST_FRA(thisFlux[dir]),
+                              CHF_FRA(newH),
+                              CHF_BOX(gridBox),
+                              CHF_CONST_REAL(dx[dir]),
+                              CHF_INT(dir));
+              
+              
+            }
+          // add in thickness source
+          // if there are still diffusive fluxes to deal
+          // with, the source term will be included then
+          if (m_diffusionTreatment != IMPLICIT)
+            {
+              newH.minus((*m_surfaceThicknessSource[lev])[dit], gridBox,0,0,1);
+              newH.minus((*m_basalThicknessSource[lev])[dit], gridBox,0,0,1);
+            }
+          
+          levelBalance[dit].copy(newH);
+          
+          
+          if (m_evolve_thickness)
+            {
+              if (m_floating_ice_stable)
+                {
+                  //keep floating ice stable if required
+                  const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+                  for (BoxIterator bit(gridBox); bit.ok(); ++bit)
+                    {
+                      const IntVect& iv = bit();
+                      if (mask(iv) == FLOATINGMASKVAL)
+                        {
+                          newH(iv) = 0.0;
+                        }
+                    }
+                }
+              
+              if (m_grounded_ice_stable)
+                {
+                  //keep grounded ice stable if required
+                  const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+                  for (BoxIterator bit(gridBox); bit.ok(); ++bit)
+                    {
+                      const IntVect& iv = bit();
+                      if (mask(iv) == GROUNDEDMASKVAL)
+                        {
+                          newH(iv) = 0.0;
+                        }
+                    }
+                }
+              
+              
+              newH *= -1*a_dt;
+              
+            }
+          else 
+            {
+              newH.setVal(0.0);
+            }
+          
+          newH.plus(oldH, 0, 0, 1);
+          
+        } // end loop over grids
+    } // end loop over levels
+  
+  
+  
+  //include any diffusive fluxes
+  if (m_evolve_thickness && m_diffusionTreatment == IMPLICIT)
+    {
+      //MayDay::Error("m_diffusionTreatment == IMPLICIT no yet implemented");
+      //implicit thickness correction
+      implicitThicknessCorrection(a_dt, m_surfaceThicknessSource,  m_basalThicknessSource);
+    }
+  
+  
+  
+  // average down thickness to coarser levels and fill in ghost cells
+  // before calling recomputeGeometry. 
+  int Hghost = 2;
+  Vector<LevelData<FArrayBox>* > vectH(m_finest_level+1, NULL);
+  for (int lev=0; lev<vectH.size(); lev++)
+    {
+      IntVect HghostVect = Hghost*IntVect::Unit;
+      LevelSigmaCS& levelCoords = *(a_vect_coordSys_new[lev]);
+      vectH[lev] = &levelCoords.getH();
+    }
+  
+  //average from the finest level down
+  for (int lev =  finestTimestepLevel() ; lev > 0 ; lev--)
+    {
+      CoarseAverage averager(m_amrGrids[lev],
+                             1, m_refinement_ratios[lev-1]);
+      averager.averageToCoarse(*vectH[lev-1],
+                               *vectH[lev]);
+      
+    }
+  
+  // //interpolate H to any levels above finestTimestepLevel()
+  // for (int lev=finestTimestepLevel() + 1; lev < vectH.size(); lev++)
+  // 	{
+  // 	  FineInterp interpolator(m_amrGrids[lev],1,
+  // 				  m_refinement_ratios[lev-1],
+  // 				  m_amrDomains[lev]);
+  
+  // 	  interpolator.interpToFine(*vectH[lev], *vectH[lev-1]);
+  
+  // 	}
+  // now pass back over and do PiecewiseLinearFillPatch
+  for (int lev=1; lev<vectH.size(); lev++)
+    {
+      
+      PiecewiseLinearFillPatch filler(m_amrGrids[lev],
+                                      m_amrGrids[lev-1],
+                                      1, 
+                                      m_amrDomains[lev-1],
+                                      m_refinement_ratios[lev-1],
+                                      Hghost);
+      
+      Real interp_coef = 0;
+      filler.fillInterp(*vectH[lev],
+                        *vectH[lev-1],
+                        *vectH[lev-1],
+                        interp_coef,
+                        0, 0, 1);
+    }
+  
+  
+  //re-fill ghost cells ouside the domain
+  for (int lev=0; lev <= finestTimestepLevel()  ; ++lev)
+    {
+      RealVect levelDx = m_amrDx[lev]*RealVect::Unit;
+      m_thicknessIBCPtr->setGeometryBCs(*m_vect_coordSys[lev],
+                                        m_amrDomains[lev],levelDx, m_time, m_dt);
+    }
+  
+  //allow calving model to modify geometry and velocity
+  for (int lev=0; lev<= m_finest_level; lev++)
+    {
+      m_calvingModelPtr->endTimeStepModifyState
+        (m_vect_coordSys[lev]->getH(), *this, lev);
+    }
+  
+  
+  
+  
+  //dont allow thickness to be negative
+  for (int lev=0; lev<= m_finest_level; lev++)
+    {
+      DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+      LevelSigmaCS& levelCoords = *(m_vect_coordSys[lev]);
+      LevelData<FArrayBox>& levelH = levelCoords.getH();
+      DataIterator dit = levelGrids.dataIterator();          
+      
+      for (DataIterator dit(levelGrids); dit.ok(); ++dit)
+        {
+          Real lim = 0.0;
+          FORT_MAXFAB1(CHF_FRA(levelH[dit]), 
+                       CHF_CONST_REAL(lim), 
+                       CHF_BOX(levelH[dit].box()));
+        }
+    }
+  
+  //average from the finest level down
+  for (int lev =  finestTimestepLevel() ; lev > 0 ; lev--)
+    {
+      CoarseAverage averager(m_amrGrids[lev],
+                             1, m_refinement_ratios[lev-1]);
+      averager.averageToCoarse(*vectH[lev-1],
+                               *vectH[lev]);      
+    }
+  
+  for (int lev=1; lev<vectH.size(); lev++)
+    {      
+      PiecewiseLinearFillPatch filler(m_amrGrids[lev],
+                                      m_amrGrids[lev-1],
+                                      1, 
+                                      m_amrDomains[lev-1],
+                                      m_refinement_ratios[lev-1],
+                                      Hghost);
+      
+      Real interp_coef = 0;
+      filler.fillInterp(*vectH[lev],
+                        *vectH[lev-1],
+                        *vectH[lev-1],
+                        interp_coef,
+                        0, 0, 1);
+    }
+  
+  //interpolate levelSigmaCS to any levels above finestTimestepLevel()
+  for (int lev = finestTimestepLevel()+1 ; lev<= m_finest_level; lev++)
+    {
+      m_vect_coordSys[lev]->interpFromCoarse(*m_vect_coordSys[lev-1],
+                                             m_refinement_ratios[lev-1],
+                                             false , true);
+    }
+  
+  
+  
+  // recompute thickness-derived data in SigmaCS
+  for (int lev=0; lev<= m_finest_level; lev++)
+    {
+      LevelSigmaCS& levelCoords = *(m_vect_coordSys[lev]);
+      //slc : I think we need an exchange here
+      levelCoords.getH().exchange();
+      LevelSigmaCS* crseCoords = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
+      int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
+      levelCoords.recomputeGeometry(crseCoords, refRatio);            
+    }
+  
+}
 
 
 // do regridding
