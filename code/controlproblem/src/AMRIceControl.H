@@ -176,7 +176,7 @@ class AMRIceControl
 
 public:
   ~AMRIceControl();
-  // set up  geoemtry, define observations etc
+  // set up  geometry, define observations etc
   void define(IceThicknessIBC* a_ibcPtr,
 	      IceTemperatureIBC* a_tempIBCPtr,
 	      RateFactor* a_rateFactor,

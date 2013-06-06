@@ -231,7 +231,7 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   create(m_muCoef,1,IntVect::Unit);
   create(m_lapMuCoef,1,IntVect::Zero);
   create(m_gradMuCoefSq,1,IntVect::Zero);
-  create(m_muCoef,1,IntVect::Unit);
+  //create(m_muCoef,1,IntVect::Unit);
   create(m_faceMuCoef,1,IntVect::Zero);
 
   create(m_divUH,1,IntVect::Unit);
@@ -584,6 +584,7 @@ AMRIceControl::~AMRIceControl()
   free(m_divUHCoef);
   free(m_adjVel);
   free(m_rhs);
+  free(m_adjRhs);
   free(m_C);
   free(m_Ccopy);
   free(m_C0);
@@ -593,12 +594,13 @@ AMRIceControl::~AMRIceControl()
   free(m_lapMuCoef);
   free(m_gradMuCoefSq);
   free(m_faceMuCoef);
-  free(m_divUHObs);
+  free(m_divUH);
   free(m_faceThckFlux);
   free(m_temperature);
   free(m_sTemperature);
   free(m_bTemperature);
   free(m_A);
+  free(m_faceA);
   free(m_vtFace);
   free(m_velocityMisfit);
   free(m_massBalanceMisfit);
