@@ -1295,19 +1295,20 @@ void AMRIceControl::computeObjectiveAndGradient
 			  CHF_CONST_FRA(thisLambda),
 			  CHF_BOX(t.box()));
 
-
+	  t *= -1.0;
 	  if (m_boundMethod == Projection)
 	    {
 	      const LevelData<FArrayBox>& levelX =  *a_x[lev];
 	      const FArrayBox& thisX =  levelX[dit];
-	      FORT_MULTHATCTRL(CHF_FRA1(t,0),
+	      //FORT_MULTHATCTRL
+	      FORT_HARDPOINTINCTRL(CHF_FRA1(t,0),
 			       CHF_CONST_FRA1(thisX,CCOMP),
 			       CHF_CONST_REAL(m_lowerX0),
 			       CHF_CONST_REAL(m_upperX0),
 			       CHF_BOX(t.box()));
 	    }
 
-	  thisG.minus(t,0,CCOMP);
+	  thisG.plus(t,0,CCOMP);
 	  
 	  
 	}
@@ -1359,11 +1360,13 @@ void AMRIceControl::computeObjectiveAndGradient
 	      {
 		const LevelData<FArrayBox>& levelX =  *a_x[lev];
 		const FArrayBox& thisX =  levelX[dit];
-		FORT_MULTHATCTRL(CHF_FRA1(t,0),
-				 CHF_CONST_FRA1(thisX,MUCOMP),
-				 CHF_CONST_REAL(m_lowerX1),
-				 CHF_CONST_REAL(m_upperX1),
-				 CHF_BOX(t.box()));
+		//FORT_MULTHATCTRL
+		
+		FORT_HARDPOINTINCTRL(CHF_FRA1(t,0),
+				     CHF_CONST_FRA1(thisX,MUCOMP),
+				     CHF_CONST_REAL(m_lowerX1),
+				     CHF_CONST_REAL(m_upperX1),
+				     CHF_BOX(t.box()));
 	    }
 
 

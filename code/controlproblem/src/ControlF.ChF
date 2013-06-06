@@ -174,13 +174,40 @@ c-------------------------------------
       integer CHF_AUTODECL[i]
       CHF_AUTOMULTIDO[box; i]
 
-      if ((x(CHF_AUTOIX[i]).le.lb).and.(x(CHF_AUTOIX[i]).ge.ub)) then
+      if ((x(CHF_AUTOIX[i]).le.lb).or.(x(CHF_AUTOIX[i]).ge.ub)) then
          fab(CHF_AUTOIX[i]) = zero
       end if
       CHF_ENDDO
 
       return
       end
+
+c--------------------------------------
+c modify a gradient (fab) to point downhill into
+c the interior of [lb,ub]
+c        { fab    :      lb < x < ub
+c fab <- { min(0, fab) :  x <= lb 
+c        { max(0, fab) :  z => ub
+c-------------------------------------
+      subroutine hardpointinctrl(CHF_FRA1[fab],
+     &     CHF_CONST_FRA1[x],
+     &     CHF_CONST_REAL[lb],
+     &     CHF_CONST_REAL[ub],
+     &     CHF_BOX[box])
+ 
+      integer CHF_AUTODECL[i]
+      CHF_AUTOMULTIDO[box; i]
+
+      if (x(CHF_AUTOIX[i]).le.lb) then
+         fab(CHF_AUTOIX[i]) = min(zero,fab(CHF_AUTOIX[i]))
+      else if (x(CHF_AUTOIX[i]).ge.ub) then
+         fab(CHF_AUTOIX[i]) = max(zero,fab(CHF_AUTOIX[i]))
+      end if
+      CHF_ENDDO
+
+      return
+      end
+
 
 c--------------------------------------
 c r <- c (a.b), r,c are a one-component FABs 
