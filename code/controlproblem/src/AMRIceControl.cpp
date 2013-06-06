@@ -503,8 +503,8 @@ void AMRIceControl::solveControl()
 
   m_lowerX1 = - m_boundArgX1;
   m_upperX1 = + m_boundArgX1;
-  pp.query("lowerX0",m_lowerX1);
-  pp.query("upperX0",m_upperX1);
+  pp.query("lowerX1",m_lowerX1);
+  pp.query("upperX1",m_upperX1);
 
   {
     std::string s = "None";
@@ -1361,8 +1361,8 @@ void AMRIceControl::computeObjectiveAndGradient
 		const FArrayBox& thisX =  levelX[dit];
 		FORT_MULTHATCTRL(CHF_FRA1(t,0),
 				 CHF_CONST_FRA1(thisX,MUCOMP),
-				 CHF_CONST_REAL(m_lowerX0),
-				 CHF_CONST_REAL(m_upperX0),
+				 CHF_CONST_REAL(m_lowerX1),
+				 CHF_CONST_REAL(m_upperX1),
 				 CHF_BOX(t.box()));
 	    }
 
