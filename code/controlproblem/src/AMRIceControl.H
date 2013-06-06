@@ -36,6 +36,10 @@ class AMRIceControl
   // finest level permitted
   int m_maxFinestLevel;
 
+  //finest levels permitted on floating and grounded regions
+  int m_maxFinestLevelFloating;
+  int m_maxFinestLevelGrounded;
+
   // current finest level;
   int m_finestLevel;
 
@@ -156,6 +160,11 @@ class AMRIceControl
     m_X0Regularization, m_X1Regularization;
   bool m_muCoefLEQOne, m_muCoefLEQOneGround;
   bool m_muCoefGEQOne, m_muCoefGEQOneGround;
+
+  Real m_lowerX0, m_upperX0, m_lowerX1, m_upperX1;
+
+  enum BoundMethod {None, Projection, MAX_BOUND_METHOD};
+  BoundMethod m_boundMethod;
 
   int m_outerCounter;
   int m_innerCounter;

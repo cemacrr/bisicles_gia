@@ -79,16 +79,17 @@ c-------------------------------------------------------
 
 
 c----------------------------------------------------
-c x <- x * exp(min(a,max(-b,a)))
+c x <- x * exp(min(ub,max(lb,a)))
       subroutine boundexpctrl( 
      &     CHF_FRA1[x],CHF_CONST_FRA1[a],
-     &     CHF_CONST_REAL[b],CHF_BOX[box])
+     &     CHF_CONST_REAL[lb],CHF_CONST_REAL[ub],
+     &     CHF_BOX[box])
 
       integer CHF_AUTODECL[i]
       REAL_T t
 
       CHF_AUTOMULTIDO[box; i]
-      t = min(b,max(a(CHF_AUTOIX[i]),-b))
+      t = min(ub,max(a(CHF_AUTOIX[i]),lb))
       x(CHF_AUTOIX[i]) = x(CHF_AUTOIX[i]) * exp(t)
       CHF_ENDDO
       return
@@ -111,17 +112,19 @@ c x <- x * exp(a)
       end
 
 c----------------------------------------------------
-c x <- (min(b,max(-b,x)))
+c x <- (min(ub,max(lb,x)))
       subroutine boundctrl( 
      &     CHF_FRA1[x],
-     &     CHF_CONST_REAL[b],CHF_BOX[box])
+     &     CHF_CONST_REAL[lb],
+     &     CHF_CONST_REAL[ub],  
+     &     CHF_BOX[box])
 
       integer CHF_AUTODECL[i]
       REAL_T t
 
       CHF_AUTOMULTIDO[box; i]
       t = x(CHF_AUTOIX[i])
-      x(CHF_AUTOIX[i]) = min(b,max(-b,t))
+      x(CHF_AUTOIX[i]) = min(ub,max(lb,t))
       CHF_ENDDO
       return
       end
@@ -155,6 +158,61 @@ c g = -{1/(x+b+tol) + 1/(x-b-tol)}
       p(CHF_AUTOIX[i]) = - log(- dp * dm / bsq)
       g(CHF_AUTOIX[i]) = - one / dm - one / dp 
       CHF_ENDDO
+
+      return
+      end
+
+c--------------------------------------
+c fab <- fab * (lb < x < ub)?1:0  
+c-------------------------------------
+      subroutine multhatctrl(CHF_FRA1[fab],
+     &     CHF_CONST_FRA1[x],
+     &     CHF_CONST_REAL[lb],
+     &     CHF_CONST_REAL[ub],
+     &     CHF_BOX[box])
+ 
+      integer CHF_AUTODECL[i]
+      CHF_AUTOMULTIDO[box; i]
+
+      if ((x(CHF_AUTOIX[i]).le.lb).and.(x(CHF_AUTOIX[i]).ge.ub)) then
+         fab(CHF_AUTOIX[i]) = zero
+      end if
+      CHF_ENDDO
+
+      return
+      end
+
+c--------------------------------------
+c r <- c (a.b), r,c are a one-component FABs 
+c               a,b are n-components FABs 
+c-------------------------------------
+      subroutine cadotbctrl(CHF_FRA1[r],
+     &     CHF_CONST_FRA1[c],
+     &     CHF_CONST_FRA[a],
+     &     CHF_CONST_FRA[b], 
+     &     CHF_BOX[box])
+ 
+
+      integer CHF_AUTODECL[i], icomp
+
+      CHF_AUTOMULTIDO[box; i]
+      r(CHF_AUTOIX[i]) =   c(CHF_AUTOIX[i]) *  
+     &           a(CHF_AUTOIX[i],0) *
+     &           b(CHF_AUTOIX[i],0) 
+      CHF_ENDDO
+
+      if (CHF_NCOMP[a].gt.1) then
+         do icomp = 1, CHF_NCOMP[a] - 1
+            CHF_AUTOMULTIDO[box; i]
+            
+            r(CHF_AUTOIX[i]) = r(CHF_AUTOIX[i]) +
+     &           c(CHF_AUTOIX[i]) *  
+     &           a(CHF_AUTOIX[i],icomp) *
+     &           b(CHF_AUTOIX[i],icomp) 
+            
+            CHF_ENDDO
+         end do
+      end if
 
       return
       end

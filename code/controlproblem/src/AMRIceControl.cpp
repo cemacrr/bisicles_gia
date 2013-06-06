@@ -119,6 +119,13 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   m_maxFinestLevel = 0;
   ppAMR.query("max_level",m_maxFinestLevel);
   m_refRatio.resize(m_maxFinestLevel);
+  m_maxFinestLevelFloating = m_maxFinestLevel;
+  m_maxFinestLevelGrounded = m_maxFinestLevel;
+
+  ppAMR.query("max_level_floating",m_maxFinestLevelFloating);
+  ppAMR.query("max_level_grounded",m_maxFinestLevelGrounded);
+   
+
   if (m_maxFinestLevel > 0)
     {
       ppAMR.queryarr("refinement_ratios",m_refRatio,0,m_maxFinestLevel);
@@ -245,7 +252,7 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
       CellToEdge(*m_A[lev], *m_faceA[lev]);
     }
   
-
+#if 0
   {
     Vector<std::string> names;
     for (int i =0; i < m_A[0]->nComp(); i++)
@@ -267,6 +274,7 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
     WriteAMRHierarchyHDF5("A.2d.hdf5",m_grids,m_A,names, m_domain[0].domainBox(),
 			  m_dx[0][0], 0.0, 0.0 , m_refRatio, m_A.size());
   }
+#endif
 
   Real Amin = computeMin(m_A,  m_refRatio, Interval(0,m_A[0]->nComp()-1));
   Real Amax = computeMax(m_A,  m_refRatio, Interval(0,m_A[0]->nComp()-1));
@@ -282,6 +290,15 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
 
   m_velocityInitialised = false;
 
+  m_referenceCOrigin = NULL;
+  m_referenceMuCoefOrigin = NULL; 
+  m_referenceVelObs = NULL;
+  m_referenceVelCoef = NULL;
+  m_referenceDivUHObs =NULL;
+  m_referenceDivUHCoef =  NULL;
+
+
+
   pout() << " AMIceControl::define completed" << std::endl;
   
 }
@@ -295,7 +312,8 @@ void AMRIceControl::levelTag(int a_lev, IntVectSet& a_tagset)
     {
       
       const FArrayBox& velObs =  (*m_velObs[lev])[dit];
-       const FArrayBox& velCoef =  (*m_velCoef[lev])[dit];
+      const FArrayBox& velCoef =  (*m_velCoef[lev])[dit];
+      const BaseFab<int>& mask = m_coordSys[lev]->getFloatingMask()[dit];
       Box box = grids[dit];
 
       //tag cells where |vel| * dx > m_maxVelDx 
@@ -306,7 +324,9 @@ void AMRIceControl::levelTag(int a_lev, IntVectSet& a_tagset)
 	      const IntVect& iv = bit();
 	      const Real& vc = velCoef(iv);
 	      Real tol = -0.001;
-	      if (vc > tol)
+	      if ( (vc > tol) && (
+		   (mask(iv) == GROUNDEDMASKVAL && lev < m_maxFinestLevelGrounded) ||
+		   (mask(iv) == FLOATINGMASKVAL && lev < m_maxFinestLevelFloating) ) )
 		{
 		  Real v = 0.0;
 		  for (int dir = 0; dir < SpaceDim; ++dir)
@@ -469,11 +489,39 @@ void AMRIceControl::solveControl()
   m_muCoefGEQOneGround = false;
   pp.query("muCoefGEQOneGround",m_muCoefGEQOneGround);
 
+  
 
   m_boundArgX0 = 3.0;
   m_boundArgX1 = 2.0;
   pp.query("boundArgX0",m_boundArgX0);
   pp.query("boundArgX1",m_boundArgX1);
+
+  m_lowerX0 = - m_boundArgX0;
+  m_upperX0 = + m_boundArgX0;
+  pp.query("lowerX0",m_lowerX0);
+  pp.query("upperX0",m_upperX0);
+
+  m_lowerX1 = - m_boundArgX1;
+  m_upperX1 = + m_boundArgX1;
+  pp.query("lowerX0",m_lowerX1);
+  pp.query("upperX0",m_upperX1);
+
+  {
+    std::string s = "None";
+    pp.query("boundMethod",s);
+    if (s == "None")
+      {
+	m_boundMethod = None;
+      }
+    else if (s == "Projection")
+      {
+	m_boundMethod = Projection;
+      }
+    else
+      {
+	MayDay::Error("unknown control.boundMethod");
+      }
+  }
 
 
   Vector<LevelData<FArrayBox>* > X;
@@ -712,10 +760,12 @@ void AMRIceControl::checkBounds(Vector<LevelData<FArrayBox>* >& a_X)
 	{
 	  FArrayBox& x = (*a_X[lev])[dit];
 	  FORT_BOUNDCTRL(CHF_FRA1(x,0),
-	  		 CHF_CONST_REAL(m_boundArgX0),
+	  		 CHF_CONST_REAL(m_lowerX0),
+			 CHF_CONST_REAL(m_upperX0),
 	  		 CHF_BOX(x.box()));
 	  FORT_BOUNDCTRL(CHF_FRA1(x,1),
-	  		 CHF_CONST_REAL(m_boundArgX1),
+	  		 CHF_CONST_REAL(m_lowerX1),
+			 CHF_CONST_REAL(m_upperX1),
 	  		 CHF_BOX(x.box()));
 
 	}
@@ -768,7 +818,8 @@ void AMRIceControl::computeObjectiveAndGradient
 	  thisC.copy(levelCOrigin[dit]);
 	  FORT_BOUNDEXPCTRL(CHF_FRA1(thisC,0),
 	  		    CHF_CONST_FRA1(levelX[dit],CCOMP),
-	  		    CHF_CONST_REAL(m_boundArgX0),
+	  		    CHF_CONST_REAL(m_lowerX0),
+			    CHF_CONST_REAL(m_upperX0),
 	  		    CHF_BOX(box));
 
 
@@ -781,7 +832,8 @@ void AMRIceControl::computeObjectiveAndGradient
 	  thisMuCoef.copy(levelMuCoefOrigin[dit]);
 	  FORT_BOUNDEXPCTRL(CHF_FRA1(thisMuCoef,0),
 	  		    CHF_CONST_FRA1(levelX[dit],MUCOMP),
-	  		    CHF_CONST_REAL(m_boundArgX1),
+	  		    CHF_CONST_REAL(m_lowerX1),
+			    CHF_CONST_REAL(m_upperX1),
 	  		    CHF_BOX(box));
 	  	  
 
@@ -1210,15 +1262,6 @@ void AMRIceControl::computeObjectiveAndGradient
 
     }
   
-
-  
-  Real barrierC = computeNorm(a_x, m_refRatio, m_dx[0][0], Interval(CCOMP,CCOMP), 2);
-  Real barrierMu = computeNorm(a_x, m_refRatio, m_dx[0][0], Interval(MUCOMP,MUCOMP), 2);
-
-  pout() << " L2-norm(X0) = " <<  barrierC
-  	 << " L2-norm(X1) = " <<  barrierMu
-  	 << std::endl;
-
   //compute unregularized part of gradient with respect to a_x component 0 (basal friction coefficient C)
   // = - adjVel * vel * C 
   for (int lev = 0; lev <= m_finestLevel; lev++)
@@ -1233,16 +1276,39 @@ void AMRIceControl::computeObjectiveAndGradient
 	  const FArrayBox& thisC = levelC[dit];
 	  const FArrayBox& thisLambda = levelLambda[dit];
 	  
-	  FArrayBox& thisG =  levelG[dit];
+	 
+	  FArrayBox& thisG = levelG[dit];
+	  //FArrayBox t(thisG.box(),1);
+	  //t.copy(thisU,0,0);
+	  //t.mult(thisLambda,0,0);
+	  //t.mult(thisC,0,0);
+	  //thisG.minus(t,0,CCOMP);
+	  //t.copy(thisU,1,0);
+	  //t.mult(thisLambda,1,0);
+	  //t.mult(thisC,0,0);
+	  //thisG.minus(t,0,CCOMP);
+	  
 	  FArrayBox t(thisG.box(),1);
-	  t.copy(thisU,0,0);
-	  t.mult(thisLambda,0,0);
-	  t.mult(thisC,0,0);
+	  FORT_CADOTBCTRL(CHF_FRA1(t,0),
+			  CHF_CONST_FRA1(thisC,0),
+			  CHF_CONST_FRA(thisU),
+			  CHF_CONST_FRA(thisLambda),
+			  CHF_BOX(t.box()));
+
+
+	  if (m_boundMethod == Projection)
+	    {
+	      const LevelData<FArrayBox>& levelX =  *a_x[lev];
+	      const FArrayBox& thisX =  levelX[dit];
+	      FORT_MULTHATCTRL(CHF_FRA1(t,0),
+			       CHF_CONST_FRA1(thisX,CCOMP),
+			       CHF_CONST_REAL(m_lowerX0),
+			       CHF_CONST_REAL(m_upperX0),
+			       CHF_BOX(t.box()));
+	    }
+
 	  thisG.minus(t,0,CCOMP);
-	  t.copy(thisU,1,0);
-	  t.mult(thisLambda,1,0);
-	  t.mult(thisC,0,0);
-	  thisG.minus(t,0,CCOMP);
+	  
 	  
 	}
     }
@@ -1289,6 +1355,18 @@ void AMRIceControl::computeObjectiveAndGradient
 	    t.mult(-oneOnTwoDx[0]);
 	    t.mult(muCoef);
 	    
+	    if (m_boundMethod == Projection)
+	      {
+		const LevelData<FArrayBox>& levelX =  *a_x[lev];
+		const FArrayBox& thisX =  levelX[dit];
+		FORT_MULTHATCTRL(CHF_FRA1(t,0),
+				 CHF_CONST_FRA1(thisX,MUCOMP),
+				 CHF_CONST_REAL(m_lowerX0),
+				 CHF_CONST_REAL(m_upperX0),
+				 CHF_BOX(t.box()));
+	    }
+
+
 	    FArrayBox& thisG =  levelG[dit];
 	    thisG.plus(t,0,MUCOMP);
 
