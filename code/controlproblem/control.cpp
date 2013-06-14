@@ -31,14 +31,19 @@
 #include "LevelDataTemperatureIBC.H"
 #include "AMRIceControl.H"
 #include "ReadLevelData.H"
-//#include "FlatHDF5.H"
+#ifdef CH_USE_PETSC
+#include "petsc.h"
+#endif 
 
 int main(int argc, char* argv[]) {
 
+#ifdef CH_USE_PETSC
+  int ierr = PetscInitialize(&argc, &argv,PETSC_NULL,PETSC_NULL); CHKERRQ(ierr);
+#else
 #ifdef CH_MPI
   MPI_Init(&argc, &argv);
 #endif
-
+#endif // end petsc conditional
   { // Begin nested scope
 
 #ifdef CH_MPI
@@ -457,9 +462,12 @@ int main(int argc, char* argv[]) {
   }  // end nested scope
   CH_TIMER_REPORT();
 
+#ifdef CH_USE_PETSC
+  ierr = PetscFinalize(); CHKERRQ(ierr);
+#else
 #ifdef CH_MPI
   MPI_Finalize();
-#endif
-  
+#endif// mpi conditional
+#endif // petsc conditional
   return 0;
 }
