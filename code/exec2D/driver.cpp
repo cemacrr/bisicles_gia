@@ -399,7 +399,20 @@ int main(int argc, char* argv[]) {
 	 amrObject.setMuCoefficient(ptr);
 	 delete ptr;
       }
-
+#ifdef HAVE_PYTHON
+    else if (muCoefType == "Python")
+      {
+	ParmParse pyPP("PythonMuCoefficient");
+	std::string module;
+	pyPP.get("module",module);
+	std::string funcName = "muCoefficient";
+	pyPP.query("function",funcName);
+	MuCoefficient* ptr =  static_cast<MuCoefficient*>
+	  (new PythonInterface::PythonMuCoefficient(module, funcName));
+	amrObject.setMuCoefficient(ptr);
+	delete ptr;
+      }
+#endif
     else
       {
 	MayDay::Error("undefined MuCoefficient in inputs");

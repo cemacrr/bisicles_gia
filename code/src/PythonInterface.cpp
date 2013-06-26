@@ -583,6 +583,66 @@ void PythonInterface::PythonBasalFriction::setBasalFriction
 
 
 
+PythonInterface::PythonMuCoefficient::PythonMuCoefficient
+(const std::string& a_pyModuleName,
+ const std::string& a_pyFuncName)
+{
+  InitializePythonModule(&m_pModule,  a_pyModuleName);
+  InitializePythonFunction(&m_pFunc, m_pModule,  a_pyFuncName);
+}
+
+
+
+
+PythonInterface::PythonMuCoefficient::~PythonMuCoefficient()
+{
+  Py_DECREF(m_pModule);
+  Py_DECREF(m_pFunc);
+}
+
+MuCoefficient* PythonInterface::PythonMuCoefficient::new_muCoefficient() const
+{
+  PythonMuCoefficient* ptr = new PythonMuCoefficient(m_pModule, m_pFunc);
+  return static_cast<MuCoefficient*>(ptr);
+}
+
+
+void PythonInterface::PythonMuCoefficient::setMuCoefficient
+(LevelData<FArrayBox>& a_muCoef,
+ LevelSigmaCS& a_coordSys,
+ Real a_time,
+ Real a_dt)
+{
+  CH_TIME("PythonInterface::PythonMuCoefficient::setMuCoefficient");
+  Vector<Real> args(SpaceDim + 3);
+  Vector<Real> rval;
+  
+  const DisjointBoxLayout& grids = a_muCoef.disjointBoxLayout();
+  for (DataIterator dit(grids);dit.ok();++dit)
+    {
+      a_muCoef[dit].setVal(0.0);
+      const Box& b = a_muCoef[dit].box();
+      for (BoxIterator bit(b);bit.ok();++bit)
+	{
+	  const IntVect& iv = bit();
+	  int i = 0;
+	  for (int dir=0; dir < SpaceDim; dir++)
+	    {
+	      args[i] = (Real(iv[dir]) + 0.5)*a_coordSys.dx()[dir];
+	      i++;
+	    }
+	  args[i] = a_time;i++;
+	  args[i] = a_coordSys.getH()[dit](iv);i++;
+	  args[i] = a_coordSys.getTopography()[dit](iv);i++;
+	  PythonEval(m_pFunc, rval,  args);
+	  a_muCoef[dit](iv) =  rval[0];
+	  
+	}
+    }
+}
+
+
+
 #include "NamespaceFooter.H"
 
 #endif

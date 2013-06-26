@@ -16,6 +16,7 @@
 #include "IceTemperatureIBC.H"
 #include "SurfaceFlux.H"
 #include "BasalFriction.H"
+#include "MuCoefficient.H"
 #include "NamespaceHeader.H"
 //
 // PythonInterface.H
@@ -343,6 +344,51 @@ private:
 
   };
 
+
+  class PythonMuCoefficient : public MuCoefficient
+  {
+
+    PyObject*  m_pModule;
+    PyObject*  m_pFunc;
+ 
+  public:
+    PythonMuCoefficient(const std::string& a_pyModule,
+			const std::string& a_pyFunc);
+    
+    virtual ~PythonMuCoefficient();
+
+    virtual MuCoefficient* new_muCoefficient() const;
+    
+    virtual void setMuCoefficient(LevelData<FArrayBox>& a_C,
+				  LevelSigmaCS& a_coordSys,
+				  Real a_time,
+				  Real a_dt);
+  private:
+    void operator=(const PythonMuCoefficient& a_input)
+    {
+      MayDay::Error("invalid operator");
+    }
+    
+    PythonMuCoefficient(const PythonMuCoefficient& a_input)
+    {
+      MayDay::Error("invalid operator");
+    }
+
+    PythonMuCoefficient()
+    {
+
+    }
+
+    
+    PythonMuCoefficient(PyObject*  a_pModule,  PyObject*  a_pFunc)
+    {
+      m_pModule = a_pModule;
+      m_pFunc = a_pFunc;
+      Py_XINCREF(m_pModule);
+      Py_XINCREF(m_pFunc);
+    }
+
+  };
 
 }
 
