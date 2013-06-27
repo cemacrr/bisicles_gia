@@ -372,14 +372,16 @@ void ValidIO::writeCF ( const std::string& a_file,
 
   {
     // cell-center latitude and longitude data
-    const Vector<Real>& x = a_validData.x(0);
-    const Vector<Real>& y = a_validData.x(1);
-      Vector<Real> lat(a_validData.size());
-  Vector<Real> lon(a_validData.size());
-
+    D_TERM(const Vector<Real>& x = a_validData.x(0);,
+	   const Vector<Real>& y = a_validData.x(1);,
+	   const Vector<Real>& z = a_validData.x(2););
+      
+    Vector<Real> lat(a_validData.size());
+    Vector<Real> lon(a_validData.size());
+    
     for (int i = 0; i < x.size(); i++)
       {
-	RealVect X(x[i],y[i]);
+	RealVect X(D_DECL(x[i],y[i],z[i]));
 	RealVect L = a_latlonTransformation.transform(X);
 	lat[i] = L[0] / M_PI * 180.0;
 	lon[i] = L[1] / M_PI * 180.0;
@@ -435,7 +437,7 @@ void ValidIO::writeCF ( const std::string& a_file,
 
 	for (int i = 0; i < a_validData.size(); i++)
 	  {
-	    RealVect X(nodeX[0][i],nodeX[1][i]);
+	    RealVect X(D_DECL(nodeX[0][i],nodeX[1][i],nodeX[2][i]));
 	    RealVect L = a_latlonTransformation.transform(X);
 	    nodeLat[i] = L[0] / M_PI * 180.0;
 	    nodeLon[i] = L[1] / M_PI * 180.0;
