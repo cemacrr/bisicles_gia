@@ -18,89 +18,13 @@
 
 #include <iostream>
 #include "AMRIO.H"
-#include "netcdf.h"
+#include "ValidIO.H"
+
 
 void AMRtoCF(const std::string& ifile, const std::string& ofile);
 void CFtoAMR(const std::string& ifile, const std::string& ofile);
 
-class ValidData
-{
 
-  int m_nComp;
-  Vector<RealVect> m_dx;
-  int m_nLevel;
-
-  Vector<int> m_level;
-  Vector<IntVect> m_iv;
-  Vector<Vector< Real > > m_field;
-  Vector<Vector<Real > > m_x;
-
-  ValidData()
-  {
-  }
-
-public:
-  ValidData(int a_nComp, Vector<RealVect>& a_dx)
-  {
-    m_nComp = a_nComp;
-    m_dx = a_dx;
-    m_nLevel = m_dx.size();
-    m_field.resize(m_nComp);
-    m_x.resize(SpaceDim);
-  }
-
-  void append(const int a_lev, const IntVect& a_iv, const Vector<Real>& a_data)
-  {
-    CH_assert(a_lev < m_nLevel);
-    CH_assert(a_data.size() == m_field.size());
-
-    m_level.push_back(a_lev);
-    m_iv.push_back(a_iv);
-    for (int ic = 0; ic < m_nComp; ic++)
-      {
-	m_field[ic].push_back(a_data[ic]);
-      }
-    for (int dir = 0; dir < SpaceDim; dir++)
-      {
-	m_x[dir].push_back(m_dx[a_lev][dir]*(Real(a_iv[dir]) + 0.5));  
-      }
-  }
-  const int nComp() const
-  {
-    return m_nComp;
-  }
-
-
-  const size_t size() const
-  {
-    return m_level.size();
-  }
-
-  const double* field(int a_comp) const
-  {
-    return &m_field[a_comp][0];
-  }
-  const double* x(int a_dir) const
-  {
-    return &m_x[a_dir][0];
-  }
-  
-
-};
-
-
-//typedef std::pair<int,IntVect> ValidDataKey;
-//typedef Vector<Real>  ValidDataValue;
-//typedef std::pair<ValidDataKey, ValidDataValue > ValidDataElement;
-//typedef Vector<ValidDataElement> ValidData  ;
-
-//given block structured data produce a list of valid data
-//on all levels
-void BStoValid ( ValidData & , 
-		 const Vector<LevelData<FArrayBox>*>&, 
-		 const Vector<int>& a_ratio );
-
-void writeCF ( const std::string&,  const ValidData& , const Vector<std::string>& );
 
 
 int main(int argc, char* argv[]) {
@@ -193,14 +117,19 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile)
       dx[lev] = dx[lev-1]/Real(ratio[lev-1]);
     }
 
-  RealVect x0 = RealVect::Zero;
+  RealVect x0 = RealVect::Unit * -434.123e+3; //\todo  NEEDS to be a sensible parameter
 
   //extract valid data
-  ValidData validData(names.size(), dx);
-  BStoValid(validData, data, ratio);
+  ValidData validData(names.size(), dx, x0);
+  ValidIO::BStoValid(validData, data, ratio);
+
+  
+  PolarStereographicCartesianToPolarTransformation transformation
+    (0.08181922,  6.3781370e+6, 1.0 , 0.0, RealVect::Zero);
+  //eccentricity, equatorial radius, 
 
   //write to CF file
-  writeCF ( ofile,  validData , names );
+  ValidIO::writeCF ( ofile,  validData , names, transformation );
 
 
 
@@ -217,210 +146,4 @@ void CFtoAMR(const std::string& ifile, const std::string& ofile)
  MayDay::Error("CFtoAMR not implemented");
 }
 
-//given block structured data and a valid region mask, produce unstructured data 
-void BStoValid ( ValidData& a_validData , 
-		 const Vector<LevelData<FArrayBox>*>& a_bsData, 
-		 const Vector<int>& a_ratio)
-{
-  
-  //build valid data mask
-  int numLevels = a_bsData.size();
-  Vector<LevelData<BaseFab<int> >* > mask(numLevels,NULL);
-  for (int lev = numLevels - 1; lev >= 0; lev--)
-	  {
-	    const DisjointBoxLayout& grids = a_bsData[lev]->disjointBoxLayout();
-	    mask[lev] = new LevelData<BaseFab<int> >(grids,1,IntVect::Zero);
-	    for (DataIterator dit(grids); dit.ok(); ++dit)
-	      {
-		(*mask[lev])[dit].setVal(1);
-		
-		if (lev < numLevels - 1)
-		  {
-		    const DisjointBoxLayout& fgrids = a_bsData[lev+1]->disjointBoxLayout();
-		    for (DataIterator fit(fgrids) ; fit.ok(); ++fit)
-		      {
-			Box covered = fgrids[fit];
-			covered.coarsen(a_ratio[lev]);
-			covered &= grids[dit];
-			if (!covered.isEmpty())
-			  {
-			    (*mask[lev])[dit].setVal(0,covered,0,1);
-			  }
-		      }
-		  }
-	      }
-	    
-	  }
-
-
-  for (int lev = 0; lev < a_bsData.size(); lev++)
-    {
-      LevelData<FArrayBox>& levelData = *a_bsData[lev];
-      LevelData<BaseFab<int> >& levelMask = *mask[lev];
-      for (DataIterator dit = levelData.dataIterator(); dit.ok(); ++dit)
-	{
-	  const Box& box = levelData.disjointBoxLayout()[dit];
-	  for (BoxIterator bit(box);bit.ok();++bit)
-	    {
-	      const IntVect& iv = bit();
-	     
-	      if (levelMask[dit](iv) == 1)
-		{
-		  Vector<Real> v(levelData.nComp());
-		  for (int ic = 0; ic < v.size(); ic++)
-		    v[ic] = levelData[dit](iv,ic);
-		  a_validData.append(lev,iv,v);
-		  
-		}
-	    }
-	}
-
-      
-
-    }
-  
-  //clean up mask
-  for (int lev = 0; lev < mask.size(); lev++)
-    {
-      if (mask[lev] != NULL)
-	{
-	  delete mask[lev];mask[lev]=NULL;
-	}
-    }
-
-
-}
-
-/// write valid data to a NetCDF-CF compliant file, 
-/// along with the mesh data needed to reconstruct 
-/// a Chombo AMR hierarchy  from it
-void writeCF ( const std::string& a_file,  const ValidData& a_validData , 
-	       const Vector<std::string>& a_names )
-{
-  int rc; int ncID; int varID;
-  //create new file
-  if ( (rc = nc_create(a_file.c_str(), NC_CLOBBER, &ncID) ) != NC_NOERR) 
-    {
-      MayDay::Error("failed to open netcdf file");
-    }
-
-  int nCell = a_validData.size();
-  int cellDimID;
-  
-  //define the netCDF dimensions etc
-  if ( (rc = nc_def_dim(ncID, "cell" , nCell, &cellDimID)) != NC_NOERR)
-    {
-      MayDay::Error("failed to define cell dimension");
-    }
-
-  std::string xname[SpaceDim] = {D_DECL("x","y","z")};
-  for (int dir = 0; dir < SpaceDim; dir++)
-    {
-      if ( (rc = nc_def_var(ncID, xname[dir].c_str(), NC_DOUBLE,
-			    1, &cellDimID, &varID)) != NC_NOERR)
-	{
-	  MayDay::Error("failed to define space variable");
-	}
-      
-      std::string s = "projection_"  + xname[dir] + "_coordinate";
-      
-      if ( (rc =  nc_put_att_text (ncID, varID, "standard_name", 
-				   s.size(), s.c_str())) != NC_NOERR)
-	{
-	  MayDay::Error("failed to add standard_name attribute");
-	}
-      
-      if ( (rc =  nc_put_att_text (ncID, varID, "units", 
-				   1, "m")) != NC_NOERR)
-	{
-	  MayDay::Error("failed to add units attribute to x");
-	}
-      
-    }
-  
-  for (int ic = 0; ic < a_validData.nComp(); ic++)
-    {
-      
-      const std::string name = a_names[ic];
-      size_t find = name.find("/");
-      if (find == string::npos )
-	{
-	  
-	  if ( (rc = nc_def_var(ncID, a_names[ic].c_str(), NC_DOUBLE,
-			    1, &cellDimID, &varID)) != NC_NOERR)
-	    {
-	      MayDay::Error("failed to define field variable");
-	    }
-
-	  std::string s = xname[0]; 
-	  for (int dir = 1; dir < SpaceDim; dir++)
-	    {
-	      s+= " " + xname[dir];
-	    }
-
-	  if ( (rc =  nc_put_att_text (ncID, varID, "coordinates", 
-				       s.size(), s.c_str())) != NC_NOERR)
-	    {
-	      MayDay::Error("failed to add field attribute");
-	    }
-
-	}
-
-    } 
-
-
-
-  if ( (rc = nc_enddef(ncID) ) != NC_NOERR)
-    {
-      MayDay::Error("failed to define netcdf file");
-    }
-
- 
-  //write data
-  //spatial fields
-  for (int dir = 0; dir < SpaceDim; dir++)
-    {
-      int varID;
-      if ( (rc = nc_inq_varid(ncID, xname[dir].c_str(), &varID)) != NC_NOERR)
-	{
-	  MayDay::Error("failed to find variable id");
-	}
-      size_t start = 0;
-      size_t count = nCell;
-      if ( (rc = nc_put_vara_double(ncID, varID, &start, &count, a_validData.x(dir))) != NC_NOERR)
-	{
-	  MayDay::Error("failed to write data");
-	}
-
-
-    }
-
-  //scalar fields
-  for (int ic = 0; ic < a_validData.nComp(); ic++)
-    {
-      
-      const std::string name = a_names[ic];
-      size_t find = name.find("/");
-      if (find == string::npos )
-	{
-	  if ( (rc = nc_inq_varid(ncID, name.c_str(), &varID)) != NC_NOERR)
-	    {
-	      MayDay::Error("failed to find variable id");
-	}
-	  size_t start = 0;
-	  size_t count = nCell;
-	  if ( (rc = nc_put_vara_double(ncID, varID, &start, &count, a_validData.field(ic))) != NC_NOERR)
-	    {
-	      MayDay::Error("failed to write data");
-	    } 
-	}
-    }
-  
-  //close file
-  if ( (rc = nc_close(ncID) ) != NC_NOERR)
-    {
-      MayDay::Error("failed to close netcdf file");
-    }
-
-}
 
