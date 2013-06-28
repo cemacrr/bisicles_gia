@@ -30,20 +30,23 @@ class ValidData
   Vector<RealVect> m_dx;
   RealVect m_x0;
   int m_nLevel;
-
+  Vector<int> m_ratio;
   Vector<int> m_level;
-  Vector<IntVect> m_iv;
+  Vector<int> m_boxID;
+  Vector<Vector<int> > m_iv;
   Vector<Vector< Real > > m_field;
   Vector<Vector<Real > > m_x;
 
-  ValidData()
-  {
-  }
+  bool m_isDefined;
 
 public:
-  ValidData(int a_nComp,  const  Vector<RealVect>& a_dx, const RealVect& m_x0 = RealVect::Zero );
+  ValidData(int a_nComp,  const RealVect& a_crseDx, const Vector<int>& a_ratio, const RealVect& a_x0 = RealVect::Zero );
+  
+  void define(int a_nComp,  const RealVect& a_crseDx, const Vector<int>& a_ratio, const RealVect& a_x0 = RealVect::Zero );
 
-  void append(const int a_lev, const IntVect& a_iv, 
+  ValidData():m_isDefined(false){}
+
+  void append(int a_lev, int a_boxID, const IntVect& a_iv, 
 	      const Vector<Real>& a_data);
   
   const int nComp() const
@@ -51,10 +54,40 @@ public:
     return m_nComp;
   }
 
-
-  const size_t size() const
+  const size_t nCell() const
   {
     return m_level.size();
+  }
+
+  const size_t nLevel() const
+  {
+    return m_nLevel;
+  }
+
+  const Vector<int>& ratio() const
+  {
+    return m_ratio;
+  }
+ 
+  const Vector<RealVect>& dx() const
+  {
+    return m_dx;
+  }
+
+
+  const Vector<int>& level() const
+  {
+    return m_level;
+  }
+
+  const Vector<int>& boxID() const
+  {
+    return m_boxID;
+  }
+
+  const Vector<int>& iv(int a_dir) const
+  {
+    return m_iv[a_dir];
   }
 
   const Vector<Real>& field(int a_comp) const
@@ -87,6 +120,13 @@ namespace ValidIO
   void writeCF ( const std::string&,  const ValidData& , 
 		 const Vector<std::string>&, 
 		 const Transformation&);
+
+  ///read ValidData from a NetCDF-CF file
+  void readCF ( ValidData&, Vector<std::string>&, 
+		 const std::string&);
+
+
+
 }
 
 #include "NamespaceFooter.H"

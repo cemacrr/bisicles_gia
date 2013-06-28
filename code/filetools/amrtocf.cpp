@@ -11,17 +11,18 @@
 //===========================================================================
 // amrtocf.cpp
 // Read data from hdf5 files containing Chombo block-structured AMR hierachies
-// Write unstructurd data *plus* the grid data needed to reconstruct
-// the block structured data to a CF compliant netcdf file
+// Write unstructurd data, plus the grid data needed to reconstruct
+// the block structured data, to a CF compliant netcdf file
 // Or the other way round
 //===========================================================================
 
 #include <iostream>
 #include "AMRIO.H"
 #include "ValidIO.H"
+#include "ParmParse.H"
+#include "FieldNames.H"
 
-
-void AMRtoCF(const std::string& ifile, const std::string& ofile);
+void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect& a_origin);
 void CFtoAMR(const std::string& ifile, const std::string& ofile);
 
 
@@ -47,24 +48,28 @@ int main(int argc, char* argv[]) {
     number_procs=1;
 #endif
   
+    if(argc < 2) 
+      { std::cerr << " usage: " << argv[0] << " <config_file> [additional key=value args]\n"; exit(0); }
 
-    if(argc < 3) 
-      { 
-	std::cerr << " usage: " << argv[0] << " <input_file> <output_file> " 
-		  << std::endl; 
-	exit(0); 
-      }
-    
-    char* in_file = argv[1];
-    char* out_file = argv[2];
-    
+    char* config_file = argv[1];
+    ParmParse pp(argc-2,argv+2,NULL,config_file);
   
-    std::string ifile(in_file);
-    std::string ofile(out_file);
+    std::string ifile;
+    pp.get("infile",ifile);
+
+    std::string ofile;
+    pp.get("outfile",ofile);
  
+    RealVect origin = RealVect::Zero;
+    {
+      Vector<Real> t(SpaceDim,0.0);
+      pp.queryarr("origin",t,0,SpaceDim);
+      D_TERM(origin[0] = t[0];, origin[1] = t[1];, origin[2] = t[2];);
+    }
+    
     if ( (ifile.size() >= 5) && (ifile.find(".hdf5") == ifile.size()-5))
       {
-	AMRtoCF(ifile,ofile);
+	AMRtoCF(ifile,ofile,origin);
       }
     else if ((ifile.size() >= 3) && (ifile.find(".nc") == ifile.size()-3))
       {
@@ -90,7 +95,7 @@ int main(int argc, char* argv[]) {
   
   return 0;
 }
-void AMRtoCF(const std::string& ifile, const std::string& ofile)
+void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect& a_origin)
 {
   
 
@@ -110,17 +115,10 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile)
       MayDay::Error("failed to read AMR hierarchy");
     }
 
-  Vector<RealVect> dx(numLevels);
-  dx[0] = crseDx * IntVect::Unit;
-  for (int lev = 1; lev < numLevels; lev++)
-    {
-      dx[lev] = dx[lev-1]/Real(ratio[lev-1]);
-    }
-
-  RealVect x0 = RealVect::Unit * -434.123e+3; //\todo  NEEDS to be a sensible parameter
+ 
 
   //extract valid data
-  ValidData validData(names.size(), dx, x0);
+  ValidData validData(names.size(), RealVect::Unit*crseDx, ratio, -a_origin);
   ValidIO::BStoValid(validData, data, ratio);
 
   
@@ -143,7 +141,9 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile)
 }
 void CFtoAMR(const std::string& ifile, const std::string& ofile)
 {
- MayDay::Error("CFtoAMR not implemented");
+  ValidData validData;
+  Vector<std::string> names;
+  ValidIO::readCF(validData, names, ifile);
 }
 
 
