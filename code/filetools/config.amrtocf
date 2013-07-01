@@ -1,0 +1,160 @@
+
+#tables that map internal BISICLES names to CISM-style 3/4 character names
+#and CISM-style names to CF standard names and units
+basalThicknessSource.name = lsmb
+
+lsmb.standard_name = land_ice_basal_melt_rate
+lsmb.units = "- m a-1"
+
+surfaceThicknessSource.name = usmb
+
+usmb.standard_name = land_ice_surface_specific_mass_balance
+usmb.units = "m a-1"
+
+thickness.name=thk
+
+thk.standard_name = land_ice_thickness
+thk.units = m
+
+xVelb.name=xbvel
+xbVel.name=xbvel
+
+xbvel.standard_name = land_ice_basal_x_velocity
+xbvel.units = "m a-1"
+
+yVelb.name=ybvel
+ybVel.name=ybvel
+
+ybvel.standard_name = land_ice_basal_y_velocity
+ybvel.units = "m a-1"
+
+zVelb.name=zbvel
+zbVel.name=zbvel
+
+zbvel.standard_name = land_ice_basal_z_velocity
+zbvel.units = "m a-1"
+
+muCoef.name = muco 
+
+muco.long_name = additional_coefficient_of_viscosity
+muco.units = "1"
+
+dThickness/dt.name = dhdt
+
+dhdt.standard_name = tendency_of_land_ice_thickness
+dhdt.units = "m a-1"
+
+temperature.name = temp
+
+temp.standard_name = land_ice_temperature
+temp.units = K
+
+
+sigma.standard_name = land_ice_sigma_coordinate
+sigma.units = 1
+
+xfVel.name = xfvel
+
+xfvel.standard_name = land_ice_vertical_mean_x_velocity
+xfvel.units = "m a-1"
+
+yfVel.name = yfvel
+
+yfvel.standard_name = land_ice_vertical_mean_y_velocity
+yfvel.units = "m a-1"
+
+xVel.name = xvel
+
+xvel.standard_name = land_ice_x_velocity
+xvel.units = "m a-1"
+
+yVel.name = yvel
+
+yvel.standard_name = land_ice_y_velocity
+yvel.units = "m a-1"
+
+zVel.name = zvel
+
+zvel.standard_name = land_ice_z_velocity
+zvel.units = "m a-1"
+
+
+Z_base.name = topg
+
+topg.standard_name = bedrock_altitude
+topg.units = m
+
+
+Z_surface.name = usrf
+
+usrf.long_name = "land_ice_upper_surface_altitude"
+usrf.units = m
+
+
+Z_bottom.name = lsrf
+
+lsrf.long_name = "land_ice_lower_surface_altitude"
+lsrf.units = m
+
+xxViscousTensor.name = xxvt
+xxvt.long_name = "land_ice_vertically_integrated_xx_viscous_tensor"
+xxvt.units = "Pa m"
+
+yyViscousTensor.name = yyvt
+yyvt.long_name = "land_ice_vertically_integrated_yy_viscous_tensor"
+yyvt.units = "Pa m"
+
+
+
+xyViscousTensor.name = xyvt
+xyvt.long_name = "land_ice_vertically_integrated_xy_viscous_tensor"
+xyvt.units = "Pa m"
+
+yxViscousTensor.name = yxvt
+yxvt.long_name = "land_ice_vertically_integrated_yx_viscous_tensor"
+yxvt.units = "Pa m"
+
+viscosityCoef.name = evsc
+
+evsc.long_name = "land_ice_vertical_mean_effective_viscosity_coefficient"
+evsc.units = "Pa a"
+
+dragCoef.name = etrc
+Cwshelf.name = etrc
+
+etrc.long_name = "land_ice_effective_basal_traction_coefficient"
+etrc.units = "Pa a m-1"
+
+
+surfaceThicknessBalance.name = stb
+
+stb.long_name = "bisicles_surface_mass_balance_required_for_equilibrium"
+stb.units = " m a-1"
+
+basal_friction.name = bfrc
+
+bfrc.long_name = "bisicles_basal_friction_relation_coefficient_field"
+bfrc.units = "1"
+
+
+C0.name = bfrcx
+
+bfrcx.long_name = "bisicles_extra_basal_friction_relation_coefficient_field"
+bfrcx.units = "Pa a m-1"
+
+
+solverRHSx.name = xrhs
+xrhs.long_name = "bisicles_stress_balance_x_rhs"
+xrhs.units = "Pa"
+
+solverRHSy.name = yrhs
+yrhs.long_name = "bisicles_stress_balance_y_rhs"
+yrhs.units = "Pa"
+
+X0.name = ctrlp0
+ctrlp0.long_name = "bisicles_control_problem_parameter_0"
+ctrlp0.units = 1
+
+X1.name = ctrlp1
+ctrlp1.long_name = "bisicles_control_problem_parameter_1"
+ctrlp1.units = 1
