@@ -1042,7 +1042,8 @@ void AMRIceControl::computeObjectiveAndGradient
       IceVelocity::computeFaceVelocity
 	(faceVelAdvection, faceVelTotal, faceDiffusivity, *cellDiffusivity, 
 	 layerXYFaceXYVel,  layerSFaceXYVel,
-	 *m_velb[lev], *m_coordSys[lev],*m_A[lev], sA, bA,
+	 *m_velb[lev], *m_coordSys[lev],m_ibcPtr,
+	 *m_A[lev], sA, bA,
 	 (lev > 0)?m_velb[lev-1]:NULL,
 	 crseCellDiffusivityPtr,
 	 (lev > 0)?m_refRatio[lev-1]:1,

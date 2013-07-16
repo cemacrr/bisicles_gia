@@ -415,7 +415,8 @@ AmrIce::setDefaults()
   m_write_map_file = false;
   m_write_thickness_sources = false;
   m_write_layer_velocities = false;
- 
+  m_write_mask = false;
+
   m_check_prefix = "chk";
   m_check_interval = -1;
   m_check_overwrite = true;
@@ -802,9 +803,13 @@ AmrIce::~AmrIce()
 
 #ifdef HAVE_PYTHON
   if (m_tagPythonFunction != NULL)
-    Py_DECREF(m_tagPythonFunction);
+    {
+      Py_DECREF(m_tagPythonFunction);
+    }
   if (m_tagPythonModule != NULL)
-    Py_DECREF(m_tagPythonModule);
+    {
+      Py_DECREF(m_tagPythonModule);
+    }
 #endif
 
   // that should be it!
@@ -920,7 +925,7 @@ AmrIce::initialize()
   bool tempBool = m_write_dHDt;
   ppAmr.query("write_dHDt", tempBool);
   m_write_dHDt = (tempBool == 1);
-
+  ppAmr.query("write_mask", m_write_mask);
   ppAmr.query("write_solver_rhs", m_write_solver_rhs);
 
   if (m_max_level > 0)
@@ -4129,6 +4134,13 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
 	  // fill the ghost cells of a_vectCoordSys[lev]->getH();
 	  LevelData<FArrayBox>& levelH = a_vectCoordSys[lev]->getH();
 	  LevelData<FArrayBox>& coarseH = a_vectCoordSys[lev-1]->getH();
+	  
+	  //before patch filler works, need to put sane data on the new levels - 
+	  //the particular IBC can redo if needed
+ 
+	  FineInterp interpolator(m_amrGrids[lev],1,m_refinement_ratios[lev-1],m_amrDomains[lev]);
+          interpolator.interpToFine(levelH, coarseH);
+
 	  int nGhost = levelH.ghostVect()[0];
 	  PiecewiseLinearFillPatch thicknessFiller
 	    (m_amrGrids[lev],m_amrGrids[lev-1],1, m_amrDomains[lev-1],
@@ -4141,6 +4153,7 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
 
           // should be able to use the same filler
           CH_assert(levelTopog.ghostVect() == levelH.ghostVect());
+	  interpolator.interpToFine(levelTopog, crseTopog);
           thicknessFiller.fillInterp(levelTopog, crseTopog, crseTopog, 0.0, 0, 0, 1);
           
 	}
@@ -4663,11 +4676,6 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
             } // end loop over cells in this box
 
 
-
-	  // CH_assert(thisRhs.norm(0,0,SpaceDim) < HUGE_NORM);
-
-	 
-
 	  if(m_groundingLineCorrection && anyFloating == 1)
 	    {
 	      Real rhog = iceDensity*gravity;
@@ -4687,15 +4695,10 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 		}
 	    }
 
-	  
-	  //CH_assert(thisRhs.norm(0,0,SpaceDim) < HUGE_NORM);
-	  
-	  
 	  FArrayBox& thisC = levelC[dit];
 	  FArrayBox& thisC0 = (*a_vectC0[lev])[dit];
 
-	
-
+       
 	  // add drag due to ice in contact with ice-free rocky walls
 	  
 	  thisC0.setVal(0.0);
@@ -4723,9 +4726,8 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
       // finally, modify RHS in problem-dependent ways,
       m_thicknessIBCPtr->modifyVelocityRHS(levelRhs, 
                                            *m_vect_coordSys[lev],
-                                           m_amrDomains[lev],
-                                           m_time, m_dt);
-
+                                           m_amrDomains[lev],m_time, m_dt);
+      
     } // end loop over levels
 
 
@@ -4825,7 +4827,8 @@ AmrIce::computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVelAdvection,
        IceVelocity::computeFaceVelocity
        	(*a_faceVelAdvection[lev], *a_faceVelTotal[lev], *a_diffusivity[lev],
 	 *cellDiffusivity,*a_layerXYFaceXYVel[lev], *a_layerSFaceXYVel[lev],
-	 *m_velocity[lev],*m_vect_coordSys[lev], *m_A[lev], *m_sA[lev], *m_bA[lev], 
+	 *m_velocity[lev],*m_vect_coordSys[lev], m_thicknessIBCPtr, 
+	 *m_A[lev], *m_sA[lev], *m_bA[lev], 
 	 crseVelPtr,crseCellDiffusivityPtr, nRefCrse, 
 	 m_constitutiveRelation, m_additionalVelocity);
 
@@ -5841,7 +5844,7 @@ AmrIce::writePlotFile()
       numPlotComps += SpaceDim;
       if (writeZvel) numPlotComps+=1;
     }
-
+  if (m_write_mask) numPlotComps += 1;
   if (m_write_dHDt) numPlotComps += 1;
   if (m_write_solver_rhs) numPlotComps += (SpaceDim+2);
 
@@ -5884,7 +5887,7 @@ AmrIce::writePlotFile()
   string solverRhsxName("solverRHSx");
   string solverRhsyName("solverRHSy");
   string C0Name("C0");
-
+  string maskName("mask");
   string xfVelName("xfVel");
   string yfVelName("yfVel");
   string zfVelName("zfVel");
@@ -5969,6 +5972,13 @@ AmrIce::writePlotFile()
       vectName[comp] = dthicknessName;      
       comp++;
     } 
+
+  if (m_write_mask)
+    {
+      vectName[comp] = maskName;      
+      comp++;
+    } 
+
 
   if (m_write_fluxVel)
     {
@@ -6260,6 +6270,18 @@ AmrIce::writePlotFile()
 
 	    } // end if we are computing dHDt
       
+	  if (m_write_mask)
+            {
+	      const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
+	      FArrayBox tmp(mask.box(),1);
+	      for (BoxIterator bit(mask.box());bit.ok();++bit)
+		{
+		  tmp(bit()) = Real( mask(bit()) ) ;
+		}
+	      thisPlotData.copy(tmp,0,comp,1);
+	      comp++;
+	    }
+
 	  // const FArrayBox& thisSurfaceVel = (*m_velocity[lev])[dit];
           // thisPlotData.copy(thisSurfaceVel, 0, comp, 2);
           

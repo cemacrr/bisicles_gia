@@ -12,6 +12,7 @@
 #include "Vector.H"
 #include "LevelSigmaCS.H"
 #include "ConstitutiveRelation.H"
+#include "IceThicknessIBC.H"
 #include "NamespaceHeader.H"
 
 namespace IceVelocity
@@ -90,6 +91,7 @@ namespace IceVelocity
 #endif
    const LevelData<FArrayBox>& a_velocity,
    const LevelSigmaCS& a_coordSys,
+   const IceThicknessIBC* a_bc,
    const LevelData<FArrayBox>& a_A,
 #if BISCICLES_Z == BISICLES_LAYERED
    const LevelData<FArrayBox>& a_sA,

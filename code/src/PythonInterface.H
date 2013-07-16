@@ -57,10 +57,15 @@ namespace PythonInterface
     PyObject*  m_pModule;
     PyObject*  m_pFuncThck;
     PyObject*  m_pFuncTopg;
-    
+    PyObject*  m_pFuncRhs;
+    PyObject*  m_pFuncFaceVel;
   public:
     
-    PythonIBC(const std::string&, const std::string&, const std::string&  );
+    PythonIBC(const std::string& a_pyModuleName , 
+	      const std::string& a_pyFuncThckName, 
+	      const std::string& a_pyFuncTopgName, 
+	      const std::string& a_pyFuncRhsName,
+	      const std::string& a_pyFuncFaceVelName);
     
     PythonIBC();
     
@@ -105,7 +110,20 @@ namespace PythonInterface
 				       const LevelSigmaCS* a_crseCoords,
 				       const int a_refRatio);
 
-    
+  /// if appropriate, modify velocity solve RHS in a problem-dependent way. 
+  /** default is to do nothing
+   */  
+    virtual void modifyVelocityRHS(LevelData<FArrayBox>& a_rhs,
+				   LevelSigmaCS& a_coords,
+				   const ProblemDomain& a_domain,
+				   Real a_time, Real a_dt);
+    /// if appropriate, modify face velocities in a problem-dependent way. 
+    /** default is to do nothing
+     */
+    virtual void modifyFaceVelocity(LevelData<FluxBox>& a_faceVel,
+				    const LevelSigmaCS& a_coords,
+				    const ProblemDomain& a_domain) const ;
+
     /// Set boundary fluxes
     /**
      */
@@ -143,12 +161,7 @@ namespace PythonInterface
      */
     virtual BCHolder velocitySolveBC();
 
-    /// if appropriate, modify velocity solve RHS in a problem-dependent way. 
-    virtual void modifyVelocityRHS(LevelData<FArrayBox>& a_rhs,
-				   LevelSigmaCS& a_coords,
-				   const ProblemDomain& a_domain,
-				   Real a_time, Real a_dt)
-    {;}
+    
 
 
     /// set non-periodic ghost cells for surface height z_s. 
@@ -184,19 +197,30 @@ namespace PythonInterface
       MayDay::Error("invalid operator");
     }
 
-    PythonIBC(PyObject*  a_pModule,  PyObject*  a_pFuncThck, PyObject*  a_pFuncTopg)
+    PythonIBC(PyObject*  a_pModule,  PyObject*  a_pFuncThck, 
+	      PyObject*  a_pFuncTopg, PyObject*  a_pFuncRhs,
+	      PyObject*  a_pFuncFaceVel)
     {
       m_isBCsetUp = false;
       m_pModule = a_pModule;
       m_pFuncThck = a_pFuncThck;
       m_pFuncTopg = a_pFuncTopg;
+      m_pFuncRhs = a_pFuncRhs;
+      m_pFuncFaceVel = a_pFuncFaceVel;
       Py_XINCREF(m_pModule);
       Py_XINCREF(m_pFuncThck);
       Py_XINCREF(m_pFuncTopg);
+      if (m_pFuncRhs != NULL)
+	{
+	  Py_XINCREF(m_pFuncRhs);
+	}
+      if (m_pFuncFaceVel != NULL)
+	{
+	  Py_XINCREF(m_pFuncFaceVel);
+	}
     }
-
+    
   };
-
   /// Use a python function to evaluate the surface flux
   /** the user needs to provide a python function foo that
       takes x,y,thickness,topography as args

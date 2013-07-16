@@ -1016,8 +1016,12 @@ int main(int argc, char* argv[]) {
 	 pyPP.query("thicknessFunction",thckFuncName);
 	 std::string topgFuncName = "topography";
 	 pyPP.query("topographyFunction",topgFuncName);
-
-	 PythonInterface::PythonIBC* ptr = new PythonInterface::PythonIBC(module, thckFuncName, topgFuncName);
+	 std::string rhsFuncName = "";
+	 pyPP.query("RHSFunction",rhsFuncName);
+	 std::string faceVelFuncName = "";
+	 pyPP.query("faceVelFunction",faceVelFuncName);
+	 PythonInterface::PythonIBC* ptr = new PythonInterface::PythonIBC
+	   (module, thckFuncName, topgFuncName, rhsFuncName,faceVelFuncName);
 	 thicknessIBC = static_cast<IceThicknessIBC*>( ptr);
        }
 #endif

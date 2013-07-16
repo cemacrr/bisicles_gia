@@ -121,14 +121,35 @@ void PythonInterface::InitializePythonFunction(  PyObject **a_pFunc,
 }
 
 
+
 PythonInterface::PythonIBC::PythonIBC(const std::string& a_pyModuleName,
 				      const std::string& a_pyFuncThckName,
-				      const std::string& a_pyFuncTopgName)
+				      const std::string& a_pyFuncTopgName, 
+				      const std::string& a_pyFuncRhsName,
+				      const std::string& a_pyFuncFaceVelName)
   :m_isBCsetUp(false),m_verbose(true)
 {
   InitializePythonModule(&m_pModule,  a_pyModuleName);
   InitializePythonFunction(&m_pFuncThck, m_pModule,  a_pyFuncThckName);
   InitializePythonFunction(&m_pFuncTopg, m_pModule,  a_pyFuncTopgName);
+  if (a_pyFuncRhsName != "")
+    {
+      InitializePythonFunction(&m_pFuncRhs, m_pModule,  a_pyFuncRhsName);
+    }
+  else
+    {
+      m_pFuncRhs = NULL;
+    }
+  if (a_pyFuncFaceVelName != "")
+    {
+      InitializePythonFunction(&m_pFuncFaceVel, m_pModule,  a_pyFuncFaceVelName);
+    }
+  else
+    {
+      m_pFuncFaceVel = NULL;
+    }
+
+
 }
 
 
@@ -140,7 +161,15 @@ PythonInterface::PythonIBC::PythonIBC()
 
 PythonInterface::PythonIBC::~PythonIBC()
 {
-
+  
+  
+  Py_DECREF(m_pFuncThck);
+  Py_DECREF(m_pFuncTopg);
+  if (m_pFuncRhs != NULL)
+    {
+      Py_DECREF(m_pFuncRhs);
+    }
+  Py_DECREF(m_pModule);
 }
 
 void PythonInterface::PythonIBC::define(const ProblemDomain& a_domain,
@@ -190,7 +219,8 @@ void PythonInterface::PythonIBC::primBC(FArrayBox&            a_WGdnv,
 	   const IntVect& i = bit();
 	   a_WGdnv(i,0) = std::max(0.0,a_Wextrap(i,0));
 	 }
-       }
+       }   
+
    }
 }
 
@@ -328,11 +358,13 @@ void  PythonInterface::PythonIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
       FArrayBox& topg = a_coords.getTopography()[dit];
       FArrayBox& thck = a_coords.getH()[dit];
 
-
-      for (BoxIterator bit(grids[dit]);bit.ok();++bit)
+      Box b = topg.box();
+      b &= thck.box();
+      b &= a_coords.grids().physDomain();
+      for (BoxIterator bit(b);bit.ok();++bit)
 	{
-	   IntVect iv = bit();
-	   int i = 0;
+	  IntVect iv = bit();
+	  int i = 0;
 	   for (int dir=0; dir < SpaceDim; dir++)
 	     {
 	       args[i] = (Real(iv[dir]) + 0.5)*a_dx[dir];
@@ -363,8 +395,10 @@ void  PythonInterface::PythonIBC::regridIceGeometry(LevelSigmaCS& a_coords,
   const DisjointBoxLayout& grids = a_coords.grids();
   for (DataIterator dit(grids); dit.ok(); ++dit)
     {
+     
       FArrayBox& topg = a_coords.getTopography()[dit];
-      for (BoxIterator bit(grids[dit]);bit.ok();++bit)
+      Box b = grids[dit];
+      for (BoxIterator bit(b);bit.ok();++bit)
 	{
 	   IntVect iv = bit();
 	   int i = 0;
@@ -378,14 +412,133 @@ void  PythonInterface::PythonIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 	   topg(iv) = rval[0]; 
 	}
     }
+
+  a_coords.getTopography().exchange();
+  a_coords.getH().exchange();
+
   //Real dt = 0.0;
   //setGeometryBCs(a_coords, grids.physDomain(), a_dx, a_time, dt);
 }
 
+void PythonInterface::PythonIBC::modifyFaceVelocity
+(LevelData<FluxBox>& a_faceVel,
+ const LevelSigmaCS& a_coords,
+ const ProblemDomain& a_domain) const
+{
+
+   CH_TIME("PythonInterface::PythonIBC::modifyFaceVelocity");
+   if (m_pFuncFaceVel != NULL)
+     {
+       //args are : x,[y,],dx[dir],dir,facevel[dir]
+       Vector<Real> args(SpaceDim + 3);
+       Vector<Real> rval;
+       const DisjointBoxLayout& grids = a_coords.grids();
+       for (DataIterator dit(grids); dit.ok(); ++dit)
+	{
+	  for (int dir = 0; dir < SpaceDim; dir++)
+	    {
+	      FArrayBox& fvel = a_faceVel[dit][dir];
+	      Box b = fvel.box();
+	      for (BoxIterator bit(b); bit.ok(); ++bit)
+		{
+		  IntVect iv = bit();
+		  int i = 0;
+		 
+		  for (int idir=0; idir < SpaceDim; idir++)
+		    {
+		      args[i] = (Real(iv[idir]) + ( (idir==dir)?0.0:0.5 ) )*a_coords.dx()[idir];
+		      i++;
+		    }
+		  
+		  args[i] = a_coords.dx()[dir] ; i++;
+		  args[i] = dir; i++;
+		  args[i] = fvel(iv); i++;
+
+		  PythonEval(m_pFuncFaceVel, rval,  args);
+		  fvel(iv) = rval[0];
+
+		  if ( (dir == 1) && (a_coords.dx()[0] < 1500.0))
+		    {
+		      CH_assert(0 == 0);
+		      int dbg = 0; 
+		      dbg++;
+		    }
+
+		}
+	      
+	    }
+	}
+
+     }
+}
+
+
+/// if appropriate, modify velocity solve RHS in a problem-dependent way. 
+  /** default is to do nothing
+   */
+void  PythonInterface::PythonIBC::modifyVelocityRHS
+(LevelData<FArrayBox>& a_rhs,
+ LevelSigmaCS& a_coords,
+ const ProblemDomain& a_domain,
+ Real a_time, Real a_dt)
+{
+  CH_TIME("PythonInterface::PythonIBC::modifyVelocityRHS");
+  if (m_pFuncRhs != NULL)
+    {
+      //args are : x,[y,],dx[dir],dir,rhs,rho*g*H,s,sleft,sright
+      Vector<Real> args(SpaceDim + 7);  
+      Vector<Real> rval;
+      const DisjointBoxLayout& grids = a_coords.grids();
+      Real rhog = a_coords.iceDensity() * a_coords.gravity();
+
+      for (DataIterator dit(grids); dit.ok(); ++dit)
+	{
+	  const FArrayBox& usrf = a_coords.getSurfaceHeight()[dit];
+	  const FArrayBox& thck = a_coords.getH()[dit];
+	  FArrayBox& rhs = a_rhs[dit];
+	  Box b = grids[dit];
+	  
+	  for (int dir = 0; dir < SpaceDim; dir++)
+	    {
+	      for (BoxIterator bit(b);bit.ok();++bit)
+		{
+		  IntVect iv = bit();
+		  int i = 0;
+		  // x , y
+		  for (int idir=0; idir < SpaceDim; idir++)
+		    {
+		      args[i] = (Real(iv[idir]) + 0.5)*a_coords.dx()[idir];
+		      i++;
+		    }
+		  // dx,
+		  args[i] = a_coords.dx()[dir] ; i++;
+		  //dir
+		  args[i] = dir; i++;
+		  //rhs
+		  args[i] = rhs(iv,dir); i++;
+		  // rho * g * H
+		  args[i] = thck(iv) * rhog; i++;
+		  // s, sleft, sright
+		  args[i] = usrf(iv); i++;
+		  args[i] = usrf(iv - BASISV(dir)); i++;
+		  args[i] = usrf(iv + BASISV(dir) ); i++;
+
+		  PythonEval(m_pFuncRhs, rval,  args);
+		  rhs(iv,dir) = rval[0];
+		  // if (dir == 1)
+		  //   {
+		  //     CH_assert(std::abs( rhs(iv,1) < 1.0e+6));
+		  //   }
+	   
+		}
+	    }
+	}
+    }
+}
 
 IceThicknessIBC*  PythonInterface::PythonIBC::new_thicknessIBC()
 {
-  PythonIBC* retval = new PythonIBC( m_pModule, m_pFuncThck, m_pFuncTopg);
+  PythonIBC* retval = new PythonIBC( m_pModule, m_pFuncThck, m_pFuncTopg, m_pFuncRhs, m_pFuncFaceVel);
   return static_cast<IceThicknessIBC*>(retval);
 }
 

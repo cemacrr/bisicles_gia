@@ -288,7 +288,8 @@ void IceVelocity::addWallDrag(FArrayBox& a_drag,
 		  if (a_mask(ivp) != GROUNDEDMASKVAL && a_mask(ivp) != FLOATINGMASKVAL)
 		    {
 		      Real contact = 
-			std::min(a_thk(iv) * 0.5,  a_topg(ivp) - (a_usrf(iv)-a_thk(iv)));
+			std::min(a_thk(iv) * 0.5,  0.5*(a_topg(ivp)+a_topg(iv)) 
+				 - (a_usrf(iv)- a_thk(iv)));
 		      if (contact > 0.0)
 			{
 			  a_drag(iv) += (a_beta(iv) + a_extra) * contact / a_dx[dir];
@@ -311,6 +312,7 @@ void IceVelocity::computeFaceVelocity
 #endif
  const LevelData<FArrayBox>& a_velocity,
  const LevelSigmaCS& a_coordSys,
+ const IceThicknessIBC* a_iceThicknessIBC,
  const LevelData<FArrayBox>& a_A,
 #if BISCICLES_Z == BISICLES_LAYERED
  const LevelData<FArrayBox>& a_sA,
@@ -421,15 +423,24 @@ void IceVelocity::computeFaceVelocity
 	  //pout() << "FORT_EXTRAPTOMARGIN" << std::endl;
 	  CH_assert(faceVel.norm(faceBox,0) < HUGE_NORM);
 
-	  FArrayBox& faceVelTotal = a_faceVelTotal[dit][dir];
-	  faceVelTotal.copy(faceVel);
 	}
     }
     
-  
-  
+  //allow the thickness/velocity bc to modify the face velocities 
+  if (a_iceThicknessIBC != NULL)
+    {
+      a_iceThicknessIBC->modifyFaceVelocity(a_faceVelAdvection, a_coordSys, grids.physDomain() );
+    }
 
-
+  // copy faceVelAdvection into faceVelTotal - no diffusion term at this stage
+  for (DataIterator dit(grids); dit.ok(); ++dit)
+    {
+      for (int dir = 0; dir < SpaceDim; ++dir)
+	{
+	  a_faceVelTotal[dit][dir].copy(a_faceVelAdvection[dit][dir]);
+	}
+    }
+				       
 #if BISCICLES_Z == BISICLES_LAYERED
   //copy the basal velocity into the vertically varying velocities.
   {
@@ -460,6 +471,7 @@ void IceVelocity::computeFaceVelocity
   }
 #endif 
 
+  
 
   if (a_additionalVelocity)
     {
@@ -480,12 +492,18 @@ void IceVelocity::computeFaceVelocity
 	}
     }
   
+  
+
+
   a_faceVelAdvection.exchange();
   a_faceVelTotal.exchange();
 #if BISCICLES_Z == BISICLES_LAYERED
   a_layerXYFaceXYVel.exchange();
   a_layerSFaceXYVel.exchange();
 #endif
+
+ 
+
 }
 
 

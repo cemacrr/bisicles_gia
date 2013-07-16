@@ -881,6 +881,10 @@ protected:
   /// write a plot file every m_plot_time_interval years (rather than steps)
   Real m_plot_time_interval;
 
+
+  /// if true, include mask in plotfiles
+  bool m_write_mask;
+
   /// if true, include dH/dt in plotfiles
   bool m_write_dHDt;
 

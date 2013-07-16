@@ -168,6 +168,16 @@ public:
                                  const ProblemDomain& a_domain,
                                  Real a_time, Real a_dt) {;}
 
+  /// if appropriate, modify face velocities in a problem-dependent way. 
+  /** default is to do nothing
+   */
+  virtual void modifyFaceVelocity(LevelData<FluxBox>& a_faceVel,
+				  const LevelSigmaCS& a_coords,
+				  const ProblemDomain& a_domain) const 
+  {;}
+
+
+
   /// set non-periodic ghost cells for surface height z_s. 
   /** Default is to do nothing
       note that we pass in ProblemDomain and dx
