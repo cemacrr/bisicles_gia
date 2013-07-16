@@ -195,6 +195,43 @@ int main(int argc, char* argv[]) {
       pout() << " iceVolumeAbove = " << iceVolumeAbove << " ";
     }
 
+    
+  {
+    //grounded area
+      Vector<LevelData<FArrayBox>* > tmp(numLevels, NULL);
+      for (int lev=0; lev< numLevels; lev++)
+	{
+	  
+	  const DisjointBoxLayout& grids = coords[lev]->grids();
+	  tmp[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+	  for (DataIterator dit(grids);dit.ok();++dit)
+	    {
+	      const BaseFab<int>& mask =  coords[lev]->getFloatingMask()[dit];
+	      const Box& b = grids[dit];
+	      FArrayBox& a = (*tmp[lev])[dit];
+	      a.setVal(0.0);
+	      for (BoxIterator bit(b);bit.ok();++bit)
+		{
+		  const IntVect& iv = bit();
+		  if (mask(iv) == GROUNDEDMASKVAL)
+		    {
+		      a(iv) = 1.0;
+		    }
+		  
+		}
+	    }
+	}
+      Real groundedArea = computeSum(tmp, ratio, dx[0], Interval(0,0), 0);
+      pout() << " groundedArea = " << groundedArea << " ";
+       for (int lev=0; lev< numLevels; lev++)
+	{
+	  if (tmp[lev] != NULL)
+	    {
+	      delete tmp[lev]; tmp[lev];
+	    } 
+	}
+    }
+
     pout() << endl;
 		  
   }  // end nested scope
