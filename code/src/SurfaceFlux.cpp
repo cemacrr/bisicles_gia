@@ -700,7 +700,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       std::string prefix(a_prefix);
       prefix += ".flux";
       SurfaceFlux* fluxPtr = parseSurfaceFlux(prefix.c_str());
-
+      CH_assert(fluxPtr != NULL);
       BoxBoundedFlux bbf(lo,hi,time[0],time[1],fluxPtr);
       ptr = static_cast<SurfaceFlux*>(bbf.new_surfaceFlux());
 
