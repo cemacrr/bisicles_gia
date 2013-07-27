@@ -778,7 +778,11 @@ AmrIce::~AmrIce()
       m_temperatureIBCPtr = NULL;
     }
 
-  
+  if (m_muCoefficientPtr != NULL)
+    {
+      delete m_muCoefficientPtr;
+      m_muCoefficientPtr = NULL;
+    }
 
   if (m_surfaceFluxPtr != NULL)
     {

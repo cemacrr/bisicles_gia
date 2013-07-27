@@ -61,6 +61,9 @@ void PythonInterface::PythonEval(PyObject* a_pFunc,
       CH_assert(PyFloat_CheckExact(pValue));
       MayDay::Error("PythonInterface::PythonEval python return value is not a float");
     }
+
+   Py_DECREF(pValue);
+
 }
 
 void PythonInterface::InitializePythonModule(PyObject **a_pModule,
@@ -81,6 +84,8 @@ void PythonInterface::InitializePythonModule(PyObject **a_pModule,
       CH_assert(a_pModule != NULL);
       MayDay::Error("failed to import Python module ");
     }
+
+  Py_DECREF(pName);
 
 }
 
@@ -168,6 +173,10 @@ PythonInterface::PythonIBC::~PythonIBC()
   if (m_pFuncRhs != NULL)
     {
       Py_DECREF(m_pFuncRhs);
+    }
+  if (m_pFuncRhs != NULL)
+    {
+      Py_DECREF(m_pFuncFaceVel);
     }
   Py_DECREF(m_pModule);
 }
@@ -552,8 +561,9 @@ PythonInterface::PythonSurfaceFlux::PythonSurfaceFlux(const std::string& a_pyMod
 
 PythonInterface::PythonSurfaceFlux::~PythonSurfaceFlux()
 {
-  Py_DECREF(m_pModule);
   Py_DECREF(m_pFunc);
+  Py_DECREF(m_pModule);
+  
 }
 
 SurfaceFlux* PythonInterface::PythonSurfaceFlux::new_surfaceFlux()
@@ -607,8 +617,9 @@ PythonInterface::PythonIceTemperatureIBC::PythonIceTemperatureIBC
 
 PythonInterface::PythonIceTemperatureIBC::~PythonIceTemperatureIBC()
 {
-  Py_DECREF(m_pModule);
   Py_DECREF(m_pFunc);
+  Py_DECREF(m_pModule);
+  
 }
 
 PythonInterface::PythonIceTemperatureIBC* 
@@ -689,8 +700,9 @@ PythonInterface::PythonBasalFriction::PythonBasalFriction
 
 PythonInterface::PythonBasalFriction::~PythonBasalFriction()
 {
-  Py_DECREF(m_pModule);
   Py_DECREF(m_pFunc);
+  Py_DECREF(m_pModule);
+  
 }
 
 BasalFriction* PythonInterface::PythonBasalFriction::new_basalFriction() const
@@ -749,8 +761,9 @@ PythonInterface::PythonMuCoefficient::PythonMuCoefficient
 
 PythonInterface::PythonMuCoefficient::~PythonMuCoefficient()
 {
-  Py_DECREF(m_pModule);
   Py_DECREF(m_pFunc);
+  Py_DECREF(m_pModule);
+ 
 }
 
 MuCoefficient* PythonInterface::PythonMuCoefficient::new_muCoefficient() const
