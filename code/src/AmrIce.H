@@ -189,12 +189,6 @@ public:
   /// compute total flux over ice
   Real computeFluxOverIce(const Vector<LevelData<FArrayBox>*> a_flux);
 
-  /// compute total basal flux over domain
-  Real computeTotalBasalFlux() const;
-
-  /// compute total surface flux over domain
-  Real computeTotalSurfaceFlux() const;
-
   enum velSolverTypes { Picard = 0,
 			JFNK = 1,
 			KnownVelocity = 2,
