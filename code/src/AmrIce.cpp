@@ -2333,10 +2333,10 @@ AmrIce::timeStep(Real a_dt)
       if (m_report_total_flux)
 	{
 	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-		 << ": TotalBasalFlux = " << sumBasalFlux << " m3 per yr " << endl;
+		 << ": TotalBasalFlux = " << sumBasalFlux << " m3 " << endl;
 
 	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-		 << ": TotalSurfaceFlux = " << sumSurfaceFlux << " m3 per yr " << endl;
+		 << ": TotalSurfaceFlux = " << sumSurfaceFlux << " m3 " << endl;
 	}
     }
   
