@@ -222,6 +222,61 @@ AmrIce::computeVolumeAboveFlotation() const
 }
 
 
+Real 
+AmrIce::computeFluxOverIce(const Vector<LevelData<FArrayBox>* > a_flux)
+{
+   //compute sum of a flux component over ice
+   //construct fluxOverIce
+   Vector<LevelData<FArrayBox>* > fluxOverIce ( m_finest_level+1, NULL);
+   for (int lev = 0; lev < m_finest_level ; lev++)
+     {
+       fluxOverIce[lev] = new
+       LevelData<FArrayBox>(m_amrGrids[lev],1, IntVect::Zero);
+       const LevelData<FArrayBox>& thk = m_vect_coordSys[lev]->getH();
+       //const LevelData<FArrayBox>* flux = a_flux[lev];
+       
+       for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+	   {
+	     const Box& box =  m_amrGrids[lev][dit];
+	     const FArrayBox& source = (*a_flux[lev])[dit];
+	     const FArrayBox& dit_thck = thk[dit];
+	     FArrayBox& dit_fluxOverIce = (*fluxOverIce[lev])[dit];
+	     
+	     for (BoxIterator bit(box); bit.ok(); ++bit)
+	       {
+		 const IntVect& iv = bit();
+		 // set fluxOverIce to source if thck > 0
+		 if (dit_thck(iv) < 1e-10)
+			 {
+			   dit_fluxOverIce(iv) = 0.0;
+			 }
+		 else
+		   {
+		     dit_fluxOverIce(iv) = source(iv);
+		   }
+	       }
+	    
+	   }
+     }
+   // compute sum
+   Real tot_per_yer = computeSum(fluxOverIce, m_refinement_ratios,m_amrDx[0],
+Interval(0,0), 0);
+
+   Real tot = tot_per_yer/m_dt;
+
+    //free storage
+   for (int lev = 0; lev < m_finest_level ; lev++)
+     {
+        if (fluxOverIce[lev] != NULL)
+          {
+            delete fluxOverIce[lev]; fluxOverIce[lev] = NULL;
+
+
+          }
+     }
+
+   return tot;
+}
 
 /// fill flattened Fortran array of data with ice thickness
 void
@@ -398,6 +453,7 @@ AmrIce::setDefaults()
   m_seaWaterDensity = 1028.0;
   m_gravity = 9.81;
 
+  m_report_total_flux = false;
   m_report_grounded_ice = false;
   m_eliminate_remote_ice = false;
 
@@ -1092,6 +1148,8 @@ AmrIce::initialize()
     }
 
   ppAmr.query("report_sum_grounded_ice",   m_report_grounded_ice);
+
+  ppAmr.query("report_total_flux", m_report_total_flux);
   
   ppAmr.query("eliminate_remote_ice", m_eliminate_remote_ice);
 
@@ -2228,6 +2286,8 @@ AmrIce::timeStep(Real a_dt)
   
   Real sumGroundedIce = 0.0, diffSumGrounded = 0.0, totalDiffGrounded = 0.0;
   Real VAF=0.0, diffVAF = 0.0, totalDiffVAF = 0.0;
+  Real sumBasalFlux = 0.0;
+  Real sumSurfaceFlux = 0.0;
   if (m_report_grounded_ice)
     {
       sumGroundedIce = computeTotalGroundedIce();
@@ -2239,6 +2299,13 @@ AmrIce::timeStep(Real a_dt)
       diffVAF = VAF -  m_lastVolumeAboveFlotation;
       totalDiffVAF = VAF - m_initialVolumeAboveFlotation;
       m_lastVolumeAboveFlotation = VAF;
+    }
+
+  if (m_report_total_flux)
+
+    {
+      sumBasalFlux = computeFluxOverIce(m_basalThicknessSource);
+      sumSurfaceFlux = computeFluxOverIce(m_surfaceThicknessSource);
     }
 
   if (s_verbosity > 0) 
@@ -2262,7 +2329,15 @@ AmrIce::timeStep(Real a_dt)
                  << " (" << diffVAF
                  << " " << totalDiffVAF
                  << ")" << endl;
-        }      
+        } 
+      if (m_report_total_flux)
+	{
+	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+		 << ": TotalBasalFlux = " << sumBasalFlux << " m3 " << endl;
+
+	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+		 << ": TotalSurfaceFlux = " << sumSurfaceFlux << " m3 " << endl;
+	}
     }
   
 

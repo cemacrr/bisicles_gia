@@ -289,10 +289,12 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
       pp.query("oneDimCrev",oneDimCrev);
       bool RedFreqCalv = false;
       pp.query("RedFreqCalv",RedFreqCalv);
+      Real NoiseScale = 0.0;
+      pp.query("NoiseScale",NoiseScale);
       Real CalvingFreq = 1.0;
       pp.query("CalvingFreq",CalvingFreq);
       ptr = new BennCalvingModel(waterDepth, frontLo, frontHi,preserveSea,preserveLand,
-				 inclBasalCrev, oneDimCrev, RedFreqCalv, CalvingFreq);
+				 inclBasalCrev, oneDimCrev, RedFreqCalv, NoiseScale, CalvingFreq);
     }
 //   else
 //     {

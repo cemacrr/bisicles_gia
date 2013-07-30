@@ -18,10 +18,7 @@
 #include "AmrIce.H"
 #include "BennCalvingModel.H"
 #include "NamespaceHeader.H"
-//#define XX 0
-//#define YX 1
-//#define XY 2
-//#define YY 3
+#include <ctime>
 
 void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 						  const AmrIce& a_amrIce,
@@ -29,15 +26,13 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 						  Real a_dt)
 {
 
-  
-
- 
   const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
   const Real& rhoi = levelCoords.iceDensity();
   const Real& rhoo = levelCoords.waterDensity();
   const Real& grav = levelCoords.gravity();
   const LevelData<FArrayBox>& vt  = *a_amrIce.viscousTensor(a_level);
   const LevelData<FArrayBox>& levelVel = *(a_amrIce.velocity(a_level));
+  srand(time(NULL)+ a_level + procID());
 
 
   for (DataIterator dit (levelCoords.grids()); dit.ok(); ++dit)
@@ -45,10 +40,8 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
       FArrayBox& source = a_flux[dit];
       const FArrayBox& thck = levelCoords.getH()[dit];
       const FArrayBox& VT = vt[dit];
-      const FArrayBox& topg = levelCoords.getTopography()[dit];
       const FArrayBox& usrf = levelCoords.getSurfaceHeight()[dit];
       const FArrayBox& vel = levelVel[dit];
-      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
       const FArrayBox& Hab = levelCoords.getThicknessOverFlotation()[dit];
 
       const Box& b = levelCoords.grids()[dit];
@@ -73,20 +66,25 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 
 	  //surface crevasse depth
 	  Real Ds = std::max(s1,0.0) / (grav*rhoi) + rhoi/rhoo * m_waterDepth;
-	  Real Pd = (usrf(iv) - Ds); // formula that assumes surface crevasses are hydrostatic
-	  
+
+	  Real random1 = ((Real)(rand())+0.0001)/((Real)(RAND_MAX)+0.0001);
+	  Real random2 = ((Real)(rand())+0.0001)/((Real)(RAND_MAX)+0.0001);
+          
+	  Real normalRandom = std::cos(8.*std::atan(1.)*random2)*std::sqrt(-2.*std::log(random1));
+
+	  Real noise = normalRandom * m_NoiseScale;
+
 	  if (m_inclBasalCrev == true)
 	    {
 	      //explicit basal crevasse depth calculation
 	      Real Db = (rhoi/(rhoo-rhoi)) * ((s1/(grav*rhoi)) - Hab(iv));
-	      remnant(iv) = std::min(thck(iv),thck(iv) - (Db + Ds)); 
+	      remnant(iv) = std::min(thck(iv),thck(iv) - (Db + Ds + noise));
 	    }
 	  else
 	    {
 	      //assume basal crevasse reaches water level if surface crevasses do 
-	      remnant(iv) = std::min(thck(iv),usrf(iv)-Ds);
+	      remnant(iv) = std::min(thck(iv),usrf(iv)-(Ds + noise));
 	    }
-
 	  remnant(iv) = std::max(-0.0, remnant(iv));
 	}
       
@@ -119,11 +117,11 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 	    }
 	  const Real decay = 3.0e+2;
 	  source(iv) -= 10.0 * thck(iv)/a_dt * std::min(upwThck,1.0) * std::min(1.0, std::exp( - decay * upwRemnant/(upwThck)));
-
-	}
+	}  
    }
-  
+   
 }
+
 
 void BennCalvingModel::initialModifyState
 (LevelData<FArrayBox>& a_thickness, 
@@ -132,8 +130,7 @@ void BennCalvingModel::initialModifyState
 {
   endTimeStepModifyState(a_thickness, a_amrIce,a_level);
 }
-
-					 
+	      		 
 void BennCalvingModel::endTimeStepModifyState
 (LevelData<FArrayBox>& a_thickness, 
  const AmrIce& a_amrIce,
@@ -141,42 +138,7 @@ void BennCalvingModel::endTimeStepModifyState
 {
 
   m_domainEdgeCalvingModel.endTimeStepModifyState(a_thickness, a_amrIce, a_level);
-  
-  {
-    const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
-    for (DataIterator dit (levelCoords.grids()); dit.ok(); ++dit)
-      {
-	const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
-	FArrayBox& thck = a_thickness[dit];
-	const Box& b = levelCoords.grids()[dit];
-	for (BoxIterator bit(b); bit.ok(); ++bit)
-	{
-	  const IntVect& iv = bit();
-	  if (mask(iv) == OPENSEAMASKVAL || mask(iv) == FLOATINGMASKVAL)
-	    {
-	      bool single = true;
-	      for (int dir =0; dir < SpaceDim; dir++)
-		{
-		  for (int sign = -1; sign <= 1; sign+=2)
-		    {
-		      IntVect ivp = iv + sign*BASISV(dir);
-		      
-		      //single &= ((mask(ivp) == OPENSEAMASKVAL) || (mask(ivp) == OPENLANDMASKVAL));
-		      single &= thck(ivp) < 1.0;
-		    }
-		}
-	      //if (single )
-		//thck(iv) = 0.0;
-	    }
 
-	  
-
-
-
-	}
-      }
-  }
-  pout() << "Calving... BennCalvingModel::endTimeStepModifyState" << endl;
 }
 
 #include "NamespaceFooter.H"	      

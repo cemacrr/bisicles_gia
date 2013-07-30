@@ -43,7 +43,6 @@ public:
 					  int a_level,
 					  Real a_dt);
 
-
   BennCalvingModel (const Real& a_waterDepth,
 		    const Vector<int>& a_frontLo,
 		    const Vector<int>& a_frontHi,
@@ -52,11 +51,13 @@ public:
 		    bool a_inclBasalCrev,
 		    bool a_oneDimCrev,
 		    bool a_RedFreqCalv,
+		    const Real& a_NoiseScale,
 		    const Real& a_CalvingFreq)
     : m_waterDepth(a_waterDepth),
       m_inclBasalCrev(a_inclBasalCrev),
       m_oneDimCrev(a_oneDimCrev),
       m_RedFreqCalv(a_RedFreqCalv),
+      m_NoiseScale(a_NoiseScale),
       m_CalvingFreq(a_CalvingFreq),
       m_domainEdgeCalvingModel(a_frontLo,a_frontHi, 
 			       a_preserveSea, a_preserveLand)
@@ -69,6 +70,7 @@ private:
   bool m_inclBasalCrev;
   bool m_oneDimCrev;
   bool m_RedFreqCalv;
+  Real m_NoiseScale;
   Real m_CalvingFreq;
   DomainEdgeCalvingModel(m_domainEdgeCalvingModel);
 
