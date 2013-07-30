@@ -262,7 +262,7 @@ AmrIce::computeFluxOverIce(const Vector<LevelData<FArrayBox>* > a_flux)
    Real tot_per_yer = computeSum(fluxOverIce, m_refinement_ratios,m_amrDx[0],
 Interval(0,0), 0);
 
-   Real tot = tot_per_yer/m_dt;
+   Real tot = tot_per_yer*m_dt;
 
     //free storage
    for (int lev = 0; lev < m_finest_level ; lev++)
@@ -2333,10 +2333,10 @@ AmrIce::timeStep(Real a_dt)
       if (m_report_total_flux)
 	{
 	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-		 << ": TotalBasalFlux = " << sumBasalFlux << " m3/yr " << endl;
+		 << ": TotalBasalFlux = " << sumBasalFlux << " m3 per yr " << endl;
 
 	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-		 << ": TotalSurfaceFlux = " << sumSurfaceFlux << " m3/yr " << endl;
+		 << ": TotalSurfaceFlux = " << sumSurfaceFlux << " m3 per yr " << endl;
 	}
     }
   
