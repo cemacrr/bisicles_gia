@@ -144,6 +144,10 @@ void CFtoAMR(const std::string& ifile, const std::string& ofile)
   ValidData validData;
   Vector<std::string> names;
   ValidIO::readCF(validData, names, ifile);
+
+  Vector<LevelData<FArrayBox> *> data;
+  ValidIO::validToBS(data, validData);
+
 }
 
 

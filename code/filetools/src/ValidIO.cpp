@@ -1,4 +1,4 @@
- #ifdef CH_LANG_CC
+#ifdef CH_LANG_CC
 /*
 *      _______              __
 *     / ___/ /  ___  __ _  / /  ___
@@ -14,6 +14,8 @@
 //===========================================================================
 #include "ValidIO.H"
 #include "FieldNames.H"
+#include "IntVectSet.H"
+#include <map>
 #include "NamespaceHeader.H"
 
 
@@ -39,9 +41,30 @@ void ValidData::define(int a_nComp,  const RealVect& a_crseDx, const Vector<int>
   m_isDefined = true;
 }
 
+void ValidData::resize(int a_size)
+{
+  CH_TIME("ValidData::resize");
+  CH_assert(m_isDefined);
+
+  m_level.resize(a_size);
+ 
+
+  for (int dir = 0; dir < SpaceDim; dir++)
+    {
+      m_iv[dir].resize(a_size);
+      m_x[dir].resize(a_size);
+    }
+  
+  for (int ic = 0; ic < nComp() ; ic++)
+    {
+      m_field[ic].resize(a_size);
+    }
+
+}
+
 
 void ValidData::append
-(int a_lev, int a_boxID, const IntVect& a_iv,  const Vector<Real>& a_data)
+(int a_lev, const Box& a_box, const IntVect& a_iv,  const Vector<Real>& a_data)
 {
   CH_TIME("ValidData::append");
 
@@ -50,7 +73,7 @@ void ValidData::append
   CH_assert(a_data.size() == m_field.size());
 
     m_level.push_back(a_lev);
-    m_boxID.push_back(a_boxID);
+    m_levelBoxSet.insert(std::make_pair(a_lev,a_box)); 
 
     for (int dir = 0; dir < SpaceDim; dir++)
       {
@@ -94,7 +117,40 @@ void ValidData::computeNodeCoord(Vector<Real>& a_nodeCoord, int a_dir, const Int
 
 }
 
-//given block structured data and a valid region mask, produce unstructured data 
+//given unstructured data  produce block structured data
+void ValidIO::validToBS 
+( Vector<LevelData<FArrayBox>*>& a_bsData, 
+  const ValidData& a_validData)
+{
+  CH_TIME("ValidIO::ValidtoBS");
+
+  //need to start from scratch
+  CH_assert(a_bsData.size() == 0);
+  a_bsData.resize(a_validData.nLevel());
+
+  for (int lev = 0; lev < a_validData.nLevel(); lev++)
+    {
+      //need to extract a disjoint box layout  
+      Vector<Box> boxes;
+      const ValidData::LevelBoxSet& lbs = a_validData.levelBoxSet();
+      for (ValidData::LevelBoxSet::const_iterator it = lbs.begin(); it != lbs.end(); it++)
+	{
+	  if (it->first == lev)
+	    {
+	      boxes.push_back(it->second);
+	    }
+	}
+     
+      Vector<int> procID(0);
+      DisjointBoxLayout grids(boxes, procID);
+      
+      a_bsData[lev] = new LevelData<FArrayBox>(grids, a_validData.nComp(), IntVect::Unit); 
+
+    } // end loop over levels
+}
+
+
+//given block structured data  produce unstructured data 
 void ValidIO::BStoValid 
 ( ValidData& a_validData , 
   const Vector<LevelData<FArrayBox>*>& a_bsData, 
@@ -138,9 +194,6 @@ void ValidIO::BStoValid
       for (DataIterator dit = levelData.dataIterator(); dit.ok(); ++dit)
 	{
 	  const Box& box = levelData.disjointBoxLayout()[dit];
-	  int boxID = dit.i().datInd();
-
-
 	  for (BoxIterator bit(box);bit.ok();++bit)
 	    {
 	      const IntVect& iv = bit();
@@ -150,7 +203,7 @@ void ValidIO::BStoValid
 		  Vector<Real> v(levelData.nComp());
 		  for (int ic = 0; ic < v.size(); ic++)
 		    v[ic] = levelData[dit](iv,ic);
-		  a_validData.append(lev,boxID, iv,v);
+		  a_validData.append(lev,box, iv,v);
 		  
 		}
 	    }
@@ -182,45 +235,174 @@ void ValidIO::readCF ( ValidData& a_validData,
 {
   
   CH_TIME("ValidIO::readCF");
-  int rc; int ncID; int varID;
+  int rc; int ncID; 
   std::string ivname[SpaceDim] = {D_DECL("i","j","k")};
- 
-  
+  std::string xname[SpaceDim] = {D_DECL("x","y","z")};
+
   //open file
   if ( (rc = nc_open(a_file.c_str(), NC_NOWRITE, &ncID) ) != NC_NOERR) 
     {
       MayDay::Error("failed to open netcdf file");
     }
 
-  //read number of levels, coarse dx, and refinement ratios
-  {  
-    int levelDimID;
-    if ( (rc = nc_inq_dimid(ncID, "level", &levelDimID) ) != NC_NOERR)
-      {
-	MayDay::Error("failed to detemine level dimension id ");
-      }
+  // number of amr levels
+  int levelDimID;
+  if ( (rc = nc_inq_dimid(ncID, "level", &levelDimID) ) != NC_NOERR)
+    {
+      MayDay::Error("failed to determine level dimension id ");
+    }
     
-    size_t nLevel;
-    if ( (rc = nc_inq_dimlen(ncID, levelDimID, &nLevel) ) != NC_NOERR)
-      {
-	MayDay::Error("failed to detemine number of levels ");
-      }
+  size_t nLevel;
+  if ( (rc = nc_inq_dimlen(ncID, levelDimID, &nLevel) ) != NC_NOERR)
+    {
+      MayDay::Error("failed to determine number of levels ");
+    }
 
-    int ratioID;
-    if ( (rc = nc_inq_varid(ncID, "amr_ratio", &ratioID) ) != NC_NOERR)
-      {
-	MayDay::Error("failed to determine refinement ratios id");
-      }
+  // id of cell dimension (cell-centered data has a cell dimension only)
+  int cellDimID;
+  if ( (rc = nc_inq_dimid(ncID, "cell", &cellDimID) ) != NC_NOERR)
+    {
+      MayDay::Error("failed to determine cell dimension id ");
+    }
+
+  //read cell count;
+  size_t nCell;
+  if ( (rc = nc_inq_dimlen(ncID, cellDimID, &nCell) ) != NC_NOERR) 
+    {
+      MayDay::Error("failed to determine  number of cells");
+    }
+
+  // id of box dimension
+  int boxDimID;
+  if ( (rc = nc_inq_dimid(ncID, "box", &boxDimID) ) != NC_NOERR)
+    {
+      MayDay::Error("failed to determine box dimension id ");
+    }
+
+  //read box count;
+  size_t nBox;
+  if ( (rc = nc_inq_dimlen(ncID, boxDimID, &nBox) ) != NC_NOERR) 
+    {
+      MayDay::Error("failed to determine  number of boxes");
+    }
+
+  int varID;
+  size_t start(0); 
+  size_t count(0);
+  
+  //refinement ratio
+  Vector<int> ratio(nLevel); 
+  readCFVar(ncID, "amr_ratio", ratio);
+
+  //coarse level mesh spacing
+  Vector<Real> dx(SpaceDim);
+  readCFVar(ncID, "amr_crse_dx", ratio);
+  RealVect crseDx(dx);
     
-    Vector<int> ratio(nLevel);
-    size_t start(0); size_t count(nLevel);
-    if ( ( rc =  nc_get_vara_int(ncID, ratioID, &start, &count, &ratio[0]) ) != NC_NOERR)
+  // total number of variables in the netcdf file
+  int nVar; 
+  if ( ( rc = nc_inq_nvars    (ncID, &nVar) ) != NC_NOERR)
+    {
+      MayDay::Error("nc_inq_nvars failed");
+    }
+  
+  //number and IDs of all netcdf variables
+  Vector<int> ncVarID(nVar);
+
+  if ( ( rc = nc_inq_varids    (ncID, &nVar, &ncVarID[0]) ) != NC_NOERR)
+    {
+      MayDay::Error("nc_inq_varids failed");
+    }
+  
+  //number and IDs of cell-centered component fields
+  Vector<int> ccVarID;
+  
+  for (int i =0; i < ncVarID.size(); i++)
+    {
+      int nDims;
+      if ( ( rc = nc_inq_varndims  (ncID, ncVarID[i], &nDims ) ) != NC_NOERR)
+	{
+	  MayDay::Error("nc_inq_varndims failed");
+	}
+      //variables with one dim are candidates
+      if (nDims == 1)
+	{
+	  int dimID;
+	  if ( ( rc = nc_inq_vardimid  (ncID, ncVarID[i], &dimID ) ) != NC_NOERR)
+	    {
+	      MayDay::Error("nc_inq_vardimid failed");
+	    }
+	  
+	  if (dimID == cellDimID)
+	    {
+	      //check that the amr_name attribute exists 
+	      size_t l;
+	      nc_type t;
+	      if ( ( rc = nc_inq_att  (ncID, ncVarID[i], "amr_name", &t , &l  ) ) == NC_NOERR)
+		{
+		  if (l > 0 && t == NC_CHAR)
+		    {
+		      
+		      char* c = new char[l+1];
+		      if ( ( rc = nc_get_att_text  (ncID, ncVarID[i], "amr_name", c  ) ) != NC_NOERR)
+			{
+			  MayDay::Error("nc_get_att_text failed");
+			}
+		      c[l] = 0;
+		      a_names.push_back(c);
+		      delete c;
+		      ccVarID.push_back(ncVarID[i]);
+		    }
+		}
+	      }
+	}
+    }
+  
+  a_validData.define(ccVarID.size(), crseDx , ratio);
+  
+  a_validData.resize(nCell);
+  
+  //read in level and grid vector data
+  {
+    readCFVar(ncID, "amr_level", a_validData.level());
+    
+    std::string ivname[SpaceDim] = {D_DECL("i","j","k")};
+    for (int dir = 0; dir < SpaceDim; dir++)
       {
-	MayDay::Error("nc_get_vara_int failed to read ratio");
-      } 
+	std::string s = "amr_levelgrid_" + ivname[dir] + "_index"; 
+	readCFVar(ncID,s,a_validData.iv(dir));	
+      }
+  }
+  
+  //box data
+  {
+    Vector<int> boxLevel(nBox);
+    Vector<Vector<int> > lo(SpaceDim);
+    Vector<Vector<int> > hi(SpaceDim);
+    readCFVar(ncID, "amr_box_level", boxLevel);
+    for (int dir = 0; dir < SpaceDim; dir++)
+      {
+	std::string s = "amr_box_level_lo_" + ivname[dir] + "_index";
+	lo[dir].resize(nBox);
+	readCFVar(ncID, s, lo[dir]);
+	s = "amr_box_level_hi_" + ivname[dir] + "_index"; 
+	hi[dir].resize(nBox);
+	readCFVar(ncID, s, hi[dir]);
+      }
 
-    a_validData.define(1, RealVect::Unit, ratio);
-
+    ValidData::LevelBoxSet& lbs = a_validData.levelBoxSet();
+    for (int i = 0; i < boxLevel.size(); i++)
+      {
+	const int& lev = boxLevel[i];
+	IntVect ivlo, ivhi;
+	for (int dir = 0; dir < SpaceDim; dir++)
+	  {
+	    ivlo[dir] = lo[dir][i];
+	    ivhi[dir] = hi[dir][i];  
+	  }
+	Box box(ivlo,ivhi);
+	lbs.insert(std::make_pair( lev, box));
+      }
   }
 
   if ( (rc = nc_close(ncID) ) != NC_NOERR) 
@@ -252,30 +434,20 @@ void ValidIO::writeCF ( const std::string& a_file,
       MayDay::Error("failed to open netcdf file");
     }
 
-  size_t nCell = a_validData.nCell();
-  int cellDimID;
-  size_t nVertex = 4; //quads
-  int vertexDimID;
-  size_t nLevel = a_validData.nLevel();
-  int levelDimID;
-  
   //define the netCDF dimensions 
-  if ( (rc = nc_def_dim(ncID, "cell" , nCell, &cellDimID)) != NC_NOERR)
-    {
-      MayDay::Error("failed to define cell dimension");
-    }
+  size_t nCell = a_validData.nCell();
+  int cellDimID = defineCFDimension(ncID, nCell, "cell");
 
-   
-  if ( (rc = nc_def_dim(ncID, "vertex" , nVertex, &vertexDimID)) != NC_NOERR)
-    {
-      MayDay::Error("failed to define vertex dimension");
-    }
+  size_t nVertex = 4; //all cells are quads
+  int vertexDimID = defineCFDimension(ncID, nVertex, "vertex");
 
-  
-  if ( (rc = nc_def_dim(ncID, "level" , nLevel, &levelDimID)) != NC_NOERR)
-    {
-      MayDay::Error("failed to define level dimension");
-    }
+  size_t nLevel = a_validData.nLevel();
+  int levelDimID =  defineCFDimension(ncID, nLevel, "level");
+
+  int spaceDimID =  defineCFDimension(ncID, SpaceDim, "spacedim");
+
+  size_t nBox = a_validData.levelBoxSet().size();
+  int boxDimID =  defineCFDimension(ncID, nBox , "box");
 
   //set global attributes
   {
@@ -288,181 +460,63 @@ void ValidIO::writeCF ( const std::string& a_file,
   }
 
   //definition of data related to block structured mesh : 
-  //(ratio, dx, level,boxID, IntVect components)
+  //(ratio, dx, level, box_level, box_lo_i, etc , IntVect components)
   {
     std::string s = "amr_ratio" ;
-    if ( (rc = nc_def_var(ncID, s.c_str(), NC_INT,
-			  1, &levelDimID, &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to define amr_ratio variable");
-      }
-
-     if ( (rc =  nc_put_att_text (ncID, varID, "units", 
-				 1, "1")) != NC_NOERR)
-      {
-	MayDay::Error("failed to add units attribute");
-      }
-    
-    if ( (rc =  nc_put_att_text (ncID, varID, "long_name", 
-				 s.size(), s.c_str())) != NC_NOERR)
-      {
-	MayDay::Error("failed to add long_name attribute");
-      }
-
-  }
-   {
-    std::string s = "amr_dx" ;
-    if ( (rc = nc_def_var(ncID, s.c_str(), NC_DOUBLE,
-			  1, &levelDimID, &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to define amr_dx variable");
-      }
-    if ( (rc =  nc_put_att_text (ncID, varID, "units", 
-				 1, "m")) != NC_NOERR)
-      {
-	MayDay::Error("failed to add units attribute");
-      }
-    
-    if ( (rc =  nc_put_att_text (ncID, varID, "long_name", 
-				 s.size(), s.c_str())) != NC_NOERR)
-      {
-	MayDay::Error("failed to add long_name attribute");
-      }
-
+    defineCFVar(ncID, 1, &levelDimID, NC_INT,  s, "1","",s);
   }
   
-
+  {
+    std::string s = "amr_crse_dx" ;
+    defineCFVar(ncID, 1, &spaceDimID, NC_INT, s, "1","",s); 
+  }
+  
   {
     std::string s = "amr_level" ;
-    if ( (rc = nc_def_var(ncID, s.c_str(), NC_INT,
-			  1, &cellDimID, &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to define level variable");
-      }
-    
-    if ( (rc =  nc_put_att_text (ncID, varID, "units", 
-				 1, "1")) != NC_NOERR)
-      {
-	MayDay::Error("failed to add units attribute");
-      }
-    
-    if ( (rc =  nc_put_att_text (ncID, varID, "long_name", 
-				 s.size(), s.c_str())) != NC_NOERR)
-      {
-	MayDay::Error("failed to add long_name attribute");
-      }
-
-  }
-
-  {
-    std::string s = "amr_boxid" ;
-    if ( (rc = nc_def_var(ncID, s.c_str(), NC_INT,
-			  1, &cellDimID, &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to define boxid variable");
-      }
-    
-    
-    
-    if ( (rc =  nc_put_att_text (ncID, varID, "long_name", 
-				 s.size(), s.c_str())) != NC_NOERR)
-      {
-	MayDay::Error("failed to add long_name attribute");
-      }
-
-
-    if ( (rc =  nc_put_att_text (ncID, varID, "units", 
-				 1, "1")) != NC_NOERR)
-      {
-	MayDay::Error("failed to add units attribute");
-      }
-    
-  }
-  {
-    
-    for (int dir = 0; dir < SpaceDim; dir++)
-      {
-	std::string s = "amr_levelgrid_" + ivname[dir] + "_index"; 
-
-	if ( (rc = nc_def_var(ncID, s.c_str(), NC_INT,
-			      1, &cellDimID, &varID)) != NC_NOERR)
-	  {
-	    MayDay::Error("failed to define IntVect component variable");
-	  }
-	
-	
-	if ( (rc =  nc_put_att_text (ncID, varID, "long_name", 
-				     s.size(), s.c_str())) != NC_NOERR)
-	  {
-	    MayDay::Error("failed to add long_name attribute");
-	  }
-	
-	if ( (rc =  nc_put_att_text (ncID, varID, "units", 
-				     1, "1")) != NC_NOERR)
-	  {
-	    MayDay::Error("failed to add units attribute");
-	  }
-
-
-      }
+    defineCFVar(ncID, 1, &cellDimID, NC_INT, s, "1","",s); 
   }
   
-
+  {
+    std::string s = "amr_box_level" ;
+    defineCFVar(ncID, 1, &boxDimID, NC_INT, s, "1","",s); 
+  }
+  
+  for (int dir = 0; dir < SpaceDim; dir++)
+    {
+      std::string s = "amr_box_level_lo_" + ivname[dir] + "_index"; 
+      defineCFVar(ncID, 1, &boxDimID, NC_INT, s, "1","",s);
+      s = "amr_box_level_hi_" + ivname[dir] + "_index"; 
+      defineCFVar(ncID, 1, &boxDimID, NC_INT, s, "1","",s);
+    }
+  
+  for (int dir = 0; dir < SpaceDim; dir++)
+    {
+      std::string s = "amr_levelgrid_" + ivname[dir] + "_index"; 
+      defineCFVar(ncID, 1, &cellDimID, NC_INT, s, "1","",s);
+    }
+  
   //definition of cell center x,y,[z]
   
   for (int dir = 0; dir < SpaceDim; dir++)
     {
-      if ( (rc = nc_def_var(ncID, xname[dir].c_str(), NC_DOUBLE,
-			    1, &cellDimID, &varID)) != NC_NOERR)
-	{
-	  MayDay::Error("failed to define space variable");
-	}
+      const std::string& name =  xname[dir];
+      std::string stdname = "projection_"  + xname[dir] + "_coordinate";
+      int varID = defineCFVar(ncID, 1, &cellDimID, NC_DOUBLE, name , "m", stdname ,"");
       
-      std::string s = "projection_"  + xname[dir] + "_coordinate";
-      
-      if ( (rc =  nc_put_att_text (ncID, varID, "standard_name", 
-				   s.size(), s.c_str())) != NC_NOERR)
-	{
-	  MayDay::Error("failed to add standard_name attribute");
-	}
-      
-      if ( (rc =  nc_put_att_text (ncID, varID, "units", 
-				   1, "m")) != NC_NOERR)
-	{
-	  MayDay::Error("failed to add units attribute to x");
-	}
-      
-      s = xname[dir] + "_vertices";
+      std::string s = xname[dir] + "_vertices";
       if ( (rc =  nc_put_att_text (ncID, varID, "bounds", 
 				   s.size(), s.c_str())) != NC_NOERR)
 	{
 	  MayDay::Error("failed to add bounds attribute to x");
 	}
-
-
     }
 
   //definition of cell-centered lat and lon variables
   {
-    std::string s("lat");
-    if ( (rc = nc_def_var(ncID, s.c_str(), NC_DOUBLE,
-			  1, &cellDimID, &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to define lat variable");
-      }
-    s = "latitude";
-    if ( (rc =  nc_put_att_text (ncID, varID, "long_name", 
-    				 s.size(), s.c_str())) != NC_NOERR)
-      {
-    	MayDay::Error("failed to add long_name attribute to lat");
-      }
-    s = "degrees_north";
-    if ( (rc =  nc_put_att_text (ncID, varID, "units", 
-    				 s.size(), s.c_str())) != NC_NOERR)
-      {
-    	MayDay::Error("failed to add units attribute to lat");
-      }
-    s = "lat_vertices";
+    int varID = defineCFVar(ncID, 1, &cellDimID, NC_DOUBLE, "lat" , 
+			    "degrees_north", "" ,"latitude");
+
+    std::string s = "lat_vertices";
     if ( (rc =  nc_put_att_text (ncID, varID, "bounds", 
     				 s.size(), s.c_str())) != NC_NOERR)
       {
@@ -470,72 +524,35 @@ void ValidIO::writeCF ( const std::string& a_file,
       }
     
   }
+  
   {
-    std::string s("lon");
-    if ( (rc = nc_def_var(ncID, s.c_str(), NC_DOUBLE,
-			  1, &cellDimID, &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to define lat variable");
-      }  
-
-    s = "longitude";
-    if ( (rc =  nc_put_att_text (ncID, varID, "long_name", 
-    				 s.size(), s.c_str())) != NC_NOERR)
-      {
-    	MayDay::Error("failed to add long_name attribute to lon");
-      }
-    s = "degrees_east";
-    if ( (rc =  nc_put_att_text (ncID, varID, "units", 
-    				 s.size(), s.c_str())) != NC_NOERR)
-      {
-    	MayDay::Error("failed to add units attribute to lon");
-      }
-    s = "lon_vertices";
+   
+    int varID = defineCFVar(ncID, 1, &cellDimID, NC_DOUBLE, "lon" , 
+			    "degrees_east", "" ,"longitude");
+    std::string s = "lon_vertices";
     if ( (rc =  nc_put_att_text (ncID, varID, "bounds", 
     				 s.size(), s.c_str())) != NC_NOERR)
       {
     	MayDay::Error("failed to add bounds attribute to lon");
       }
-
   }
   
   //definition of node-centered x/y values
   {
     int dimID[2] = {cellDimID, vertexDimID};
-
     std::string s("x_vertices");
-    if ( (rc = nc_def_var(ncID, s.c_str(), NC_DOUBLE,
-			  2, &dimID[0], &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to define x_vertices variable");
-      }
-
+    defineCFVar(ncID, 2, dimID, NC_DOUBLE, s , "m", "" ,s);
     s = "y_vertices";
-    if ( (rc = nc_def_var(ncID, s.c_str(), NC_DOUBLE,
-			  2, &dimID[0], &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to define y_vertices variable");
-      }
+    defineCFVar(ncID, 2, dimID, NC_DOUBLE, s , "m", "" ,s);
   }
 
-  
   //definition of node-centered lat/lon values
   {
     int dimID[2] = {cellDimID, vertexDimID};
-
     std::string s("lat_vertices");
-    if ( (rc = nc_def_var(ncID, s.c_str(), NC_DOUBLE,
-			  2, &dimID[0], &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to define lat_vertices variable");
-      }
-
+    defineCFVar(ncID, 2, dimID, NC_DOUBLE, s , "degrees_north", "" ,s);
     s = "lon_vertices";
-    if ( (rc = nc_def_var(ncID, s.c_str(), NC_DOUBLE,
-			  2, &dimID[0], &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to define lat_vertices variable");
-      }
+    defineCFVar(ncID, 2, dimID, NC_DOUBLE, s , "degrees_east", "" ,s);
   }
 
   //convert the input names to CF names
@@ -546,13 +563,11 @@ void ValidIO::writeCF ( const std::string& a_file,
   //definition of field variables
   for (int ic = 0; ic < a_validData.nComp(); ic++)
     {
-       
-      if ( (rc = nc_def_var(ncID, cfRecord[ic].name().c_str(), NC_DOUBLE,
-			    1, &cellDimID, &varID)) != NC_NOERR)
-	{
-	  MayDay::Error("failed to define field variable");
-	}
-      
+      int varID = defineCFVar(ncID, 1, &cellDimID, NC_DOUBLE, 
+			      cfRecord[ic].name() , 
+			      cfRecord[ic].units(), 
+			      cfRecord[ic].standardName(), 
+			      cfRecord[ic].longName());
       std::string s = "lat lon x y";
       
       if ( (rc =  nc_put_att_text (ncID, varID, "coordinates", 
@@ -561,36 +576,16 @@ void ValidIO::writeCF ( const std::string& a_file,
 	  MayDay::Error("failed to add coordinates attribute");
 	}
       
-      s = cfRecord[ic].standardName();
+      s = a_names[ic];
       if (s.size() > 0)
 	{
-	  if ( (rc =  nc_put_att_text (ncID, varID, "standard_name", 
+	  if ( (rc =  nc_put_att_text (ncID, varID, "amr_name", 
 				       s.size(), s.c_str())) != NC_NOERR)
 	    {
-	      MayDay::Error("failed to add standard_name attribute");
+	      MayDay::Error("failed to add amr_name attribute");
 	    }
 	}
-
-      s = cfRecord[ic].longName();
-      if (s.size() > 0)
-	{
-	  if ( (rc =  nc_put_att_text (ncID, varID, "long_name", 
-				       s.size(), s.c_str())) != NC_NOERR)
-	    {
-	      MayDay::Error("failed to add long_name attribute");
-	    }
-	}
-
-      s = cfRecord[ic].units();
-      if (s.size() > 0)
-	{
-	  if ( (rc =  nc_put_att_text (ncID, varID, "units", 
-				       s.size(), s.c_str())) != NC_NOERR)
-	    {
-	      MayDay::Error("failed to add units attribute");
-	    }
-	}
-    } 
+    }
   
 
   if ( (rc = nc_enddef(ncID) ) != NC_NOERR)
@@ -602,69 +597,42 @@ void ValidIO::writeCF ( const std::string& a_file,
   //write data
 
   //amr data / ratio
+  writeCFVar(ncID, "amr_ratio", a_validData.ratio());
+
+  //amr data / coarse dx
+  Vector<Real> crseDx(SpaceDim);
+  for (int dir = 0; dir < nLevel; dir++)
+    {
+      crseDx[dir] = a_validData.dx()[0][dir];
+    }
+  writeCFVar(ncID, "amr_crse_dx", crseDx);
+
+  // amr data / cell level
+  writeCFVar(ncID, "amr_level", a_validData.level());
+    
+  // amr data / box level
   {
-    int varID;
-    if ( (rc = nc_inq_varid(ncID, "amr_ratio", &varID)) != NC_NOERR)
+    Vector<int> boxLevel;
+    Vector<Vector<int> > lo(SpaceDim);
+    Vector<Vector<int> > hi(SpaceDim);
+    const ValidData::LevelBoxSet& lbs = a_validData.levelBoxSet();
+    for (ValidData::LevelBoxSet::const_iterator it 
+	   = lbs.begin(); it != lbs.end(); it++)
       {
-	MayDay::Error("failed to find variable amr_ratio");
+	boxLevel.push_back(it->first);
+	for (int dir = 0; dir < SpaceDim; dir++)
+	  {
+	    lo[dir].push_back(it->second.smallEnd()[dir]);
+	    hi[dir].push_back(it->second.bigEnd()[dir]);
+	  }
       }
-    size_t start = 0;
-    size_t count = nLevel;
-    if ( (rc = nc_put_vara_int(ncID, varID, &start, &count, &(a_validData.ratio()[0]))) != NC_NOERR)
+    writeCFVar(ncID, "amr_box_level", boxLevel);
+    for (int dir = 0; dir < SpaceDim; dir++)
       {
-	MayDay::Error("failed to write data");
-      }
-  }
-
-  {
-    //amr data / dx
-    int varID;
-    if ( (rc = nc_inq_varid(ncID, "amr_dx", &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to find variable amr_ratio");
-      }
-    size_t start = 0;
-    size_t count = nLevel;
-
-    Vector<Real> dx(nLevel);
-    for (int lev = 0; lev < nLevel; lev++)
-      {
-	dx[lev] = a_validData.dx()[lev][0];
-      }
-
-    if ( (rc = nc_put_vara_double(ncID, varID, &start, &count, &dx[0])) != NC_NOERR)
-      {
-	MayDay::Error("failed to write data");
-      }
-  }
-
-  //amr data / level
-  {
-    int varID;
-    if ( (rc = nc_inq_varid(ncID, "amr_level", &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to find variable amr_level");
-      }
-    size_t start = 0;
-    size_t count = nCell;
-    if ( (rc = nc_put_vara_int(ncID, varID, &start, &count, &(a_validData.level()[0]))) != NC_NOERR)
-      {
-	MayDay::Error("failed to write data");
-      }
-  }
-
-  // amr data / box id
-  {
-    int varID;
-    if ( (rc = nc_inq_varid(ncID, "amr_boxid", &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to find variable amr_boxid");
-      }
-    size_t start = 0;
-    size_t count = nCell;
-    if ( (rc = nc_put_vara_int(ncID, varID, &start, &count, &(a_validData.boxID()[0]))) != NC_NOERR)
-      {
-	MayDay::Error("failed to write data");
+	std::string s = "amr_box_level_lo_" + ivname[dir] + "_index";
+	writeCFVar(ncID, s, lo[dir]);
+	s = "amr_box_level_hi_" + ivname[dir] + "_index"; 
+	writeCFVar(ncID, s, hi[dir]);
       }
   }
 
@@ -672,46 +640,22 @@ void ValidIO::writeCF ( const std::string& a_file,
   for (int dir = 0; dir < SpaceDim; dir++)
     {
       std::string s = "amr_levelgrid_" + ivname[dir] + "_index"; 
-      int varID;
-      if ( (rc = nc_inq_varid(ncID, s.c_str(), &varID)) != NC_NOERR)
-	{
-	  MayDay::Error("failed to find variable amr_boxid");
-	}
-      size_t start = 0;
-      size_t count = nCell;
-      if ( (rc = nc_put_vara_int(ncID, varID, &start, &count, &(a_validData.iv(dir)[0]))) != NC_NOERR)
-	{
-	  MayDay::Error("failed to write data");
-	}
+      writeCFVar(ncID, s , a_validData.iv(dir));
     }
 
 
-  //spatial fields
+  //x,y
   for (int dir = 0; dir < SpaceDim; dir++)
     {
-      int varID;
-      if ( (rc = nc_inq_varid(ncID, xname[dir].c_str(), &varID)) != NC_NOERR)
-	{
-	  MayDay::Error("failed to find variable id");
-	}
-      size_t start = 0;
-      size_t count = nCell;
-      if ( (rc = nc_put_vara_double(ncID, varID, &start, &count, &(a_validData.x(dir)[0]))) != NC_NOERR)
-	{
-	  MayDay::Error("failed to write data");
-	}
-
-
+      writeCFVar(ncID, xname[dir] , a_validData.x(dir));
     }
-  
-
 
   {
     // cell-center latitude and longitude data
     D_TERM(const Vector<Real>& x = a_validData.x(0);,
 	   const Vector<Real>& y = a_validData.x(1);,
 	   const Vector<Real>& z = a_validData.x(2););
-      
+    
     Vector<Real> lat(nCell);
     Vector<Real> lon(nCell);
     
@@ -723,35 +667,13 @@ void ValidIO::writeCF ( const std::string& a_file,
 	lon[i] = L[1] / M_PI * 180.0;
       }
     
-    int varID;
-    size_t start = 0;
-    size_t count = nCell;
+    writeCFVar(ncID, "lat" , lat);
+    writeCFVar(ncID, "lon" , lon);
 
-    if ( (rc = nc_inq_varid(ncID,"lat", &varID)) != NC_NOERR)
-      {
-	MayDay::Error("failed to find variable id");
-      }
-    
-    if ( (rc = nc_put_vara_double(ncID, varID, &start, &count, &(lat[0]))) != NC_NOERR)
-      {
-	MayDay::Error("failed to write lat data");
-      }
-    
-      if ( (rc = nc_inq_varid(ncID,"lon", &varID)) != NC_NOERR)
-	{
-	  MayDay::Error("failed to find variable id");
-	}
-      
-      if ( (rc = nc_put_vara_double(ncID, varID, &start, &count, &(lon[0]))) != NC_NOERR)
-	{
-	  MayDay::Error("failed to write lon data");
-	}	
-	   
   }
 
   {
     // cell node x,y, latitude and longitude data
-
     Vector< Vector<Real> > nodeX(SpaceDim) ;
     Vector<Real> nodeLat(nCell);
     Vector<Real> nodeLon(nCell);
@@ -834,21 +756,9 @@ void ValidIO::writeCF ( const std::string& a_file,
   //scalar fields
   for (int ic = 0; ic < a_validData.nComp(); ic++)
     {
-      
-      
-      if ( (rc = nc_inq_varid(ncID, cfRecord[ic].name().c_str(), &varID)) != NC_NOERR)
-	{
-	  MayDay::Error("failed to find variable id");
-	}
-      size_t start = 0;
-      size_t count = nCell;
-      if ( (rc = nc_put_vara_double(ncID, varID, &start, &count, &(a_validData.field(ic)[0]))) != NC_NOERR)
-	{
-	  MayDay::Error("failed to write data");
-	} 
+      writeCFVar(ncID,cfRecord[ic].name(),a_validData.field(ic));
     }
-  
-  
+      
   //close file
   if ( (rc = nc_close(ncID) ) != NC_NOERR)
     {
@@ -856,6 +766,151 @@ void ValidIO::writeCF ( const std::string& a_file,
     }
 
 }
+
+int ValidIO::defineCFDimension
+(int a_ncID, 
+ size_t a_len, 
+ const std::string& a_name)
+{
+
+  int rc,dimID;
+  if ( (rc = nc_def_dim(a_ncID, a_name.c_str() , a_len, &dimID)) != NC_NOERR)
+    {
+      std::string msg = "failed to define " + a_name + " dimension";
+      MayDay::Error(msg.c_str());
+    }
+  return dimID;
+}
+
+
+int ValidIO::defineCFVar
+(int a_ncID,  int a_nDim, int* a_dimID, nc_type a_type,
+ const std::string& a_name,
+ const std::string& a_unit,
+ const std::string& a_stdName, 
+ const std::string& a_longName)
+{
+
+  int rc, varID;
+
+  if ( (rc = nc_def_var(a_ncID, a_name.c_str(), a_type,
+			a_nDim, a_dimID, &varID)) != NC_NOERR)
+    {
+      std::string msg = "failed to define " + a_name;
+      MayDay::Error(msg.c_str());
+    }
+  
+  if (a_stdName != "")
+    {
+      if ( (rc =  nc_put_att_text (a_ncID, varID, "standard_name", 
+			       a_stdName.size(), a_stdName.c_str())) != NC_NOERR)
+	{
+	  std::string msg = "failed to add " + a_name + "standard_name attribute" ;
+	  MayDay::Error(msg.c_str());
+	}
+    }
+    
+ 
+  if ( (rc =  nc_put_att_text (a_ncID, varID, "long_name", 
+			       a_longName.size(), a_longName.c_str())) != NC_NOERR)
+   {
+     std::string msg = "failed to add " + a_name + "long_name attribute" ;
+     MayDay::Error(msg.c_str());
+   }
+      
+ if ( (rc =  nc_put_att_text (a_ncID, varID, "units", 
+			      a_unit.size(), a_unit.c_str())) != NC_NOERR)
+   {
+     std::string msg = "failed to add " + a_name + "unitsattribute" ;
+     MayDay::Error(msg.c_str());
+   }  
+
+
+ return varID;
+
+}
+
+void ValidIO::readCFVar
+(int a_ncID, const std::string& a_name, Vector<int>& a_data)
+{
+
+  int varID, rc;
+  if ( (rc = nc_inq_varid(a_ncID, a_name.c_str(), &varID)) != NC_NOERR)
+    {
+      std::string msg = "failed to find variable " + a_name;
+      MayDay::Error(msg.c_str());
+    }
+  
+  size_t start = 0;
+  size_t count = a_data.size();
+  if ( (rc = nc_get_vara_int(a_ncID, varID, &start, &count, &a_data[0])) != NC_NOERR)
+    {
+      std::string msg = "failed to write to" +  a_name;
+      MayDay::Error(msg.c_str() );
+    }   
+}
+
+void ValidIO::readCFVar
+(int a_ncID, const std::string& a_name, Vector<Real>& a_data)
+{
+
+  int varID, rc;
+  if ( (rc = nc_inq_varid(a_ncID, a_name.c_str(), &varID)) != NC_NOERR)
+    {
+      std::string msg = "failed to find variable " + a_name;
+      MayDay::Error(msg.c_str());
+    }
+  
+  size_t start = 0;
+  size_t count = a_data.size();
+  if ( (rc = nc_get_vara_double(a_ncID, varID, &start, &count, &a_data[0])) != NC_NOERR)
+    {
+      std::string msg = "failed to write to" +  a_name;
+      MayDay::Error(msg.c_str() );
+    }   
+}
+
+
+void ValidIO::writeCFVar
+(int a_ncID, const std::string& a_name, const Vector<int>& a_data)
+{
+
+  int varID, rc;
+  if ( (rc = nc_inq_varid(a_ncID, a_name.c_str(), &varID)) != NC_NOERR)
+    {
+      std::string msg = "failed to find variable " + a_name;
+      MayDay::Error(msg.c_str());
+    }
+  
+  size_t start = 0;
+  size_t count = a_data.size();
+  if ( (rc = nc_put_vara_int(a_ncID, varID, &start, &count, &a_data[0])) != NC_NOERR)
+    {
+      std::string msg = "failed to write to" +  a_name;
+      MayDay::Error(msg.c_str() );
+    }   
+}
+
+void ValidIO::writeCFVar
+(int a_ncID, const std::string& a_name, const Vector<Real>& a_data)
+{
+
+  int varID, rc;
+  if ( (rc = nc_inq_varid(a_ncID, a_name.c_str(), &varID)) != NC_NOERR)
+    {
+      std::string msg = "failed to find variable " + a_name;
+      MayDay::Error(msg.c_str());
+    }
+  
+  size_t start = 0;
+  size_t count = a_data.size();
+  if ( (rc = nc_put_vara_double(a_ncID, varID, &start, &count, &a_data[0])) != NC_NOERR)
+    {
+      std::string msg = "failed to write to" +  a_name;
+      MayDay::Error(msg.c_str() );
+    }   
+}
+
 
 
 

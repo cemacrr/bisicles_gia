@@ -20,11 +20,16 @@
 #include "LevelData.H"
 #include "BoxIterator.H"
 #include "netcdf.h"
+#include <set>
 #include "Transformation.H"
 #include "NamespaceHeader.H"
 
 class ValidData
 {
+
+public:
+  typedef std::set<std::pair<int, Box> >  LevelBoxSet ;
+private:
 
   int m_nComp;
   Vector<RealVect> m_dx;
@@ -32,21 +37,27 @@ class ValidData
   int m_nLevel;
   Vector<int> m_ratio;
   Vector<int> m_level;
-  Vector<int> m_boxID;
-  Vector<Vector<int> > m_iv;
+  LevelBoxSet m_levelBoxSet;
+  Vector<Vector<int> > m_iv; 
   Vector<Vector< Real > > m_field;
   Vector<Vector<Real > > m_x;
 
   bool m_isDefined;
 
 public:
+
+ 
+
   ValidData(int a_nComp,  const RealVect& a_crseDx, const Vector<int>& a_ratio, const RealVect& a_x0 = RealVect::Zero );
   
   void define(int a_nComp,  const RealVect& a_crseDx, const Vector<int>& a_ratio, const RealVect& a_x0 = RealVect::Zero );
 
   ValidData():m_isDefined(false){}
 
-  void append(int a_lev, int a_boxID, const IntVect& a_iv, 
+  void resize(int a_size);
+
+
+  void append(int a_lev, const Box& a_box, const IntVect& a_iv, 
 	      const Vector<Real>& a_data);
   
   const int nComp() const
@@ -80,12 +91,27 @@ public:
     return m_level;
   }
 
-  const Vector<int>& boxID() const
+  Vector<int>& level()
   {
-    return m_boxID;
+    return m_level;
+  }
+  
+  const LevelBoxSet& levelBoxSet() const
+  {
+    return m_levelBoxSet;
+  }
+  
+  LevelBoxSet& levelBoxSet() 
+  {
+    return m_levelBoxSet;
   }
 
   const Vector<int>& iv(int a_dir) const
+  {
+    return m_iv[a_dir];
+  }
+
+  Vector<int>& iv(int a_dir) 
   {
     return m_iv[a_dir];
   }
@@ -94,6 +120,12 @@ public:
   {
     return m_field[a_comp];
   }
+
+  Vector<Real>& field(int a_comp)
+  {
+    return m_field[a_comp];
+  }
+
   const Vector<Real>& x(int a_dir) const
   {
     return m_x[a_dir];
@@ -112,9 +144,31 @@ namespace ValidIO
 {
 
   /// populate a ValidData from a  Vector<LevelData<FArrayBox>*>
-  void BStoValid ( ValidData & , 
-		   const Vector<LevelData<FArrayBox>*>&, 
-		 const Vector<int>& a_ratio );
+  void BStoValid ( ValidData& a_validData , 
+		   const Vector<LevelData<FArrayBox>*>& a_bsData, 
+		   const Vector<int>& a_ratio );
+  
+  /// build block structed data from valid data
+  void validToBS ( Vector<LevelData<FArrayBox>*>& a_bsdata, 
+		   const ValidData& a_validData);
+
+
+
+  int defineCFDimension(int a_ncID, size_t a_len, const std::string& a_name);
+
+  int defineCFVar(int a_ncID, int a_nDim, int* a_dimID, nc_type a_type,
+		   const std::string& a_name,
+		   const std::string& a_unit,
+		   const std::string& a_stdName, 
+		   const std::string& a_longName);
+
+  void readCFVar(int a_ncID, const std::string& a_name,Vector<int>& a_data);
+
+  void readCFVar(int a_ncID, const std::string& a_name,Vector<Real>& a_data);
+
+  void writeCFVar(int a_ncID, const std::string& a_name, const Vector<int>& a_data);
+
+  void writeCFVar(int a_ncID, const std::string& a_name, const Vector<Real>& a_data);
 
   ///write ValidData to a NetCDF-CF file
   void writeCF ( const std::string&,  const ValidData& , 
