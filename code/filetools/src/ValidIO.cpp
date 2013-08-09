@@ -15,18 +15,23 @@
 #include "ValidIO.H"
 #include "FieldNames.H"
 #include "IntVectSet.H"
-#include <map>
+#include "CoarseAverage.H"
 #include "NamespaceHeader.H"
 
 
-ValidData::ValidData(int a_nComp,  const RealVect& a_crseDx, const Vector<int>& a_ratio, const RealVect& a_x0)
+ValidData::ValidData
+(int a_nComp,  const RealVect& a_crseDx, const Box& a_crseDomain,
+ const Vector<int>& a_ratio, const RealVect& a_x0)
 {
-  define(a_nComp, a_crseDx, a_ratio,  a_x0);
+  define(a_nComp, a_crseDx, a_crseDomain, a_ratio,  a_x0);
 }
 
-void ValidData::define(int a_nComp,  const RealVect& a_crseDx, const Vector<int>& a_ratio, const RealVect& a_x0)
+void ValidData::define
+(int a_nComp,  const RealVect& a_crseDx, const Box& a_crseDomain,
+ const Vector<int>& a_ratio, const RealVect& a_x0)
 {
   m_nComp = a_nComp;
+  m_crseDomain = a_crseDomain;
   m_ratio = a_ratio;
   m_x0 = a_x0;
   m_nLevel = m_ratio.size();
@@ -128,6 +133,7 @@ void ValidIO::validToBS
   CH_assert(a_bsData.size() == 0);
   a_bsData.resize(a_validData.nLevel());
 
+ 
   for (int lev = 0; lev < a_validData.nLevel(); lev++)
     {
       //need to extract a disjoint box layout  
@@ -142,9 +148,45 @@ void ValidIO::validToBS
 	}
      
       Vector<int> procID(0);
-      DisjointBoxLayout grids(boxes, procID);
+      DisjointBoxLayout grids(boxes, procID, ProblemDomain(a_validData.domain(lev)));
       
-      a_bsData[lev] = new LevelData<FArrayBox>(grids, a_validData.nComp(), IntVect::Unit); 
+      a_bsData[lev] = new LevelData<FArrayBox>(grids, a_validData.nComp(), IntVect::Unit); }
+
+  for (int lev =  a_validData.nLevel() - 1 ; lev >=0; lev--)
+    {
+      //start from the finest level, so that if there *is* data stored for the 
+      //invalid regions, it overwrites the coarse average we carry out
+      const DisjointBoxLayout& grids = a_bsData[lev]->disjointBoxLayout();
+      for (DataIterator dit(grids); dit.ok(); ++dit)
+      	{
+	   //\todo : optimization. at the momemt, we are going through 
+	  // all the data for every FAB.
+	  FArrayBox& data = (*a_bsData[lev])[dit];
+      	  for (int i =0; i <  a_validData.nCell(); i++)
+      	    {
+	      if (a_validData.level()[i] == lev)
+		{
+		  IntVect iv;
+		  for (int dir =0; dir < SpaceDim; dir++)
+		    {
+		      iv[dir] = a_validData.iv(dir)[i];
+		    }
+		  if (data.box().contains(iv))
+		    {
+		      for (int comp = 0; comp < data.nComp(); comp++)
+			{
+			  data(iv,comp) = a_validData.field(comp)[i];
+			}
+		    }
+		}
+      	    }
+      	}
+
+      if (lev > 0)
+	{
+	  CoarseAverage av(grids , a_bsData[lev]->nComp(), a_validData.ratio()[lev-1]);
+	  av.averageToCoarse(*a_bsData[lev-1],   *a_bsData[lev] );
+	}
 
     } // end loop over levels
 }
@@ -235,9 +277,9 @@ void ValidIO::readCF ( ValidData& a_validData,
 {
   
   CH_TIME("ValidIO::readCF");
-  int rc; int ncID; 
+  int rc, ncID; 
   std::string ivname[SpaceDim] = {D_DECL("i","j","k")};
-  std::string xname[SpaceDim] = {D_DECL("x","y","z")};
+ 
 
   //open file
   if ( (rc = nc_open(a_file.c_str(), NC_NOWRITE, &ncID) ) != NC_NOERR) 
@@ -286,19 +328,34 @@ void ValidIO::readCF ( ValidData& a_validData,
       MayDay::Error("failed to determine  number of boxes");
     }
 
-  int varID;
-  size_t start(0); 
-  size_t count(0);
   
+
   //refinement ratio
   Vector<int> ratio(nLevel); 
   readCFVar(ncID, "amr_ratio", ratio);
 
   //coarse level mesh spacing
   Vector<Real> dx(SpaceDim);
-  readCFVar(ncID, "amr_crse_dx", ratio);
+  readCFVar(ncID, "amr_crse_dx", dx);
   RealVect crseDx(dx);
-    
+   
+  //coarse domain
+  Box crseDomain;
+  {
+    Vector<int> corner(SpaceDim*SpaceDim);
+    IntVect lo;
+    IntVect hi;
+    readCFVar(ncID, "amr_crse_domain", corner);
+    for (int dir = 0; dir < SpaceDim; dir++)
+      {
+	lo[dir] = corner[dir];
+	hi[dir] = corner[dir+SpaceDim];
+      }
+    crseDomain.define(lo,hi);
+  }
+  
+
+ 
   // total number of variables in the netcdf file
   int nVar; 
   if ( ( rc = nc_inq_nvars    (ncID, &nVar) ) != NC_NOERR)
@@ -314,7 +371,7 @@ void ValidIO::readCF ( ValidData& a_validData,
       MayDay::Error("nc_inq_varids failed");
     }
   
-  //number and IDs of cell-centered component fields
+  //number, name and IDs of cell-centered component fields
   Vector<int> ccVarID;
   
   for (int i =0; i < ncVarID.size(); i++)
@@ -358,8 +415,8 @@ void ValidIO::readCF ( ValidData& a_validData,
 	}
     }
   
-  a_validData.define(ccVarID.size(), crseDx , ratio);
-  
+  a_validData.define(ccVarID.size(), crseDx ,crseDomain, ratio);
+  a_names.resize(ccVarID.size());
   a_validData.resize(nCell);
   
   //read in level and grid vector data
@@ -374,6 +431,12 @@ void ValidIO::readCF ( ValidData& a_validData,
       }
   }
   
+  //field data
+  for (int i =0; i < ccVarID.size(); i++)
+    {
+      readCFVar(ncID, ccVarID[i], a_validData.field(i));
+    }
+
   //box data
   {
     Vector<int> boxLevel(nBox);
@@ -404,6 +467,9 @@ void ValidIO::readCF ( ValidData& a_validData,
 	lbs.insert(std::make_pair( lev, box));
       }
   }
+
+  
+
 
   if ( (rc = nc_close(ncID) ) != NC_NOERR) 
     {
@@ -460,7 +526,7 @@ void ValidIO::writeCF ( const std::string& a_file,
   }
 
   //definition of data related to block structured mesh : 
-  //(ratio, dx, level, box_level, box_lo_i, etc , IntVect components)
+  //(ratio, dx, coarse domain, level, box_level, box_lo_i, etc , IntVect components)
   {
     std::string s = "amr_ratio" ;
     defineCFVar(ncID, 1, &levelDimID, NC_INT,  s, "1","",s);
@@ -468,9 +534,14 @@ void ValidIO::writeCF ( const std::string& a_file,
   
   {
     std::string s = "amr_crse_dx" ;
-    defineCFVar(ncID, 1, &spaceDimID, NC_INT, s, "1","",s); 
+    defineCFVar(ncID, 1, &spaceDimID, NC_DOUBLE, s, "1","",s); 
   }
   
+  {
+    std::string s = "amr_crse_domain" ;
+    defineCFVar(ncID, 1, &vertexDimID, NC_INT, s, "1","",s); 
+  }
+
   {
     std::string s = "amr_level" ;
     defineCFVar(ncID, 1, &cellDimID, NC_INT, s, "1","",s); 
@@ -601,11 +672,21 @@ void ValidIO::writeCF ( const std::string& a_file,
 
   //amr data / coarse dx
   Vector<Real> crseDx(SpaceDim);
-  for (int dir = 0; dir < nLevel; dir++)
+  for (int dir = 0; dir < SpaceDim; dir++)
     {
       crseDx[dir] = a_validData.dx()[0][dir];
     }
   writeCFVar(ncID, "amr_crse_dx", crseDx);
+
+
+  //coarse domain
+  Vector<int> corner(SpaceDim*SpaceDim);
+  for (int dir = 0; dir < SpaceDim; dir++)
+    {
+      corner[dir] = a_validData.domain(0).smallEnd()[dir];
+      corner[dir+SpaceDim] = a_validData.domain(0).bigEnd()[dir];
+    }
+  writeCFVar(ncID, "amr_crse_domain", corner);
 
   // amr data / cell level
   writeCFVar(ncID, "amr_level", a_validData.level());
@@ -833,22 +914,28 @@ int ValidIO::defineCFVar
 void ValidIO::readCFVar
 (int a_ncID, const std::string& a_name, Vector<int>& a_data)
 {
-
   int varID, rc;
   if ( (rc = nc_inq_varid(a_ncID, a_name.c_str(), &varID)) != NC_NOERR)
     {
       std::string msg = "failed to find variable " + a_name;
       MayDay::Error(msg.c_str());
     }
-  
+  readCFVar(a_ncID,varID,a_data);
+}
+
+void ValidIO::readCFVar
+(int a_ncID, int  a_varID , Vector<int>& a_data)
+{
+  int rc;
   size_t start = 0;
   size_t count = a_data.size();
-  if ( (rc = nc_get_vara_int(a_ncID, varID, &start, &count, &a_data[0])) != NC_NOERR)
+  if ( (rc = nc_get_vara_int(a_ncID, a_varID, &start, &count, &a_data[0])) != NC_NOERR)
     {
-      std::string msg = "failed to write to" +  a_name;
+      std::string msg = "failed to read from var";
       MayDay::Error(msg.c_str() );
     }   
 }
+
 
 void ValidIO::readCFVar
 (int a_ncID, const std::string& a_name, Vector<Real>& a_data)
@@ -860,16 +947,22 @@ void ValidIO::readCFVar
       std::string msg = "failed to find variable " + a_name;
       MayDay::Error(msg.c_str());
     }
+  readCFVar(a_ncID,varID,a_data);
   
+}
+
+void ValidIO::readCFVar
+(int a_ncID, int  a_varID , Vector<Real>& a_data)
+{
+  int rc;
   size_t start = 0;
   size_t count = a_data.size();
-  if ( (rc = nc_get_vara_double(a_ncID, varID, &start, &count, &a_data[0])) != NC_NOERR)
+  if ( (rc = nc_get_vara_double(a_ncID, a_varID, &start, &count, &a_data[0])) != NC_NOERR)
     {
-      std::string msg = "failed to write to" +  a_name;
+      std::string msg = "failed to read from var";
       MayDay::Error(msg.c_str() );
     }   
 }
-
 
 void ValidIO::writeCFVar
 (int a_ncID, const std::string& a_name, const Vector<int>& a_data)

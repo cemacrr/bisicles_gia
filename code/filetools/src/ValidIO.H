@@ -41,16 +41,18 @@ private:
   Vector<Vector<int> > m_iv; 
   Vector<Vector< Real > > m_field;
   Vector<Vector<Real > > m_x;
-
+  Box m_crseDomain;
   bool m_isDefined;
 
 public:
 
  
 
-  ValidData(int a_nComp,  const RealVect& a_crseDx, const Vector<int>& a_ratio, const RealVect& a_x0 = RealVect::Zero );
+  ValidData(int a_nComp,  const RealVect& a_crseDx,  const Box& a_crseDomain,
+	    const Vector<int>& a_ratio, const RealVect& a_x0 = RealVect::Zero );
   
-  void define(int a_nComp,  const RealVect& a_crseDx, const Vector<int>& a_ratio, const RealVect& a_x0 = RealVect::Zero );
+  void define(int a_nComp,  const RealVect& a_crseDx,  const Box& a_crseDomain,
+	      const Vector<int>& a_ratio, const RealVect& a_x0 = RealVect::Zero );
 
   ValidData():m_isDefined(false){}
 
@@ -73,6 +75,14 @@ public:
   const size_t nLevel() const
   {
     return m_nLevel;
+  }
+
+  Box domain(int a_lev) const
+  {
+    if (a_lev == 0)
+      return m_crseDomain;
+    else
+      return domain(a_lev - 1).refine(m_ratio[a_lev-1]);
   }
 
   const Vector<int>& ratio() const
@@ -164,7 +174,11 @@ namespace ValidIO
 
   void readCFVar(int a_ncID, const std::string& a_name,Vector<int>& a_data);
 
+  void readCFVar(int a_ncID, int a_varID ,Vector<int>& a_data);
+
   void readCFVar(int a_ncID, const std::string& a_name,Vector<Real>& a_data);
+
+  void readCFVar(int a_ncID, int a_varID ,Vector<Real>& a_data);
 
   void writeCFVar(int a_ncID, const std::string& a_name, const Vector<int>& a_data);
 

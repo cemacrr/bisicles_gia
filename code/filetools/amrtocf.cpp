@@ -48,6 +48,12 @@ int main(int argc, char* argv[]) {
     number_procs=1;
 #endif
   
+#ifdef CH_MPI
+    std::string msg = argv[0] + " is serial only";
+    MayDay::Error(msg.c_str());
+#endif
+    
+
     if(argc < 2) 
       { std::cerr << " usage: " << argv[0] << " <config_file> [additional key=value args]\n"; exit(0); }
 
@@ -118,7 +124,7 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect&
  
 
   //extract valid data
-  ValidData validData(names.size(), RealVect::Unit*crseDx, ratio, -a_origin);
+  ValidData validData(names.size(), RealVect::Unit*crseDx, domBox, ratio, -a_origin);
   ValidIO::BStoValid(validData, data, ratio);
 
   
@@ -148,6 +154,27 @@ void CFtoAMR(const std::string& ifile, const std::string& ofile)
   Vector<LevelData<FArrayBox> *> data;
   ValidIO::validToBS(data, validData);
 
+  Vector<DisjointBoxLayout> grids(data.size());
+  for (int lev = 0; lev < grids.size(); lev++)
+    {
+      grids[lev] = data[lev]->disjointBoxLayout();
+    }
+
+  Real dt =0.0; Real time = 0.0;
+
+  WriteAMRHierarchyHDF5
+    (ofile,grids,data,names,validData.domain(0),validData.dx()[0][0],
+     dt,time, validData.ratio() , validData.nLevel() );
+
+
+  for (int lev = 0; lev < data.size(); lev++)
+    {
+      if (data[lev] != NULL)
+	{
+	  delete data[lev];data[lev]=NULL;
+	}
+    }
+  
 }
 
 
