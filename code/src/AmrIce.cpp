@@ -2625,6 +2625,11 @@ AmrIce::updateThickness(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_ne
   //include any diffusive fluxes
   if (m_evolve_thickness && m_diffusionTreatment == IMPLICIT)
     {
+      if (m_grounded_ice_stable || m_floating_ice_stable)
+	{
+	  CH_assert( !(m_grounded_ice_stable || m_floating_ice_stable));
+	  MayDay::Error("implicit diffusion not implemented with grounded_ice_stable or floating_ice_stable ");
+	}
       //MayDay::Error("m_diffusionTreatment == IMPLICIT no yet implemented");
       //implicit thickness correction
       implicitThicknessCorrection(a_dt, m_surfaceThicknessSource,  m_basalThicknessSource);
