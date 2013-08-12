@@ -18,7 +18,7 @@
 
 #include <iostream>
 #include "AMRIO.H"
-#include "ValidIO.H"
+#include "UnstructuredIO.H"
 #include "ParmParse.H"
 #include "FieldNames.H"
 
@@ -124,8 +124,8 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect&
  
 
   //extract valid data
-  ValidData validData(names.size(), RealVect::Unit*crseDx, domBox, ratio, -a_origin);
-  ValidIO::BStoValid(validData, data, ratio);
+  UnstructuredData validData(names.size(), RealVect::Unit*crseDx, domBox, ratio, -a_origin);
+  UnstructuredIO::BStoUnstructured(validData, data, ratio);
 
   
   PolarStereographicCartesianToPolarTransformation transformation
@@ -133,7 +133,7 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect&
   //eccentricity, equatorial radius, 
 
   //write to CF file
-  ValidIO::writeCF ( ofile,  validData , names, transformation );
+  UnstructuredIO::writeCF ( ofile,  validData , names, transformation );
 
 
 
@@ -147,12 +147,12 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect&
 }
 void CFtoAMR(const std::string& ifile, const std::string& ofile)
 {
-  ValidData validData;
+  UnstructuredData validData;
   Vector<std::string> names;
-  ValidIO::readCF(validData, names, ifile);
+  UnstructuredIO::readCF(validData, names, ifile);
 
   Vector<LevelData<FArrayBox> *> data;
-  ValidIO::validToBS(data, validData);
+  UnstructuredIO::validToBS(data, validData);
 
   Vector<DisjointBoxLayout> grids(data.size());
   for (int lev = 0; lev < grids.size(); lev++)

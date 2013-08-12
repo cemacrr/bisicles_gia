@@ -8,25 +8,25 @@
 */
 #endif
 //===========================================================================
-// ValidIO.cpp
+// UnstructuredIO.cpp
 // Operations related to reading and writing data from/to valid regions
 // of AMR Hierarchies
 //===========================================================================
-#include "ValidIO.H"
+#include "UnstructuredIO.H"
 #include "FieldNames.H"
 #include "IntVectSet.H"
 #include "CoarseAverage.H"
 #include "NamespaceHeader.H"
 
 
-ValidData::ValidData
+UnstructuredData::UnstructuredData
 (int a_nComp,  const RealVect& a_crseDx, const Box& a_crseDomain,
  const Vector<int>& a_ratio, const RealVect& a_x0)
 {
   define(a_nComp, a_crseDx, a_crseDomain, a_ratio,  a_x0);
 }
 
-void ValidData::define
+void UnstructuredData::define
 (int a_nComp,  const RealVect& a_crseDx, const Box& a_crseDomain,
  const Vector<int>& a_ratio, const RealVect& a_x0)
 {
@@ -46,9 +46,9 @@ void ValidData::define
   m_isDefined = true;
 }
 
-void ValidData::resize(int a_size)
+void UnstructuredData::resize(int a_size)
 {
-  CH_TIME("ValidData::resize");
+  CH_TIME("UnstructuredData::resize");
   CH_assert(m_isDefined);
 
   m_level.resize(a_size);
@@ -68,10 +68,10 @@ void ValidData::resize(int a_size)
 }
 
 
-void ValidData::append
+void UnstructuredData::append
 (int a_lev, const Box& a_box, const IntVect& a_iv,  const Vector<Real>& a_data)
 {
-  CH_TIME("ValidData::append");
+  CH_TIME("UnstructuredData::append");
 
   CH_assert(m_isDefined);
   CH_assert(a_lev < m_nLevel);
@@ -102,10 +102,10 @@ void ValidData::append
    \param a_node[dir] = 0 implies lo side,   1 implies high side
                         
 */
-void ValidData::computeNodeCoord(Vector<Real>& a_nodeCoord, int a_dir, const IntVect& a_node) const
+void UnstructuredData::computeNodeCoord(Vector<Real>& a_nodeCoord, int a_dir, const IntVect& a_node) const
 {
   
-  CH_TIME("ValidData::computeNodeCoord");
+  CH_TIME("UnstructuredData::computeNodeCoord");
   CH_assert(m_isDefined);
   if (a_nodeCoord.size() != nCell())
     {
@@ -123,11 +123,11 @@ void ValidData::computeNodeCoord(Vector<Real>& a_nodeCoord, int a_dir, const Int
 }
 
 //given unstructured data  produce block structured data
-void ValidIO::validToBS 
+void UnstructuredIO::validToBS 
 ( Vector<LevelData<FArrayBox>*>& a_bsData, 
-  const ValidData& a_validData)
+  const UnstructuredData& a_validData)
 {
-  CH_TIME("ValidIO::ValidtoBS");
+  CH_TIME("UnstructuredIO::UnstructuredtoBS");
 
   //need to start from scratch
   CH_assert(a_bsData.size() == 0);
@@ -138,8 +138,8 @@ void ValidIO::validToBS
     {
       //need to extract a disjoint box layout  
       Vector<Box> boxes;
-      const ValidData::LevelBoxSet& lbs = a_validData.levelBoxSet();
-      for (ValidData::LevelBoxSet::const_iterator it = lbs.begin(); it != lbs.end(); it++)
+      const UnstructuredData::LevelBoxSet& lbs = a_validData.levelBoxSet();
+      for (UnstructuredData::LevelBoxSet::const_iterator it = lbs.begin(); it != lbs.end(); it++)
 	{
 	  if (it->first == lev)
 	    {
@@ -193,12 +193,12 @@ void ValidIO::validToBS
 
 
 //given block structured data  produce unstructured data 
-void ValidIO::BStoValid 
-( ValidData& a_validData , 
+void UnstructuredIO::BStoUnstructured 
+( UnstructuredData& a_validData , 
   const Vector<LevelData<FArrayBox>*>& a_bsData, 
   const Vector<int>& a_ratio)
 {
-  CH_TIME("ValidIO::BStoValid");
+  CH_TIME("UnstructuredIO::BStoUnstructured");
   //build valid data mask
   int numLevels = a_bsData.size();
   Vector<LevelData<BaseFab<int> >* > mask(numLevels,NULL);
@@ -271,12 +271,12 @@ void ValidIO::BStoValid
 /// along with the mesh data needed to reconstruct 
 /// a Chombo AMR hierarchy  from it
 
-void ValidIO::readCF ( ValidData& a_validData, 
+void UnstructuredIO::readCF ( UnstructuredData& a_validData, 
 		       Vector<std::string>& a_names, 
 		       const std::string& a_file)
 {
   
-  CH_TIME("ValidIO::readCF");
+  CH_TIME("UnstructuredIO::readCF");
   int rc, ncID; 
   std::string ivname[SpaceDim] = {D_DECL("i","j","k")};
  
@@ -453,7 +453,7 @@ void ValidIO::readCF ( ValidData& a_validData,
 	readCFVar(ncID, s, hi[dir]);
       }
 
-    ValidData::LevelBoxSet& lbs = a_validData.levelBoxSet();
+    UnstructuredData::LevelBoxSet& lbs = a_validData.levelBoxSet();
     for (int i = 0; i < boxLevel.size(); i++)
       {
 	const int& lev = boxLevel[i];
@@ -481,13 +481,13 @@ void ValidIO::readCF ( ValidData& a_validData,
 /// write valid data to a NetCDF-CF compliant file, 
 /// along with the mesh data needed to reconstruct 
 /// a Chombo AMR hierarchy  from it
-void ValidIO::writeCF ( const std::string& a_file,  
-			const ValidData& a_validData , 
+void UnstructuredIO::writeCF ( const std::string& a_file,  
+			const UnstructuredData& a_validData , 
 			const Vector<std::string>& a_names, 
 			const Transformation& a_latlonTransformation)
 {
 
-  CH_TIME("ValidIO::writeCF");
+  CH_TIME("UnstructuredIO::writeCF");
 
   int rc; int ncID; int varID;
 
@@ -696,8 +696,8 @@ void ValidIO::writeCF ( const std::string& a_file,
     Vector<int> boxLevel;
     Vector<Vector<int> > lo(SpaceDim);
     Vector<Vector<int> > hi(SpaceDim);
-    const ValidData::LevelBoxSet& lbs = a_validData.levelBoxSet();
-    for (ValidData::LevelBoxSet::const_iterator it 
+    const UnstructuredData::LevelBoxSet& lbs = a_validData.levelBoxSet();
+    for (UnstructuredData::LevelBoxSet::const_iterator it 
 	   = lbs.begin(); it != lbs.end(); it++)
       {
 	boxLevel.push_back(it->first);
@@ -848,7 +848,7 @@ void ValidIO::writeCF ( const std::string& a_file,
 
 }
 
-int ValidIO::defineCFDimension
+int UnstructuredIO::defineCFDimension
 (int a_ncID, 
  size_t a_len, 
  const std::string& a_name)
@@ -864,7 +864,7 @@ int ValidIO::defineCFDimension
 }
 
 
-int ValidIO::defineCFVar
+int UnstructuredIO::defineCFVar
 (int a_ncID,  int a_nDim, int* a_dimID, nc_type a_type,
  const std::string& a_name,
  const std::string& a_unit,
@@ -911,7 +911,7 @@ int ValidIO::defineCFVar
 
 }
 
-void ValidIO::readCFVar
+void UnstructuredIO::readCFVar
 (int a_ncID, const std::string& a_name, Vector<int>& a_data)
 {
   int varID, rc;
@@ -923,7 +923,7 @@ void ValidIO::readCFVar
   readCFVar(a_ncID,varID,a_data);
 }
 
-void ValidIO::readCFVar
+void UnstructuredIO::readCFVar
 (int a_ncID, int  a_varID , Vector<int>& a_data)
 {
   int rc;
@@ -937,7 +937,7 @@ void ValidIO::readCFVar
 }
 
 
-void ValidIO::readCFVar
+void UnstructuredIO::readCFVar
 (int a_ncID, const std::string& a_name, Vector<Real>& a_data)
 {
 
@@ -951,7 +951,7 @@ void ValidIO::readCFVar
   
 }
 
-void ValidIO::readCFVar
+void UnstructuredIO::readCFVar
 (int a_ncID, int  a_varID , Vector<Real>& a_data)
 {
   int rc;
@@ -964,7 +964,7 @@ void ValidIO::readCFVar
     }   
 }
 
-void ValidIO::writeCFVar
+void UnstructuredIO::writeCFVar
 (int a_ncID, const std::string& a_name, const Vector<int>& a_data)
 {
 
@@ -984,7 +984,7 @@ void ValidIO::writeCFVar
     }   
 }
 
-void ValidIO::writeCFVar
+void UnstructuredIO::writeCFVar
 (int a_ncID, const std::string& a_name, const Vector<Real>& a_data)
 {
 

@@ -8,12 +8,12 @@
 */
 #endif
 //===========================================================================
-// ValidIO.H
+// UnstructuredIO.H
 // Operations related to reading and writing data from/to valid regions
 // of AMR Hierarchies
 //===========================================================================
-#ifndef _VALIDIO_H_
-#define _VALIDIO_H_
+#ifndef _UNSTRUCTUREDIO_H_
+#define _UNSTRUCTUREDIO_H_
 
 #include "RealVect.H"
 #include "FArrayBox.H"
@@ -24,7 +24,7 @@
 #include "Transformation.H"
 #include "NamespaceHeader.H"
 
-class ValidData
+class UnstructuredData
 {
 
 public:
@@ -48,13 +48,13 @@ public:
 
  
 
-  ValidData(int a_nComp,  const RealVect& a_crseDx,  const Box& a_crseDomain,
+  UnstructuredData(int a_nComp,  const RealVect& a_crseDx,  const Box& a_crseDomain,
 	    const Vector<int>& a_ratio, const RealVect& a_x0 = RealVect::Zero );
   
   void define(int a_nComp,  const RealVect& a_crseDx,  const Box& a_crseDomain,
 	      const Vector<int>& a_ratio, const RealVect& a_x0 = RealVect::Zero );
 
-  ValidData():m_isDefined(false){}
+  UnstructuredData():m_isDefined(false){}
 
   void resize(int a_size);
 
@@ -150,17 +150,17 @@ public:
     
 };
 
-namespace ValidIO 
+namespace UnstructuredIO 
 {
 
-  /// populate a ValidData from a  Vector<LevelData<FArrayBox>*>
-  void BStoValid ( ValidData& a_validData , 
+  /// populate a UnstructuredData from a  Vector<LevelData<FArrayBox>*>
+  void BStoUnstructured ( UnstructuredData& a_validData , 
 		   const Vector<LevelData<FArrayBox>*>& a_bsData, 
 		   const Vector<int>& a_ratio );
   
   /// build block structed data from valid data
   void validToBS ( Vector<LevelData<FArrayBox>*>& a_bsdata, 
-		   const ValidData& a_validData);
+		   const UnstructuredData& a_validData);
 
 
 
@@ -184,13 +184,13 @@ namespace ValidIO
 
   void writeCFVar(int a_ncID, const std::string& a_name, const Vector<Real>& a_data);
 
-  ///write ValidData to a NetCDF-CF file
-  void writeCF ( const std::string&,  const ValidData& , 
+  ///write UnstructuredData to a NetCDF-CF file
+  void writeCF ( const std::string&,  const UnstructuredData& , 
 		 const Vector<std::string>&, 
 		 const Transformation&);
 
-  ///read ValidData from a NetCDF-CF file
-  void readCF ( ValidData&, Vector<std::string>&, 
+  ///read UnstructuredData from a NetCDF-CF file
+  void readCF ( UnstructuredData&, Vector<std::string>&, 
 		 const std::string&);
 
 
