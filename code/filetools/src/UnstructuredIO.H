@@ -154,13 +154,14 @@ namespace UnstructuredIO
 {
 
   /// populate a UnstructuredData from a  Vector<LevelData<FArrayBox>*>
-  void BStoUnstructured ( UnstructuredData& a_validData , 
-		   const Vector<LevelData<FArrayBox>*>& a_bsData, 
-		   const Vector<int>& a_ratio );
+  void BStoUS( UnstructuredData& a_usData , 
+			  const Vector<LevelData<FArrayBox>*>& a_bsData, 
+			  const Vector<int>& a_ratio, 
+			  bool a_validOnly);
   
   /// build block structed data from valid data
-  void validToBS ( Vector<LevelData<FArrayBox>*>& a_bsdata, 
-		   const UnstructuredData& a_validData);
+  void USToBS ( Vector<LevelData<FArrayBox>*>& a_bsdata, 
+		   const UnstructuredData& a_usData);
 
 
 

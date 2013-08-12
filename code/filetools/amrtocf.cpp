@@ -22,7 +22,7 @@
 #include "ParmParse.H"
 #include "FieldNames.H"
 
-void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect& a_origin);
+void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect& a_origin, bool a_validOnly);
 void CFtoAMR(const std::string& ifile, const std::string& ofile);
 
 
@@ -75,7 +75,9 @@ int main(int argc, char* argv[]) {
     
     if ( (ifile.size() >= 5) && (ifile.find(".hdf5") == ifile.size()-5))
       {
-	AMRtoCF(ifile,ofile,origin);
+	bool validOnly = true;
+	pp.query("valid_only",validOnly);
+	AMRtoCF(ifile,ofile,origin,validOnly);
       }
     else if ((ifile.size() >= 3) && (ifile.find(".nc") == ifile.size()-3))
       {
@@ -101,7 +103,7 @@ int main(int argc, char* argv[]) {
   
   return 0;
 }
-void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect& a_origin)
+void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect& a_origin, bool a_validOnly)
 {
   
 
@@ -124,8 +126,8 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect&
  
 
   //extract valid data
-  UnstructuredData validData(names.size(), RealVect::Unit*crseDx, domBox, ratio, -a_origin);
-  UnstructuredIO::BStoUnstructured(validData, data, ratio);
+  UnstructuredData usData(names.size(), RealVect::Unit*crseDx, domBox, ratio, -a_origin);
+  UnstructuredIO::BStoUS(usData, data, ratio, a_validOnly);
 
   
   PolarStereographicCartesianToPolarTransformation transformation
@@ -133,7 +135,7 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect&
   //eccentricity, equatorial radius, 
 
   //write to CF file
-  UnstructuredIO::writeCF ( ofile,  validData , names, transformation );
+  UnstructuredIO::writeCF ( ofile,  usData , names, transformation );
 
 
 
@@ -147,12 +149,12 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect&
 }
 void CFtoAMR(const std::string& ifile, const std::string& ofile)
 {
-  UnstructuredData validData;
+  UnstructuredData usData;
   Vector<std::string> names;
-  UnstructuredIO::readCF(validData, names, ifile);
+  UnstructuredIO::readCF(usData, names, ifile);
 
   Vector<LevelData<FArrayBox> *> data;
-  UnstructuredIO::validToBS(data, validData);
+  UnstructuredIO::USToBS(data, usData);
 
   Vector<DisjointBoxLayout> grids(data.size());
   for (int lev = 0; lev < grids.size(); lev++)
@@ -163,8 +165,8 @@ void CFtoAMR(const std::string& ifile, const std::string& ofile)
   Real dt =0.0; Real time = 0.0;
 
   WriteAMRHierarchyHDF5
-    (ofile,grids,data,names,validData.domain(0),validData.dx()[0][0],
-     dt,time, validData.ratio() , validData.nLevel() );
+    (ofile,grids,data,names, usData.domain(0),usData.dx()[0][0],
+     dt,time, usData.ratio() , usData.nLevel() );
 
 
   for (int lev = 0; lev < data.size(); lev++)

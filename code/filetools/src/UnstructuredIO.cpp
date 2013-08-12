@@ -123,22 +123,22 @@ void UnstructuredData::computeNodeCoord(Vector<Real>& a_nodeCoord, int a_dir, co
 }
 
 //given unstructured data  produce block structured data
-void UnstructuredIO::validToBS 
+void UnstructuredIO::USToBS 
 ( Vector<LevelData<FArrayBox>*>& a_bsData, 
-  const UnstructuredData& a_validData)
+  const UnstructuredData& a_usData)
 {
   CH_TIME("UnstructuredIO::UnstructuredtoBS");
 
   //need to start from scratch
   CH_assert(a_bsData.size() == 0);
-  a_bsData.resize(a_validData.nLevel());
+  a_bsData.resize(a_usData.nLevel());
 
  
-  for (int lev = 0; lev < a_validData.nLevel(); lev++)
+  for (int lev = 0; lev < a_usData.nLevel(); lev++)
     {
       //need to extract a disjoint box layout  
       Vector<Box> boxes;
-      const UnstructuredData::LevelBoxSet& lbs = a_validData.levelBoxSet();
+      const UnstructuredData::LevelBoxSet& lbs = a_usData.levelBoxSet();
       for (UnstructuredData::LevelBoxSet::const_iterator it = lbs.begin(); it != lbs.end(); it++)
 	{
 	  if (it->first == lev)
@@ -148,11 +148,11 @@ void UnstructuredIO::validToBS
 	}
      
       Vector<int> procID(0);
-      DisjointBoxLayout grids(boxes, procID, ProblemDomain(a_validData.domain(lev)));
+      DisjointBoxLayout grids(boxes, procID, ProblemDomain(a_usData.domain(lev)));
       
-      a_bsData[lev] = new LevelData<FArrayBox>(grids, a_validData.nComp(), IntVect::Unit); }
+      a_bsData[lev] = new LevelData<FArrayBox>(grids, a_usData.nComp(), IntVect::Unit); }
 
-  for (int lev =  a_validData.nLevel() - 1 ; lev >=0; lev--)
+  for (int lev =  a_usData.nLevel() - 1 ; lev >=0; lev--)
     {
       //start from the finest level, so that if there *is* data stored for the 
       //invalid regions, it overwrites the coarse average we carry out
@@ -162,20 +162,20 @@ void UnstructuredIO::validToBS
 	   //\todo : optimization. at the momemt, we are going through 
 	  // all the data for every FAB.
 	  FArrayBox& data = (*a_bsData[lev])[dit];
-      	  for (int i =0; i <  a_validData.nCell(); i++)
+      	  for (int i =0; i <  a_usData.nCell(); i++)
       	    {
-	      if (a_validData.level()[i] == lev)
+	      if (a_usData.level()[i] == lev)
 		{
 		  IntVect iv;
 		  for (int dir =0; dir < SpaceDim; dir++)
 		    {
-		      iv[dir] = a_validData.iv(dir)[i];
+		      iv[dir] = a_usData.iv(dir)[i];
 		    }
 		  if (data.box().contains(iv))
 		    {
 		      for (int comp = 0; comp < data.nComp(); comp++)
 			{
-			  data(iv,comp) = a_validData.field(comp)[i];
+			  data(iv,comp) = a_usData.field(comp)[i];
 			}
 		    }
 		}
@@ -184,7 +184,7 @@ void UnstructuredIO::validToBS
 
       if (lev > 0)
 	{
-	  CoarseAverage av(grids , a_bsData[lev]->nComp(), a_validData.ratio()[lev-1]);
+	  CoarseAverage av(grids , a_bsData[lev]->nComp(), a_usData.ratio()[lev-1]);
 	  av.averageToCoarse(*a_bsData[lev-1],   *a_bsData[lev] );
 	}
 
@@ -193,66 +193,67 @@ void UnstructuredIO::validToBS
 
 
 //given block structured data  produce unstructured data 
-void UnstructuredIO::BStoUnstructured 
-( UnstructuredData& a_validData , 
+void UnstructuredIO::BStoUS
+( UnstructuredData& a_usData , 
   const Vector<LevelData<FArrayBox>*>& a_bsData, 
-  const Vector<int>& a_ratio)
+  const Vector<int>& a_ratio, 
+  bool a_validonly)
 {
   CH_TIME("UnstructuredIO::BStoUnstructured");
-  //build valid data mask
+
   int numLevels = a_bsData.size();
   Vector<LevelData<BaseFab<int> >* > mask(numLevels,NULL);
-  for (int lev = numLevels - 1; lev >= 0; lev--)
-	  {
-	    const DisjointBoxLayout& grids = a_bsData[lev]->disjointBoxLayout();
-	    mask[lev] = new LevelData<BaseFab<int> >(grids,1,IntVect::Zero);
-	    for (DataIterator dit(grids); dit.ok(); ++dit)
-	      {
-		(*mask[lev])[dit].setVal(1);
-		
-		if (lev < numLevels - 1)
-		  {
-		    const DisjointBoxLayout& fgrids = a_bsData[lev+1]->disjointBoxLayout();
-		    for (DataIterator fit(fgrids) ; fit.ok(); ++fit)
-		      {
-			Box covered = fgrids[fit];
-			covered.coarsen(a_ratio[lev]);
-			covered &= grids[dit];
-			if (!covered.isEmpty())
-			  {
-			    (*mask[lev])[dit].setVal(0,covered,0,1);
-			  }
-		      }
-		  }
-	      }
-	    
-	  }
-
+  if (a_validonly)
+    {
+      //build valid data mask
+      for (int lev = numLevels - 1; lev >= 0; lev--)
+	{
+	  const DisjointBoxLayout& grids = a_bsData[lev]->disjointBoxLayout();
+	  mask[lev] = new LevelData<BaseFab<int> >(grids,1,IntVect::Zero);
+	  for (DataIterator dit(grids); dit.ok(); ++dit)
+	    {
+	      (*mask[lev])[dit].setVal(1);
+	      
+	      if (lev < numLevels - 1)
+		{
+		  const DisjointBoxLayout& fgrids = a_bsData[lev+1]->disjointBoxLayout();
+		  for (DataIterator fit(fgrids) ; fit.ok(); ++fit)
+		    {
+		      Box covered = fgrids[fit];
+		      covered.coarsen(a_ratio[lev]);
+		      covered &= grids[dit];
+		      if (!covered.isEmpty())
+			{
+			  (*mask[lev])[dit].setVal(0,covered,0,1);
+			}
+		    }
+		}
+	    }
+	  
+	}
+    }
 
   for (int lev = 0; lev < a_bsData.size(); lev++)
     {
       LevelData<FArrayBox>& levelData = *a_bsData[lev];
-      LevelData<BaseFab<int> >& levelMask = *mask[lev];
       for (DataIterator dit = levelData.dataIterator(); dit.ok(); ++dit)
 	{
-	  const Box& box = levelData.disjointBoxLayout()[dit];
+	  const Box& noGhostBox = levelData.disjointBoxLayout()[dit];
+	  const Box& box = (a_validonly)?(noGhostBox):(levelData[dit].box());
+	   
 	  for (BoxIterator bit(box);bit.ok();++bit)
 	    {
 	      const IntVect& iv = bit();
 	     
-	      if (levelMask[dit](iv) == 1)
+	      if ( (!a_validonly) || ( (*mask[lev])[dit](iv) == 1))
 		{
 		  Vector<Real> v(levelData.nComp());
 		  for (int ic = 0; ic < v.size(); ic++)
 		    v[ic] = levelData[dit](iv,ic);
-		  a_validData.append(lev,box, iv,v);
-		  
+		  a_usData.append(lev, noGhostBox , iv,v);
 		}
 	    }
 	}
-
-      
-
     }
   
   //clean up mask
@@ -267,11 +268,11 @@ void UnstructuredIO::BStoUnstructured
 
 }
 
-/// read valid data from a NetCDF-CF compliant file
+/// read unstructureddata from a NetCDF-CF compliant file
 /// along with the mesh data needed to reconstruct 
 /// a Chombo AMR hierarchy  from it
 
-void UnstructuredIO::readCF ( UnstructuredData& a_validData, 
+void UnstructuredIO::readCF ( UnstructuredData& a_usData, 
 		       Vector<std::string>& a_names, 
 		       const std::string& a_file)
 {
@@ -415,26 +416,26 @@ void UnstructuredIO::readCF ( UnstructuredData& a_validData,
 	}
     }
   
-  a_validData.define(ccVarID.size(), crseDx ,crseDomain, ratio);
+  a_usData.define(ccVarID.size(), crseDx ,crseDomain, ratio);
   a_names.resize(ccVarID.size());
-  a_validData.resize(nCell);
+  a_usData.resize(nCell);
   
   //read in level and grid vector data
   {
-    readCFVar(ncID, "amr_level", a_validData.level());
+    readCFVar(ncID, "amr_level", a_usData.level());
     
     std::string ivname[SpaceDim] = {D_DECL("i","j","k")};
     for (int dir = 0; dir < SpaceDim; dir++)
       {
 	std::string s = "amr_levelgrid_" + ivname[dir] + "_index"; 
-	readCFVar(ncID,s,a_validData.iv(dir));	
+	readCFVar(ncID,s,a_usData.iv(dir));	
       }
   }
   
   //field data
   for (int i =0; i < ccVarID.size(); i++)
     {
-      readCFVar(ncID, ccVarID[i], a_validData.field(i));
+      readCFVar(ncID, ccVarID[i], a_usData.field(i));
     }
 
   //box data
@@ -453,7 +454,7 @@ void UnstructuredIO::readCF ( UnstructuredData& a_validData,
 	readCFVar(ncID, s, hi[dir]);
       }
 
-    UnstructuredData::LevelBoxSet& lbs = a_validData.levelBoxSet();
+    UnstructuredData::LevelBoxSet& lbs = a_usData.levelBoxSet();
     for (int i = 0; i < boxLevel.size(); i++)
       {
 	const int& lev = boxLevel[i];
@@ -478,11 +479,11 @@ void UnstructuredIO::readCF ( UnstructuredData& a_validData,
 }
 
 
-/// write valid data to a NetCDF-CF compliant file, 
+/// write unstructured data to a NetCDF-CF compliant file, 
 /// along with the mesh data needed to reconstruct 
 /// a Chombo AMR hierarchy  from it
 void UnstructuredIO::writeCF ( const std::string& a_file,  
-			const UnstructuredData& a_validData , 
+			const UnstructuredData& a_usData , 
 			const Vector<std::string>& a_names, 
 			const Transformation& a_latlonTransformation)
 {
@@ -501,18 +502,18 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
     }
 
   //define the netCDF dimensions 
-  size_t nCell = a_validData.nCell();
+  size_t nCell = a_usData.nCell();
   int cellDimID = defineCFDimension(ncID, nCell, "cell");
 
   size_t nVertex = 4; //all cells are quads
   int vertexDimID = defineCFDimension(ncID, nVertex, "vertex");
 
-  size_t nLevel = a_validData.nLevel();
+  size_t nLevel = a_usData.nLevel();
   int levelDimID =  defineCFDimension(ncID, nLevel, "level");
 
   int spaceDimID =  defineCFDimension(ncID, SpaceDim, "spacedim");
 
-  size_t nBox = a_validData.levelBoxSet().size();
+  size_t nBox = a_usData.levelBoxSet().size();
   int boxDimID =  defineCFDimension(ncID, nBox , "box");
 
   //set global attributes
@@ -632,7 +633,7 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
   
 
   //definition of field variables
-  for (int ic = 0; ic < a_validData.nComp(); ic++)
+  for (int ic = 0; ic < a_usData.nComp(); ic++)
     {
       int varID = defineCFVar(ncID, 1, &cellDimID, NC_DOUBLE, 
 			      cfRecord[ic].name() , 
@@ -668,13 +669,13 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
   //write data
 
   //amr data / ratio
-  writeCFVar(ncID, "amr_ratio", a_validData.ratio());
+  writeCFVar(ncID, "amr_ratio", a_usData.ratio());
 
   //amr data / coarse dx
   Vector<Real> crseDx(SpaceDim);
   for (int dir = 0; dir < SpaceDim; dir++)
     {
-      crseDx[dir] = a_validData.dx()[0][dir];
+      crseDx[dir] = a_usData.dx()[0][dir];
     }
   writeCFVar(ncID, "amr_crse_dx", crseDx);
 
@@ -683,20 +684,20 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
   Vector<int> corner(SpaceDim*SpaceDim);
   for (int dir = 0; dir < SpaceDim; dir++)
     {
-      corner[dir] = a_validData.domain(0).smallEnd()[dir];
-      corner[dir+SpaceDim] = a_validData.domain(0).bigEnd()[dir];
+      corner[dir] = a_usData.domain(0).smallEnd()[dir];
+      corner[dir+SpaceDim] = a_usData.domain(0).bigEnd()[dir];
     }
   writeCFVar(ncID, "amr_crse_domain", corner);
 
   // amr data / cell level
-  writeCFVar(ncID, "amr_level", a_validData.level());
+  writeCFVar(ncID, "amr_level", a_usData.level());
     
   // amr data / box level
   {
     Vector<int> boxLevel;
     Vector<Vector<int> > lo(SpaceDim);
     Vector<Vector<int> > hi(SpaceDim);
-    const UnstructuredData::LevelBoxSet& lbs = a_validData.levelBoxSet();
+    const UnstructuredData::LevelBoxSet& lbs = a_usData.levelBoxSet();
     for (UnstructuredData::LevelBoxSet::const_iterator it 
 	   = lbs.begin(); it != lbs.end(); it++)
       {
@@ -721,21 +722,21 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
   for (int dir = 0; dir < SpaceDim; dir++)
     {
       std::string s = "amr_levelgrid_" + ivname[dir] + "_index"; 
-      writeCFVar(ncID, s , a_validData.iv(dir));
+      writeCFVar(ncID, s , a_usData.iv(dir));
     }
 
 
   //x,y
   for (int dir = 0; dir < SpaceDim; dir++)
     {
-      writeCFVar(ncID, xname[dir] , a_validData.x(dir));
+      writeCFVar(ncID, xname[dir] , a_usData.x(dir));
     }
 
   {
     // cell-center latitude and longitude data
-    D_TERM(const Vector<Real>& x = a_validData.x(0);,
-	   const Vector<Real>& y = a_validData.x(1);,
-	   const Vector<Real>& z = a_validData.x(2););
+    D_TERM(const Vector<Real>& x = a_usData.x(0);,
+	   const Vector<Real>& y = a_usData.x(1);,
+	   const Vector<Real>& z = a_usData.x(2););
     
     Vector<Real> lat(nCell);
     Vector<Real> lon(nCell);
@@ -771,7 +772,7 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
 	const IntVect& iv = bit();
 	for (int dir = 0; dir < SpaceDim; dir++)
 	  {
-	    a_validData.computeNodeCoord( nodeX[dir], dir, iv);
+	    a_usData.computeNodeCoord( nodeX[dir], dir, iv);
 	  }
 
 	for (int i = 0; i < nCell; i++)
@@ -835,9 +836,9 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
   }
 
   //scalar fields
-  for (int ic = 0; ic < a_validData.nComp(); ic++)
+  for (int ic = 0; ic < a_usData.nComp(); ic++)
     {
-      writeCFVar(ncID,cfRecord[ic].name(),a_validData.field(ic));
+      writeCFVar(ncID,cfRecord[ic].name(),a_usData.field(ic));
     }
       
   //close file
