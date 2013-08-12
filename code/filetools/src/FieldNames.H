@@ -26,7 +26,7 @@ namespace FieldNames
     std::string m_stdname; // standard name (CF)
     std::string m_longname; // long name (used by CF when there is no standard name)
     std::string m_units; // 
-    
+    Real m_scale; //conversion factor 
   public:
     /// contruct a record by looking up \param a_name
     CFRecord(const std::string& a_name);
@@ -35,7 +35,7 @@ namespace FieldNames
     const std::string& standardName() const {return m_stdname;}
     const std::string& longName() const {return m_longname;}
     const std::string& units() const {return m_units;}
-
+    Real scale() const {return m_scale;}
   private:
     CFRecord(){};
     

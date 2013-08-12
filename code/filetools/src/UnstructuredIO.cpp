@@ -21,18 +21,19 @@
 
 UnstructuredData::UnstructuredData
 (int a_nComp,  const RealVect& a_crseDx, const Box& a_crseDomain,
- const Vector<int>& a_ratio, const RealVect& a_x0)
+ const Vector<int>& a_ratio, const Real& a_time, const RealVect& a_x0)
 {
-  define(a_nComp, a_crseDx, a_crseDomain, a_ratio,  a_x0);
+  define(a_nComp, a_crseDx, a_crseDomain, a_ratio, a_time, a_x0);
 }
 
 void UnstructuredData::define
 (int a_nComp,  const RealVect& a_crseDx, const Box& a_crseDomain,
- const Vector<int>& a_ratio, const RealVect& a_x0)
+ const Vector<int>& a_ratio, const Real& a_time, const RealVect& a_x0)
 {
   m_nComp = a_nComp;
   m_crseDomain = a_crseDomain;
   m_ratio = a_ratio;
+  m_time = a_time;
   m_x0 = a_x0;
   m_nLevel = m_ratio.size();
   m_dx.resize(m_nLevel);
@@ -416,7 +417,9 @@ void UnstructuredIO::readCF ( UnstructuredData& a_usData,
 	}
     }
   
-  a_usData.define(ccVarID.size(), crseDx ,crseDomain, ratio);
+  RealVect origin = RealVect::Zero;// we don't care about the space origin
+  Real time = 0.0; //\todo : compute the time from the CF file 
+  a_usData.define(ccVarID.size(), crseDx ,crseDomain, ratio, time, origin); 
   a_names.resize(ccVarID.size());
   a_usData.resize(nCell);
   
@@ -433,9 +436,19 @@ void UnstructuredIO::readCF ( UnstructuredData& a_usData,
   }
   
   //field data
+  //need to look up the scale factors
+  Vector<FieldNames::CFRecord> cfRecord;
+  FieldNames::CFLookup(cfRecord,  a_names);
   for (int i =0; i < ccVarID.size(); i++)
     {
-      readCFVar(ncID, ccVarID[i], a_usData.field(i));
+      Vector<Real>& field = a_usData.field(i);
+      readCFVar(ncID, ccVarID[i], field);
+      if (cfRecord[i].scale() != 1.0)
+	{
+	  Real oneOnScale = 1.0 / cfRecord[i].scale();
+	  for (int j = 0; j < field.size(); j++) 
+	    field[j] *= oneOnScale;
+	}
     }
 
   //box data
@@ -483,9 +496,10 @@ void UnstructuredIO::readCF ( UnstructuredData& a_usData,
 /// along with the mesh data needed to reconstruct 
 /// a Chombo AMR hierarchy  from it
 void UnstructuredIO::writeCF ( const std::string& a_file,  
-			const UnstructuredData& a_usData , 
-			const Vector<std::string>& a_names, 
-			const Transformation& a_latlonTransformation)
+			       const UnstructuredData& a_usData , 
+			       const Vector<std::string>& a_names, 
+			       const std::string& a_created,
+			       const Transformation& a_latlonTransformation)
 {
 
   CH_TIME("UnstructuredIO::writeCF");
@@ -524,7 +538,17 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
       {
 	MayDay::Error("failed to add Conventions attribute");
       }
+
+    if ( (rc =  nc_put_att_text (ncID, NC_GLOBAL , "CreatedBy", 
+				 a_created.size(), a_created.c_str())) != NC_NOERR)
+      {
+	MayDay::Error("failed to add CreatedBy attribute");
+      }
+
   }
+
+  
+
 
   //definition of data related to block structured mesh : 
   //(ratio, dx, coarse domain, level, box_level, box_lo_i, etc , IntVect components)
@@ -838,7 +862,13 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
   //scalar fields
   for (int ic = 0; ic < a_usData.nComp(); ic++)
     {
-      writeCFVar(ncID,cfRecord[ic].name(),a_usData.field(ic));
+      Vector<Real> scaledField = a_usData.field(ic);
+      for (int i =0; i < scaledField.size(); i++)
+	{
+	  scaledField[i] *= cfRecord[ic].scale();
+	}
+
+      writeCFVar(ncID,cfRecord[ic].name(),scaledField );
     }
       
   //close file
@@ -892,13 +922,15 @@ int UnstructuredIO::defineCFVar
 	}
     }
     
- 
-  if ( (rc =  nc_put_att_text (a_ncID, varID, "long_name", 
-			       a_longName.size(), a_longName.c_str())) != NC_NOERR)
-   {
-     std::string msg = "failed to add " + a_name + "long_name attribute" ;
-     MayDay::Error(msg.c_str());
-   }
+  if (a_longName != "")
+    {
+      if ( (rc =  nc_put_att_text (a_ncID, varID, "long_name", 
+				   a_longName.size(), a_longName.c_str())) != NC_NOERR)
+	{
+	  std::string msg = "failed to add " + a_name + "long_name attribute" ;
+	  MayDay::Error(msg.c_str());
+	}
+    }
       
  if ( (rc =  nc_put_att_text (a_ncID, varID, "units", 
 			      a_unit.size(), a_unit.c_str())) != NC_NOERR)

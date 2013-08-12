@@ -34,6 +34,7 @@ private:
   int m_nComp;
   Vector<RealVect> m_dx;
   RealVect m_x0;
+  Real m_time;
   int m_nLevel;
   Vector<int> m_ratio;
   Vector<int> m_level;
@@ -49,10 +50,10 @@ public:
  
 
   UnstructuredData(int a_nComp,  const RealVect& a_crseDx,  const Box& a_crseDomain,
-	    const Vector<int>& a_ratio, const RealVect& a_x0 = RealVect::Zero );
+		   const Vector<int>& a_ratio, const Real& a_time, const RealVect& a_x0 = RealVect::Zero );
   
   void define(int a_nComp,  const RealVect& a_crseDx,  const Box& a_crseDomain,
-	      const Vector<int>& a_ratio, const RealVect& a_x0 = RealVect::Zero );
+	      const Vector<int>& a_ratio, const Real& a_time, const RealVect& a_x0 = RealVect::Zero );
 
   UnstructuredData():m_isDefined(false){}
 
@@ -84,6 +85,17 @@ public:
     else
       return domain(a_lev - 1).refine(m_ratio[a_lev-1]);
   }
+
+  Real time() const
+  {
+    return m_time;
+  }
+
+  Real& time()
+  {
+    return m_time;
+  }
+
 
   const Vector<int>& ratio() const
   {
@@ -187,7 +199,7 @@ namespace UnstructuredIO
 
   ///write UnstructuredData to a NetCDF-CF file
   void writeCF ( const std::string&,  const UnstructuredData& , 
-		 const Vector<std::string>&, 
+		 const Vector<std::string>&, const std::string&,
 		 const Transformation&);
 
   ///read UnstructuredData from a NetCDF-CF file

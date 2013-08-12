@@ -54,6 +54,9 @@ FieldNames::CFRecord::CFRecord(const std::string& a_name)
   pp.query("name",m_name);
   sanitize(m_name);
     
+  m_scale = 1.0;
+  pp.query("scale",m_scale);
+
   ParmParse ppn(m_name.c_str());
 
   m_stdname = "";

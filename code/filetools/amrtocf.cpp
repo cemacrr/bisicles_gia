@@ -22,7 +22,12 @@
 #include "ParmParse.H"
 #include "FieldNames.H"
 
-void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect& a_origin, bool a_validOnly);
+void AMRtoCF(const std::string& ifile, const std::string& ofile,
+	     const std::string& a_createdBy, 
+	     const RealVect& a_origin,
+	     const Real& a_timeOffset,
+	     bool a_validOnly);
+
 void CFtoAMR(const std::string& ifile, const std::string& ofile);
 
 
@@ -66,18 +71,30 @@ int main(int argc, char* argv[]) {
     std::string ofile;
     pp.get("outfile",ofile);
  
-    RealVect origin = RealVect::Zero;
-    {
-      Vector<Real> t(SpaceDim,0.0);
-      pp.queryarr("origin",t,0,SpaceDim);
-      D_TERM(origin[0] = t[0];, origin[1] = t[1];, origin[2] = t[2];);
-    }
+   
     
     if ( (ifile.size() >= 5) && (ifile.find(".hdf5") == ifile.size()-5))
       {
 	bool validOnly = true;
 	pp.query("valid_only",validOnly);
-	AMRtoCF(ifile,ofile,origin,validOnly);
+
+	Real timeOrigin = 0.0;
+	pp.query("time_origin", timeOrigin);
+
+	RealVect origin = RealVect::Zero;
+	{
+	  Vector<Real> t(SpaceDim,0.0);
+	  pp.queryarr("origin",t,0,SpaceDim);
+	  D_TERM(origin[0] = t[0];, origin[1] = t[1];, origin[2] = t[2];);
+	}
+
+	std::string created;
+	for (int i =0; i < argc; i++)
+	  {
+	    created += std::string(argv[i]) + " ";
+	  }
+	
+	AMRtoCF(ifile,ofile,created,origin,timeOrigin,validOnly);
       }
     else if ((ifile.size() >= 3) && (ifile.find(".nc") == ifile.size()-3))
       {
@@ -103,7 +120,11 @@ int main(int argc, char* argv[]) {
   
   return 0;
 }
-void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect& a_origin, bool a_validOnly)
+void AMRtoCF(const std::string& ifile, const std::string& ofile,
+	     const std::string& a_created, 
+	     const RealVect& a_origin,
+	     const Real& a_timeOrigin,
+	     bool a_validOnly)
 {
   
 
@@ -126,7 +147,7 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect&
  
 
   //extract valid data
-  UnstructuredData usData(names.size(), RealVect::Unit*crseDx, domBox, ratio, -a_origin);
+  UnstructuredData usData(names.size(), RealVect::Unit*crseDx, domBox, ratio, time + a_timeOrigin,  a_origin);
   UnstructuredIO::BStoUS(usData, data, ratio, a_validOnly);
 
   
@@ -135,7 +156,7 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile, const RealVect&
   //eccentricity, equatorial radius, 
 
   //write to CF file
-  UnstructuredIO::writeCF ( ofile,  usData , names, transformation );
+  UnstructuredIO::writeCF ( ofile,  usData , names, a_created , transformation );
 
 
 
