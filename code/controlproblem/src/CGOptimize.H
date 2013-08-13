@@ -93,7 +93,7 @@ void CGOptimize(O& a_F, X& a_x,
 		   << " so walking the line (remind SLC to look up a better method) " << std::endl;
 	    alpha -= a_secantParameter;
 	    a_F.incr(y,d,a_secantParameter);
-	    a_F.computeObjectiveAndGradient(fms,fps,p,y,false);
+	    a_F.computeObjectiveAndGradient(fms,fps,p,y,true);
 	    eta = etaPrev;
 	    etaPrev = a_F.dotProduct(p,d);
 	    pout() << " ... initial secant f'(x+ sd).f'(x) = " 
