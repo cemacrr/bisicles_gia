@@ -1,0 +1,94 @@
+#sample input file for forward problem
+main.problem = control
+
+#input data
+main.inputMethod = LevelData
+inputLevelData.geometryFile = asebm2-geometry-4km.2d.hdf5
+inputLevelData.thicknessName = thk
+inputLevelData.topographyName = topg
+
+inputLevelData.inputFile = asebm2-ctrldata-4km.2d.hdf5
+inputLevelData.frictionName = btrc
+inputLevelData.xvelName = umod
+inputLevelData.velcoefName = umodc
+
+#temperature.type = LevelData
+#inputLevelData.temperatureFile = asebm2-temperature-4km.2d.hdf5
+#inputLevelData.temperatureName = temp000000
+
+temperature.type = constant
+temperature.value = 260.0
+
+#bulk constitutive relation and parameters
+main.constitutiveRelation = L1L2
+main.rateFactor = arrheniusRate
+ArrheniusRate.epsSqr0 = 1.0e-12
+
+#basal friction relation parameters
+main.basalFrictionRelation = powerLaw
+BasalFrictionPowerLaw.m = 1.0
+
+constants.ice_density=918
+
+#JFNK parameters
+JFNKSolver.vtopSafety = 0.95
+JFNKSolver.minPicardIterations = 3
+JFNKSolver.maxIter = 20
+JFNKSolver.absTol = 1.0e-4
+JFNKSolver.relTol = 1.0e-8
+JFNKSolver.solverType = 0 #Relax solver
+JFNKSolver.RelaxRelTol = 1.0e-3
+JFNKSolver.RelaxHang = 0.25
+JFNKSolver.maxRelaxIter = 20
+JFNKSolver.normType = 2
+JFNKSolver.verbosity = 5
+JFNKSolver.vtopRelaxTol = 0.005
+JFNKSolver.vtopRelaxMinIter = 4
+JFNKSolver.numMGSmooth = 8
+JFNKSolver.numMGIter = 1
+JFNKSolver.h = 0.025
+JFNKSolver.switchRate = 5.0
+#JFNKSolver.writeResiduals = true
+
+#control problem parameters
+control.velMisfitCoefficient = 1.0
+control.massImbalanceCoefficient = 0.0e+2
+control.gradCsqRegularization = 1.0e+0
+control.gradMuCoefsqRegularization = 0.0e+3
+control.muCoefLEQOne = FALSE
+control.X0Regularization = 1.0e+3
+control.X1Regularization = 1.0e+3
+control.boundArgX0 = 4.0
+control.boundArgX1 = 4.0
+
+#control.writeInnerSteps = true
+control.outerStepFileNameBase = ase-ctrl-T260-outer.
+control.innerStepFileNameBase = ase-ctrl-T260-inner.
+control.CGsecantStepMaxGrow = 2.0
+
+control.initialMu = 1.0e+6
+control.CGmaxIter = 1
+control.CGtol = 1.0e-6
+control.CGsecantParameter = 1.0e-8
+control.CGsecantMaxIter = 20
+control.CGsecantTol = 1.0e-1
+
+#domain details
+geometry.domain_size = 768.0e+3 896.0e+3 1.0e+3
+geometry.num_cells = 768 896 10
+geometry.num_cells = 384 448 10
+geometry.num_cells = 192 224 10
+geometry.num_cells = 96 112 10
+geometry.num_cells = 48 56 10
+#geometry.sigma = 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0
+geometry.sigma = 0.0 0.1663 0.3179 0.4547 0.5768 0.6842 0.7768 0.8547 0.9179 0.9663 1.0000
+geometry.is_periodic = 0 0 0
+
+amr.max_box_size = 64
+amr.max_level = 1
+amr.refinement_ratios = 2 2 2 2 2 2 
+amr.block_factor = 8          # block factor used in grid generation
+amr.fill_ratio = 0.8          # how efficient are the grids
+amr.nesting_radius = 1        # proper nesting radius required
+amr.tags_grow = 1            # amount to buffer tags
+amr.max_vel_dx = 1.0e+6
