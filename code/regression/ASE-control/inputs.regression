@@ -3,17 +3,17 @@ main.problem = control
 
 #input data
 main.inputMethod = LevelData
-inputLevelData.geometryFile = asebm2-geometry-4km.2d.hdf5
+inputLevelData.geometryFile = asebm2-geometry-4km.2d.H5
 inputLevelData.thicknessName = thk
 inputLevelData.topographyName = topg
 
-inputLevelData.inputFile = asebm2-ctrldata-4km.2d.hdf5
+inputLevelData.inputFile = asebm2-ctrldata-4km.2d.H5
 inputLevelData.frictionName = btrc
 inputLevelData.xvelName = umod
 inputLevelData.velcoefName = umodc
 
 #temperature.type = LevelData
-#inputLevelData.temperatureFile = asebm2-temperature-4km.2d.hdf5
+#inputLevelData.temperatureFile = asebm2-temperature-4km.2d.H5
 #inputLevelData.temperatureName = temp000000
 
 temperature.type = constant
