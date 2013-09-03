@@ -26,6 +26,17 @@ amr.load <- function(f)
     rc
   }
 
+
+amr.write <- function(amrID, f)
+  {
+    r <- .C("amr_write_file_R",
+            status=integer(1),
+            amrID=as.integer(amrID),
+            file=as.character(f))
+    
+    r$status
+  }
+
 amr.free <- function(amrID)
   {
     r <- .C("amr_free",
@@ -70,14 +81,14 @@ amr.query.nfab <- function(amrID, level)
 
 amr.read.fab <- function(amrID, level, fab, comp, ng=0)
   {
-    r <- .C("amr_query_fab_dimensions_2d",
+    r <- .C("amr_query_fab_dimensions",
            status=integer(1),nx=integer(1),ny=integer(1),
            ncomp=integer(1),amrID=as.integer(amrID),
            level=as.integer(level),fab=as.integer(fab))
 
     if (r$status == 0) {
   
-      s <- .C("amr_read_fab_data_2d",
+      s <- .C("amr_read_fab_data",
               status=integer(1),
               v=matrix(0,r$nx+2*ng,r$ny+2*ng),
               x=numeric(r$nx+2*ng),
@@ -94,5 +105,25 @@ amr.read.fab <- function(amrID, level, fab, comp, ng=0)
       }
     } else {
       -1
+    }
+  }
+
+amr.write.fab <- function(amrID, level, fab, fabdata, comp, ng=0)
+  {
+    s <- .C("amr_write_fab_data",
+            status=integer(1),
+            v=as.double(fabdata),
+            nx=as.integer(dim(fabdata)[1]-2*ng),
+            ny=as.integer(dim(fabdata)[2]-2*ng),
+            amrID=as.integer(amrID),
+            level=as.integer(level),
+            fab=as.integer(fab),
+            comp=as.integer(comp),
+            nghost=as.integer(ng))
+    
+    if (s$status == 0){
+      s
+    } else {
+      -2
     }
   }

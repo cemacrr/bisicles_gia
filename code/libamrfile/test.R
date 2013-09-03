@@ -38,6 +38,24 @@ uplot <- function(amrID){
       }
   }
 }
+
+umodify <- function(amrID){
+  #test modiication : double the x-velocity
+  maxlev <- amr.query.nlevel(amrID) - 1
+  for (lev in 0:maxlev){
+    maxfab <- amr.query.nfab(amrID,lev) - 1
+    for (i in 0:maxfab)
+      {
+        ucomp = 1
+        u <- amr.read.fab(amrID,lev,i,ucomp,ng=1)
+        u$v <- u$v * 2.0
+        s <- amr.write.fab(amrID,lev,i,u$v,ucomp,ng=1)
+      }
+  }
+}
+
+
+
 #speed scale
 uscale <- function()
   {
@@ -72,7 +90,15 @@ par(xaxs="i",yaxs="i",las=1,mar=c(1,1,1,1))
 plot(c(0,768e+3),c(0,768e+3),type='n',axes=FALSE)
 box()
 pthwID <- amr.load("plot.amundsen.2d.hdf5")
+#uplot(pthwID)
+
+umodify(pthwID)
+
+
+amr.write(pthwID, "plot.rmod.amundsen.2d.hdf5")
+
 uplot(pthwID)
+
 amr.free(pthwID)
 
 

@@ -28,7 +28,8 @@ class AMRHierarchy
   Real m_time;
   int m_nLevel;
   bool m_ok;
-  
+  Box m_crseBox;
+
   AMRHierarchy();
 
 public:
@@ -37,9 +38,9 @@ public:
   {
   
     Real crseDx;
-    Box crseBox;
 
-    int status = ReadAMRHierarchyHDF5(file, m_grids, m_data, m_names, crseBox, crseDx, m_dt,
+    int status = ReadAMRHierarchyHDF5(file, m_grids, m_data, m_names, 
+				      m_crseBox, crseDx, m_dt,
 				      m_time, m_ratio, m_nLevel);
 
     m_dx.resize(m_nLevel,crseDx);
@@ -60,6 +61,21 @@ public:
   const Vector<DisjointBoxLayout>& grids() const {return m_grids;}
   const Vector<Real>& dx() const  {return m_dx;}
   int nLevel() const  {return m_nLevel;}
+
+  int write(const std::string& file)
+  {
+    int status = LIBAMRFILE_ERR_WRITE_FAILED;
+    if (m_ok)
+      {
+	WriteAMRHierarchyHDF5(file, m_grids, m_data, 
+			      m_names, m_crseBox, m_dx[0], m_dt,
+			      m_time, m_ratio, m_nLevel);
+      }
+    if (status != 0)
+      status = LIBAMRFILE_ERR_WRITE_FAILED;
+
+    return status;
+  }
 
   ~AMRHierarchy()
   {
@@ -86,8 +102,6 @@ void amr_read_file(int *status, int *amr_id, const char *file)
   if (!status)
     return;
 
-  std::cout << file << std::endl;
-
   AMRHierarchy* h = new AMRHierarchy(file);
  
   if (h->ok())
@@ -101,12 +115,48 @@ void amr_read_file(int *status, int *amr_id, const char *file)
     }
   else
     {
-      *status = 1;
+      *status = LIBAMRFILE_ERR_READ_FAILED;
     }
 }
 void amr_read_file_R(int *status, int *amr_id, char **file)
 {
   amr_read_file(status,amr_id,*file);
+}
+
+void amr_write_file(int *status, int *amr_id, const char *file)
+{
+
+  if (!status)
+    return;
+
+  if (!amr_id)
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER;
+      return;
+    }
+
+  std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
+  if (i == libamrfile::g_store.end())
+    {
+      *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
+      return;
+    }
+
+  AMRHierarchy* h = i->second;
+  if (!h || !(h->ok()))
+    {
+      *status = LIBAMRFILE_ERR_BAD_AMR_HIERARCHY;
+      return;
+    }
+
+  *status = h->write(file);
+
+}
+
+
+void amr_write_file_R(int *status, int *amr_id, char **file)
+{
+  amr_write_file(status,amr_id,*file);
 }
 
 
@@ -146,13 +196,12 @@ void amr_free(int *status, int *amr_id)
 	}
       else
 	{
-	  std::cout << "amr_free failed" << std::endl;
-	  *status = 1;
+	  *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
 	}
     }
   else
     {
-      *status = 1;
+      *status = LIBAMRFILE_ERR_NULL_POINTER ;
     }
 
 }
@@ -171,16 +220,13 @@ void amr_query_n_level(int *status, int *n_level, const int *amr_id)
 	}
       else
 	{
-	  *status = 1;
-	  std::cout << "amr_query_n_level failed: bad *amr_id" << *amr_id << std::endl;
+	  *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
 	}
     }
   else
     {
-      *status = 1;
-       std::cout << "amr_query_n_level: bad amr_id" << std::endl;
+      *status = LIBAMRFILE_ERR_NULL_POINTER;
     }
-
 }
 
 void amr_query_n_fab(int *status, int *n_fab, const int *amr_id, const int *level_id)
@@ -199,33 +245,57 @@ void amr_query_n_fab(int *status, int *n_fab, const int *amr_id, const int *leve
 	    }
 	  else
 	    {
-	      *status =  1;
+	      *status =  LIBAMRFILE_ERR_NO_SUCH_LEVEL;
 	    }
 	}
       else
 	{
-	  *status = 1;
+	  *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
 	}
     }
   else
     {
-      *status = 1;
+      *status = LIBAMRFILE_ERR_NULL_POINTER;
     }
 
 
 
 }
 
-#if CH_SPACEDIM == 2
-void amr_query_fab_dimensions_2d(int *status, int *nx, int *ny, int *ncomp, 
-				 const int *amr_id, const int *level_id, 
-				 const int *fab_id)
+void amr_query_fab_dimensions(int *status, 
+			      D_DECL(int *nx, int *ny, int *nz),
+			      int *ncomp, 
+			      const int *amr_id, 
+			      const int *level_id, 
+			      const int* fab_id)
 {
-
+  
   if (!status)
     return;
 
-  if (nx && ny && ncomp && amr_id && level_id && fab_id)
+  if (!nx)
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER ;
+      return;
+    }
+
+#if CH_SPACEDIM > 1
+  if (!ny)
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER ;
+      return;
+    }
+#if CH_SPACEDIM > 2
+  if (!nz)
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER ;
+      return;
+    }
+#endif
+#endif
+
+
+  if (ncomp && amr_id && level_id && fab_id)
     {
       std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
       if (i != libamrfile::g_store.end())
@@ -244,41 +314,72 @@ void amr_query_fab_dimensions_2d(int *status, int *nx, int *ny, int *ncomp,
 		  {
 		    const Box& b = i->second->grids()[*level_id][dit];
 		    *nx = b.bigEnd()[0] - b.smallEnd()[0] + 1;
+#if CH_SPACEDIM > 1
 		    *ny = b.bigEnd()[1] - b.smallEnd()[1] + 1;
+#if CH_SPACEDIM > 2
+		    *nz = b.bigEnd()[2] - b.smallEnd()[2] + 1;
+#endif
+#endif
 		    *ncomp = ldf.nComp();
 		    *status = 0;
 		  }
 		else
 		  {
-		    *status = 1;
+		    *status = LIBAMRFILE_ERR_NO_SUCH_FAB;
 		  }
 	    }
 	  else
 	    {
-	      *status =  1;
+	      *status =  LIBAMRFILE_ERR_NO_SUCH_LEVEL;
 	    }
 	}
       else
 	{
-	  *status = 1;
+	  *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
 	}
     }
   else
     {
-      *status = 1;
+      *status = LIBAMRFILE_ERR_NULL_POINTER ;
     }
 }
 
-void amr_read_fab_data_2d(int *status, double *fab_data, double *x_data, double *y_data, 
-			  const int *amr_id, const int *level_id, 
-			  const int* fab_id, const int *comp_id, const int* nghost)
+void amr_read_fab_data(int *status, 
+		       double *fab_data, 
+		       D_DECL(double *x_data, double *y_data, double *z_data),
+		       const int *amr_id, 
+		       const int *level_id, 
+		       const int* fab_id,
+		       const int* comp_id,
+		       const int* nghost)
 {
 
   
   if (!status)
     return;
 
-  if (fab_data && x_data && y_data && amr_id && level_id && fab_id && comp_id && nghost)
+  if (!x_data)
+    {
+      *status =  LIBAMRFILE_ERR_NULL_POINTER  ;
+      return;
+    }
+
+#if CH_SPACEDIM > 1
+  if (!y_data)
+    {
+      *status =  LIBAMRFILE_ERR_NULL_POINTER;
+      return;
+    }
+#if CH_SPACEDIM > 2
+  if (!z_data)
+    {
+      *status =  LIBAMRFILE_ERR_NULL_POINTER;
+      return;
+    }
+#endif
+#endif
+  
+  if (fab_data  && amr_id && level_id && fab_id && comp_id && nghost)
     {
 
      
@@ -295,13 +396,13 @@ void amr_read_fab_data_2d(int *status, double *fab_data, double *x_data, double 
 
 		if ( *nghost < 0 || ( *nghost >  maxnghost ))
 		{
-		  *status = 1;
+		  *status = LIBAMRFILE_ERR_BAD_NGHOST;
 		  return;
 		}
 		  
 	      if (*comp_id < 0 || *comp_id >= ldf.nComp())
 		{
-		  *status = 1;
+		  *status = LIBAMRFILE_ERR_NO_SUCH_COMP;
 		  return;
 		}
 
@@ -326,40 +427,140 @@ void amr_read_fab_data_2d(int *status, double *fab_data, double *x_data, double 
 		      {
 			*xptr++ = (double(ix)+0.5)*dx;
 		      }
-
+#if CH_SPACEDIM > 1
 		    double *yptr = y_data;
 		    for (int ix = b.smallEnd()[1] ; ix <= b.bigEnd()[1]; ix++)
 		      {
 			*yptr++ = (double(ix)+0.5)*dx;
 		      }
+#if CH_SPACEDIM > 2
+		    double *zptr = y_data;
+		    for (int ix = b.smallEnd()[2] ; ix <= b.bigEnd()[2]; ix++)
+		      {
+			*zptr++ = (double(ix)+0.5)*dx;
+		      }
+#endif
+#endif 
+
 
 		    *status = 0;
 		  }
 		else
 		  {
-		    *status = 1;
+		    *status = LIBAMRFILE_ERR_NO_SUCH_FAB;
 		  }
 	    }
 	  else
 	    {
-	      *status =  1;
+	      *status =   LIBAMRFILE_ERR_NO_SUCH_LEVEL;
 	    }
 	}
       else
 	{
-	  *status = 1;
+	  *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
 	}
     }
   else
     {
-      *status = 1;
+      *status = LIBAMRFILE_ERR_NULL_POINTER;
+    }
+}
+
+void amr_write_fab_data(int *status, 
+			double *fab_data, 
+			D_DECL(int *nx, int *ny, int *nz),
+			const int *amr_id, 
+			const int *level_id, 
+			const int* fab_id,
+			const int* comp_id,
+			const int* nghost)
+{
+  if (!status)
+    return;
+  
+   if (!nx)
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER ;
+      return;
     }
 
+#if CH_SPACEDIM > 1
+   if (!ny)
+     {
+       *status = LIBAMRFILE_ERR_NULL_POINTER ;
+       return;
+     }
+#if CH_SPACEDIM > 2
+   if (!nz)
+     {
+       *status = LIBAMRFILE_ERR_NULL_POINTER ;
+       return;
+     }
+#endif
+#endif
 
+   if ( !(fab_data && amr_id && level_id && fab_id && comp_id && nghost))
+     {
+       *status = LIBAMRFILE_ERR_NULL_POINTER ;
+       return;
+     }
+     
+   std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
+   if (i == libamrfile::g_store.end())
+     {
+       *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
+       return;
+     }
 
+   AMRHierarchy* h = i->second;
+   if (!h)
+     {
+       *status = LIBAMRFILE_ERR_NULL_POINTER;
+       return;
+     }
 
+   int nLevel =  i->second->nLevel();
+   if (*level_id >= nLevel)
+     {
+       *status = LIBAMRFILE_ERR_NO_SUCH_LEVEL;
+       return;
+     }
+   
+   LevelData<FArrayBox>& ldf = *i->second->data()[*level_id];
+   int maxnghost=std::min(ldf.ghostVect()[0],ldf.ghostVect()[1]);
+   
+   if (*nghost < 0 || ( *nghost >  maxnghost ))
+     {
+       *status = LIBAMRFILE_ERR_BAD_NGHOST;
+       return;
+     }
+   
+   if (*comp_id < 0 || *comp_id >= ldf.nComp())
+     {
+       *status = LIBAMRFILE_ERR_NO_SUCH_COMP;
+       return;
+     }
 
+   DataIterator dit(i->second->grids()[*level_id]);
+
+   for (int j=0; j < *fab_id; j++)
+     {
+       ++dit;
+     }
+   if (! dit.ok())
+     {
+       *status = LIBAMRFILE_ERR_NO_SUCH_FAB;
+       return;
+     }
+
+   Box b = i->second->grids()[*level_id][dit];
+   b.grow(*nghost);
+   FArrayBox& fab = ldf[dit];
+   fab.linearIn((void*)fab_data,b,Interval(*comp_id,*comp_id));
+
+   status = 0;
+		    
 }
-#endif 
+
 
 #include "NamespaceFooter.H"

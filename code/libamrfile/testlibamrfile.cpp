@@ -26,8 +26,8 @@ int main(int argc, char* argv[]) {
 
   int amr_id;
   int status;
-  char file[32] = "testfile.2d.hdf5";
-
+  char file[64] = "plot.amundsen.2d.hdf5";
+  char outfile[64] = "plot.mod.amundsen.2d.hdf5";
   amr_read_file(&status, &amr_id, file);
 
   if (status != 0)
@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
       for (int i = 0; i < n_fab; i++)
 	{
 	  int nx, ny, ncomp;
-	  amr_query_fab_dimensions_2d(&status, &nx, &ny, &ncomp, &amr_id, &lev, &i);
+	  amr_query_fab_dimensions(&status, &nx, &ny, &ncomp, &amr_id, &lev, &i);
 
 	  if (status != 0)
 	    {
@@ -67,13 +67,15 @@ int main(int argc, char* argv[]) {
 	    } 
 
 	  
-
-	  double *fab_data = new double[nx*ny];
-	  double *x_data = new double[nx];
-	  double *y_data = new double[ny];
-	  int comp = 0;
 	  int nghost = 1;
-	  amr_read_fab_data_2d(&status, fab_data , x_data, y_data, &amr_id, &lev, &i, &comp, &nghost);
+	  int nxg = nx + 2*nghost;
+	  int nyg = ny + 2*nghost;
+	  double *fab_data = new double[nxg*nyg];
+	  double *x_data = new double[nxg];
+	  double *y_data = new double[nyg];
+	  int comp = 0;
+	  
+	  amr_read_fab_data(&status, fab_data , x_data, y_data, &amr_id, &lev, &i, &comp, &nghost);
 
 
 	  std::cout << " level = " << lev << " fab = " <<  i 
@@ -86,13 +88,27 @@ int main(int argc, char* argv[]) {
 	    {
 	      exit(status);
 	    } 
+	  
+	  for (int ix = 0; ix < nxg; ix++)
+	    {
+	      for (int iy = 0; iy < nyg; iy++)
+		{
+		  fab_data[iy*(nxg) + ix] = double(iy);
+		}
+	    }
 
-	  delete fab_data; 
-	  delete x_data;
-	  delete y_data;
+	  
+	  amr_write_fab_data(&status, fab_data,  &nx, &ny , &amr_id, &lev, &i, &comp, &nghost);
+
+	  delete[] fab_data; 
+	  delete[] x_data;
+	  delete[] y_data;
 
 	}
     }
+
+
+  amr_write_file(&status, &amr_id, outfile);
 
 
   amr_free(&status, &amr_id);
