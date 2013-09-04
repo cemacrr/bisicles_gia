@@ -1,4 +1,4 @@
-dyn.load("libamrfile2d.Linux.64.g++.gfortran.DEBUG.so")
+#dyn.load("libamrfile2d.Linux.64.g++.gfortran.DEBUG.so")
 
 amr.load <- function(f)
   {

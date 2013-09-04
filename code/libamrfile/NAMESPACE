@@ -1,0 +1,3 @@
+export(amr.load, amr.write, amr.free, amr.free.all, amr.query.nlevel, amr.query.nfab, amr.read.fab, amr.write.fab)
+
+useDynLib("libamrfile2d.Linux.64.g++.gfortran")
