@@ -127,3 +127,38 @@ amr.write.fab <- function(amrID, level, fab, fabdata, comp, ng=0)
       -2
     }
   }
+
+
+amr.apply <- function(amrID, f, minlev = 0, maxlev = -1, comp = 0, nghost = 1, ...) 
+{
+#apply f(fab,...) to every fab in the amr hierarchy
+  if (maxlev < 0){
+    maxlev <- amr.query.nlevel(amrID) - 1
+  }
+
+  if (maxlev > amr.query.nlevel(amrID) - 1){
+    stop("maxlev > amr.query.nlevel(amrID) - 1)")
+  }
+  
+  if (minlev < 0){
+    stop("minlev < 0")
+  }
+
+  for (lev in 0:maxlev){
+    nfab <- amr.query.nfab(amrID,lev) - 1
+    for (ifab in 0:nfab)
+      {
+        fab <- amr.read.fab(amrID,lev,ifab,comp[1],ng=nghost)
+        if (length(comp) > 1)
+          {
+            for (icomp in comp[-1])
+              {
+                print(icomp)
+                t <- amr.read.fab(amrID,lev,ifab,icomp,ng=nghost)
+                fab[[paste("v",icomp,sep="")]] <- t$v
+              }
+          }
+        f(fab)
+      }
+  }
+}
