@@ -50,6 +50,13 @@ extern "C"
     /// how many levels are there in the amr data of amr_id ?
     void amr_query_n_level(int *status, int *n_level, const int *amr_id);
 
+    /// how many components are there in the amr data of amr_id ? 
+    void amr_query_n_comp(int *status, int* n_comp, const int* amr_id);
+
+    /// retrieve the first buflen characters of the name of component comp?
+    void amr_query_comp_name(int *status, char *file, const int* amr_id, const int* comp, const int* buflen);
+    void amr_query_comp_name_R(int *status, char **file, const int* amr_id, const int* comp, const int* buflen);
+
     /// how many fabs are there in data amr_id level level_id ?
     void amr_query_n_fab(int *status, int *n_fab, const int *amr_id, const int *level_id);
 

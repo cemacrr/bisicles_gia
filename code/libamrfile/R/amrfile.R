@@ -62,6 +62,51 @@ amr.query.nlevel <- function(amrID)
      }
   }
 
+amr.query.ncomp <- function(amrID, level)
+{
+  r <- .C("amr_query_n_comp",
+          status=integer(1),
+          ncomp=integer(1),
+          amrID=as.integer(amrID))
+   if (r$status == 0){
+     r$ncomp
+   } else {
+     -1
+   }
+
+}
+
+
+amr.query.compnames <- function(amrID)
+{
+  n <- amr.query.ncomp(amrID)
+  t <- "spamspamspamspamspamspamspamspam"
+  blen <- nchar(t)
+  compnames <- NULL
+  
+  for (i in 0:(n-1))
+    {
+  
+      r <- .C("amr_query_comp_name_R",
+              status=integer(1),
+              buf=as.character(t),
+              amrID=as.integer(amrID),
+              comp=as.integer(i),
+              buflen=as.integer(blen))
+      if (r$status == 0)
+        {
+          compnames <- c(compnames,r$buf)
+        }
+      else
+        {
+          compnames <- c(compnames,"error in name")
+        }
+    }
+
+  compnames
+}
+
+
 amr.query.nfab <- function(amrID, level)
   {
     
@@ -149,15 +194,17 @@ amr.apply <- function(amrID, f, minlev = 0, maxlev = -1, comp = 0, nghost = 1, .
     for (ifab in 0:nfab)
       {
         fab <- amr.read.fab(amrID,lev,ifab,comp[1],ng=nghost)
+        nx <- length(fab$x)
+        ny <- length(fab$y)
         if (length(comp) > 1)
           {
             for (icomp in comp[-1])
               {
-                print(icomp)
                 t <- amr.read.fab(amrID,lev,ifab,icomp,ng=nghost)
-                fab[[paste("v",icomp,sep="")]] <- t$v
+                fab$v <- cbind(fab$v, t$v)
               }
           }
+        dim(fab$v) <- c(nx,ny,length(comp))
         f(fab)
       }
   }

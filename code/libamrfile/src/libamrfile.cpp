@@ -60,6 +60,7 @@ public:
   const Vector<LevelData<FArrayBox>* >& data() const {return m_data;}
   const Vector<DisjointBoxLayout>& grids() const {return m_grids;}
   const Vector<Real>& dx() const  {return m_dx;}
+  const Vector<std::string>& names() const  {return m_names;}
   int nLevel() const  {return m_nLevel;}
 
   int write(const std::string& file)
@@ -206,6 +207,48 @@ void amr_free(int *status, int *amr_id)
 
 }
 
+void amr_query_comp_name(int *status, char *file, const int* amr_id, const int* comp, const int* buflen)
+{
+
+  if (!status)
+    return;
+
+  if (amr_id && comp && buflen && file)
+    {
+      std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
+      if (i != libamrfile::g_store.end())
+	{
+	  if (i->second)
+	    {
+	      const AMRHierarchy& h = *i->second;
+	      if (*comp < h.names().size())
+		{
+		  int c = *comp;
+		  int l = *buflen;
+		  strncpy( file, h.names()[c].c_str(), l); 
+		}
+	    }
+	  else
+	    {
+	      *status = LIBAMRFILE_ERR_NULL_POINTER;
+	    }
+	}
+      else
+	{
+	  *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
+	}
+    }
+  else
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER;
+    }
+
+}
+
+void amr_query_comp_name_R(int *status, char **file, const int* amr_id, const int* comp, const int* buflen)
+{
+  amr_query_comp_name(status, *file, amr_id, comp, buflen);
+}
 
 void amr_query_n_level(int *status, int *n_level, const int *amr_id)
 {
@@ -228,6 +271,40 @@ void amr_query_n_level(int *status, int *n_level, const int *amr_id)
       *status = LIBAMRFILE_ERR_NULL_POINTER;
     }
 }
+
+void amr_query_n_comp(int *status, int* n_comp, const int* amr_id)
+{
+
+  if (!status)
+    return;
+
+  if (amr_id)
+    {
+      std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
+      if (i != libamrfile::g_store.end())
+	{
+	  AMRHierarchy* h = i->second;
+	  if (h)
+	    {
+	      *n_comp = h->data()[0]->nComp();
+	      *status = 0;
+	    }
+	  else
+	    {
+	      *status = LIBAMRFILE_ERR_NULL_POINTER;
+	    }
+	}
+      else
+	{
+	  *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
+	}
+    }
+  else
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER;
+    }
+}
+
 
 void amr_query_n_fab(int *status, int *n_fab, const int *amr_id, const int *level_id)
 {

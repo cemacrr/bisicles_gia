@@ -10,7 +10,7 @@ WHO := $(shell whoami)
 # have a default for machines not defined here.
 # make this a relative path so it will find the Chombo 
 # on same level as BISICLES
-BISICLES_HOME=../../../
+BISICLES_HOME=/data/ggslc/opt/BISICLES
 
 
 CHOMBO_HOME = $(BISICLES_HOME)/Chombo/lib
