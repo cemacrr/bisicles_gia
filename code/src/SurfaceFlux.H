@@ -89,7 +89,7 @@ public:
 
   /// define source term for thickness evolution and place it in flux
   /** dt is included in case one needs integrals or averages over a
-      timestep.  flux should be defined in meters/second in the current 
+      timestep.  flux should be defined in meters/year in the current 
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
