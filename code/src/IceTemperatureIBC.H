@@ -25,6 +25,8 @@
 #include "LevelSigmaCS.H"
 #include "NamespaceHeader.H"
 
+class AmrIce;
+
 class IceTemperatureIBC : public PhysIBC
 {
 public:
@@ -53,6 +55,13 @@ public:
   
 
   virtual void initialize(LevelData<FArrayBox>& a_U);
+
+  /// set a basal heat flux : by default set to zero. units are Joules / Year
+  /// default implementation sets zero flux.
+  virtual void basalHeatFlux(LevelData<FArrayBox>& a_flux,
+			     const AmrIce& a_amrIce, 
+			     int a_level, Real a_dt)=0;
+
 
 #if BISICLES_Z == BISICLES_LAYERED
   virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T, 
@@ -105,6 +114,11 @@ public:
   ConstantIceTemperatureIBC(Real a_T) : m_T(a_T) {}
      
   virtual ConstantIceTemperatureIBC* new_temperatureIBC();
+
+  /// set a basal heat flux to zero. units are Joules / Year
+  virtual void basalHeatFlux(LevelData<FArrayBox>& a_flux,
+			     const AmrIce& a_amrIce, 
+			     int a_level, Real a_dt);
 
 #if BISICLES_Z == BISICLES_LAYERED
   virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T, 

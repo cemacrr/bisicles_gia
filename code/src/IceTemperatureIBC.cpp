@@ -18,6 +18,17 @@ ConstantIceTemperatureIBC::new_temperatureIBC()
   return new ConstantIceTemperatureIBC(m_T);
 }
 
+/// set a basal heat flux to zero. units are Joules / Year
+void ConstantIceTemperatureIBC::basalHeatFlux
+(LevelData<FArrayBox>& a_flux,
+ const AmrIce& a_amrIce, 
+ int a_level, Real a_dt)
+{
+  for (DataIterator dit = a_flux.dataIterator();dit.ok();++dit)
+    {
+      a_flux[dit].setVal(0.0);
+    }
+}
 
 #if BISICLES_Z == BISICLES_LAYERED
 void 

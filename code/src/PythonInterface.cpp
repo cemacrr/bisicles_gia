@@ -630,6 +630,15 @@ PythonInterface::PythonIceTemperatureIBC::new_temperatureIBC()
   return ptr;
 }
 
+void
+PythonInterface::PythonIceTemperatureIBC::basalHeatFlux
+(LevelData<FArrayBox>& a_flux,
+ const AmrIce& a_amrIce, 
+ int a_level, Real a_dt)
+{
+  MayDay::Error("PythonInterface::PythonIceTemperatureIBC::basalHeatFlux not implemented");
+}
+
 #if BISICLES_Z == BISICLES_LAYERED
 void PythonInterface::PythonIceTemperatureIBC::initializeIceTemperature
 (LevelData<FArrayBox>& a_T, 

@@ -211,7 +211,11 @@ public:
   {
     return m_vect_coordSys[a_level];
   };
-
+  const DisjointBoxLayout& grids(int a_level) const
+  {
+    return m_amrGrids[a_level];
+  }
+  
   const Vector<RefCountedPtr<LevelSigmaCS> >& amrGeometry() const
   {
     return m_vect_coordSys;
@@ -924,6 +928,9 @@ protected:
 
   // if true, allow thickness to change in time
   bool m_evolve_thickness; 
+
+  //if true, allow velocity field to change in time
+  bool m_evolve_velocity;
 
   //if true, keep floating or grounded ice stable;
   bool m_grounded_ice_stable ;

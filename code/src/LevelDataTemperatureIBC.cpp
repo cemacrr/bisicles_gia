@@ -20,6 +20,7 @@
 #include "FillFromReference.H"
 #include "ReflectGhostCells.H"
 #include "ReadLevelData.H"
+#include "AmrIce.H"
 #include "NamespaceHeader.H"
 
 
@@ -73,22 +74,23 @@ LevelDataTemperatureIBC::parse(ParmParse& a_pp)
 	      }
 	  }
 
-	RefCountedPtr<LevelData<FArrayBox> > levelBasalTemp(new LevelData<FArrayBox>());
-	std::string basalTemperatureName = "";
-	a_pp.query("basalTemperatureName",basalTemperatureName);
-	if (basalTemperatureName == "")
+	RefCountedPtr<LevelData<FArrayBox> > levelBasalHeatFlux(new LevelData<FArrayBox>());
+	std::string basalHeatFluxName = "";
+	a_pp.query("basalHeatFluxName",basalHeatFluxName);
+	if (basalHeatFluxName == "")
 	  {
-	   
-	    //not ideal, but in this case copy the bottome layer temperature to the base
-	    levelBasalTemp->define( levelTemp->disjointBoxLayout(), 1, levelTemp->ghostVect());
-	    const int n = levelTemp->nComp() - 1;
-	    levelTemp->copyTo(Interval(n,n),*levelBasalTemp,Interval(0,0));
+	    //if no basal heat flux is given, assume zero flux
+	    levelBasalHeatFlux->define( levelTemp->disjointBoxLayout(), 1, levelTemp->ghostVect());
+	    for (DataIterator dit = levelBasalHeatFlux->dataIterator(); dit.ok(); ++dit)
+	      {
+		(*levelBasalHeatFlux)[dit].setVal(0.0);
+	      }
 	  }
 	else
 	  {
 	    names.resize(1);
-	    names[0] = basalTemperatureName;
-	    vectData[0] = levelBasalTemp;
+	    names[0] = basalHeatFluxName;
+	    vectData[0] = levelBasalHeatFlux;
 	    readLevelData(vectData,dx,infile,names,1);
 	    if (dx != levelDx[0])
 	      {
@@ -98,23 +100,19 @@ LevelDataTemperatureIBC::parse(ParmParse& a_pp)
 	      }
 	  }
 	return new LevelDataTemperatureIBC
-	  (levelTemp,levelSurfaceTemp,levelBasalTemp,levelDx);
+	  (levelTemp,levelSurfaceTemp,levelBasalHeatFlux,levelDx);
 
 }
 
 LevelDataTemperatureIBC::LevelDataTemperatureIBC
 (RefCountedPtr<LevelData<FArrayBox> > a_temp, 
-#if BISICLES_Z == BISICLES_LAYERED
  RefCountedPtr<LevelData<FArrayBox> > a_surfaceTemp,
- RefCountedPtr<LevelData<FArrayBox> > a_basalTemp,
-#endif
+ RefCountedPtr<LevelData<FArrayBox> > a_basalHeatFlux,
  const RealVect& a_dx)
 {
   m_temp = a_temp;
-#if BISICLES_Z == BISICLES_LAYERED
   m_surfaceTemp = a_surfaceTemp;
-  m_basalTemp = a_basalTemp;
-#endif
+  m_basalHeatFlux = a_basalHeatFlux;
   m_dx = a_dx;
   
   for (DataIterator dit( m_temp->disjointBoxLayout());dit.ok();++dit)
@@ -133,14 +131,7 @@ LevelDataTemperatureIBC::LevelDataTemperatureIBC
       Real surfaceMinTemperature = (*m_surfaceTemp)[dit].min();
       CH_assert(surfaceMinTemperature > 0);
     }
-  for (DataIterator dit( m_basalTemp->disjointBoxLayout());dit.ok();++dit)
-    {
-      Real basalMaxTemperature = (*m_basalTemp)[dit].max();
-      CH_assert(basalMaxTemperature <= triplepoint);
-      
-      Real basalMinTemperature = (*m_basalTemp)[dit].min();
-      CH_assert(basalMinTemperature > 0);
-    }
+  
 }
 
 LevelDataTemperatureIBC::~LevelDataTemperatureIBC()
@@ -154,7 +145,23 @@ void LevelDataTemperatureIBC::define(const ProblemDomain& a_domain,
   PhysIBC::define(a_domain, a_dx);
 }
 
-#if BISICLES_Z == BISICLES_LAYERED
+void LevelDataTemperatureIBC::basalHeatFlux
+(LevelData<FArrayBox>& a_flux,
+ const AmrIce& a_amrIce, 
+ int a_level, Real a_dt)
+{
+  FillFromReference(a_flux,*m_basalHeatFlux,a_amrIce.dx(a_level),m_dx,true);
+  const ProblemDomain& domain = a_amrIce.grids(a_level).physDomain();
+  for (int dir = 0; dir < SpaceDim; ++dir)
+    {
+      if (!(domain.isPeriodic(dir))){
+	ReflectGhostCells(a_flux, domain, dir, Side::Lo);
+	ReflectGhostCells(a_flux, domain, dir, Side::Hi);
+      }
+    }
+
+}
+
 void LevelDataTemperatureIBC::initializeIceTemperature(LevelData<FArrayBox>& a_T, 
 			      LevelData<FArrayBox>& a_surfaceT, 
 			      LevelData<FArrayBox>& a_basalT,
@@ -168,7 +175,7 @@ void LevelDataTemperatureIBC::initializeIceTemperature(LevelData<FArrayBox>& a_T
 
   FillFromReference(a_T,*m_temp,a_coordSys.dx(),m_dx,true);
   FillFromReference(a_surfaceT,*m_surfaceTemp,a_coordSys.dx(),m_dx,true);
-  FillFromReference(a_basalT,*m_basalTemp,a_coordSys.dx(),m_dx,true);
+  //FillFromReference(a_basalT,*m_basalTemp,a_coordSys.dx(),m_dx,true); \todo : get rid of this part
   
   const ProblemDomain& domain = a_coordSys.grids().physDomain();
   for (int dir = 0; dir < SpaceDim; ++dir)
@@ -178,29 +185,18 @@ void LevelDataTemperatureIBC::initializeIceTemperature(LevelData<FArrayBox>& a_T
 	ReflectGhostCells(a_T, domain, dir, Side::Hi);
 	ReflectGhostCells(a_surfaceT, domain, dir, Side::Lo);
 	ReflectGhostCells(a_surfaceT, domain, dir, Side::Hi);
-	ReflectGhostCells(a_basalT, domain, dir, Side::Lo);
-	ReflectGhostCells(a_basalT, domain, dir, Side::Hi);
+	//ReflectGhostCells(a_basalT, domain, dir, Side::Lo);
+	//ReflectGhostCells(a_basalT, domain, dir, Side::Hi);
       }
     }
 }
-
-#elif BISICLES_Z == BISICLES_FULLZ
-void LevelDataTemperatureIBC::initializeIceTemperature(LevelData<FArrayBox>& a_T)
-{
-  FillFromReference(a_T,*m_temp,a_coordSys.dx(),m_dx,true);
-}
-#endif
 
 
 
 LevelDataTemperatureIBC* 
 LevelDataTemperatureIBC::new_temperatureIBC()
 {
-#if BISICLES_Z == BISICLES_LAYERED
-  return new LevelDataTemperatureIBC(m_temp,m_surfaceTemp,m_basalTemp,m_dx);
-#elif BISICLES_Z == BISICLES_FULLZ
-  return new LevelDataTemperatureIBC(m_temp,m_dx);
-#endif
+  return new LevelDataTemperatureIBC(m_temp,m_surfaceTemp,m_basalHeatFlux,m_dx);
 }
 
 

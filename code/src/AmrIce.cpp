@@ -507,6 +507,7 @@ AmrIce::setDefaults()
   m_groundingLineRegularization = 0.0;
   m_groundingLineCorrection = true;
   m_evolve_thickness = true;
+  m_evolve_velocity = true;
   m_grounded_ice_stable = false;
   m_floating_ice_stable = false;
   
@@ -974,6 +975,7 @@ AmrIce::initialize()
   ppAmr.query("write_layer_velocities", m_write_layer_velocities);
 
   ppAmr.query("evolve_thickness", m_evolve_thickness);
+  ppAmr.query("evolve_velocity", m_evolve_velocity);
   ppAmr.query("grounded_ice_stable", m_grounded_ice_stable);
   ppAmr.query("floating_ice_stable", m_floating_ice_stable);
 
@@ -2157,8 +2159,10 @@ AmrIce::timeStep(Real a_dt)
         } // end loop over levels
       
           // compute new ice velocity field
-      solveVelocityField();
-      
+      if (m_evolve_velocity)
+	{
+	  solveVelocityField();
+	}
       // average cell-centered velocity field to faces just like before
       
     }
@@ -2261,8 +2265,10 @@ AmrIce::timeStep(Real a_dt)
     }
 
   // compute new ice velocity field
-  solveVelocityField();
-
+  if (m_evolve_velocity)
+    {
+      solveVelocityField();
+    }
 
 
 #if 0  
@@ -3351,11 +3357,18 @@ AmrIce::regrid()
 		}
 	    } // end loop over levels to determine covered levels
 
-	  //velocity solver needs to be re-defined
-	  defineSolver();
-	  //solve velocity field, but use the previous initial residual norm in place of this one
-	  solveVelocityField(m_velocitySolveInitialResidualNorm);
-	  
+	  if (m_evolve_velocity)
+	    {
+	      //velocity solver needs to be re-defined
+	      defineSolver();
+	      //solve velocity field, but use the previous initial residual norm in place of this one
+	      solveVelocityField(m_velocitySolveInitialResidualNorm);
+	    }
+	  else
+	    {
+	      CH_assert(m_evolve_velocity);
+	      MayDay::Error("AmrIce::regrid() not implemented for !m_evolve_velocity");
+	    }
 	} // end if tags changed
     } // end if max level > 0 in the first place
   
@@ -7884,19 +7897,9 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  FArrayBox divUHxy(box, m_nLayers);
 	  {
 	    divUHxy.setVal(0.0);
-	    const FluxBox& thisU = (*a_layerXYFaceXYVel[lev])[dit];
-	    const FluxBox& faceHNew =levelCoordsNew.getFaceH()[dit];
-	    const FluxBox& faceHOld =levelCoordsOld.getFaceH()[dit];
 	    const RealVect& dx = levelCoordsNew.dx(); 
 	    for (int dir =0; dir < SpaceDim; dir++)
 	      {
-		// FArrayBox uH(thisU[dir].box(),m_nLayers);
-		// for (int l = 0; l < m_nLayers; ++l)
-		//   {
-		//     uH.copy( (*a_layerH_half[lev])[dit][dir],l,l);
-		//   }
-
-		// uH *= thisU[dir];
 		const FArrayBox& uH = (*vectLayerThicknessFluxes[lev])[dit][dir];
 		FORT_DIVERGENCE(CHF_CONST_FRA(uH),
 				CHF_FRA(divUHxy),
@@ -7987,6 +7990,10 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	   levelCoordsOld , m_amrDomains[lev], IntVect::Zero);
       }
       
+      LevelData<FArrayBox> basalHeatFlux(levelGrids,1,IntVect::Zero);
+      CH_assert(m_temperatureIBCPtr != NULL);
+      m_temperatureIBCPtr->basalHeatFlux(basalHeatFlux, *this, lev, a_dt);
+
       for (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	{
 	  const Box& box = levelGrids[dit];
@@ -8024,13 +8031,25 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 
 	  
 	  //compute heat flux across base due to basal dissipation
-	  FArrayBox basalHeatFlux(rhs.box(),1);
+	  FArrayBox basalDissipation(rhs.box(),1);
 	  m_basalFrictionRelation->computeDissipation
-	    (basalHeatFlux , (*m_velocity[lev])[dit] , levelCoordsOld.getThicknessOverFlotation()[dit],
+	    (basalDissipation , (*m_velocity[lev])[dit] , levelCoordsOld.getThicknessOverFlotation()[dit],
 	     (*m_velBasalC[lev])[dit], levelCoordsNew.getFloatingMask()[dit],rhs.box());
-	  basalHeatFlux /= (iceheatcapacity * levelCoordsNew.iceDensity());
+	  
 
-	  // \todo add geothermal heat here
+	  //add to user set (e.g geothermal) heat flux
+	  basalHeatFlux[dit] += basalDissipation;
+	  basalHeatFlux[dit] /= (iceheatcapacity * levelCoordsNew.iceDensity()); // scale conversion
+
+	  //zero heat flux outside grounded ice
+	  for (BoxIterator bit(rhs.box());bit.ok();++bit)
+	    {
+	      const IntVect& iv = bit();
+	      if (levelCoordsNew.getFloatingMask()[dit](iv) != GROUNDEDMASKVAL)
+		{
+		  basalHeatFlux[dit](iv) = 0.0;
+		}
+	    }
 
 	  //solve H(t+dt)T(t+dt) + vertical transport terms = H(t)T(t) - rhs(t+/dt)
           //with a Dirichlett boundary condition at the upper surface and a flux condition at base
@@ -8041,11 +8060,13 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  const Real& rhoo = levelCoordsNew.waterDensity();
 	  const Real& gravity = levelCoordsNew.gravity();
 	 
+	  bT.copy(T,T.nComp()-1,0,1);
+
 	  FORT_UPDATETEMPERATURE
 	       (CHF_FRA(T), 
 		CHF_FRA1(sT,0), 
 		CHF_FRA1(bT,0),
-		CHF_CONST_FRA1(basalHeatFlux,0),
+		CHF_CONST_FRA1(basalHeatFlux[dit],0),
 		CHF_CONST_FIA1(levelCoordsOld.getFloatingMask()[dit],0),
 		CHF_CONST_FIA1(levelCoordsNew.getFloatingMask()[dit],0),
 		CHF_CONST_FRA(rhs),

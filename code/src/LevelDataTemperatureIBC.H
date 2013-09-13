@@ -31,7 +31,7 @@ class LevelDataTemperatureIBC : public IceTemperatureIBC
   RefCountedPtr<LevelData<FArrayBox> > m_temp;
 #if BISICLES_Z == BISICLES_LAYERED
   RefCountedPtr<LevelData<FArrayBox> > m_surfaceTemp ;
-  RefCountedPtr<LevelData<FArrayBox> > m_basalTemp ;
+  RefCountedPtr<LevelData<FArrayBox> > m_basalHeatFlux ;
 #endif
   RealVect m_dx;
 public:
@@ -65,6 +65,11 @@ public:
      is used). 
    */
   virtual LevelDataTemperatureIBC* new_temperatureIBC();
+
+  /// set a basal heat flux. units are Joules / Year
+  virtual void basalHeatFlux(LevelData<FArrayBox>& a_flux,
+			     const AmrIce& a_amrIce, 
+			     int a_level, Real a_dt);
 
 #if BISICLES_Z == BISICLES_LAYERED
   virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T, 

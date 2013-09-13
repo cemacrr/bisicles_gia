@@ -296,6 +296,11 @@ namespace PythonInterface
 
     virtual PythonIceTemperatureIBC* new_temperatureIBC();
     
+    /// set basal heat flux
+    virtual void basalHeatFlux(LevelData<FArrayBox>& a_flux,
+			       const AmrIce& a_amrIce, 
+			       int a_level, Real a_dt);
+
 #if BISICLES_Z == BISICLES_LAYERED
     virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T, 
 					  LevelData<FArrayBox>& a_surfaceT, 
