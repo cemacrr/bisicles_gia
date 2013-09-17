@@ -1,4 +1,4 @@
- #ifdef CH_LANG_CC
+#ifdef CH_LANG_CC
 /*
 *      _______              __
 *     / ___/ /  ___  __ _  / /  ___
@@ -22,6 +22,7 @@
 #include "BasalFrictionRelation.H"
 #include "IceThicknessIBC.H"
 #include "BasicThicknessIBC.H"
+#include "FortranInterfaceIBC.H"
 #include "VieliPayneIBC.H"
 #include "MarineIBC.H"
 #include "HumpIBC.H"
@@ -220,6 +221,11 @@ int main(int argc, char* argv[]) {
 	 LevelDataIBC* ptr = new LevelDataIBC();
 	 thicknessIBC = static_cast<IceThicknessIBC*>( ptr);
        }
+     else     if (problem_type =="fortran")
+      {
+        FortranInterfaceIBC* ptr = new FortranInterfaceIBC;
+	 thicknessIBC = static_cast<IceThicknessIBC*>( ptr);
+      }
      else 
        {
          MayDay::Error("bad problem type");
@@ -478,6 +484,26 @@ int main(int argc, char* argv[]) {
 	    delete mask[lev];
 	    mask[lev] = NULL;
 	  }
+
+        if (data[lev] != NULL)
+          {
+            delete data[lev];
+          }
+      }
+    if (rateFactorPtr != NULL)
+      {
+        delete rateFactorPtr;
+        rateFactorPtr = NULL;
+      }
+	
+    if (basalFrictionRelationPtr != NULL)
+      {
+        delete basalFrictionRelationPtr;
+      }
+
+    if (thicknessIBC != NULL)
+      {
+        delete thicknessIBC;
       }
 		  
   }  // end nested scope

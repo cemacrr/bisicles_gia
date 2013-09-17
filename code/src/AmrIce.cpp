@@ -4225,36 +4225,6 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
 
   for (int lev=0; lev<=m_finest_level; lev++)
     {
-
-      if (lev > 0)
-	{
-	  // fill the ghost cells of a_vectCoordSys[lev]->getH();
-	  LevelData<FArrayBox>& levelH = a_vectCoordSys[lev]->getH();
-	  LevelData<FArrayBox>& coarseH = a_vectCoordSys[lev-1]->getH();
-	  
-	  //before patch filler works, need to put sane data on the new levels - 
-	  //the particular IBC can redo if needed
- 
-	  FineInterp interpolator(m_amrGrids[lev],1,m_refinement_ratios[lev-1],m_amrDomains[lev]);
-          interpolator.interpToFine(levelH, coarseH);
-
-	  int nGhost = levelH.ghostVect()[0];
-	  PiecewiseLinearFillPatch thicknessFiller
-	    (m_amrGrids[lev],m_amrGrids[lev-1],1, m_amrDomains[lev-1],
-	     m_refinement_ratios[lev-1], nGhost);
-	  thicknessFiller.fillInterp(levelH,coarseH,coarseH,0.0, 0, 0, 1);
-
-          // do the same with topography
-          LevelData<FArrayBox>& levelTopog = a_vectCoordSys[lev]->getTopography();
-          LevelData<FArrayBox>& crseTopog = a_vectCoordSys[lev-1]->getTopography();
-
-          // should be able to use the same filler
-          CH_assert(levelTopog.ghostVect() == levelH.ghostVect());
-	  interpolator.interpToFine(levelTopog, crseTopog);
-          thicknessFiller.fillInterp(levelTopog, crseTopog, crseTopog, 0.0, 0, 0, 1);
-          
-	}
-
       RealVect levelDx = m_amrDx[lev]*RealVect::Unit;
       m_thicknessIBCPtr->define(m_amrDomains[lev],levelDx[0]);
       LevelSigmaCS* crsePtr = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
