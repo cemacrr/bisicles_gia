@@ -1325,46 +1325,92 @@ AmrIce::initialize()
   	      MayDay::Error("Cannot open refine boxes file");
   	    }
 
-      // keep this around until changes propagate through inputs...
-#define BASE_SUBSET_ON_LEVEL true
-#if BASE_SUBSET_ON_LEVEL    
-          
   	  for (int lev = 0; lev < m_max_level; lev++)
   	    {
-	     
+              // allowable tokens to identify levels in tag subset file
   	      const char level[6] = "level";
+              const char domain[7] = "domain";
   	      char s[6];
   	      is >> s;
-  	      if (std::string(level) != std::string(s))
+  	      if (std::string(level) == std::string(s))
   		{
-  		  pout() << "expected '" << level << "' at line " << lineno << ", got " << s << std::endl;
+                  int inlev;
+                  is >> inlev;
+                  if (inlev != lev)
+                    {
+                      pout() << "expected ' " << lev << "' at line " << lineno << std::endl;
+                      MayDay::Error("bad input file");
+                    }
+                } 
+              else if (std::string(domain) == std::string(s))
+                {
+                  // basic idea here is that we read in domain box
+                  // (domains must be ordered from coarse->fine)
+                  // until we get to a domain box which matches ours.
+                  // This lets us make a single list of subset regions
+                  // which we can use for any coarsening/refining of the domain
+                  const Box& levelDomainBox = m_amrDomains[lev].domainBox();
+                  bool stillLooking = true;
+                  while (stillLooking)
+                    {
+                      Box domainBox;
+                      is >> domainBox;
+                      if (domainBox == levelDomainBox)
+                        {
+                          pout() << "Found a domain matching level " << lev << endl;
+                          stillLooking = false;
+                        }
+                      else // move on until we find our level
+                        {
+                          // read in info for the level we're ignoring
+                          //advance to next line
+                          while (is.get() != '\n');lineno++;
+                          int nboxes;
+                          is >> nboxes;
+                          if (nboxes > 0)
+                            {
+                              for (int i = 0; i < nboxes; ++i)
+                                {
+                                  Box box;
+                                  is >> box;while (is.get() != '\n');lineno++;
+                                }
+                            } 
+                          is >> s;
+                          if (std::string(domain) != std::string(s))
+                            {
+                              pout() << "expected '" << domain
+                                     << "' at line " << lineno << ", got " 
+                                     << s << std::endl;
+                              MayDay::Error("bad input file");
+                            }                            
+                        }
+                    }
+                }
+              else
+                {
+  		  pout() << "expected '" << level << "' or '" << domain
+                         << "' at line " << lineno << ", got " 
+                         << s << std::endl;
   		  MayDay::Error("bad input file");
   		}
-  	      int inlev;
-  	      is >> inlev;
-  	      if (inlev != lev)
-  		{
-  		  pout() << "expected ' " << lev << "' at line " << lineno << std::endl;
-  		  MayDay::Error("bad input file");
-  		}
-  	      //advance to next line
-  	      while (is.get() != '\n');lineno++;
-  	      int nboxes;
-  	      is >> nboxes;
-  	      if (nboxes > 0)
-  		{
-  		  for (int i = 0; i < nboxes; ++i)
-  		    {
-  		      Box box;
-  		      is >> box;while (is.get() != '\n');lineno++;
-  		      m_vectTagSubset[lev] |= box;
-  		      pout() << " level " << lev << " refine box : " << box << std::endl;
-  		    }
-  		}
-  	      //advance to next line
-  	      while (is.get() != '\n');lineno++;
-	     
-	      if (lev > 0)
+              //advance to next line
+              while (is.get() != '\n');lineno++;
+              int nboxes;
+              is >> nboxes;
+              if (nboxes > 0)
+                {
+                  for (int i = 0; i < nboxes; ++i)
+                    {
+                      Box box;
+                      is >> box;while (is.get() != '\n');lineno++;
+                      m_vectTagSubset[lev] |= box;
+                      pout() << " level " << lev << " refine box : " << box << std::endl;
+                    }
+                }
+              //advance to next line
+              while (is.get() != '\n');lineno++;
+              
+              if (lev > 0)
 		{
 		  //add lower level's subset to this subset
 		  IntVectSet crseSet (m_vectTagSubset[lev-1]);
@@ -1385,70 +1431,7 @@ AmrIce::initialize()
 		}
 	      
   	    } // end loop over levels
-#else //not BASE_SUBSET_ON_LEVEL    
-  
-  	  for (int lev = 0; lev < m_max_level; lev++)
-  	    {
-              // first set empty domains for all levels
-              m_vectTagSubset[lev] = IntVectSet();
-            }
 
-
-  	      const char  levelChar[6] = "level";
-              const char domainChar[7] = "Domain";
-  	      char s[6];
-  	      is >> s;
-  	      if (std::string(level) != std::string(s))
-  		{
-  		  pout() << "expected '" << level << "' at line " << lineno << ", got " << s << std::endl;
-  		  MayDay::Error("bad input file");
-  		}
-  	      int inlev;
-  	      is >> inlev;
-  	      if (inlev != lev)
-  		{
-  		  pout() << "expected ' " << lev << "' at line " << lineno << std::endl;
-  		  MayDay::Error("bad input file");
-  		}
-  	      //advance to next line
-  	      while (is.get() != '\n');lineno++;
-  	      int nboxes;
-  	      is >> nboxes;
-  	      if (nboxes > 0)
-  		{
-  		  for (int i = 0; i < nboxes; ++i)
-  		    {
-  		      Box box;
-  		      is >> box;while (is.get() != '\n');lineno++;
-  		      m_vectTagSubset[lev] |= box;
-  		      pout() << " level " << lev << " refine box : " << box << std::endl;
-  		    }
-  		}
-  	      //advance to next line
-  	      while (is.get() != '\n');lineno++;
-	     
-	      if (lev > 0)
-		{
-		  //add lower level's subset to this subset
-		  IntVectSet crseSet (m_vectTagSubset[lev-1]);
-		  if (!crseSet.isEmpty())
-		    {
-		      crseSet.refine(m_refinement_ratios[lev-1]);
-		      // crseSet.nestingRegion(m_block_factor,m_amrDomains[lev]);
-		      if (m_vectTagSubset[lev].isEmpty())
-			{
-			  m_vectTagSubset[lev] = crseSet;
-			} 
-		      else
-			{
-			  m_vectTagSubset[lev] &= crseSet;
-			} 
-		    }
-		 
-		}
-	      
-  	    } // end loop over levels        
-#endif // not BASE_SUBSET_ON_LEVEL    
 	} // end if serial compute
       for (int lev = 0; lev < m_max_level; lev++)
 	broadcast(m_vectTagSubset[lev], uniqueProc(SerialTask::compute));
