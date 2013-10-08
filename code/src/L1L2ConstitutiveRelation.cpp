@@ -125,7 +125,7 @@ L1L2ConstitutiveRelation::computeDissipation(LevelData<FArrayBox>& a_dissipation
 	    a_domain, a_ghostVect);
 
   LevelData<FArrayBox> epsSqr;
-  epsSqr.define(a_vel);
+  epsSqr.define(a_vel.disjointBoxLayout(),1,IntVect::Zero);
   computeStrainRateInvariant(epsSqr, a_vel, a_crseVelPtr,
 			     a_nRefCrse,a_coordSys, a_ghostVect);
 
