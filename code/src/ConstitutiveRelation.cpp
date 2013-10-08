@@ -96,13 +96,11 @@ ConstitutiveRelation::computeStrainRateInvariant(LevelData<FArrayBox>& a_epsilon
 
   CH_assert(a_gradVelocity.nComp() == SpaceDim*SpaceDim);
 
- 
-
+  bool mask = true; // switch to one-sided differences  next to fluid free cells, avoids spurious large gradient
   computeCCDerivatives(a_gradVelocity, a_velocity, a_coordSys,
-                       DerivComps, DerivDir, a_ghostVect);
+                       DerivComps, DerivDir, a_ghostVect, mask);
 
-  
-
+ 
   const DisjointBoxLayout& grids = a_epsilonSquared.getBoxes();
   
   DataIterator dit = grids.dataIterator();

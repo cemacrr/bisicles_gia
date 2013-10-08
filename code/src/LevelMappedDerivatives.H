@@ -60,7 +60,8 @@ computeCCDerivatives(LevelData<FArrayBox>& a_ccDeriv,
                      const LevelSigmaCS& a_coordSys,
                      const Interval& a_comps,
                      const Interval& a_derivDirections,
-                     const IntVect& a_derivGhost = IntVect::Zero);
+                     const IntVect& a_derivGhost = IntVect::Zero,
+		     const bool a_maskOneSide = false);
 
 /// compute face-centered derivatives of cell-centered data on all faces
 void

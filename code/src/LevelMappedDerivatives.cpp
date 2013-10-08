@@ -34,7 +34,8 @@ convenient to use.
 
 /// compute cell-centered derivatives
 /** it's assumed that any ghost-cell boundary conditions have already
-    been set 
+    been set . optionally (a_mask = true), switch to one-sided differences  next 
+    to fluid free cells
 */
 void 
 computeCCDerivatives(LevelData<FArrayBox>& a_ccDeriv,
@@ -42,7 +43,8 @@ computeCCDerivatives(LevelData<FArrayBox>& a_ccDeriv,
                      const LevelSigmaCS& a_coordSys,
                      const Interval& a_comps,
                      const Interval& a_derivDirections,
-                     const IntVect& a_derivGhost)
+                     const IntVect& a_derivGhost, 
+		     const bool a_maskOneSide)
 {
   const RealVect& dx = a_coordSys.dx();
   const LevelData<FArrayBox>& levelDeltas = a_coordSys.deltaFactors();
@@ -71,12 +73,24 @@ computeCCDerivatives(LevelData<FArrayBox>& a_ccDeriv,
           for (int srcComp = a_comps.begin(); srcComp<=a_comps.end(); srcComp++)
             {
               int derivComp = derivComponent(derivDir, srcComp);
-              FORT_CCDERIV(CHF_FRA1(a_ccDeriv[dit],derivComp),
-                           CHF_CONST_FRA1(thisCCdata, srcComp),
-                           CHF_BOX(derivBox),
-                           CHF_CONST_REAL(dx[derivDir]),
-                           CHF_INT(derivDir));
-              
+	      if (!a_maskOneSide)
+		{
+		  FORT_CCDERIV(CHF_FRA1(a_ccDeriv[dit],derivComp),
+			       CHF_CONST_FRA1(thisCCdata, srcComp),
+			       CHF_BOX(derivBox),
+			       CHF_CONST_REAL(dx[derivDir]),
+			       CHF_INT(derivDir));
+		}
+	      else
+		{
+		  FORT_CCDERIVMASK(CHF_FRA1(a_ccDeriv[dit],derivComp),
+				   CHF_CONST_FRA1(thisCCdata, srcComp),
+				   CHF_CONST_FRA1(a_coordSys.getH()[dit],0),
+				   CHF_BOX(derivBox),
+				   CHF_CONST_REAL(dx[derivDir]),
+				   CHF_INT(derivDir));
+		}
+
               if (CH_SPACEDIM == 3)
                 {
                   // take d/d(sigma) terms into account)
