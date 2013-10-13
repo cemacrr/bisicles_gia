@@ -251,18 +251,14 @@ subroutine tarmac_update_temperature(temp, stemp, btemp, mask, &
   integer, intent(in) :: mask
   !locals
   
-  real(kind=8) :: chi, pecletmax
-  real (kind=8), dimension(1:n+1) :: peclet
+  real(kind=8) :: chi
   
   integer l
  
   if ((mask.eq.groundedmaskval).or.(mask.eq.floatingmaskval)) then
      chi = coni/(shci * rhoi) *  scyr 
 
-     pecletmax = maxval(abs(usig))*maxval(dsig) / ( 2.0d0 * chi/thckold)
-     if (pecletmax.gt.2.0) then
-        write(*,*) pecletmax
-     end if
+    
      !modify rhs to include interlayer advection across constant sigma faces
      call sigma_advect(rhs, temp, stemp, btemp, usig , &
            fsig, dt, mask,  n)
