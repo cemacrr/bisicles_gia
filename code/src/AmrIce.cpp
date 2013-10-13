@@ -7775,11 +7775,15 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	      faceBox.surroundingNodes(dir);
 	      flux[dir].copy(faceTH[dir], faceBox);
 	      flux[dir].mult(faceVel[dir], faceBox, 0, 0, faceVel[dir].nComp());
-	      CH_assert(flux[dir].norm(faceBox,0) < HUGE_NORM);
+
+	      
 
 	      thicknessFlux[dir].copy(faceH[dir],faceBox);
 	      thicknessFlux[dir].mult(faceVel[dir], faceBox, 0, 0, faceVel[dir].nComp());
-	      CH_assert(thicknessFlux[dir].norm(faceBox,0) < HUGE_NORM);
+	        
+	      CH_assert(flux[dir].norm(faceBox,0,0,flux[dir].nComp()) < HUGE_NORM);
+	      CH_assert(thicknessFlux[dir].norm(faceBox,0,0,thicknessFlux[dir].nComp()) < HUGE_NORM);
+		
 	    }
 	}
     }
@@ -7965,13 +7969,15 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  rhs.setVal(0.0);
 	  for (int dir=0; dir<SpaceDim; dir++)
 	    {
-	      const Real& dx = levelCoordsOld.dx()[dir];              
-
+	      Real dx = levelCoordsOld.dx()[dir];              
+	   
 	      FORT_DIVERGENCE(CHF_CONST_FRA(levelFlux[dit][dir]),
 			      CHF_FRA(rhs),
 			      CHF_BOX(box),
 			      CHF_CONST_REAL(dx),
-			      CHF_INT(dir));	
+			      CHF_INT(dir));
+	     
+
 	    }
 	  for (int layer = 0; layer < dissipation.nComp(); ++layer)
 	    {
@@ -7998,7 +8004,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  for (BoxIterator bit(rhs.box());bit.ok();++bit)
 	    {
 	      const IntVect& iv = bit();
-	      if (levelCoordsNew.getFloatingMask()[dit](iv) != GROUNDEDMASKVAL)
+	      if (levelCoordsOld.getFloatingMask()[dit](iv) != GROUNDEDMASKVAL)
 		{
 		  basalHeatFlux[dit](iv) = 0.0;
 		}
@@ -8014,7 +8020,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  const Real& gravity = levelCoordsNew.gravity();
 	 
 	  bT.copy(T,T.nComp()-1,0,1);
-
+	  CH_assert(bT.min() > 0.0);
 	  FORT_UPDATETEMPERATURE
 	       (CHF_FRA(T), 
 		CHF_FRA1(sT,0), 
