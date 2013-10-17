@@ -687,6 +687,30 @@ void PythonInterface::PythonIceTemperatureIBC::initializeIceTemperature
        }
    }
 }
+
+void PythonInterface::PythonIceTemperatureIBC::setIceTemperatureBC
+(LevelData<FArrayBox>& a_T, 
+ LevelData<FArrayBox>& a_surfaceT, 
+ LevelData<FArrayBox>& a_basalT,
+ const LevelSigmaCS& a_coordSys)
+{
+  const ProblemDomain& domain = a_coordSys.grids().physDomain();
+
+  for (int dir = 0; dir < SpaceDim; ++dir)
+    {
+      if (!(domain.isPeriodic(dir)))
+	{
+	  ReflectGhostCells(a_T, domain, dir, Side::Lo);
+	  ReflectGhostCells(a_T, domain, dir, Side::Hi);
+	  ReflectGhostCells(a_surfaceT, domain, dir, Side::Lo);
+	  ReflectGhostCells(a_surfaceT, domain, dir, Side::Hi);
+	  ReflectGhostCells(a_basalT, domain, dir, Side::Lo);
+	  ReflectGhostCells(a_basalT, domain, dir, Side::Hi);
+	}
+    }
+  //\todo make an option to call python function
+}
+
 #elif BISICLES_Z == BISICLES_FULLZ
 void PythonInterface::PythonIceTemperatureIBC::initializeIceTemperature
 (LevelData<FArrayBox>& a_T,
@@ -695,6 +719,16 @@ void PythonInterface::PythonIceTemperatureIBC::initializeIceTemperature
 
   MayDay::Error("BISICLES_Z == BISICLES_FULLZ PythonIceTemperatureIBC::initializeIceTemperature not yet implemented");
 }
+
+
+void PythonInterface::PythonIceTemperatureIBC::setIceTemperatureBC
+(LevelData<FArrayBox>& a_T,
+ const LevelSigmaCS& a_coordSys)
+{
+
+  MayDay::Error("BISICLES_Z == BISICLES_FULLZ PythonIceTemperatureIBC::setIceTemperatureBC not yet implemented");
+}
+
 #endif
 
 

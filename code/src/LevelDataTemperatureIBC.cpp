@@ -192,6 +192,29 @@ void LevelDataTemperatureIBC::initializeIceTemperature(LevelData<FArrayBox>& a_T
 }
 
 
+void LevelDataTemperatureIBC::setIceTemperatureBC
+(LevelData<FArrayBox>& a_T, 
+ LevelData<FArrayBox>& a_surfaceT, 
+ LevelData<FArrayBox>& a_basalT,
+ const LevelSigmaCS& a_coordSys)
+{
+  const ProblemDomain& domain = a_coordSys.grids().physDomain();
+  
+  for (int dir = 0; dir < SpaceDim; ++dir)
+    {
+      if (!(domain.isPeriodic(dir)))
+	{
+	  ReflectGhostCells(a_T, domain, dir, Side::Lo);
+	  ReflectGhostCells(a_T, domain, dir, Side::Hi);
+	  ReflectGhostCells(a_surfaceT, domain, dir, Side::Lo);
+	  ReflectGhostCells(a_surfaceT, domain, dir, Side::Hi);
+	  ReflectGhostCells(a_basalT, domain, dir, Side::Lo);
+	  ReflectGhostCells(a_basalT, domain, dir, Side::Hi);
+	}
+    }
+}
+
+
 
 LevelDataTemperatureIBC* 
 LevelDataTemperatureIBC::new_temperatureIBC()

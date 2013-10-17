@@ -76,9 +76,17 @@ public:
 					LevelData<FArrayBox>& a_surfaceT, 
 					LevelData<FArrayBox>& a_basalT,
 					const LevelSigmaCS& a_coordSys);
+
+  virtual void setIceTemperatureBC(LevelData<FArrayBox>& a_T, 
+				   LevelData<FArrayBox>& a_surfaceT, 
+				   LevelData<FArrayBox>& a_basalT,
+				   const LevelSigmaCS& a_coordSys);
+
 #elif BISICLES_Z == BISICLES_FULLZ
   virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T,
 					const LevelSigmaCS& a_coordSys);
+  virtual void setIceTemperatureBC(LevelData<FArrayBox>& a_T,
+				   const LevelSigmaCS& a_coordSys);
 #endif
 
 

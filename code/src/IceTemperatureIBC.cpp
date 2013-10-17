@@ -10,6 +10,7 @@
 #include "IceTemperatureIBC.H"
 #include "IceConstants.H"
 #include "BoxIterator.H"
+#include "ExtrapGhostCells.H"
 #include "NamespaceHeader.H"
 
 ConstantIceTemperatureIBC* 
@@ -50,6 +51,19 @@ ConstantIceTemperatureIBC::initializeIceTemperature
     }
 }
 
+void 
+ConstantIceTemperatureIBC::setIceTemperatureBC
+(LevelData<FArrayBox>& a_T,
+ LevelData<FArrayBox>& a_surfaceT, 
+ LevelData<FArrayBox>& a_basalT,
+ const LevelSigmaCS& a_coordSys)
+{
+  const ProblemDomain& domain = a_coordSys.grids().physDomain();
+  ExtrapGhostCells( a_T, domain);
+  ExtrapGhostCells( a_basalT, domain);
+}
+
+
 #elif BISICLES_Z == BISICLES_FULLZ
 void 
 ConstantIceTemperatureIBC::initializeIceTemperature
@@ -62,6 +76,16 @@ ConstantIceTemperatureIBC::initializeIceTemperature
        a_T[dit].setVal(m_T, l);
     }
 }
+
+void 
+ConstantIceTemperatureIBC::setIceTemperatureBC
+(LevelData<FArrayBox>& a_T,
+ const LevelSigmaCS& a_coordSys)
+{
+  const ProblemDomain& domain = a_coordSys.grids().physDomain();
+  ExtrapGhostCells( a_T, domain);
+}
+
 #endif
 
 void 

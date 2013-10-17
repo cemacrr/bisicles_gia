@@ -2951,71 +2951,6 @@ AmrIce::regrid()
                 thisLevelH.exchange();
 		m_vect_coordSys[lev]->exchangeTopography();
 
-		//m_vect_coordSys[lev]->recomputeGeometry(crsePtr, refRatio);
-#if 0
-                DataIterator dit = newDBL.dataIterator();
-		for (dit.begin(); dit.ok(); ++dit)
-		  {
-                    // first need to set physical-domain ghost cells for H
-                    // (we need to do this now because we'll be using those 
-                    // ghost cells to average from cells->faces)
-                    
-                    // as a kluge, do extrapolation here
-                    // this is probably better moved to a new function
-                    // in IceThicknessIBC                    
-                    {
-                      FArrayBox& thisH = thisLevelH[dit];
-                      Box testBox = thisH.box();
-                      testBox &= m_amrDomains[lev];
-                      if (testBox != thisH.box())
-                        {
-                          const Box& domainBox = m_amrDomains[lev].domainBox();
-                          // we've got non-periodic ghost cells to fill...
-                          for (int dir=0; dir<SpaceDim; dir++)
-                            {
-                              if (!m_amrDomains[lev].isPeriodic(dir))
-                                {
-                                  int rad = 1;
-                                  
-                                  // lo-side -- for now, only need one row of 
-                                  // ghost cells
-                                  int hiLo = 0;
-                                  Box ghostBoxLo = adjCellLo(domainBox, 
-                                                           dir, rad);
-                                  // do this to try to catch corner cells
-                                  ghostBoxLo.grow(1);
-                                  ghostBoxLo.grow(dir,-1);
-                                  ghostBoxLo &= thisH.box();
-                                  if (!ghostBoxLo.isEmpty())
-                                    {
-                                      FORT_SIMPLEEXTRAPBC(CHF_FRA(thisH),
-                                                          CHF_BOX(ghostBoxLo),
-                                                          CHF_INT(dir), 
-                                                          CHF_INT(hiLo));
-                                    }
-
-                                  // hi-side
-                                  hiLo = 1;
-                                  Box ghostBoxHi = adjCellHi(domainBox, 
-                                                           dir, rad);
-                                  // do this to try to catch corner cells
-                                  ghostBoxHi.grow(1);
-                                  ghostBoxHi.grow(dir,-1);
-                                  ghostBoxHi &= thisH.box();
-                                  if(!ghostBoxHi.isEmpty())
-                                    {
-                                      FORT_SIMPLEEXTRAPBC(CHF_FRA(thisH),
-                                                          CHF_BOX(ghostBoxHi),
-                                                          CHF_INT(dir), 
-                                                          CHF_INT(hiLo));
-                                    }
-                                                      
-                                } // end if not periodic in this direction
-                            } // end loop over directions
-                        } // end if there are non-periodic domain ghost cells
-                    } // end scope for bc setting
-                  } // end loop over grids
-#endif
 		{
 		  LevelSigmaCS* crseCoords = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
 		  int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
@@ -3092,7 +3027,7 @@ AmrIce::regrid()
 		    old_tempDataPtr->copyTo(*new_tempDataPtr);
 		  }
 		delete old_tempDataPtr;
-		new_tempDataPtr->exchange();
+		
 	      }
 	      
 #if BISICLES_Z == BISICLES_LAYERED
@@ -3124,7 +3059,7 @@ AmrIce::regrid()
 		    old_sTempDataPtr->copyTo(*new_sTempDataPtr);
 		  }
 		delete old_sTempDataPtr;
-		new_sTempDataPtr->exchange();
+		
 		interpolator.interpToFine(*new_bTempDataPtr, *m_bTemperature[lev-1]);
 
 		ghostFiller.fillInterp(*new_bTempDataPtr,*m_bTemperature[lev-1],
@@ -3136,7 +3071,15 @@ AmrIce::regrid()
 		    old_bTempDataPtr->copyTo(*new_bTempDataPtr);
 		  }
 		delete old_bTempDataPtr;
+
+		new_tempDataPtr->exchange();
+		new_sTempDataPtr->exchange();
 		new_bTempDataPtr->exchange();
+		//set boundary for non-periodic cases values
+		m_temperatureIBCPtr->setIceTemperatureBC
+		  (*new_tempDataPtr,*new_sTempDataPtr,*new_bTempDataPtr,
+		   *m_vect_coordSys[lev] );
+
 	      }
 #endif
 
@@ -8021,6 +7964,15 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	 
 	  bT.copy(T,T.nComp()-1,0,1);
 	  CH_assert(bT.min() > 0.0);
+
+#ifndef NDEBUG	  
+	  for (int layer = 0; layer < nLayers; layer++)
+	    {
+	      CH_assert(T.min(layer) > 0.0);
+	      CH_assert(T.max(layer) < triplepoint);
+	    }
+#endif
+
 	  FORT_UPDATETEMPERATURE
 	       (CHF_FRA(T), 
 		CHF_FRA1(sT,0), 
