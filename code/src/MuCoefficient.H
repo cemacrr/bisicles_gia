@@ -25,6 +25,10 @@
 class MuCoefficient
 {
 public:
+
+  ///assemble a MuCoefficient  object from ParmParse input, return pointer
+  static MuCoefficient* parseMuCoefficient(const char* a_prefix);
+
   /// constructor
   MuCoefficient() {};
 
@@ -41,7 +45,7 @@ public:
                                 Real a_time,
                                 Real a_dt) = 0;
 
-
+ 
 private:
   // Disallowed for all the usual reasons
   void operator=(const MuCoefficient& a_input)
@@ -94,6 +98,54 @@ private:
     MayDay::Error("invalid operator");
   }
 };
+
+
+//class which contains two muCoefficients (x and y)
+//and two scalars (a and b) and provides the
+//coefficient a x + b y
+class AxbyMuCoefficient : public MuCoefficient
+{
+
+  MuCoefficient* m_x;
+  MuCoefficient* m_y;
+  Real m_a,m_b;
+
+public:
+  /// constructor
+  AxbyMuCoefficient(const Real& a_a, MuCoefficient* a_x, 
+		    const Real& a_b, MuCoefficient* a_y);
+
+  /// destructor
+  virtual ~AxbyMuCoefficient();
+
+  /// factory method
+  /** return a pointer to a new Mucoefficient object
+   */
+  virtual MuCoefficient* new_muCoefficient() const;
+
+  /// define cell and face-centered coefficient
+  /** time and dt are included in case this is time-dependent.
+  */
+  virtual void setMuCoefficient(LevelData<FArrayBox>& a_cellMuCoef,
+                                LevelSigmaCS& a_coordSys,
+                                Real a_time,
+                                Real a_dt);
+
+
+private:
+  // Disallowed for all the usual reasons
+  void operator=(const AxbyMuCoefficient& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  // Disallowed for all the usual reasons
+  AxbyMuCoefficient(const AxbyMuCoefficient& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+};
+
 
 class LevelDataMuCoefficient : public MuCoefficient
 {

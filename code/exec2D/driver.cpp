@@ -195,39 +195,8 @@ int main(int argc, char* argv[]) {
 	MayDay::Error(err.c_str());
       }
 
-#if 0
-    if (surf_flux_ptr == NULL)
-      {
-	// chunk for compatiblity with older input files
-	MayDay::Warning("trying to parse old style surface_flux_type");
-	surf_flux_ptr = NULL;
-	std::string surfaceFluxType = "zeroFlux";
-	pp2.query("surface_flux_type", surfaceFluxType);
-	
-	if (surfaceFluxType == "zeroFlux")
-	  {
-            surf_flux_ptr = new zeroFlux;
-	  }
-	else if (surfaceFluxType == "constantFlux")
-	  {
-	    constantFlux* constFluxPtr = new constantFlux;
-	    Real fluxVal;
-	    ParmParse ppFlux("constFlux");
-	    ppFlux.get("flux_value", fluxVal);
-	    constFluxPtr->setFluxVal(fluxVal);
-	    
-	    surf_flux_ptr = static_cast<SurfaceFlux*>(constFluxPtr);
-	  }
-      }
-    
-    if (surf_flux_ptr == NULL)
-      {
-	MayDay::Error("invalid surface flux type");
-      }
-#endif
     amrObject.setSurfaceFlux(surf_flux_ptr);
   
-
     // ---------------------------------------------
     // set basal (lower surface) flux. 
     // ---------------------------------------------
@@ -240,184 +209,24 @@ int main(int argc, char* argv[]) {
 	MayDay::Error(err.c_str());
       }
 
-
-#if 0    
-    if (basal_flux_ptr == NULL)
-      {
-
-	//chunk for compatiblity with older input files
-	MayDay::Warning("trying to parse old style basal_flux_type");
-	std::string basalFluxType = "zeroFlux";
-	pp2.query("basal_flux_type", basalFluxType);
-	if (basalFluxType == "zeroFlux")
-	  {
-	    basal_flux_ptr = new zeroFlux;
-	  }
-	else if (basalFluxType == "constantFlux")
-	  {
-	    constantFlux* constFluxPtr = new constantFlux;
-	    Real fluxVal;
-	    ParmParse ppFlux("basalConstFlux");
-	    ppFlux.get("flux_value", fluxVal);
-	    constFluxPtr->setFluxVal(fluxVal);
-	    basal_flux_ptr = static_cast<SurfaceFlux*>(constFluxPtr);
-	    
-	  }
-	else if (basalFluxType == "maskedFlux")
-	  {
-	    SurfaceFlux* grounded_basal_flux_ptr = NULL;
-	    std::string groundedBasalFluxType = "zeroFlux";
-	    ParmParse ppbmFlux("basalMaskedFlux");
-	    ppbmFlux.query("grounded_flux_type",groundedBasalFluxType);
-	    if (groundedBasalFluxType == "zeroFlux")
-	      {
-		grounded_basal_flux_ptr = new zeroFlux;
-	      }
-	    else if (groundedBasalFluxType == "constantFlux")
-	      {
-		constantFlux* constFluxPtr = new constantFlux;
-		Real fluxVal;
-		ParmParse ppgFlux("groundedBasalConstFlux");
-		ppgFlux.get("flux_value", fluxVal);
-		constFluxPtr->setFluxVal(fluxVal);
-		grounded_basal_flux_ptr = static_cast<SurfaceFlux*>(constFluxPtr);
-	      }
-	    else
-	      {
-		MayDay::Error("invalid grounded basal flux type");
-	      }
-	    
-	    SurfaceFlux* floating_basal_flux_ptr = NULL;
-	    std::string floatingBasalFluxType = "zeroFlux";
-	    
-	    ppbmFlux.query("floating_flux_type",floatingBasalFluxType);
-	    if (floatingBasalFluxType == "zeroFlux")
-	      {
-		floating_basal_flux_ptr = new zeroFlux;
-	      }
-	    else if (floatingBasalFluxType == "constantFlux")
-	      {
-		constantFlux* constFluxPtr = new constantFlux;
-		Real fluxVal;
-		ParmParse ppfFlux("floatingBasalConstFlux");
-		ppfFlux.get("flux_value", fluxVal);
-		constFluxPtr->setFluxVal(fluxVal);
-		floating_basal_flux_ptr = static_cast<SurfaceFlux*>(constFluxPtr);
-	      }
-	    else if (floatingBasalFluxType == "piecewiseLinearFlux")
-	      {
-		ParmParse pwlFlux("floatingBasalPWLFlux");
-		int n = 1;  
-		pwlFlux.query("n",n);
-		Vector<Real> vabs(n,0.0);
-		Vector<Real> vord(n,0.0);
-		pwlFlux.getarr("abscissae",vabs,0,n);
-		pwlFlux.getarr("ordinates",vord,0,n);
-		PiecewiseLinearFlux* ptr = new PiecewiseLinearFlux(vabs,vord);
-		floating_basal_flux_ptr = static_cast<SurfaceFlux*>(ptr);
-	      }
-	    else
-	      {
-		MayDay::Error("invalid floating basal flux type");
-	      }
-	    
-	    SurfaceFlux* openland_basal_flux_ptr = new zeroFlux;
-	    SurfaceFlux* opensea_basal_flux_ptr = new zeroFlux;
-	    
-	    basal_flux_ptr = static_cast<SurfaceFlux*>
-	      (new MaskedFlux(grounded_basal_flux_ptr->new_surfaceFlux(), 
-			      floating_basal_flux_ptr->new_surfaceFlux(),
-			      opensea_basal_flux_ptr->new_surfaceFlux(),
-			      openland_basal_flux_ptr->new_surfaceFlux()));
-	    
-	    delete grounded_basal_flux_ptr;
-	    delete floating_basal_flux_ptr;
-	    delete opensea_basal_flux_ptr;
-	    delete openland_basal_flux_ptr;
-	  }
-
-      }
-#endif    
-    if (basal_flux_ptr == NULL)
-      {
-	MayDay::Error("invalid basal flux type");
-      }
-    
     amrObject.setBasalFlux(basal_flux_ptr); 
 
     // ---------------------------------------------
     // set mu coefficient
     // ---------------------------------------------
-    ParmParse muPP("muCoefficient");
-    std::string muCoefType = "unit";
-    muPP.query("type",muCoefType );
-    if (muCoefType == "unit")
-      {
-	MuCoefficient* ptr = static_cast<MuCoefficient*>(new UnitMuCoefficient());
-	amrObject.setMuCoefficient(ptr);
-	delete ptr;
-      }
-    else if (muCoefType == "LevelData")
-      {
-	//read a one level muCoef from an AMR Hierarchy, and  store it in a LevelDataMuCoeffcient
-	 ParmParse ildPP("inputLevelData");
-	 std::string infile;
-	 ildPP.get("muCoefFile",infile);
-	 std::string frictionName = "muCoef";
-	 ildPP.query("muCoefName",frictionName);
-	 RefCountedPtr<LevelData<FArrayBox> > levelMuCoef (new LevelData<FArrayBox>());
-	 Vector<RefCountedPtr<LevelData<FArrayBox> > > vectMuCoef;
-	 vectMuCoef.push_back(levelMuCoef);
-	 Vector<std::string> names(1);
-	 names[0] = frictionName;
-	 Real dx;
-	 readLevelData(vectMuCoef,dx,infile,names,1);
-	 RealVect levelDx = RealVect::Unit * dx;
-	 MuCoefficient* ptr = static_cast<MuCoefficient*>
-	   (new LevelDataMuCoefficient(levelMuCoef,levelDx));
-	 amrObject.setMuCoefficient(ptr);
-	 delete ptr;
-      }
-    else if (muCoefType == "MultiLevelData")
-      {
-	//read a multi level muCoef from an AMR Hierarchy, and  store it in a MultiLevelDataMuCoeffcient
-	 ParmParse ildPP("inputLevelData");
-	 std::string infile;
-	 ildPP.get("muCoefFile",infile);
-	 std::string muCoefName = "muCoef";
-	 ildPP.query("muCoefName",muCoefName);
-	 
-	 Vector<Vector<RefCountedPtr<LevelData<FArrayBox> > > > vectMuCoef;
-	 Vector<std::string> names(1);
-	 names[0] = muCoefName;
-	 Real dx;
-	 Vector<int> ratio;
-	 readMultiLevelData(vectMuCoef,dx,ratio,infile,names,1);
-	 RealVect dxCrse = RealVect::Unit * dx;
-	 MuCoefficient* ptr = static_cast<MuCoefficient*>
-	   (new MultiLevelDataMuCoefficient(vectMuCoef[0],dxCrse,ratio));
-	 amrObject.setMuCoefficient(ptr);
-	 delete ptr;
-      }
-#ifdef HAVE_PYTHON
-    else if (muCoefType == "Python")
-      {
-	ParmParse pyPP("PythonMuCoefficient");
-	std::string module;
-	pyPP.get("module",module);
-	std::string funcName = "muCoefficient";
-	pyPP.query("function",funcName);
-	MuCoefficient* ptr =  static_cast<MuCoefficient*>
-	  (new PythonInterface::PythonMuCoefficient(module, funcName));
-	amrObject.setMuCoefficient(ptr);
-	delete ptr;
-      }
-#endif
-    else
-      {
-	MayDay::Error("undefined MuCoefficient in inputs");
-      }
+    {
+      MuCoefficient* muCoefPtr =  MuCoefficient::parseMuCoefficient("muCoefficient");
 
+      if (muCoefPtr == NULL)
+	{
+	  const std::string err("failed to parse muCoefficient");
+	  pout() << err << endl;
+	  MayDay::Error(err.c_str());
+	}
+     
+      amrObject.setMuCoefficient(muCoefPtr);
+      delete muCoefPtr;
+    }
 
     // ---------------------------------------------
     // set basal friction coefficient and relation

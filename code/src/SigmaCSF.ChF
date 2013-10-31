@@ -290,15 +290,16 @@ c -------------------------------------------------------------
      &     CHF_REAL[seaLevel],
      &     CHF_BOX[box])
 
-      integer CHF_AUTODECL[i]
-      REAL_T ratio, oneOnRatio
+      integer CHF_AUTODECL[i] 
+      REAL_T ratio, oneOnRatio, lapa, lapb
+      
+
 
       ratio = (iceDensity / waterDensity)
       oneOnRatio = one/ratio;
 
       CHF_AUTOMULTIDO[box; i]
      
-
       if (mask(CHF_AUTOIX[i]) .eq. GROUNDEDMASKVAL) then
 c     grounded ice : upper surface must be above flotation
          thck(CHF_AUTOIX[i]) = 
@@ -319,8 +320,8 @@ c     open land : upper and lower surface both at topography, topography above s
      &        seaLevel+tiny_thickness)
          lsrf(CHF_AUTOIX[i]) = topg(CHF_AUTOIX[i])
          usrf(CHF_AUTOIX[i]) = topg(CHF_AUTOIX[i])
-         thck(CHF_AUTOIX[i]) = zero
-
+         thck(CHF_AUTOIX[i]) = zero            
+         
       else if (mask(CHF_AUTOIX[i]) .eq. OPENSEAMASKVAL) then
 c     open sea : upper surface and lower surface are both at sea level,topography below seaLevel
          lsrf(CHF_AUTOIX[i]) = seaLevel;
