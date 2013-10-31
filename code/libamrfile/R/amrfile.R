@@ -1,5 +1,6 @@
 #dyn.load("libamrfile2d.Linux.64.g++.gfortran.DEBUG.so")
 
+
 amr.load <- function(f)
   {
 
@@ -26,6 +27,30 @@ amr.load <- function(f)
     rc
   }
 
+amr.create <- function(nx, ny, dx, ncomp, nghost)
+  {
+    rc <- -1
+    
+    r <- .C("amr_create_coarse",
+            status=integer(1),
+            amrID=integer(1),
+            nx=as.integer(nx),
+            ny=as.integer(ny),
+            dx=as.double(dx),
+            ncomp=as.integer(ncomp),
+            nghost=as.integer(nghost))
+    if (r$status == 0)
+      {
+        rc <- r$amrID
+      }
+    else
+      {
+        stop(c("amr hierarchy not created"))
+        rc <- -1
+      }
+    rc
+    
+  }
 
 amr.write <- function(amrID, f)
   {
@@ -106,6 +131,29 @@ amr.query.compnames <- function(amrID)
   compnames
 }
 
+
+amr.set.compnames <- function(amrID, names)
+  {
+    n <- amr.query.ncomp(amrID)
+    if (n != length(names))
+      {
+        stop ("length(names) != number of components")
+      }
+
+    rc <- 0
+    
+    for (i in 1:n)
+      {
+      
+        r <- .C("amr_set_comp_name_R",
+                status=integer(1),
+                name=as.character(names[i]),
+                amrID=as.integer(amrID),
+                comp=as.integer(i-1))
+        rc <- max(rc,r$status)
+      }
+    rc
+  }
 
 amr.query.nfab <- function(amrID, level)
   {
@@ -205,7 +253,13 @@ amr.apply <- function(amrID, f, minlev = 0, maxlev = -1, comp = 0, nghost = 1, .
               }
           }
         dim(fab$v) <- c(nx,ny,length(comp))
-        f(fab)
+        fab$amrID <- amrID
+        fab$level <- lev
+        fab$ID <-  ifab
+        fab$comp <- comp
+        fab$nghost <- nghost
+        r <- f(fab,...)
+
       }
   }
 }

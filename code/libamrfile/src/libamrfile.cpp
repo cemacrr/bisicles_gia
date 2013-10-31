@@ -56,6 +56,33 @@ public:
     m_ok = status == 0;
   }
 
+  //construct single level amr hierarchy
+  AMRHierarchy(D_DECL( int nx, int ny, int nz), double dx, int n_comp, int n_ghost)
+  {
+    //one box for now
+    IntVect lim; D_TERM(lim[0] = nx - 1, ; lim[1] = ny -1 , ; lim[2] = nz -1);
+    
+    m_crseBox = Box(IntVect::Zero,lim);
+    DisjointBoxLayout dbl(Vector<Box>(1,m_crseBox),Vector<int>(1,0));
+    m_grids.push_back(dbl);
+    m_dx.push_back(dx);
+    m_data.push_back(new LevelData<FArrayBox>(m_grids[0], n_comp, IntVect::Unit * n_ghost));
+    m_time = 0.0;
+    m_dt = 1.0;
+    m_nLevel = 1;
+    m_ratio.push_back(2);
+    m_names.resize(n_comp);
+    for (int i =0; i < n_comp; i++)
+      {
+	char name[16];
+	sprintf(name,"component%i",i);
+	m_names[i] = name; 
+      }
+    m_ok = true;
+  }
+  
+
+
   bool ok() const {return m_ok;}
   const Vector<LevelData<FArrayBox>* >& data() const {return m_data;}
   const Vector<DisjointBoxLayout>& grids() const {return m_grids;}
@@ -63,18 +90,22 @@ public:
   const Vector<std::string>& names() const  {return m_names;}
   int nLevel() const  {return m_nLevel;}
 
+
+  void setName(int comp, const std::string& name)
+  {
+    if (comp >= 0 && m_names.size() > comp )
+      m_names[comp] = name;
+  }
+
   int write(const std::string& file)
   {
-    int status = LIBAMRFILE_ERR_WRITE_FAILED;
+    int status = 0;
     if (m_ok)
       {
 	WriteAMRHierarchyHDF5(file, m_grids, m_data, 
 			      m_names, m_crseBox, m_dx[0], m_dt,
 			      m_time, m_ratio, m_nLevel);
       }
-    if (status != 0)
-      status = LIBAMRFILE_ERR_WRITE_FAILED;
-
     return status;
   }
 
@@ -123,6 +154,40 @@ void amr_read_file_R(int *status, int *amr_id, char **file)
 {
   amr_read_file(status,amr_id,*file);
 }
+
+void amr_create_coarse(int *status, int *amr_id, 
+		       D_DECL(const int *nx, const int *ny, const  int *nz), 
+		       const double* dx, const int* n_comp, const int* n_ghost)
+{
+
+  if (!status)
+    return;
+
+  if (!(amr_id && D_TERM(nx, && ny, && nz) && n_comp && n_ghost))
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER;
+      return;
+    }
+
+  AMRHierarchy* h = new AMRHierarchy(D_DECL(*nx, *ny, *nz), *dx, *n_comp, *n_ghost);
+ 
+  if (h->ok())
+    {
+      if (libamrfile::g_store.size() == 0)
+	*amr_id = 0;
+      else
+	*amr_id  = (--libamrfile::g_store.end())->first;
+      libamrfile::g_store[*amr_id] = h;
+      *status = 0;
+    }
+  else
+    {
+      *status = LIBAMRFILE_ERR_CREATE_FAILED;
+    }
+  
+
+}
+
 
 void amr_write_file(int *status, int *amr_id, const char *file)
 {
@@ -249,6 +314,61 @@ void amr_query_comp_name_R(int *status, char **file, const int* amr_id, const in
 {
   amr_query_comp_name(status, *file, amr_id, comp, buflen);
 }
+
+
+void amr_set_comp_name(int *status, const char *name, const int* amr_id, const int* comp)
+{
+  
+  if (!status)
+    return;
+
+  if (!(amr_id && comp ))
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER;
+      return;
+    }
+
+
+  std::map<int, AMRHierarchy*>::iterator i = libamrfile::g_store.find(*amr_id);
+  if (i != libamrfile::g_store.end())
+    {
+      if (i->second)
+	{
+	  AMRHierarchy& h = *i->second;
+	  if (*comp < h.names().size())
+	    {
+	      std::string s = name;
+	      h.setName(*comp,s);
+	    }
+	    else
+	      {
+		*status = LIBAMRFILE_ERR_NO_SUCH_COMP;
+	      }
+	}
+      else
+	{
+	  *status = LIBAMRFILE_ERR_NULL_POINTER;
+	}
+    }
+  else
+    {
+      *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
+    }
+}
+
+
+
+void amr_set_comp_name_R(int *status, const char **name, const int* amr_id, const int* comp)
+{
+  if (!name)
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER;
+      return;
+    }
+  
+  amr_set_comp_name(status, *name, amr_id, comp);
+}
+
 
 void amr_query_n_level(int *status, int *n_level, const int *amr_id)
 {

@@ -31,11 +31,17 @@ extern "C"
 #define LIBAMRFILE_ERR_WRITE_FAILED  8
 #define LIBAMRFILE_ERR_BAD_NGHOST 9
 #define LIBAMRFILE_ERR_NO_SUCH_COMP 10
+#define LIBAMRFILE_ERR_CREATE_FAILED 11
 
     /// read in amr file into memory, provide an integer id (amr_id). Although
     /// amr_id *could* be a simple pointer, an int has been chosen for portability
     void amr_read_file(int *status, int *amr_id, const char *file);
     void amr_read_file_R(int *status, int *amr_id, char **file);
+
+    /// create a new amr structure with a coarse level only and n_components
+    void amr_create_coarse(int *status, int *amr_id, 
+			   D_DECL(const int *nx, const int *ny, const  int *nz), 
+			   const double* dx, const int* n_comp, const int* n_ghost);
 
     /// write an amr file with data already in memory, lookup up via an integer id (amr_id).
     void amr_write_file(int *status, int *amr_id, const char *file);
@@ -56,6 +62,13 @@ extern "C"
     /// retrieve the first buflen characters of the name of component comp?
     void amr_query_comp_name(int *status, char *file, const int* amr_id, const int* comp, const int* buflen);
     void amr_query_comp_name_R(int *status, char **file, const int* amr_id, const int* comp, const int* buflen);
+
+    /// set the name of component comp
+    void amr_set_comp_name(int *status, const char *name, const int* amr_id, const int* comp);
+
+    void amr_set_comp_name_R(int *status, const char **name, const int* amr_id, const int* comp);
+
+
 
     /// how many fabs are there in data amr_id level level_id ?
     void amr_query_n_fab(int *status, int *n_fab, const int *amr_id, const int *level_id);
