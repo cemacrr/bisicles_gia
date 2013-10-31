@@ -1372,7 +1372,7 @@ void LevelSigmaCS::interpFromCoarse(const LevelSigmaCS& a_crseCoords,
 	  for (BoxIterator bit(b);bit.ok();++bit)
 	    {
 	      const IntVect& iv = bit();
-	      for (int i =0; i < 3; i++)
+	      for (int i =0; i < 4; i++)
 		{
 		  const int a = test[i];
 		  if (5 == ( ((f(iv+ex)==a)?1:0)
