@@ -196,6 +196,28 @@ and change the lines
 to remove the '-FI' flags. 
 </p>
 
+<h3>Blue Crystal Phase 3</h3>
+
+<h4>Blue Crystal Phase 3, Intel Compilers</h4>
+<p>
+To use the Intel compilers on Blue Crystal III, include
+</p>
+<pre>
+module load intel-cluster-studio/impi/64
+module load intel-cluster-studio/compiler/64
+module load openmpi/intel/64
+module load languages/python-2.7.5
+</pre>
+<p>
+in .bashrc. To build with the Python interface, $BISICLES_HOME/BISICLES/code/mk/Make.defs
+needs the lines
+<pre>
+PYTHON_INC=/cm/shared/languages/Python-2.7.5/include/python2.7/
+PYTHON_LIBS=-L /cm/shared/languages/Python-2.7.5/lib/ -lpython2.7
+</pre>
+Apart from that, using the intel compilers on BC3 is the same as on BC2
+</p>
+
 
 <h2><a name='nersc'>NERSC</a></h2>
 The US DOE-run National Energy Research Supercomputing Center ( <a href='http://www.nersc.gov'>NERSC</a>) has several machines which BISICLES users may find useful. 
