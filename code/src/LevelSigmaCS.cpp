@@ -12,6 +12,7 @@
 #include "LevelSigmaCS.H"
 #include "SigmaCSF_F.H"
 #include "DerivativesF_F.H"
+#include "AMRPoissonOpF_F.H"
 #include "CellToEdge.H"
 #include "EdgeToCell.H"
 #include "Averaging.H"
@@ -833,45 +834,45 @@ LevelSigmaCS::computeSurface(const LevelSigmaCS* a_crseCoords,
   //update the mask
   computeFloatingMask(m_surface);
 
-  //destroy any floating cells where face H = 0 on all faces
-  int destroyed = 0;
-  for (DataIterator dit(m_grids); dit.ok(); ++dit)
-    {
+  // //destroy any floating cells where face H = 0 on all faces
+  // int destroyed = 0;
+  // for (DataIterator dit(m_grids); dit.ok(); ++dit)
+  //   {
       
-      if (anyFloating()[dit])
-	{
-	  int xDir = 0;
-	  if (SpaceDim == 3) xDir = 1;
-	  int yDir = xDir +1;
-	  BaseFab<int>& mask = m_floatingMask[dit];
-	  FArrayBox& H = m_H[dit];
-	  Real thresh = TINY_THICKNESS;
-	  // for (int dir = xDir; dir <= yDir; dir++)
-	  //   {
-	  //     FORT_DESTROYSCFI(CHF_FRA1(H,0),
-	  // 		       CHF_FIA1(mask,0),
-	  // 		       CHF_INT(destroyed),
-	  // 		       CHF_CONST_INT(dir),
-	  // 		       CHF_CONST_REAL(thresh),
-	  // 		       CHF_BOX(m_grids[dit]));
-	  //   }
-	  // FORT_ODESTROYSCFI(CHF_FRA1(H,0),
-	  // 		   CHF_FIA1(mask,0),
-	  // 		   CHF_INT(destroyed),
-	  // 		   CHF_CONST_INT(xDir),
-	  // 		   CHF_CONST_INT(yDir),
-	  // 		   CHF_CONST_REAL(thresh),
-	  // 		   CHF_BOX(m_grids[dit]));
+  //     if (anyFloating()[dit])
+  // 	{
+  // 	  int xDir = 0;
+  // 	  if (SpaceDim == 3) xDir = 1;
+  // 	  int yDir = xDir +1;
+  // 	  BaseFab<int>& mask = m_floatingMask[dit];
+  // 	  FArrayBox& H = m_H[dit];
+  // 	  Real thresh = TINY_THICKNESS;
+  // 	  // for (int dir = xDir; dir <= yDir; dir++)
+  // 	  //   {
+  // 	  //     FORT_DESTROYSCFI(CHF_FRA1(H,0),
+  // 	  // 		       CHF_FIA1(mask,0),
+  // 	  // 		       CHF_INT(destroyed),
+  // 	  // 		       CHF_CONST_INT(dir),
+  // 	  // 		       CHF_CONST_REAL(thresh),
+  // 	  // 		       CHF_BOX(m_grids[dit]));
+  // 	  //   }
+  // 	  // FORT_ODESTROYSCFI(CHF_FRA1(H,0),
+  // 	  // 		   CHF_FIA1(mask,0),
+  // 	  // 		   CHF_INT(destroyed),
+  // 	  // 		   CHF_CONST_INT(xDir),
+  // 	  // 		   CHF_CONST_INT(yDir),
+  // 	  // 		   CHF_CONST_REAL(thresh),
+  // 	  // 		   CHF_BOX(m_grids[dit]));
 
-	    }
-    }
-  if (destroyed > 0)
-    {
-      //char warn[256];
-      //sprintf(warn,"Destroyed %i single cell icebergs",destroyed);
-      //MayDay::Warning(warn);
-      pout() << "Warning :: destroyed " << destroyed << "single cell icebergs";
-    }
+  // 	    }
+  //   }
+  // if (destroyed > 0)
+  //   {
+  //     //char warn[256];
+  //     //sprintf(warn,"Destroyed %i single cell icebergs",destroyed);
+  //     //MayDay::Warning(warn);
+  //     pout() << "Warning :: destroyed " << destroyed << "single cell icebergs";
+  //   }
 
   //thickness over flotation
  for (DataIterator dit(m_grids); dit.ok(); ++dit)
@@ -1405,7 +1406,32 @@ void LevelSigmaCS::interpFromCoarse(const LevelSigmaCS& a_crseCoords,
 	  Box b = m_grids[dit];
 	  if (a_preserveMaskGhost)
 	    b.grow(nghost);
+	  // don't make modifications outside the domain
+	  b &= m_grids.physDomain().domainBox(); 
+
 	 
+	  FArrayBox oldThck(b, 1);
+	  FArrayBox oldTopg(b, 1);
+	  FArrayBox oldSurf(b, 1);
+	  FArrayBox oldBase(b, 1);
+	  oldThck.copy(fineSurf[dit]);
+	  oldThck.minus(fineBase[dit]);
+	  oldBase.copy(fineBase[dit]);
+	  oldSurf.copy(fineSurf[dit]);
+	  oldTopg.copy(fineTopg[dit]);
+	  BaseFab<int> oldMask(b, 1);
+	  int anyFlt;
+	  FORT_SETFLOATINGMASK(CHF_FIA1(oldMask,0),
+			       CHF_CONST_FRA1(oldSurf,0),
+			       CHF_CONST_FRA1(oldBase,0),
+			       CHF_CONST_FRA1(oldThck,0),
+			       CHF_INT(anyFlt),
+			       CHF_REAL(m_iceDensity),
+			       CHF_REAL(m_waterDensity),
+			       CHF_REAL(m_seaLevel),
+			       CHF_BOX(b));
+
+
 	  FORT_PRESERVEMASK(CHF_FRA1(fineBase[dit],0),
 			    CHF_FRA1(fineSurf[dit],0),
 			    CHF_FRA1(fineTopg[dit],0),
@@ -1416,20 +1442,56 @@ void LevelSigmaCS::interpFromCoarse(const LevelSigmaCS& a_crseCoords,
 			    CHF_REAL(sl),
 			    CHF_BOX(b));
 
-	  
-	  
+	  const Box& lapBox =  m_grids[dit];
+	  Real dx = m_dx[0]; CH_assert(SpaceDim == 1 || m_dx[0] == m_dx[1]);
+	  FArrayBox lapOldSurf(lapBox,1);lapOldSurf.setVal(0.0);
+	  FArrayBox lapNewSurf(lapBox,1);lapNewSurf.setVal(0.0);
+	  Real alpha = 0.0; Real beta = 1.0;
+
+	  FORT_OPERATORLAP(CHF_FRA(lapOldSurf),
+                           CHF_FRA(oldSurf),
+                           CHF_BOX(lapBox),
+                           CHF_CONST_REAL(dx),
+                           CHF_CONST_REAL(alpha),
+                           CHF_CONST_REAL(beta));
+
+	  FORT_OPERATORLAP(CHF_FRA(lapNewSurf),
+                           CHF_FRA(fineSurf[dit]),
+                           CHF_BOX(lapBox),
+                           CHF_CONST_REAL(dx),
+                           CHF_CONST_REAL(alpha),
+                           CHF_CONST_REAL(beta));
+
+	  for (BoxIterator bit(lapBox); bit.ok(); ++bit)
+	    {
+	      const IntVect& iv = bit();
+	      //avoid creating areas of open land that result in new surface minima
+	      if (fineMask[dit](iv) == OPENLANDMASKVAL && oldMask(iv) == GROUNDEDMASKVAL)
+		{
+		  if (abs( lapOldSurf(iv)) < 0.5 * abs(lapNewSurf(iv)))
+		    {
+		      fineSurf[dit](iv) = oldSurf(iv);
+		      fineTopg[dit](iv) = oldTopg(iv);
+		      fineThck[dit](iv) = oldThck(iv);
+		    } 
+		}
+	    }
 	 
 	}
       else if (!a_preserveMask && a_preserveMaskGhost)
 	{
-	  Box b = m_grids[dit];
+	  Box b = m_grids[dit]; 
+	  b.grow(nghost);
+	  // don't make modifications outside the domain
+	  b &= m_grids.physDomain().domainBox(); 
+
 	  FArrayBox tmpThck(b, 1);
 	  FArrayBox tmpTopg(b, 1);
        
 	  tmpThck.copy(fineSurf[dit]);
 	  tmpThck.minus(fineBase[dit]);
 	  tmpTopg.copy(fineTopg[dit]);
-	  b.grow(nghost);
+	 
 	  FORT_PRESERVEMASK(CHF_FRA1(fineBase[dit],0),
 			    CHF_FRA1(fineSurf[dit],0),
 			    CHF_FRA1(fineTopg[dit],0),
