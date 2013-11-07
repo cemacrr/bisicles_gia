@@ -1888,12 +1888,18 @@ AmrIce::run(Real a_max_time, int a_max_step)
   
   // advance solution until done
   if ( !(m_plot_time_interval > TIME_EPS) || m_plot_time_interval > a_max_time) m_plot_time_interval = a_max_time;
-
   while ( a_max_time > m_time && (m_cur_step < a_max_step))
     {
-      Real next_plot_time = std::min(m_plot_time_interval
-				     *(1.0 + Real(int((m_time/m_plot_time_interval)))),
-				     a_max_time);
+      Real next_plot_time = m_plot_time_interval * (1.0 + Real(int((m_time/m_plot_time_interval))));
+      if ( !(next_plot_time > m_time))
+	{
+	  //trap case where machine precision results in (effectively)
+          // m_plot_time_interval * (1.0 + Real(int((m_time/m_plot_time_interval)))) == m_time
+	  next_plot_time += m_plot_time_interval;
+	}
+
+      next_plot_time = std::min(next_plot_time, a_max_time); 
+
       while ( (next_plot_time > m_time) && (m_cur_step < a_max_step)
 	      && (dt > TIME_EPS))
 	{
@@ -1915,9 +1921,9 @@ AmrIce::run(Real a_max_time, int a_max_step)
 	      dt = computeDt();           
 	    }
 	  
+	  Real trueDt = dt; //we will need to restore dt if we change it below
 	  if (next_plot_time - m_time + TIME_EPS < dt) 
 	   dt =  std::max(2 * TIME_EPS, next_plot_time - m_time);
-	  
 	  
 	  if ((m_cur_step%m_check_interval == 0) && (m_check_interval > 0)
 	      && (m_cur_step != m_restart_step))
@@ -1937,6 +1943,7 @@ AmrIce::run(Real a_max_time, int a_max_step)
 	  
 	  
 	  timeStep(dt);
+	  m_dt = trueDt; // restores the correct timestep in cases where it was chosen just to reach a plot file
 	  
 	} // end of plot_time_interval
       if (m_plot_interval >= 0)
