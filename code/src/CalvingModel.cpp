@@ -10,6 +10,7 @@
 
 #include "CalvingModel.H"
 #include "BennCalvingModel.H"
+#include "FlotationCalvingModel.H"
 #include "IceConstants.H"
 #include "AmrIce.H"
 #include "ParmParse.H"
@@ -212,6 +213,7 @@ void ProximityCalvingModel::modifySurfaceThicknessFlux
 }
 
 
+
 CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
 {
 
@@ -270,6 +272,19 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
       Real endTime = 1.2345678e+300;
       pp.get("endTime",  endTime);
       ptr = new ProximityCalvingModel(proximity,velocity, startTime, endTime);
+    }
+  else if (type == "FlotationCalvingModel")
+    {
+      Vector<int> frontLo(2,false); 
+      pp.getarr("front_lo",frontLo,0,frontLo.size());
+      Vector<int> frontHi(2,false);
+      pp.getarr("front_hi",frontHi,0,frontHi.size());
+      bool preserveSea = false;
+      pp.query("preserveSea",preserveSea);
+      bool preserveLand = false;
+      pp.query("preserveLand",preserveLand);
+      ptr = new FlotationCalvingModel
+	(frontLo, frontHi,preserveSea,preserveLand);
     }
   else if (type == "BennCalvingModel")
     {
