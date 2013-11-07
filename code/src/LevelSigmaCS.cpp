@@ -1406,9 +1406,8 @@ void LevelSigmaCS::interpFromCoarse(const LevelSigmaCS& a_crseCoords,
 	  Box b = m_grids[dit];
 	  if (a_preserveMaskGhost)
 	    b.grow(nghost);
-	  // don't make modifications outside the domain
-	  b &= m_grids.physDomain().domainBox(); 
 
+	  
 	 
 	  FArrayBox oldThck(b, 1);
 	  FArrayBox oldTopg(b, 1);
@@ -1419,6 +1418,10 @@ void LevelSigmaCS::interpFromCoarse(const LevelSigmaCS& a_crseCoords,
 	  oldBase.copy(fineBase[dit]);
 	  oldSurf.copy(fineSurf[dit]);
 	  oldTopg.copy(fineTopg[dit]);
+	  // don't make modifications outside the domain
+	  b &= m_grids.physDomain().domainBox(); 
+
+	 
 	  BaseFab<int> oldMask(b, 1);
 	  int anyFlt;
 	  FORT_SETFLOATINGMASK(CHF_FIA1(oldMask,0),
