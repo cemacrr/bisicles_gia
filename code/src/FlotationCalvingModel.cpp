@@ -30,6 +30,7 @@ void FlotationCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_f
   for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
     {
       FArrayBox& source = a_flux[dit];
+      const FArrayBox& thck = levelCoords.getH()[dit];
       const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
       const Box& b = levelCoords.grids()[dit];
       for (BoxIterator bit(b); bit.ok(); ++bit)
@@ -37,7 +38,8 @@ void FlotationCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_f
 	  const IntVect& iv = bit();
 	  if (mask(iv) == FLOATINGMASKVAL)
 	    {
-	      source(iv) = (source(iv) - 10.0e10)/a_dt;
+	      //thck(iv) = 0.0;
+	      source(iv) -= 5.0*thck(iv)/a_dt;
 	    }
 	}
     }
@@ -50,7 +52,7 @@ void FlotationCalvingModel::initialModifyState
 {
   endTimeStepModifyState(a_thickness, a_amrIce,a_level);
 }
-	      		 
+
 void FlotationCalvingModel::endTimeStepModifyState
 (LevelData<FArrayBox>& a_thickness, 
  const AmrIce& a_amrIce,
