@@ -811,6 +811,7 @@ protected:
   mutable bool m_groundingLineProximity_valid;
   // scale length for grounding line proximity
   Real m_groundingLineProximityScale;
+  int m_groundingLineProximityCalcType;
   void updateGroundingLineProximity() const;
   
   /// diagnostic quantity -- sum(ice) at initial time

@@ -512,7 +512,7 @@ AmrIce::setDefaults()
   m_floating_ice_stable = false;
   
   m_groundingLineProximityScale = 1.0e+4;
-
+  m_groundingLineProximityCalcType = 0 ; // default to the old (odd) behaviour
   //cache validity flags
   m_A_valid = false;
   m_groundingLineProximity_valid = false;
@@ -978,6 +978,9 @@ AmrIce::initialize()
   ppAmr.query("evolve_velocity", m_evolve_velocity);
   ppAmr.query("grounded_ice_stable", m_grounded_ice_stable);
   ppAmr.query("floating_ice_stable", m_floating_ice_stable);
+
+  ppAmr.query("grounding_line_proximity_scale",m_groundingLineProximityScale);
+  ppAmr.query("grounding_line_proximity_calc_type", m_groundingLineProximityCalcType);
 
   ppAmr.query("check_interval", m_check_interval);
   ppAmr.query("check_prefix", m_check_prefix);
@@ -5129,6 +5132,11 @@ void AmrIce::updateGroundingLineProximity() const
       m_groundingLineProximity.resize(m_finest_level + 1, NULL);
     }
 
+  if (s_verbosity > 0)
+    {
+      pout() << "AmrIce::updateGroundingLineProximity() max level = " << m_finest_level << " " << endl; 
+    }
+
   //Natural boundary conditions
   BCHolder bc(ConstDiriNeumBC(IntVect::Zero, RealVect::Zero,
   			      IntVect::Zero, RealVect::Zero));
@@ -5192,25 +5200,38 @@ void AmrIce::updateGroundingLineProximity() const
  	  const BaseFab<int>& mask = levelMask[dit];
  	  const Box& gridBox = levelGrids[dit];
 	  //	  const FArrayBox& u = (*m_velocity[lev])[dit];
+
+	  Real AcoefF = crseDx / m_groundingLineProximityScale;
+	  Real AcoefG = 1.0 ;
+	  if (m_groundingLineProximityCalcType > 0)
+	    {
+	      AcoefF = crseDx / m_groundingLineProximityScale;
+	      AcoefF *= AcoefF;
+	      
+	    }
+
  	  for (BoxIterator bit(gridBox);bit.ok();++bit)
  	    {
  	      const IntVect& iv = bit();
  	      if (mask(iv) == GROUNDEDMASKVAL )
  		{
- 		  A(iv) = 1.0e+0;
-		  r(iv) = 1.0e+0;
+ 		  A(iv) = AcoefG;
+		  r(iv) = AcoefG;
 		  
  		} 
 	      else
 		{
-		  A(iv) = crseDx / m_groundingLineProximityScale;
+		  
+		  A(iv) = AcoefF;
+		  r(iv) = 0.0;
 		}
 	      
  	    }
- 
+	  phi.copy(r);
  	}
 
       rhs[lev]->exchange();
+      levelPhi.exchange();
       m_groundingLineProximity[lev]->exchange();
       a[lev]->exchange();
       b[lev]->exchange();
