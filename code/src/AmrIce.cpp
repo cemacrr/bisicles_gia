@@ -445,6 +445,7 @@ AmrIce::setDefaults()
   m_cfl = 0.25;
   m_max_dt_grow = 1.5;
   m_dt = 1.0e20;
+  m_stable_dt = m_dt;
   m_max_box_size = 64;
   m_max_base_grid_size = -1;
   m_isothermal = true;
@@ -1924,7 +1925,7 @@ AmrIce::run(Real a_max_time, int a_max_step)
 	      dt = computeDt();           
 	    }
 	  
-	  Real trueDt = dt; //we will need to restore dt if we change it below
+	  //Real trueDt = dt; //we will need to restore dt if we change it below
 	  if (next_plot_time - m_time + TIME_EPS < dt) 
 	   dt =  std::max(2 * TIME_EPS, next_plot_time - m_time);
 	  
@@ -1946,7 +1947,8 @@ AmrIce::run(Real a_max_time, int a_max_step)
 	  
 	  
 	  timeStep(dt);
-	  m_dt = trueDt; // restores the correct timestep in cases where it was chosen just to reach a plot file
+	  //m_dt = trueDt; 
+	  // restores the correct timestep in cases where it was chosen just to reach a plot file
 	  
 	} // end of plot_time_interval
       if (m_plot_interval >= 0)
@@ -5077,8 +5079,9 @@ AmrIce::computeDt()
   // also check to see if max grow rate applies
   // (m_dt > 0 test screens out initial time, when we set m_dt to a negative 
   // number by default)
-  if (dt > m_max_dt_grow*m_dt && (m_dt > 0) )
-    dt = m_max_dt_grow*m_dt;
+  // Use the value stored in m_stable_dt in case dt was altered to hit a plot interval
+  if (dt > m_max_dt_grow*m_stable_dt && (m_stable_dt > 0) )
+    dt = m_max_dt_grow*m_stable_dt;
   
   if (m_timeStepTicks){
     // reduce time step to integer power of two
@@ -5086,7 +5089,7 @@ AmrIce::computeDt()
     
   }
   
-  
+  m_stable_dt = dt;
 
   return dt;// min(dt,2.0);
 

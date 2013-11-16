@@ -700,6 +700,9 @@ protected:
   /// most recent timestep
   Real m_dt;
 
+  /// most recent stable timestep (> m_dt if we took a step just to hit a plot interval)
+  Real m_stable_dt;
+
   /// timestep scaling
   Real m_cfl;
 
