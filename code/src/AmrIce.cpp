@@ -483,7 +483,7 @@ AmrIce::setDefaults()
   m_additionalDiffusivity = 0.0;
   m_additionalVelocity = false;
   m_timeStepTicks = false;
-  m_fixed_dt  = zero;
+  m_fixed_dt  = 0.0;
 
   m_limitVelRHS = false;
   m_gradLimitRadius = 10;
