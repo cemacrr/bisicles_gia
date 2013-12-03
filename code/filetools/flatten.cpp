@@ -195,6 +195,18 @@ int main(int argc, char* argv[]) {
 	  {
 	    DataIterator dit(flatDBL); 
 	    const FArrayBox& fab = flatLevelData[dit];
+	    // Looking for illegal / character in variables names
+	    for (int iname=0; iname < names.size();iname++)
+	      {
+		int locslash = names[iname].find("/"); 
+		if (locslash <= names[iname].size())
+		  {
+		    pout() << "About to write netCDF file..." << endl;
+		    pout() << "Changing variable name " <<  names[iname] << std::endl;
+		    names[iname].replace(locslash,1,"_");
+		    pout() << "... to " <<  names[iname] << std::endl;	    
+		  }
+	      }
 	    writeNetCDF(out_file, names, fab, flatDx, x0);
 	  }
       }
