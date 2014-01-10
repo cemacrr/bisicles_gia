@@ -35,9 +35,10 @@ description: branch containing the current development version of
 the BISICLES side of the BISICLES-CISM interface. The CISM side of
 this interface is located on the oceans-11 repository at LANL.
 
-initial date: March 16, 2013
+initial date: May 16, 2013
 
-conditions: 1 paper or March 16, 2014
+conditions: 1 paper or May 16, 2014
+(note -- this was incorrectly listed as "March 16"; fixed Jan 10, 2014)
 
 subscribers: LBNL. Sandia (Kalashnikova), LANL (Ranken), Bristol (Cornford)
 
@@ -48,9 +49,10 @@ EBGL1D-devel:
 description: contains current status of the 1D code which uses
 embedded boundaries to discretize at grounding lines.
 
-initial date: March 16, 2013
+initial date: May 16, 2013
 
-conditions: 1 paper or March 16, 2014
+conditions: 1 paper or May 16, 2014
+(note -- this was incorrectly listed as "March 16"; fixed Jan 10, 2014)
  
 subscribers: LBNL
 
