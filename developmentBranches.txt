@@ -1,4 +1,4 @@
-xgxuThis file contains an enumeration of currently-active private
+This file contains an enumeration of currently-active private
 branches, the date on which each branch was initiated, conditions for
 merger with the public branch, and current "subscribers" to the
 branch.
