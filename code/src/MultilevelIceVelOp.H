@@ -26,6 +26,7 @@
 
 enum bottomSolverTypes {bicg = 0,
                         PETSC,
+                        relax,
                         NUM_BS_TYPES};
 
 ///

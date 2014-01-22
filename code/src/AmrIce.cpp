@@ -396,7 +396,7 @@ AmrIce::setDefaults()
   m_do_restart = false;
   m_restart_step = -1;
   //  m_constitutiveRelation = NULL;
-  m_solverType = Picard;
+  m_solverType = JFNK;
   // at the moment, 1 is the only one which works
   m_temporalAccuracy = 1;
   m_num_thickness_ghost = 4;
@@ -496,7 +496,7 @@ AmrIce::setDefaults()
   m_initialGuessType = SlidingLaw;
   m_initialGuessConstMu = 1.0e+7; // a number that seems plausible, only needed
                                   // if m_initialGuessType = ConstMu
-  m_initialGuessSolverType = Picard; 
+  m_initialGuessSolverType = JFNK; 
   m_initialGuessConstVel = RealVect::Zero; // only needed if m_initialGuessType = ConstMu *and* the basal traction relation is nonlinear
   m_reset_floating_friction_to_zero = true; // set basal friction to zero where ice is floating
  

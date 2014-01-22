@@ -73,15 +73,6 @@ public:
   void setMaxIterations(int a_max_iter) {m_max_iter = a_max_iter;}
   
   void setVerbosity(int a_verbosity) {m_verbosity = a_verbosity;}
-
-  // /// solve for isothermal ice -- returns 0 if converged, 1 if not
-  // virtual int solve(Vector<LevelData<FArrayBox>* >& a_horizontalVel,
-  //                   const Vector<LevelData<FArrayBox>* >& a_rhs,
-  //                   const Vector<LevelData<FArrayBox>* >& a_beta,
-  //                   Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
-  //                   Real a_time,
-  //                   int a_lbase, int a_maxLevel);
-  
   
   /// full solve for non-isothermal ice
   virtual int solve(Vector<LevelData<FArrayBox>* >& a_horizontalVel,

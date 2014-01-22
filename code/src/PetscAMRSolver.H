@@ -23,8 +23,14 @@ class JFNKOp;
 // solver class for VTO operators
 class PetscAMRSolver
 {
+   static PetscErrorCode ksp_monitor_pout(KSP ksp, PetscInt it, PetscReal rnorm  ,void *ctx)
+  {
+    pout() << "      KSP:: iteration = " << it << " residual norm = " <<  rnorm << std::endl;
+    return 0;
+  }
+
 public:
-  PetscAMRSolver();
+  PetscAMRSolver(int a_verb=0);
   ///
   /**
      Solve a_op*a_phi = a_rhs using the PETSC matrix free functions
@@ -39,12 +45,16 @@ public:
 				const Vector<LevelData<FArrayBox>*>& a_rhs );
   
   static PetscErrorCode apply_mfree(Mat A, Vec x, Vec f);  
-  
+
+  void plot(const string, const Vector<LevelData<FArrayBox>*>& a_phi);
+  PetscErrorCode setCoords(KSP, const Vector<LevelData<FArrayBox>*>& a_phi);
+
   JFNKOp *m_op_mfree;
   Vector<LevelData<FArrayBox>*> m_phi_mfree;
   Vector<LevelData<FArrayBox>*> m_Lphi_mfree;
   bool m_mfree_homogeneous;
   PetscCompGridVTO m_petscCompMat; // this is specific for VTO for now, should make PetscCompGrid*
+  int m_verbose;
 };
 
 #include "NamespaceFooter.H"

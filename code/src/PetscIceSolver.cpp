@@ -19,6 +19,9 @@
 #include "AMRIO.H"
 #include "JFNKSolver.H"
 #include "computeNorm.H"
+#ifdef CH_USE_PETSC
+#include "PetscSolver.H"
+#endif
 
 #include "NamespaceHeader.H"
 

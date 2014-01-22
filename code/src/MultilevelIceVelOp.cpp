@@ -10,6 +10,8 @@
 
 #include "AMRIO.H"
 #include "MultilevelIceVelOp.H"
+#include "RelaxSolver.H"
+
 #ifdef CH_USE_PETSC
 #include "PetscSolver.H"
 #endif
@@ -85,6 +87,11 @@ MultilevelIceVelOp::define(const Vector<DisjointBoxLayout>& a_vectGrids,
           m_precondBottomSolverPtr = petscSolverPtr;
         }
 #endif //if CH_USE_PETSC
+      else if (m_bottom_solver_type == relax)
+        {
+          RelaxSolver<LevelData<FArrayBox> >* relaxSolverPtr = new RelaxSolver<LevelData<FArrayBox> >;
+          m_precondBottomSolverPtr = relaxSolverPtr;
+        }       
       else
         {
           MayDay::Error("bad elliptic solver type");

@@ -180,7 +180,9 @@ void JFNKOp::applyOp(Vector<LevelData<FArrayBox>*>& a_lhs,
 {
 
   CH_TIME("JFNKOp::applyOp");
+ 
   
+
   if (m_mode == JFNK_SOLVER_MODE)
     {
       //"Newton mode"
@@ -331,7 +333,24 @@ IceJFNKstate::IceJFNKstate
 	(new LevelData<FluxBox>(levelGrids, 1, IntVect::Unit));	
       
       m_alpha[lev] = RefCountedPtr<LevelData<FArrayBox> >
-	(new LevelData<FArrayBox>(levelGrids, 1, IntVect::Unit));	
+	(new LevelData<FArrayBox>(levelGrids, 1, IntVect::Unit));
+
+      // (DFM - 10/29/13) sending these values into the constructor 
+      // uninitialized is giving valgrind fits. Initialize everything 
+      // to bogus values here
+      bool initializeValues = true;
+      if (initializeValues)
+        {
+          // negative viscosities and friction should be suitably unphysical
+          Real bogusValue = -1;
+          DataIterator dit = levelGrids.dataIterator();
+          for (dit.begin(); dit.ok(); ++dit)
+            {
+              (*m_mu[lev])[dit].setVal(bogusValue);
+              (*m_lambda[lev])[dit].setVal(bogusValue);
+              (*m_alpha[lev])[dit].setVal(bogusValue);
+            }
+        }
     }
 
    Real alpha = -1.0;
@@ -339,12 +358,12 @@ IceJFNKstate::IceJFNKstate
    // for the moment, at least, this only works for dx = dy:
    if (SpaceDim > 1) CH_assert(m_dxs[0][0] == m_dxs[0][1]);
 
-   BCHolder velSolveBC = m_bcPtr->velocitySolveBC();
+   m_velSolveBC = m_bcPtr->velocitySolveBC();
    m_opFactoryPtr = 
      RefCountedPtr<AMRLevelOpFactory<LevelData<FArrayBox> > >
      (new ViscousTensorOpFactory(m_grids, m_mu, m_lambda, m_alpha, alpha, 
 				 beta, m_refRatio , m_domains[0], m_dxs[0][0], 
-				 velSolveBC, m_vtopSafety, m_vtopRelaxTol, 
+				 m_velSolveBC, m_vtopSafety, m_vtopRelaxTol, 
 				 m_vtopRelaxMinIter));
 
 
@@ -551,7 +570,7 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
 	    (levelAlpha[dit], levelVel[dit], levelCoords.getThicknessOverFlotation()[dit] 
 	     , levelC[dit] , 	levelCoords.getFloatingMask()[dit], gridBox);
 	  levelAlpha[dit] += (*m_C0[lev])[dit];
-	  CH_assert(levelAlpha[dit].min() >= 0.0);
+	  CH_assert(levelAlpha[dit].min(gridBox) >= 0.0);
 
 	  
 	} // end loop over grids		
@@ -810,6 +829,10 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 }			    
 
 //general solve, linear or non-linear
+#ifdef CH_USE_PETSC
+#undef __FUNCT__
+#define __FUNCT__ "solve"
+#endif
 int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 		      Real& a_initialResidualNorm, Real& a_finalResidualNorm,
 		      const Real a_convergenceMetric,
@@ -877,10 +900,6 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
   
   Vector<LevelData<FArrayBox>*> du;
   jfnkOp.create(du,localU);
-  
-  
-
-  
 
   int iter = 0;
   Real oldResNorm;
@@ -1017,12 +1036,13 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
           Real opAlpha, opBeta;
           opAlpha = -1.0;
           opBeta = 1.0;
+
           if (m_petscSolver == NULL)
             {
-              m_petscSolver = new PetscAMRSolver;
-	      m_petscSolver->m_petscCompMat.setDiri(true);
+              m_petscSolver = new PetscAMRSolver(m_verbosity);
+	      m_petscSolver->m_petscCompMat.setVerbose(m_verbosity-1);
             }
-	  RefCountedPtr<ConstDiriBC> bcfunc = RefCountedPtr<ConstDiriBC>(new ConstDiriBC(1,m_petscSolver->m_petscCompMat.getGhostVect()));
+	  RefCountedPtr<ConstDiriBC> bcfunc = RefCountedPtr<ConstDiriBC>(new ConstDiriBC(0,m_petscSolver->m_petscCompMat.getGhostVect()));
 	  BCHolder bc(bcfunc);
 	  m_petscSolver->m_petscCompMat.define(m_domains[0],m_grids,m_refRatios,bc,m_dxs[0]); // generic AMR setup
 	  m_petscSolver->m_petscCompMat.defineCoefs(opAlpha,opBeta,current.m_mu,current.m_lambda,current.m_alpha);
@@ -1045,7 +1065,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 #ifdef CH_USE_PETSC
           else if (m_linearSolverType == petsc)
             {
-	      m_petscSolver->solve_mfree(du,residual,&newOp);
+	      PetscErrorCode ierr = m_petscSolver->solve_mfree(du,residual,&newOp);CHKERRQ(ierr);
             }
 #endif
           else 
@@ -1064,6 +1084,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	      JFNKOp testOp (&current, &perturbed, localU, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
 			     m_refRatios, m_domains, m_dxs, a_lbase, 
 			     m_numMGSmooth, m_numMGIter, mode);
+	      testOp.m_writeResiduals = m_writeResiduals;
 	      testOp.outerResidual(residual,localU,localRhs);
 	      resNorm = testOp.norm(residual, m_normType);
 	      if (resNorm >= oldResNorm)
@@ -1126,7 +1147,17 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 #ifdef CH_USE_PETSC
           else if (m_linearSolverType == petsc)          
             {
-              m_petscSolver->solve(localU,localRhs);
+	      if (a_linear)
+		{
+		  PetscErrorCode ierr = m_petscSolver->solve_mfree(localU,localRhs,&newOp);CHKERRQ(ierr);
+		}
+	      else
+		{
+		  newOp.setToZero(du);
+		  PetscErrorCode ierr = m_petscSolver->solve_mfree(du,residual,&newOp);CHKERRQ(ierr);
+		  newOp.incr(localU,du,1.0);
+		  //PetscErrorCode ierr = m_petscSolver->solve_mfree(localU,localRhs,&newOp);CHKERRQ(ierr);
+		}
             }
 #endif
           else
@@ -1147,8 +1178,6 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	  else
 	    {
 	      
-	     
-	     
 	      imposeMaxAbs(localU,m_uMaxAbs);
 	      current.setState(localU); 
 	      newOp.outerResidual(residual,localU,localRhs);

@@ -35,6 +35,9 @@ public:
   // set the state 
   virtual void setState(const Vector<LevelData<FArrayBox>*>& a_state)=0;
 
+  // fill ghost cells of a_state as per the bondary conditions
+  virtual void applyBC(Vector<LevelData<FArrayBox>*>& a_phi)=0;
+
   // retreive the state 
   virtual const Vector<LevelData<FArrayBox>*>& getState() const =0;
 
@@ -304,8 +307,9 @@ class IceJFNKstate : public JFNKState
 
   //lower and upper bounds on the viscosity
   Real m_muMin, m_muMax;
-
   
+  // BCHolder
+  BCHolder m_velSolveBC;
 protected:
   //coefficient storage. 
   Vector<RefCountedPtr<LevelData<FluxBox> > > m_mu;
@@ -343,6 +347,21 @@ public:
 
   //implementation of JFNKState interface 
   virtual void setState(const Vector<LevelData<FArrayBox>*>& a_u);
+
+  // fill ghost cells of a_state as per the boundary conditions
+  virtual void applyBC(Vector<LevelData<FArrayBox>*>& a_phi)
+  {
+    for (int lev =0; lev < a_phi.size(); lev++)
+      {
+	for (DataIterator dit(m_grids[lev]); dit.ok(); ++dit)
+	  {
+	    m_velSolveBC((*a_phi[lev])[dit], m_grids[lev][dit], m_domains[lev], 
+			 m_dxs[lev][0], false, dit());
+	  }
+      }
+  }
+
+
   virtual const Vector<LevelData<FArrayBox>*>& getState() const
   {
     return m_u;
@@ -487,7 +506,11 @@ private:
 
 
 public:
-  virtual ~JFNKSolver() {;}
+  virtual ~JFNKSolver() {
+ #ifdef CH_USE_PETSC
+    if (m_petscSolver) delete m_petscSolver;
+#endif
+  }
 
   JFNKSolver() 
 #ifdef CH_USE_PETSC
