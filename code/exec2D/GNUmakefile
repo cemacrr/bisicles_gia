@@ -23,18 +23,7 @@ BASE_DIR = ../
 
 EXEC_DIR = .
 
-#USE_FAS = TRUE
-ifeq ($(USE_FAS), TRUE)
-#XTRACXXFLAGS = -DFAS_USE_NEW_PROL -DCH_HAS_FAS 
-XTRACXXFLAGS = -DCH_USE_FAS 
-SRC_DIR = ../src  ../../../AMRFAS/src
-else
 SRC_DIR = ../src  
-endif
-ifeq ($(USE_PETSC), TRUE)
-SRC_DIR += ../../../AMRPETSC/src
-endif
-
 
 UTIL_DIR = ../util 
 

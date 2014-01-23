@@ -24,7 +24,7 @@ basalFlux.type = zeroFlux
 
 CalvingModel.type = NoCalvingModel
 
-amr.maxLevel = 1   # finest level allowed in simulation
+amr.maxLevel = 2   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2 2 2 2 2
 #amr.num_cells = 0016 0016 16   #number of cells in base grid
 #amr.num_cells = 0032 0032 16   #number of cells in base grid
@@ -53,7 +53,7 @@ amr.verbosity = 5
 amr.regrid_interval = 10000   # number of timesteps between regridding
 amr.blockFactor = 4           # block factor used in grid generation
 amr.fill_ratio = 0.8          # how efficient are the grids
-amr.nestingRadius = 1         # proper nesting radius required
+amr.nestingRadius = 3         # proper nesting radius required
 amr.tags_grow = 1             # amount to buffer tags
 amr.max_box_size = 32         # largest box length allowed
 #amr.tagging_val = .0001       # min undivided grad(vel) resulting in tagging
@@ -67,7 +67,7 @@ amr.do_initial_velocity_guess = 1
 amr.do_initial_velocity_solve = 1
 amr.initial_velocity_guess_type = 1 # linear PDE
 amr.initial_velocity_guess_const_mu = 1.0e+6
-amr.initial_velocity_guess_solver_type = 0 # use Picard solver's linear mode
+amr.initial_velocity_guess_solver_type = 1 # use Picard solver's linear mode
 
 picardSolver.linearSolver = petsc
 picardSolver.linearsolver_tolerance = 1.0e-4

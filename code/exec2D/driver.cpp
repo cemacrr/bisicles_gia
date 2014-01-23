@@ -46,8 +46,9 @@
 #include "LoadBalance.H"
 #include "BRMeshRefine.H"
 #include "ReadLevelData.H"
-#include "PetscSolver.H"
-
+#ifdef CH_USE_PETSC
+#include "petsc.h"
+#endif 
 
 /// types of basal friction (beta) distributions
 /** SinusoidalBeta is the one for exp C in Pattyn et al (2008)
@@ -70,7 +71,7 @@ int main(int argc, char* argv[]) {
   int ierr = 0;
 
 #ifdef CH_USE_PETSC
-  ierr = PetscInitialize(&argc, &argv,"./.petscrc",PETSC_NULL); CHKERRQ(ierr);
+  ierr = PetscInitialize(&argc, &argv,PETSC_NULL,PETSC_NULL); CHKERRQ(ierr);
 #else
 #ifdef CH_MPI
   MPI_Init(&argc, &argv);
