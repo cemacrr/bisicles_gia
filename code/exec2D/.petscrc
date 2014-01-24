@@ -18,7 +18,7 @@
 -gamg_est_pc_use_amat false
 -gamg_est_ksp_type gmres
 -gamg_est_ksp_max_it 20
--pc_hypre_type boomeramg
+#-pc_hypre_type boomeramg
 #-pc_hypre_boomeramg_no_CF
 #-pc_hypre_boomeramg_agg_nl 1
 #-pc_hypre_boomeramg_coarsen_type HMIS
@@ -28,9 +28,9 @@
 #-pc_hypre_boomeramg_print_statistics
 #-pc_hypre_boomeramg_relax_type_coarse symmetric-SOR/Jacobi 
 #-pc_hypre_boomeramg_grid_sweeps_coarse 4 
--pc_ml_Threshold 0.01
--pc_ml_EnergyMinimization 2
--pc_ml_PrintLevel 1
+#-pc_ml_Threshold 0.01
+#-pc_ml_EnergyMinimization 2
+#-pc_ml_PrintLevel 1
 -ksp_type gmres
 -ksp_gmres_restart 25
 -ksp_max_it 50
@@ -42,7 +42,7 @@
 -ksp_rtol 1.e-4
 #-ksp_view
 -mg_levels_ksp_max_it 4
--mat_ascii_output_large
+#-mat_ascii_output_large
 #-options_left
 -ksp_monitor
 #-mat_view_matlab
@@ -54,12 +54,12 @@
 -log_summary
 #-info
 #-snes_view
--snes_mf_operator
--snes_monitor
--snes_linesearch_monitor
--snes_rtol 1.e-10
--snes_stol 1.e-10
--snes_converged_reason
+#-snes_mf_operator
+#-snes_monitor
+#-snes_linesearch_monitor
+#-snes_rtol 1.e-10
+#-snes_stol 1.e-10
+#-snes_converged_reason
 #-mat_mffd_type ds
 #-mat_mffd_err 1.e-9
 #-snes_mf_unim <umin>
