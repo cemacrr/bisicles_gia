@@ -202,6 +202,11 @@ public:
     return m_time + m_offsetTime;
   };
 
+  int finestLevel() const
+  {
+    return m_finest_level;
+  }
+
   const RealVect dx(int a_level) const
   {
     return m_vect_coordSys[a_level]->dx();

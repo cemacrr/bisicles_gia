@@ -30,13 +30,13 @@ class LevelDataSurfaceFlux : public SurfaceFlux
 {
 public:
 
-  // LevelDataSurfaceFlux(RefCountedPtr<LevelData<FArrayBox> > a_flux,
-  // 		       const RealVect& a_dx)
-  //   :m_timeFileMap(NULL), m_startTime(-1.2345678e+300), m_endTime(1.2345678e+300),
-  //    m_startFlux(a_flux), m_endFlux(a_flux),m_dx(a_dx),m_verbose(true),m_name("")
+   LevelDataSurfaceFlux(RefCountedPtr<LevelData<FArrayBox> > a_flux,
+   		       const RealVect& a_dx)
+     :m_timeFileMap(NULL), m_startTime(-1.2345678e+300), m_endTime(1.2345678e+300),
+      m_startFlux(a_flux), m_endFlux(a_flux),m_dx(a_dx),m_verbose(true),m_name("")
      
-  // {
-  // }
+   {
+   }
   
   LevelDataSurfaceFlux(RefCountedPtr<std::map<Real, std::string> >& a_timeFileMap, 
 		       const std::string& a_name)
@@ -62,11 +62,11 @@ public:
       {
 	ptr = new LevelDataSurfaceFlux(m_timeFileMap,m_name);
       }
-    // else
-    //   {
-    // 	ptr = new LevelDataSurfaceFlux(m_startFlux,m_dx);
-    //   }
-
+    else
+      {
+     	ptr = new LevelDataSurfaceFlux(m_startFlux,m_dx);
+      }
+    
     return static_cast<SurfaceFlux*>(ptr);
   }
 
