@@ -73,6 +73,42 @@ namespace bisicles_c_wrapper
   std::map<int, BisiclesWrapper*> instances;
 }
 
+//fortran wrappers
+void bisicles_new_instance_(int *instance_id,  char *input_fname, const int *len_fname)
+  {
+    input_fname[*len_fname - 1] = 0; // null terminate the string
+    bisicles_new_instance(instance_id, input_fname);
+  }
+   void bisicles_free_instance_(int *instance_id)
+  {
+    bisicles_free_instance(instance_id);
+  }
+ void bisicles_set_2d_data_(int *instance_id,  double *data_ptr, const int *field, 
+			  const double *dx, const int *dims, 
+			  const int *boxlo, const int *boxhi)
+  {
+    bisicles_set_2d_data(instance_id,  data_ptr, field, 
+			      dx, dims, boxlo, boxhi);
+  }
+
+
+  void bisicles_get_2d_data_(int *intance_id, double *data_ptr, const int *field,
+			    const double *dx, const int *dims, 
+			    const int *boxlo, const int *boxhi)
+  {
+    bisicles_get_2d_data(intance_id, data_ptr, field,
+			      dx, dims, boxlo, boxhi);
+    
+  }
+ void bisicles_init_instance_(int *instance_id)
+  {
+    bisicles_init_instance(instance_id);
+  }
+void bisicles_advance_(int *instance_id, double *max_time, int *max_step)
+  {
+    bisicles_advance(instance_id, max_time, max_step);
+  }
+
 // initialize the AmrIce object in a wrapper. Any surface
 // fluxes specified in the wrapper will be added to whatever
 // is specified in the input file (a_innputfile) 
@@ -648,6 +684,27 @@ void advance_bisicles_instance(BisiclesWrapper* wrapper_ptr, double max_time, in
     }
 }
 
+namespace cwrapper
+{
+
+  /// On-the-fly definition of a DisjointBoxLayout which assumes level data arranged as one rectangular box per processor
+  /** assume that each process contributes one rectangular block of data and do it will call this function once per data field.
+      we will need to think again if we want anything flash
+  */
+  void defineDBL(DisjointBoxLayout& a_dbl,  const int *dims, const int *boxlo, const int *boxhi)
+  {
+    IntVect lo; D_TERM(lo[0] = boxlo[0];, lo[1] = boxlo[1];, lo[2] = boxlo[2]);
+    IntVect hi; D_TERM(hi[0] = boxhi[0];, hi[1] = boxhi[1];, hi[2] = boxhi[2]);
+
+    Vector<Box> boxes;
+    gather(boxes, Box(lo,hi),  uniqueProc(SerialTask::compute));
+    broadcast(boxes,uniqueProc(SerialTask::compute));
+    Vector<int> procIDs;
+    gather(procIDs, procID(), uniqueProc(SerialTask::compute));
+    broadcast(procIDs,uniqueProc(SerialTask::compute));
+    a_dbl.define(boxes, procIDs);
+  }
+}
 
 void bisicles_set_2d_data
 (BisiclesWrapper* wrapper_ptr,   double *data_ptr, const int *field, 
@@ -655,16 +712,10 @@ void bisicles_set_2d_data
 {
   if (wrapper_ptr != NULL)
     {
-
-      //\todo this needs to work in parallel
-      IntVect lo; D_TERM(lo[0] = boxlo[0];, lo[1] = boxlo[1];, lo[2] = boxlo[2]);
-      IntVect hi; D_TERM(hi[0] = boxhi[0];, hi[1] = boxhi[1];, hi[2] = boxhi[2]);
-      Vector<Box> boxes(1,Box(lo,hi));
-      Vector<int> procIDs(1,0);
-      DisjointBoxLayout dbl(boxes, procIDs);
-
+      DisjointBoxLayout dbl;
+      cwrapper::defineDBL(dbl,dims,boxlo,boxhi);
+     
       RefCountedPtr<LevelData<FArrayBox> > ptr(new LevelData<FArrayBox> (dbl, 1, IntVect::Zero));
-      //assume that we construct one box per processor, 
       DataIterator dit(dbl);
       dit.reset();
       (*ptr)[dit].define(dbl[dit], 1, data_ptr) ;
@@ -702,22 +753,15 @@ void bisicles_get_2d_data
 {
   if (wrapper_ptr != NULL)
     {
-
-      //\todo this needs to work in parallel
-      IntVect lo; D_TERM(lo[0] = boxlo[0];, lo[1] = boxlo[1];, lo[2] = boxlo[2]);
-      IntVect hi; D_TERM(hi[0] = boxhi[0];, hi[1] = boxhi[1];, hi[2] = boxhi[2]);
-      Vector<Box> boxes(1,Box(lo,hi));
-      Vector<int> procIDs(1,0);
-      DisjointBoxLayout dbl(boxes, procIDs);
-
+      DisjointBoxLayout dbl;
+      cwrapper::defineDBL(dbl,dims,boxlo,boxhi);
       RefCountedPtr<LevelData<FArrayBox> > ptr(new LevelData<FArrayBox> (dbl, 1, IntVect::Zero));
-      //assume that we construct one box per processor, 
+
       DataIterator dit(dbl);
       dit.reset();
       (*ptr)[dit].define(dbl[dit], 1, data_ptr) ;
       
       RealVect dxv; D_TERM(dxv[0] = dx[0];, dxv[1] = dx[1];, dxv[2] = dx[2]);
-
       AmrIce& amrIce = wrapper_ptr->m_amrIce;
       int n = amrIce.finestLevel() + 1;
       Vector<LevelData<FArrayBox>* > usrf(n);

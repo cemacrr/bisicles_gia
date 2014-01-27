@@ -50,7 +50,7 @@ $(CHOMBO_HOME)/libbasetools$(config).a :
 	cd $(CHOMBO_HOME); \
 	$(MAKE) basetools
 
-libChomboLibs.a: $(CHOMBO_HOME)/libamrelliptic$(config).a $(CHOMBO_HOME)/libamrtimedependent$(config).a $(CHOMBO_HOME)/libamrtools$(config).a $(CHOMBO_HOME)/libboxtools$(config).a $(CHOMBO_HOME)/libbasetools$(config).a
+libChomboLibs$(config).a: $(CHOMBO_HOME)/libamrelliptic$(config).a $(CHOMBO_HOME)/libamrtimedependent$(config).a $(CHOMBO_HOME)/libamrtools$(config).a $(CHOMBO_HOME)/libboxtools$(config).a $(CHOMBO_HOME)/libbasetools$(config).a
 	mkdir tmp_lib_objects; \
 	cd tmp_lib_objects; \
 		pwd; \
@@ -59,19 +59,19 @@ libChomboLibs.a: $(CHOMBO_HOME)/libamrelliptic$(config).a $(CHOMBO_HOME)/libamrt
 		ar -x $(CHOMBO_HOME)/libamrtools$(config).a; \
 		ar -x $(CHOMBO_HOME)/libboxtools$(config).a; \
 		ar -x $(CHOMBO_HOME)/libbasetools$(config).a; 
-	ar -cvq libChomboLibs.a  tmp_lib_objects/*.o
+	ar -cvq libChomboLibs$(config).a  tmp_lib_objects/*.o
 	rm tmp_lib_objects/*.o
 	rmdir tmp_lib_objects
 
-bisiclesObjects:
+bisiclesObjects$(config):
 	cd ../exec2D; $(MAKE) nolink
 
 
 o/$(config)/cwrapper.o: cwrapper.cpp 
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -DCH_LANG_CC -c -o  o/$(config)/cwrapper.o cwrapper.cpp 
+	$(cxxc) $(CXXFLAGS) $(CPPFLAGS) -DCH_LANG_CC -c -o  o/$(config)/cwrapper.o cwrapper.cpp 
 
-libBisicles.a: ../exec2D/o/$(config) o/$(config)/cwrapper.o libChomboLibs.a
-	if test -f libBisicles.a; then rm libBisicles.a; fi
+libBisicles$(config).a: ../exec2D/o/$(config) o/$(config)/cwrapper.o libChomboLibs$(config).a
+	if test -f libBisicles$(config).a; then rm libBisicles$(config).a; fi
 	mkdir -p o/$(config) 
 	cp -rp ../exec2D/o/$(config)  o/
 	if test -f o/$(config)/driver.o; then \
@@ -86,7 +86,7 @@ libBisicles.a: ../exec2D/o/$(config) o/$(config)/cwrapper.o libChomboLibs.a
 	if test -f o/$(config)/stats.o; then \
            mv o/$(config)/stats.o o/$(config)/stats.o.tmp; \
         fi 
-	ar -cvq libBisicles.a o/$(config)/*.o 
+	ar -cvq libBisicles$(config).a o/$(config)/*.o 
 	if test -f o/$(config)/driver.o.tmp; then \
 	   mv o/$(config)/driver.o.tmp o/$(config)/driver.o; \
 	fi 
@@ -101,18 +101,28 @@ libBisicles.a: ../exec2D/o/$(config) o/$(config)/cwrapper.o libChomboLibs.a
 	fi 
 
 
-libs: bisiclesObjects libBisicles.a libChomboLibs.a
-
-ctestwrapper.$(config).ex : bisiclesObjects libBisicles.a libChomboLibs.a
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -DCH_LANG_CC -o  ctestwrapper.$(config).ex testwrapper.cpp -L ./ -lBisicles -lChomboLibs $(LIBFLAGS)   
-
-ftestwrapper.$(config).ex : bisiclesObjects libBisicles.a libChomboLibs.a
-	$(FC) -g -DCH_LANG_CC -o  ftestwrapper.$(config).ex testwrapper.F90 -L ./ -lBisicles -lChomboLibs $(LIBFLAGS) -lstdc++   
+libs: bisiclesObjects$(config) libBisicles$(config).a libChomboLibs$(config).a
 
 
-ctestwrapper: ctestwrapper.$(config).ex
 
-ftestwrapper: ftestwrapper.$(config).ex
+
+ctestwrapper.$(config).ex :libs 
+	$(cxxc) $(CXXFLAGS) $(CPPFLAGS) -DCH_LANG_CC -o  ctestwrapper.$(config).ex testwrapper.cpp -L ./ -lBisicles$(config) -lChomboLibs$(config) $(LIBFLAGS)   
+
+
+
+fcc := $(subst FALSE,$(FC),$(subst TRUE,mpif90,$(MPI)))
+
+fcflag := $(subst FALSE,,$(subst TRUE,-DCH_MPI,$(MPI)))
+#not sure if this only works with open mpi : we need the C++ mpi lib as well as the fortran lib
+lmpicxx := $(subst FALSE,,$(subst TRUE,-lmpi_cxx,$(MPI)))
+ftestwrapper.$(config).ex : libs
+	$(fcc) $(fcflag) -g -DCH_LANG_CC -o  ftestwrapper.$(config).ex testwrapper.F90 -L ./ -lBisicles$(config) -lChomboLibs$(config) $(LIBFLAGS) -lstdc++ $(lmpicxx)
+
+
+ctestwrapper:  ctestwrapper.$(config).ex
+
+ftestwrapper:  ftestwrapper.$(config).ex
 
 
 .PHONY : ctestwrapper ftestwrapper libs
