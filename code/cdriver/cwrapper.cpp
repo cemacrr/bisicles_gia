@@ -687,8 +687,9 @@ void advance_bisicles_instance(BisiclesWrapper* wrapper_ptr, double max_time, in
 namespace cwrapper
 {
 
-  /// On-the-fly definition of a DisjointBoxLayout which assumes level data arranged as one rectangular box per processor
+  /// On-the-fly definition of a DisjointBoxLayout which assumes level data arranged as one  rectangular box per processor
   /** assume that each process contributes one rectangular block of data and do it will call this function once per data field.
+      If a processor has no data, then specify a box outside of the problem domain 
       we will need to think again if we want anything flash
   */
   void defineDBL(DisjointBoxLayout& a_dbl,  const int *dims, const int *boxlo, const int *boxhi)
@@ -696,13 +697,50 @@ namespace cwrapper
     IntVect lo; D_TERM(lo[0] = boxlo[0];, lo[1] = boxlo[1];, lo[2] = boxlo[2]);
     IntVect hi; D_TERM(hi[0] = boxhi[0];, hi[1] = boxhi[1];, hi[2] = boxhi[2]);
 
+    Box domBox;
+    if (procID() == uniqueProc(SerialTask::compute))
+      {
+	IntVect dlo; D_TERM(dlo[0] = 0;, dlo[1] = 0;, dlo[2] = 0);
+	IntVect dhi; D_TERM(dhi[0] = dims[0] - 1;, dhi[1] = dims[1] - 1;, dhi[2] = dims[2]-1);
+	domBox.define(Box(dlo,dhi));
+      }
+    broadcast(domBox,uniqueProc(SerialTask::compute));
+   
+    //first off, accumulate the boxes from all the processors
+    Vector<Box> tboxes;
+    gather(tboxes, Box(lo,hi),  uniqueProc(SerialTask::compute));
+    Vector<int> tprocIDs;
+    gather(tprocIDs, procID(), uniqueProc(SerialTask::compute));
+    
+
+    //now discard boxes outside the domain 
     Vector<Box> boxes;
-    gather(boxes, Box(lo,hi),  uniqueProc(SerialTask::compute));
-    broadcast(boxes,uniqueProc(SerialTask::compute));
     Vector<int> procIDs;
-    gather(procIDs, procID(), uniqueProc(SerialTask::compute));
+    if (procID() == uniqueProc(SerialTask::compute))
+      {
+	for (int i = 0; i < tboxes.size(); i++)
+	  {
+	    if (tboxes[i].intersects(domBox))
+	      {
+		boxes.push_back(tboxes[i]);
+		procIDs.push_back(tprocIDs[i]);
+	      }
+	  }
+      }
+
+   
+      
+    broadcast(boxes,uniqueProc(SerialTask::compute));
     broadcast(procIDs,uniqueProc(SerialTask::compute));
     a_dbl.define(boxes, procIDs);
+
+    
+    pout() << "proc: " << procID() << " " << domBox << " ";
+    for (int i = 0; i < procIDs.size(); i++)
+      {
+	pout() <<  procIDs[i] << " " << boxes[i] << endl;
+      }
+
   }
 }
 
@@ -718,8 +756,12 @@ void bisicles_set_2d_data
       RefCountedPtr<LevelData<FArrayBox> > ptr(new LevelData<FArrayBox> (dbl, 1, IntVect::Zero));
       DataIterator dit(dbl);
       dit.reset();
-      (*ptr)[dit].define(dbl[dit], 1, data_ptr) ;
-      
+
+      if (dit.ok())
+	{
+	  (*ptr)[dit].define(dbl[dit], 1, data_ptr) ;
+	}
+
       RealVect dxv; D_TERM(dxv[0] = dx[0];, dxv[1] = dx[1];, dxv[2] = dx[2]);
 
       switch (*field)
@@ -759,8 +801,11 @@ void bisicles_get_2d_data
 
       DataIterator dit(dbl);
       dit.reset();
-      (*ptr)[dit].define(dbl[dit], 1, data_ptr) ;
-      
+      if (dit.ok())
+	{
+	  (*ptr)[dit].define(dbl[dit], 1, data_ptr) ;
+	}
+
       RealVect dxv; D_TERM(dxv[0] = dx[0];, dxv[1] = dx[1];, dxv[2] = dx[2]);
       AmrIce& amrIce = wrapper_ptr->m_amrIce;
       int n = amrIce.finestLevel() + 1;
