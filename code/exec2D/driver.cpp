@@ -182,6 +182,17 @@ int main(int argc, char* argv[]) {
 	    gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
 	  }
       }
+    else if (rateFactorType == "zwingerRate")
+      {
+	PatersonRateFactor rateFactor;
+	ParmParse arPP("ZwingerRate");
+	arPP.query("epsSqr0", epsSqr0);
+	amrObject.setRateFactor(&rateFactor);
+	if (gfrPtr) 
+	  {
+	    gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
+	  }
+      }
     amrObject.setConstitutiveRelation(constRelPtr);
  
     // ---------------------------------------------

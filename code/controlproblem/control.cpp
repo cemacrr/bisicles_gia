@@ -1,3 +1,4 @@
+
 #ifdef CH_LANG_CC
 /*
  *      _______              __
@@ -310,7 +311,17 @@ int main(int argc, char* argv[]) {
 	      gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
 	    }
 	}
-  
+    else if (rateFactorType == "zwingerRate")
+	{
+	  ZwingerRateFactor rateFactor;
+	  ParmParse arPP("ZwingerRate");
+	  arPP.query("epsSqr0", epsSqr0);
+	  rateFactorPtr = rateFactor.getNewRateFactor();
+	  if (gfrPtr) 
+	    {
+	      gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
+	    }
+	}
       // ---------------------------------------------------
       // set initial basal friction coefficient and relation
       // ---------------------------------------------------

@@ -141,7 +141,7 @@ void amr_read_file(int *status, int *amr_id, const char *file)
       if (libamrfile::g_store.size() == 0)
 	*amr_id = 0;
       else
-	*amr_id  = (--libamrfile::g_store.end())->first;
+	*amr_id  = (--libamrfile::g_store.end())->first + 1;
       libamrfile::g_store[*amr_id] = h;
       *status = 0;
     }

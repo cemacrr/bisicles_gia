@@ -218,6 +218,17 @@ void init_bisicles_instance( int argc, char *argv[], const char *a_inputfile, Bi
 	  gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
 	}
     }
+    else if (rateFactorType == "zwingerRate")
+    {
+      ZwingerRateFactor rateFactor;
+      ParmParse arPP("ZwingerRate");
+      arPP.query("epsSqr0", epsSqr0);
+      amrObject.setRateFactor(&rateFactor);
+      if (gfrPtr) 
+	{
+	  gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
+	}
+    }
   amrObject.setConstitutiveRelation(constRelPtr);
  
   // -------------------------------------------------

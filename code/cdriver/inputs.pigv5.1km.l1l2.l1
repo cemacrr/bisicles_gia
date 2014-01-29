@@ -12,14 +12,15 @@ main.constitutiveRelation = L1L2
 main.rateFactor = arrheniusRate
 ArrheniusRate.epsSqr0 = 1.0e-12
 
-
+main.rateFactor = zwingerRate
+ZwingerRate.epsSqr0 = 1.0e-12
 
 #geometry,temperature & basal friction input data
 geometry.problem_type = LevelData
 geometry.beta_type = LevelData
-temperature.type = LevelData
-#temperature.type = constant
-#temperature.value = 268
+#temperature.type = LevelData
+temperature.type = constant
+temperature.value = 260
 
 amr.sigma = 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0
 

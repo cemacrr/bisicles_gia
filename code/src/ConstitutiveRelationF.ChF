@@ -154,7 +154,62 @@ c --------------------------------------------------------
 
       end subroutine
 
+c--------------------------------------------------------
+c  compute the factor A in Glen's flow law from the 
+c  temperature dependent Arrhenius relation 
+c  described in Zwinger (2007) Annals of Glaciology vol 45 p 29
+c  and used in (older versions of?) Elmer/Ice. 
+c
+c   A = E*A0*exp(-Qc / (R * T) ]
+c   where Qc = Qm = if theta < theta0; Qc = Qp otherwise.
+c   and   A0 = Am = if theta < theta0; A0 = Ap otherwise.
+c   Am is computed so that A is continuous with T
+c  A          <= 
+c  box        => box over which to compute A
+c  E          => enhancement factor
+c  Ap         => isotropic ice constant of proportionality for T > theta0
+c  theta      => temperature (Kelvin, corrected for pressure melting)
+c  theta0     => transition temperature (Kelvin, corrected for pressure melting)
+c  R          => R (gas constant)
+c  Qm         => Q- activation energy for T < theta0
+c  Qp         => Q+ activation energy for T > theta0
+c --------------------------------------------------------
+      subroutine COMPUTEZWINGERA(CHF_FRA1[A],
+     &     CHF_CONST_FRA1[theta],
+     &     CHF_CONST_FRA1[theta0],
+     &     CHF_BOX[box],
+     &     CHF_CONST_REAL[E],
+     &     CHF_CONST_REAL[Ap],
+     &     CHF_CONST_REAL[R],
+     &     CHF_CONST_REAL[Qm],
+     &     CHF_CONST_REAL[Qp])
 
+      integer CHF_AUTODECL[i]
+      REAL_T  A0,Am,QmOnR, QpOnR, thisA, QonR, T, T0
+   
+      QmOnR = Qm/R
+      QpOnR = Qp/R
+ 
+
+      CHF_AUTOMULTIDO[box;i]
+
+      T = theta(CHF_AUTOIX[i])
+      T0 = theta0(CHF_AUTOIX[i])
+      Am =  Ap * exp(-QpOnR *(one/T0)) / exp(-QmOnR *(one/T0))
+
+      if (T.ge.T0) then
+         QonR = QpOnR
+         A0 = Ap
+      else
+         QonR = QmOnR
+         A0 = Am
+      end if
+      
+      A(CHF_AUTOIX[i]) = E * A0 * exp(-QonR *(one/T))
+      
+      CHF_ENDDO
+
+      end subroutine
 
 c -------------------------------------------------------
 c  compute the factor mu0 in Glen's flow law from the 
