@@ -256,10 +256,12 @@ and assuming all goes well, netcdf 4.1.3 will now be installed in $BISICLES_HOME
 <p>
 So far, the only difference between parallel and serial netcdf installs 
 is the link to parallel hdf5 and the use of the MPI compiler wrapper. 
-Possibly, building two versions of netcdf is a waste of time.
+Possibly, building two versions of netcdf is a waste of time. 
+</p>
+<p><strong>update</strong> parallel netcdf may be needed to compile parallel glimmer-CISM, otherwise it can be skipped.</p>
 <pre>
 > cd $BISICLES_HOME/netcdf/parallel/src/netcdf-4.1.3/
-> CC=mpicc CXX=mpicxx  CPPFLAGS="-DgFortran -I$BISICLES_HOME/hdf5/parallel/include/" LDFLAGS=-L$BISICLES_HOME/hdf5/parallel/lib/  ./configure --prefix=$BISICLES_HOME/netcdf/parallel  --enable-shared=no --enable-static=yes --enable-dap=no
+> CC=mpicc CXX=mpiCC FC=mpif90  CPPFLAGS="-DgFortran -I$BISICLES_HOME/hdf5/parallel/include/" LDFLAGS=-L$BISICLES_HOME/hdf5/parallel/lib/  ./configure --prefix=$BISICLES_HOME/netcdf/parallel  --enable-shared=no --enable-static=yes --enable-dap=no
 > make  check install
 </pre>
 </p>
