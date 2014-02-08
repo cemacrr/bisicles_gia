@@ -59,7 +59,10 @@ struct BisiclesWrapper
   LevelDataSurfaceFlux* m_grounded_ice_basal_flux;
   BisiclesWrapper()
   {
-    
+    m_surface_flux = NULL;
+    m_basal_flux = NULL;
+    m_floating_ice_basal_flux = NULL;
+    m_grounded_ice_basal_flux = NULL;
   }
 
   ~BisiclesWrapper()
@@ -820,7 +823,7 @@ void bisicles_get_2d_data
       RealVect dxv; D_TERM(dxv[0] = dx[0];, dxv[1] = dx[1];, dxv[2] = dx[2]);
       AmrIce& amrIce = wrapper_ptr->m_amrIce;
       int n = amrIce.finestLevel() + 1;
-      Vector<LevelData<FArrayBox>* > usrf(n);
+      Vector<LevelData<FArrayBox>* > data(n);
       Vector<RealVect> amrDx(n);
 
       switch (*field)
@@ -829,12 +832,39 @@ void bisicles_get_2d_data
 	  
 	  for (int lev = 0; lev < n ; lev++)
 	    {
-	      usrf[lev] = const_cast<LevelData<FArrayBox>* >(&(amrIce.geometry(lev)->getSurfaceHeight()));
+	      data[lev] = const_cast<LevelData<FArrayBox>* >(&(amrIce.geometry(lev)->getSurfaceHeight()));
 	      amrDx[lev] = amrIce.dx(lev);
 	    }
 
-	  flattenCellData(*ptr,dxv,usrf,amrDx,true);
+	  flattenCellData(*ptr,dxv,data,amrDx,true);
 	  break;
+	  
+	case BISICLES_FIELD_BEDROCK_ELEVATION:
+	  
+	  for (int lev = 0; lev < n ; lev++)
+	    {
+	      data[lev] = const_cast<LevelData<FArrayBox>* >(&(amrIce.geometry(lev)->getTopography()));
+	      amrDx[lev] = amrIce.dx(lev);
+	    }
+	  
+	  flattenCellData(*ptr,dxv,data,amrDx,true);	
+	  
+	  break;
+
+	case BISICLES_FIELD_ICE_THICKNESS:
+	  
+	  for (int lev = 0; lev < n ; lev++)
+	    {
+	      data[lev] = const_cast<LevelData<FArrayBox>* >(&(amrIce.geometry(lev)->getH()));
+	      amrDx[lev] = amrIce.dx(lev);
+	    }
+	  
+	  flattenCellData(*ptr,dxv,data,amrDx,true);	
+	  
+	  break;
+
+	  
+
 	default: 
 	  MayDay::Error("bisicles_get_2d_data: unknown (or unimplemented) field");
 	}
