@@ -27,8 +27,6 @@ extern "C"
   /**
      
    */
-  
-
   void bisicles_set_2d_data(int *instance_id,  double *data_ptr, const int *field, 
 			  const double *dx, const int *dims, 
 			  const int *boxlo, const int *boxhi);
@@ -37,6 +35,18 @@ extern "C"
 			  const double *dx, const int *dims, 
 			     const int *boxlo, const int *boxhi);
  
+  /// instruct BISICLES to read 2d geometry (ice thickness and bedrock eleveation) data from an arrays at thck_data_ptr, topg_data_ptr.
+  /**
+     This special case exists because thck_data_ptr and *topg_data_ptr must be defined on the same BoxLayout
+  */
+  void bisicles_set_2d_geometry(int *instance_id,  double *thck_data_ptr, double *topg_data_ptr,
+				const double *dx, const int *dims, 
+				const int *boxlo, const int *boxhi);
+
+  void bisicles_set_2d_geometry_(int *instance_id,  double *thck_data_ptr, double *topg_data_ptr,
+				 const double *dx, const int *dims, 
+				 const int *boxlo, const int *boxhi);
+
 
   void bisicles_get_2d_data(int *intance_id, double *data_ptr, const int *field,
 			    const double *dx, const int *dims, 

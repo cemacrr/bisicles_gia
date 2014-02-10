@@ -57,17 +57,24 @@ struct BisiclesWrapper
   LevelDataSurfaceFlux* m_basal_flux;
   LevelDataSurfaceFlux* m_floating_ice_basal_flux;
   LevelDataSurfaceFlux* m_grounded_ice_basal_flux;
+  
+  //optional (initial) geometry data
+  RefCountedPtr<LevelData<FArrayBox> >m_geometry_ice_thickness;
+  RefCountedPtr<LevelData<FArrayBox> > m_geometry_bedrock_elevation;
+  RealVect m_geometry_dx;
+
   BisiclesWrapper()
   {
     m_surface_flux = NULL;
     m_basal_flux = NULL;
     m_floating_ice_basal_flux = NULL;
     m_grounded_ice_basal_flux = NULL;
+    m_geometry_dx = -RealVect::Unit;
   }
 
   ~BisiclesWrapper()
   {
-
+    
   }
 };
 
@@ -82,28 +89,34 @@ void bisicles_new_instance_(int *instance_id,  char *input_fname, const int *len
     input_fname[*len_fname - 1] = 0; // null terminate the string
     bisicles_new_instance(instance_id, input_fname);
   }
-   void bisicles_free_instance_(int *instance_id)
-  {
-    bisicles_free_instance(instance_id);
-  }
- void bisicles_set_2d_data_(int *instance_id,  double *data_ptr, const int *field, 
-			  const double *dx, const int *dims, 
-			  const int *boxlo, const int *boxhi)
-  {
-    bisicles_set_2d_data(instance_id,  data_ptr, field, 
-			      dx, dims, boxlo, boxhi);
-  }
+void bisicles_free_instance_(int *instance_id)
+{
+  bisicles_free_instance(instance_id);
+}
+void bisicles_set_2d_data_(int *instance_id,  double *data_ptr, const int *field, 
+			   const double *dx, const int *dims, 
+			   const int *boxlo, const int *boxhi)
+{
+  bisicles_set_2d_data(instance_id,  data_ptr, field, 
+		       dx, dims, boxlo, boxhi);
+}
 
+void bisicles_set_2d_geometry_(int *instance_id,  double *thck_data_ptr, double *topg_data_ptr, 
+			       const double *dx, const int *dims, 
+			       const int *boxlo, const int *boxhi)
+{
+  bisicles_set_2d_geometry(instance_id,  thck_data_ptr, topg_data_ptr,dx, dims, boxlo, boxhi);
+}
 
-  void bisicles_get_2d_data_(int *intance_id, double *data_ptr, const int *field,
-			    const double *dx, const int *dims, 
-			    const int *boxlo, const int *boxhi)
-  {
-    bisicles_get_2d_data(intance_id, data_ptr, field,
-			      dx, dims, boxlo, boxhi);
-    
-  }
- void bisicles_init_instance_(int *instance_id)
+void bisicles_get_2d_data_(int *intance_id, double *data_ptr, const int *field,
+			   const double *dx, const int *dims, 
+			   const int *boxlo, const int *boxhi)
+{
+  bisicles_get_2d_data(intance_id, data_ptr, field,
+		       dx, dims, boxlo, boxhi);
+  
+}
+void bisicles_init_instance_(int *instance_id)
   {
     bisicles_init_instance(instance_id);
   }
@@ -447,6 +460,15 @@ void init_bisicles_instance( int argc, char *argv[], const char *a_inputfile, Bi
     {
       thicknessIBC = new BasicThicknessIBC;
     }
+  else if (problem_type == "MemoryLevelData")
+    {
+      //read geometry from somewhere in memory and store in a LevelDataIBC
+      CH_assert(!a_wrapper.m_geometry_ice_thickness.isNull());
+      CH_assert(!a_wrapper.m_geometry_bedrock_elevation.isNull());
+      LevelDataIBC* ptr = new LevelDataIBC
+	(a_wrapper.m_geometry_ice_thickness, a_wrapper.m_geometry_bedrock_elevation, a_wrapper.m_geometry_dx);
+      thicknessIBC = static_cast<IceThicknessIBC*>( ptr);
+    }
   else if (problem_type == "LevelData")
     {
       //read geometry from an AMR Hierarchy, store in LevelDataIBC
@@ -758,6 +780,33 @@ namespace cwrapper
   }
 }
 
+
+void bisicles_set_2d_geometry
+(BisiclesWrapper* wrapper_ptr,   double *thck_data_ptr, double *topg_data_ptr, 
+ const double *dx, const int *dims, const int *boxlo, const int *boxhi)
+{
+  if (wrapper_ptr != NULL)
+    {
+      DisjointBoxLayout dbl;
+      cwrapper::defineDBL(dbl,dims,boxlo,boxhi);
+      RefCountedPtr<LevelData<FArrayBox> > thck_ptr(new LevelData<FArrayBox> (dbl, 1, IntVect::Zero));
+      RefCountedPtr<LevelData<FArrayBox> > topg_ptr(new LevelData<FArrayBox> (dbl, 1, IntVect::Zero));
+      DataIterator dit(dbl);
+      dit.reset();
+
+      if (dit.ok())
+	{
+	  (*thck_ptr)[dit].define(dbl[dit], 1, thck_data_ptr) ;
+	  (*topg_ptr)[dit].define(dbl[dit], 1, topg_data_ptr) ;
+	}
+      RealVect dxv; D_TERM(dxv[0] = dx[0];, dxv[1] = dx[1];, dxv[2] = dx[2]);
+
+      wrapper_ptr->m_geometry_ice_thickness = thck_ptr;
+      wrapper_ptr->m_geometry_bedrock_elevation = topg_ptr;
+      wrapper_ptr->m_geometry_dx = dxv;
+    }
+}
+
 void bisicles_set_2d_data
 (BisiclesWrapper* wrapper_ptr,   double *data_ptr, const int *field, 
  const double *dx, const int *dims, const int *boxlo, const int *boxhi)
@@ -793,7 +842,7 @@ void bisicles_set_2d_data
 	  wrapper_ptr->m_grounded_ice_basal_flux = new LevelDataSurfaceFlux(ptr, dxv);
 	  break;
 	default: 
-	  MayDay::Error("bisicles_get_2d_data: unknown (or unimplemented) field");
+	  MayDay::Error("bisicles_set_2d_data: unknown (or unimplemented) field");
 	}
       
 
@@ -955,6 +1004,22 @@ void bisicles_advance(int *instance_id, double *max_time, int *max_step)
 	}
     }
 }
+
+void bisicles_set_2d_geometry(int *instance_id,  double *thck_data_ptr, double *topg_data_ptr, 
+			      const double *dx, const int *dims, 
+			      const int *boxlo, const int *boxhi)
+{
+  if (instance_id) //\todo : check all pointers
+    {
+      std::map<int, BisiclesWrapper*>::iterator i 
+	= bisicles_c_wrapper::instances.find(*instance_id) ;
+      if (i != bisicles_c_wrapper::instances.end())
+	{
+	  bisicles_set_2d_geometry(i->second, thck_data_ptr, topg_data_ptr, dx, dims, boxlo, boxhi);
+	}
+    }
+}
+
 
 void bisicles_set_2d_data(int *instance_id,  double *data_ptr, const int *field, 
 			  const double *dx, const int *dims, 
