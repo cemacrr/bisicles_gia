@@ -12,7 +12,7 @@ DIM=2
 ## names of Chombo libraries needed by this program, in order of search.
 ##
 LibNames :=  AMRElliptic AMRTimeDependent AMRTools BoxTools BaseTools 
-src_dirs = ../src   
+src_dirs = ../src ../util
 
 include $(CHOMBO_HOME)/mk/Make.example
 
