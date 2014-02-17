@@ -73,7 +73,7 @@ c--------------------------------------------------
       Real_T pn
 
       CHF_AUTOMULTIDO[box; i]
-      pn = min(1.0,p(CHF_AUTOIX[i]))**n
+      pn = min(one,p(CHF_AUTOIX[i]))**n
 
       a(CHF_AUTOIX[i]) = (pn * a(CHF_AUTOIX[i])
      &     + (one - pn) *  b(CHF_AUTOIX[i]))

@@ -34,7 +34,7 @@ c     Find maximum gradient -- refine where max>cutoff
       dq(CHF_IX[i;j;k]) = 0
       do n = 0, ncomp-1
        dq(CHF_IX[i;j;k]) = max( abs(dq(CHF_IX[i;j;k])), 
-     &       0.5*abs( q(CHF_IX[i+ioff;j+joff;k+koff],n)
+     &       half*abs( q(CHF_IX[i+ioff;j+joff;k+koff],n)
      &         - q(CHF_IX[i-ioff;j-joff;k-koff],n) ))
       enddo
 
@@ -167,7 +167,7 @@ c     open sea : set beta = 100.0 (and hope that rhs, mu = 0)
 c     open land : set beta = 100.0 (and hope that rhs, mu = 0)
          beta(CHF_AUTOIX[i]) = max(1.0d+2,beta(CHF_AUTOIX[i]))
       else
-         beta(CHF_AUTOIX[i]) = max(1.0e-10,beta(CHF_AUTOIX[i]))
+         beta(CHF_AUTOIX[i]) = max(1.0d-10,beta(CHF_AUTOIX[i]))
       end if
       CHF_ENDDO
        
