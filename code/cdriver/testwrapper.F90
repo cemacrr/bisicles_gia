@@ -4,11 +4,9 @@
 program fwrapper
   ! Want to know how to run BISICLES from FORTRAN 90? Avoid learning
   ! C++ ? Follow the example below, but hang your head in shame
-
 #ifdef CH_MPI
   use mpi
-#endif
-  
+#endif	
   implicit none
   character(len=25) :: file
 
@@ -23,8 +21,8 @@ program fwrapper
 
 #ifdef CH_MPI
   call MPI_Init ( ierr )
-  call MPI_Comm_rank ( MPI_COMM_WORLD, rank, ierr )
-  call MPI_Comm_size ( MPI_COMM_WORLD, nproc, ierr )
+  call MPI_Comm_rank ( mpi_comm_world, rank, ierr )
+  call MPI_Comm_size ( mpi_comm_world, nproc, ierr )
 #else
   rank = 0
   nproc = 1
@@ -70,7 +68,7 @@ program fwrapper
   file = "inputs.pigv5.1km.l1l2.l1" 
   
   !create an instance
-  call bisicles_new_instance(instance_id, file, 25)
+  call f_bisicles_new_instance(instance_id, file, 25)
  
   !if (rank.le.1) then
      !now set up some uniform mesh data to read from / write to the interface
@@ -89,14 +87,14 @@ program fwrapper
      
      !tell BISICLES to read a surface flux from smb, and a basal fluxes from bmbf and bmbg
      smb = 1.0d0 +  dble(mod(rank,2))
-     call bisicles_set_2d_data(instance_id, smb, BISICLES_FIELD_SURFACE_FLUX, dx, dims, boxlo, boxhi)
+     call f_bisicles_set_2d_data(instance_id, smb, BISICLES_FIELD_SURFACE_FLUX, dx, dims, boxlo, boxhi)
      bmbf = -100.0d0
-     call bisicles_set_2d_data(instance_id, bmbf, BISICLES_FIELD_FLOATING_ICE_BASAL_FLUX, dx, dims, boxlo, boxhi)
+     call f_bisicles_set_2d_data(instance_id, bmbf, BISICLES_FIELD_FLOATING_ICE_BASAL_FLUX, dx, dims, boxlo, boxhi)
   !end if
 
   !At this point, we have given BISICLES as much data as it needs to run. So, initialize it here, at which point the AMR velocity problem gets solved (or a checkpoint loaded)
   !After this step we can still change the data in (say) smb but we cannot change its location
-  call bisicles_init_instance(instance_id)
+  call f_bisicles_init_instance(instance_id)
 
   !now do some time stepping
   nt = 3
@@ -105,7 +103,7 @@ program fwrapper
   do it = 1, nt
      !if (rank.le.1) then
         !read the surface elevation
-        call bisicles_get_2d_data(instance_id, usrf, BISICLES_FIELD_SURFACE_ELEVATION, dx, dims, boxlo, boxhi)
+        call f_bisicles_get_2d_data(instance_id, usrf, BISICLES_FIELD_SURFACE_ELEVATION, dx, dims, boxlo, boxhi)
         
         !re-compute the smb - just change the data. this is obviously a weird field that is supposed 
         !to show the domain decomposed reads/writes are working (look at surfaceThicknessBalance in the output)
@@ -114,15 +112,14 @@ program fwrapper
      !advance in time
      max_time = max_time + 1.0d0; !advance by one year
      max_step = max_step + 10; !unless it takes to long, in which case give up
-     call bisicles_advance(instance_id, max_time, max_step)
+     call f_bisicles_advance(instance_id, max_time, max_step)
      
   end do
 
   !free any memory allocated on the C++ side
-  call bisicles_free_instance(instance_id)
-
+  call f_bisicles_free_instance(instance_id)
 #ifdef CH_MPI
   call MPI_Finalize ( ierr )
-#endif  
+#endif
 
 end program fwrapper

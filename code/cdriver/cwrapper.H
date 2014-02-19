@@ -13,16 +13,13 @@
 #include "NamespaceHeader.H"
 extern "C"
 {
+
+ 
+
   ///create a new BISICLES instance, return an ID 
   void bisicles_new_instance(int *instance_id, const char *input_fname);
-
-  void bisicles_new_instance_(int *instance_id,  char *input_fname, const int *len_fname);
-  
-
   ///free the BISICLES instance specified by instance ID 
   void bisicles_free_instance(int *instance_id);
-
-  void bisicles_free_instance_(int *instance_id);
   /// instruct BISICLES to read 2d data from an array at data_ptr.
   /**
      
@@ -30,11 +27,6 @@ extern "C"
   void bisicles_set_2d_data(int *instance_id,  double *data_ptr, const int *field, 
 			  const double *dx, const int *dims, 
 			  const int *boxlo, const int *boxhi);
-
-  void bisicles_set_2d_data_(int *instance_id,  double *data_ptr, const int *field, 
-			  const double *dx, const int *dims, 
-			     const int *boxlo, const int *boxhi);
- 
   /// instruct BISICLES to read 2d geometry (ice thickness and bedrock eleveation) data from an arrays at thck_data_ptr, topg_data_ptr.
   /**
      This special case exists because thck_data_ptr and *topg_data_ptr must be defined on the same BoxLayout
@@ -42,29 +34,57 @@ extern "C"
   void bisicles_set_2d_geometry(int *instance_id,  double *thck_data_ptr, double *topg_data_ptr,
 				const double *dx, const int *dims, 
 				const int *boxlo, const int *boxhi);
-
-  void bisicles_set_2d_geometry_(int *instance_id,  double *thck_data_ptr, double *topg_data_ptr,
-				 const double *dx, const int *dims, 
-				 const int *boxlo, const int *boxhi);
-
-
+  
   void bisicles_get_2d_data(int *intance_id, double *data_ptr, const int *field,
 			    const double *dx, const int *dims, 
 			    const int *boxlo, const int *boxhi);
+  /// initialize bisicles 
+  void bisicles_init_instance(int *instance_id);
+  ///step BISICLES forward in time by up to max_time or max_steps (whichever is sooner)
+  void bisicles_advance(int *instance_id, double *max_time, int *max_step);
+  
+  
+  // FORTRAN compatibility stuff : function foo gets a f_foo_ and f_foo
+  void f_bisicles_new_instance_(int *instance_id,  char *input_fname, const int *len_fname);
 
-  void bisicles_get_2d_data_(int *intance_id, double *data_ptr, const int *field,
+  void f_bisicles_free_instance_(int *instance_id);
+
+  void f_bisicles_set_2d_data_(int *instance_id,  double *data_ptr, const int *field, 
+			  const double *dx, const int *dims, 
+			     const int *boxlo, const int *boxhi);
+
+  void f_bisicles_set_2d_geometry_(int *instance_id,  double *thck_data_ptr, double *topg_data_ptr,
+				 const double *dx, const int *dims, 
+				 const int *boxlo, const int *boxhi);
+
+  void f_bisicles_get_2d_data_(int *intance_id, double *data_ptr, const int *field,
 			    const double *dx, const int *dims, 
 			     const int *boxlo, const int *boxhi);
 
+  void f_bisicles_init_instance_(int *instance_id);
 
-  /// initialize bisicles 
-  void bisicles_init_instance(int *instance_id);
-  void bisicles_init_instance_(int *instance_id);
+  void f_bisicles_advance_(int *instance_id, double *max_time, int *max_step);
 
+  void f_bisicles_new_instance(int *instance_id,  char *input_fname, const int *len_fname);
 
-  ///step BISICLES forward in time by up to max_time or max_steps (whichever is sooner)
-  void bisicles_advance(int *instance_id, double *max_time, int *max_step);
-  void bisicles_advance_(int *instance_id, double *max_time, int *max_step);
+  void f_bisicles_free_instance(int *instance_id);
+
+  void f_bisicles_set_2d_data(int *instance_id,  double *data_ptr, const int *field, 
+			  const double *dx, const int *dims, 
+			     const int *boxlo, const int *boxhi);
+
+  void f_bisicles_set_2d_geometry(int *instance_id,  double *thck_data_ptr, double *topg_data_ptr,
+				 const double *dx, const int *dims, 
+				 const int *boxlo, const int *boxhi);
+
+  void f_bisicles_get_2d_data(int *intance_id, double *data_ptr, const int *field,
+			    const double *dx, const int *dims, 
+			     const int *boxlo, const int *boxhi);
+
+  void f_bisicles_init_instance(int *instance_id);
+
+  void f_bisicles_advance(int *instance_id, double *max_time, int *max_step);
+
 
 }
 #include "NamespaceFooter.H"

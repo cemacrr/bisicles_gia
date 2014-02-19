@@ -84,16 +84,16 @@ namespace bisicles_c_wrapper
 }
 
 //fortran wrappers
-void bisicles_new_instance_(int *instance_id,  char *input_fname, const int *len_fname)
+void f_bisicles_new_instance_(int *instance_id,  char *input_fname, const int *len_fname)
   {
     input_fname[*len_fname - 1] = 0; // null terminate the string
     bisicles_new_instance(instance_id, input_fname);
   }
-void bisicles_free_instance_(int *instance_id)
+void f_bisicles_free_instance_(int *instance_id)
 {
   bisicles_free_instance(instance_id);
 }
-void bisicles_set_2d_data_(int *instance_id,  double *data_ptr, const int *field, 
+void f_bisicles_set_2d_data_(int *instance_id,  double *data_ptr, const int *field, 
 			   const double *dx, const int *dims, 
 			   const int *boxlo, const int *boxhi)
 {
@@ -101,14 +101,14 @@ void bisicles_set_2d_data_(int *instance_id,  double *data_ptr, const int *field
 		       dx, dims, boxlo, boxhi);
 }
 
-void bisicles_set_2d_geometry_(int *instance_id,  double *thck_data_ptr, double *topg_data_ptr, 
+void f_bisicles_set_2d_geometry_(int *instance_id,  double *thck_data_ptr, double *topg_data_ptr, 
 			       const double *dx, const int *dims, 
 			       const int *boxlo, const int *boxhi)
 {
   bisicles_set_2d_geometry(instance_id,  thck_data_ptr, topg_data_ptr,dx, dims, boxlo, boxhi);
 }
 
-void bisicles_get_2d_data_(int *intance_id, double *data_ptr, const int *field,
+void f_bisicles_get_2d_data_(int *intance_id, double *data_ptr, const int *field,
 			   const double *dx, const int *dims, 
 			   const int *boxlo, const int *boxhi)
 {
@@ -116,14 +116,62 @@ void bisicles_get_2d_data_(int *intance_id, double *data_ptr, const int *field,
 		       dx, dims, boxlo, boxhi);
   
 }
-void bisicles_init_instance_(int *instance_id)
+
+void f_bisicles_init_instance_(int *instance_id)
   {
     bisicles_init_instance(instance_id);
   }
-void bisicles_advance_(int *instance_id, double *max_time, int *max_step)
+
+void f_bisicles_advance_(int *instance_id, double *max_time, int *max_step)
   {
     bisicles_advance(instance_id, max_time, max_step);
   }
+
+
+void f_bisicles_new_instance(int *instance_id,  char *input_fname, const int *len_fname)
+  {
+    input_fname[*len_fname - 1] = 0; // null terminate the string
+    bisicles_new_instance(instance_id, input_fname);
+  }
+void f_bisicles_free_instance(int *instance_id)
+{
+  bisicles_free_instance(instance_id);
+}
+void f_bisicles_set_2d_data(int *instance_id,  double *data_ptr, const int *field, 
+			   const double *dx, const int *dims, 
+			   const int *boxlo, const int *boxhi)
+{
+  bisicles_set_2d_data(instance_id,  data_ptr, field, 
+		       dx, dims, boxlo, boxhi);
+}
+
+void f_bisicles_set_2d_geometry(int *instance_id,  double *thck_data_ptr, double *topg_data_ptr, 
+			       const double *dx, const int *dims, 
+			       const int *boxlo, const int *boxhi)
+{
+  bisicles_set_2d_geometry(instance_id,  thck_data_ptr, topg_data_ptr,dx, dims, boxlo, boxhi);
+}
+
+void f_bisicles_get_2d_data(int *intance_id, double *data_ptr, const int *field,
+			   const double *dx, const int *dims, 
+			   const int *boxlo, const int *boxhi)
+{
+  bisicles_get_2d_data(intance_id, data_ptr, field,
+		       dx, dims, boxlo, boxhi);
+  
+}
+
+void f_bisicles_init_instance(int *instance_id)
+  {
+    bisicles_init_instance(instance_id);
+  }
+
+void f_bisicles_advance(int *instance_id, double *max_time, int *max_step)
+  {
+    bisicles_advance(instance_id, max_time, max_step);
+  }
+
+
 
 // initialize the AmrIce object in a wrapper. Any surface
 // fluxes specified in the wrapper will be added to whatever
