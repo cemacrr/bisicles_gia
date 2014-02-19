@@ -74,7 +74,14 @@ struct BisiclesWrapper
 
   ~BisiclesWrapper()
   {
-    
+    if (m_surface_flux != NULL) 
+      delete m_surface_flux;
+    if (m_basal_flux != NULL) 
+      delete m_basal_flux;
+    if (m_floating_ice_basal_flux != NULL) 
+      delete m_floating_ice_basal_flux;
+    if (m_grounded_ice_basal_flux != NULL) 
+      delete m_grounded_ice_basal_flux;
   }
 };
 
@@ -311,6 +318,7 @@ void init_bisicles_instance( int argc, char *argv[], const char *a_inputfile, Bi
     {
       AxbyFlux* ptr = new AxbyFlux(1.0, a_wrapper.m_surface_flux, 1.0, surf_flux_ptr);	
       amrObject.setSurfaceFlux(ptr);
+      delete(ptr);
     }
   else
     {
@@ -335,17 +343,18 @@ void init_bisicles_instance( int argc, char *argv[], const char *a_inputfile, Bi
   if ( a_wrapper.m_floating_ice_basal_flux || a_wrapper.m_grounded_ice_basal_flux)
     {
       //need to specify floating and grounded ice fluxes etc
-      SurfaceFlux* f;
+      // \todo fix this mess...
+      SurfaceFlux*   f; 
       if (a_wrapper.m_floating_ice_basal_flux == NULL)
 	{
 	  f = new zeroFlux();
 	}
       else
 	{
-	  f = a_wrapper.m_floating_ice_basal_flux;
+	   f = a_wrapper.m_floating_ice_basal_flux;
 	}
-
-      SurfaceFlux* g;
+      // \todo fix this mess...
+      SurfaceFlux*   g;
       if (a_wrapper.m_grounded_ice_basal_flux == NULL)
 	{
 	  g = new zeroFlux();
@@ -354,17 +363,16 @@ void init_bisicles_instance( int argc, char *argv[], const char *a_inputfile, Bi
 	{
 	  g = a_wrapper.m_grounded_ice_basal_flux;
 	}
-
-
       MaskedFlux* m = new MaskedFlux(g,f,f,g);
       AxbyFlux* ptr = new AxbyFlux(1.0, m , 1.0, basal_flux_ptr);
       amrObject.setBasalFlux(ptr); 
-
+      delete(ptr);
     }
   else if (a_wrapper.m_basal_flux)
     {
       AxbyFlux* ptr = new AxbyFlux(1.0, a_wrapper.m_basal_flux, 1.0, basal_flux_ptr);
       amrObject.setBasalFlux(ptr);
+      delete(ptr);
     }
   else
     {
@@ -844,7 +852,9 @@ void bisicles_set_2d_geometry
 
       if (dit.ok())
 	{
+	 
 	  (*thck_ptr)[dit].define(dbl[dit], 1, thck_data_ptr) ;
+	 
 	  (*topg_ptr)[dit].define(dbl[dit], 1, topg_data_ptr) ;
 	}
       RealVect dxv; D_TERM(dxv[0] = dx[0];, dxv[1] = dx[1];, dxv[2] = dx[2]);
@@ -870,6 +880,7 @@ void bisicles_set_2d_data
 
       if (dit.ok())
 	{
+	  
 	  (*ptr)[dit].define(dbl[dit], 1, data_ptr) ;
 	}
 
@@ -914,6 +925,7 @@ void bisicles_get_2d_data
       dit.reset();
       if (dit.ok())
 	{
+	  
 	  (*ptr)[dit].define(dbl[dit], 1, data_ptr) ;
 	}
 
@@ -1023,6 +1035,7 @@ void bisicles_init_instance(int *instance_id)
 
 void bisicles_free_instance(int *instance_id)
 {
+  
   if (instance_id)
     {
       std::map<int, BisiclesWrapper*>::iterator i 
