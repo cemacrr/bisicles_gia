@@ -14,6 +14,8 @@ DIM=2
 LibNames :=  AMRElliptic AMRTimeDependent AMRTools BoxTools BaseTools 
 src_dirs = ../src ../util
 
+CHOMBO_HOME=$(MODELROOT)/Chombo/lib
+
 include $(CHOMBO_HOME)/mk/Make.example
 
 VERBOSE=-v
