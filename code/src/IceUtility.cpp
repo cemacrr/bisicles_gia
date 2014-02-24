@@ -9,10 +9,12 @@
 */
 #endif
 
-#include "IceVelocity.H"
+#include "IceUtility.H"
 #include "IceConstants.H"
 #include "amrIceF_F.H"
+#include "BisiclesF_F.H"
 #include "AMRPoissonOpF_F.H"
+#include "AdvectPhysicsF_F.H"
 #include "QuadCFInterp.H"
 #include "CoarseAverage.H"
 #include "CoarseAverageFace.H"
@@ -20,10 +22,11 @@
 #include "DivergenceF_F.H"
 #include "PiecewiseLinearFillPatch.H"
 #include "L1L2ConstitutiveRelation.H"
+#include "computeSum.H"
 #include "NamespaceHeader.H"
 
 /// compute RHS for velocity field solve
-void IceVelocity::defineRHS(Vector<LevelData<FArrayBox>* >& a_rhs,
+void IceUtility::defineRHS(Vector<LevelData<FArrayBox>* >& a_rhs,
 			    const Vector<RefCountedPtr<LevelSigmaCS > >& a_CS,
 			    const Vector<DisjointBoxLayout>& a_grids,
 			    const Vector<RealVect>& a_dx)
@@ -77,7 +80,7 @@ void IceVelocity::defineRHS(Vector<LevelData<FArrayBox>* >& a_rhs,
 }
 
 // compute RHS for velocity field solve
-void IceVelocity::setFloatingC(Vector<LevelData<FArrayBox>* >& a_C,
+void IceUtility::setFloatingC(Vector<LevelData<FArrayBox>* >& a_C,
 			       const Vector<RefCountedPtr<LevelSigmaCS > >& a_CS,
 			       const Vector<DisjointBoxLayout>& a_grids,
 			       const Real& a_basalFrictionDecay)
@@ -110,7 +113,7 @@ void IceVelocity::setFloatingC(Vector<LevelData<FArrayBox>* >& a_C,
 //apply cell-centred helmholtz operator a phi + b grad^2(phi) 
 //to cell-centred phi. Assumes that boundary values have been
 //set.
-void IceVelocity::applyHelmOp
+void IceUtility::applyHelmOp
 (LevelData<FArrayBox>& a_lapPhi,
  const LevelData<FArrayBox>& a_phi, 
  const Real& a_a, const Real& a_b,
@@ -133,7 +136,7 @@ void IceVelocity::applyHelmOp
 //apply cell-centred  operator div(u)
 //to face-centred u. Assumes that ghost cells
 //have been set
-void IceVelocity::applyDiv
+void IceUtility::applyDiv
 (LevelData<FArrayBox>& a_divU,
  const LevelData<FluxBox>& a_u, 
  const DisjointBoxLayout& a_grids,
@@ -161,8 +164,8 @@ void IceVelocity::applyDiv
 //compute face-centered us given cell-centered
 //vector u and scalar s 
 //Assumes that boundary values have been set.
-//USES CENTERED DIFFERENCES
-void IceVelocity::computeFaceFlux
+//USES CENTERED SCHEME
+void IceUtility::computeFaceFluxCentered
 (LevelData<FluxBox>& a_us,
  const LevelData<FArrayBox>& a_u, 
  const LevelData<FArrayBox>& a_s, 
@@ -181,13 +184,39 @@ void IceVelocity::computeFaceFlux
   CellToEdge(ccus,a_us);
 }
 
-
+//compute face-centered us given cell-centered
+//vector u and scalar s 
+//Assumes that boundary values have been set.
+//USES FIRST ORDER UPWIND SCHEME
+void IceUtility::computeFaceFluxUpwind
+(LevelData<FluxBox>& a_us,
+ const LevelData<FluxBox>& a_u, 
+ const LevelData<FArrayBox>& a_s, 
+ const DisjointBoxLayout& a_grids)
+{
+  CH_assert(a_s.nComp() == 1);
+  CH_assert(a_us.nComp() == 1);
+  CH_assert(a_u.nComp() == 1);
+ 
+  for (DataIterator dit (a_grids); dit.ok(); ++dit)
+    {
+      for (int dir = 0; dir < SpaceDim; dir++)
+	{
+	  Box faceBox = a_grids[dit].surroundingNodes(dir);
+	  FORT_UPWINDFLUXB(CHF_FRA1(a_us[dit][dir],0),
+			  CHF_CONST_FRA1(a_u[dit][dir],0),
+			  CHF_CONST_FRA1(a_s[dit],0),
+			  CHF_CONST_INT(dir),
+			  CHF_BOX(faceBox));
+	}
+    }
+}
 
 
 //apply cell-centred gradient operator grad (phi) . grad(phi)
 //to cell-centred phi.Assumes that ghost cells
 //have been set
-void IceVelocity::applyGradSq
+void IceUtility::applyGradSq
 (LevelData<FArrayBox>& a_gradPhiSq,
  const LevelData<FArrayBox>& a_phi, 
  const DisjointBoxLayout& a_grids,
@@ -216,7 +245,7 @@ void IceVelocity::applyGradSq
 }
 
 //compute A(x,y,sigma) given temperature, geometry etc
-void IceVelocity::computeA
+void IceUtility::computeA
 (LevelData<FArrayBox>& a_A,
  const Vector<Real>& a_sigma,
  const LevelSigmaCS& a_coordSys,
@@ -264,7 +293,7 @@ void IceVelocity::computeA
 
 }
 
-void IceVelocity::addWallDrag(FArrayBox& a_drag, 
+void IceUtility::addWallDrag(FArrayBox& a_drag, 
 			      const BaseFab<int>& a_mask,
 			      const FArrayBox& a_usrf,
 			      const FArrayBox& a_thk,
@@ -301,7 +330,7 @@ void IceVelocity::addWallDrag(FArrayBox& a_drag,
     }
 }
 
-void IceVelocity::computeFaceVelocity
+void IceUtility::computeFaceVelocity
 (LevelData<FluxBox>& a_faceVelAdvection,
  LevelData<FluxBox>& a_faceVelTotal,
  LevelData<FluxBox>& a_faceDiffusivity,
@@ -506,6 +535,133 @@ void IceVelocity::computeFaceVelocity
 
 }
 
+///Identify regions of floating ice that are remote
+///from grounded ice and eliminate them.
+/**
+   Regions of floating ice unconnected to land 
+   lead to an ill-posed problem, with a zero
+   basal traction coefficient and Neumann boundary
+   conditions. Here, we attempt to identify them
+   by carrying out a procedure that in the worst case can be 
+   O(N^2). 
+*/ 
+void IceUtility::eliminateRemoteIce
+(Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+ const Vector<DisjointBoxLayout>& a_grids,
+ const Vector<ProblemDomain>& a_domain,
+ const Vector<int>& a_refRatio, Real a_crseDx,
+ int a_finestLevel, int a_maxIter)
+{
+  CH_TIME("IceUtility::eliminateRemoteIce");
+  //Define phi = 1 on grounded ice, 0 elsewhere
+  Vector<LevelData<FArrayBox>* > phi(a_finestLevel + 1, NULL);
+  for (int lev=0; lev <= a_finestLevel ; ++lev)
+    {
+      const DisjointBoxLayout& levelGrids = a_grids[lev];
+      LevelSigmaCS& levelCS = *a_coordSys[lev];
+      phi[lev] = new LevelData<FArrayBox>(levelGrids,1,IntVect::Unit);
+      for (DataIterator dit(levelGrids); dit.ok(); ++dit)
+	{
+	  const FArrayBox& thisH = levelCS.getH()[dit];
+	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
+	  FArrayBox& thisPhi = (*phi[lev])[dit];
+	  thisPhi.setVal(0.0);
+	  Real a = 1.0;
+	  int b = GROUNDEDMASKVAL;
+	  FORT_SETONMASK(CHF_FRA1(thisPhi,0),
+			 CHF_CONST_FIA1(mask,0),
+			 CHF_CONST_INT(b),CHF_CONST_REAL(a),
+			 CHF_BOX(levelGrids[dit]));
+			 
+	}
+    }
+ 
+  int iter = 0; 
+  Real sumPhi = computeSum(phi, a_refRatio ,a_crseDx, Interval(0,0), 0);
+  Real oldSumPhi = 0.0;
+  
+  do {
+    oldSumPhi = sumPhi;
+    
+    
+    for (int lev=0; lev <= a_finestLevel ; ++lev)
+      {
+	LevelData<FArrayBox>& levelPhi = *phi[lev];
+	LevelSigmaCS& levelCS = *a_coordSys[lev];
+	const DisjointBoxLayout& levelGrids = a_grids[lev];
+	
+	if (lev > 0)
+	  {
+	    //fill ghost cells
+	    PiecewiseLinearFillPatch ghostFiller(levelGrids, 
+						 a_grids[lev-1],
+						 1, 
+						 a_domain[lev-1],
+						 a_refRatio[lev-1],
+						 1);
+	    
+	    ghostFiller.fillInterp(levelPhi, *phi[lev-1],*phi[lev-1] , 0.0, 0, 0, 1);
+	    
+	  }
+	
+	for  (DataIterator dit(levelGrids); dit.ok(); ++dit)
+	  {
+	    //sweep in all four directions, copying phi = 1 into cells with thickness > tol 
+	    Real tol = 1.0;
+	    FORT_SWEEPCONNECTED2D(CHF_FRA1(levelPhi[dit],0),
+				  CHF_CONST_FRA1(levelCS.getH()[dit],0),
+				  CHF_CONST_REAL(tol), 
+				  CHF_BOX(levelGrids[dit]));
+	  }
+
+	
+	levelPhi.exchange();
+      }
+    
+    
+    sumPhi = computeSum(phi, a_refRatio, a_crseDx, Interval(0,0), 0);
+    iter++;
+  } while ( iter < a_maxIter && sumPhi > oldSumPhi );
+  
+  //now destroy the doomed regions, and reset a_coordSys
+  for (int lev=0; lev <= a_finestLevel ; ++lev)
+    {
+      const LevelData<FArrayBox>& levelPhi = *phi[lev];
+      LevelSigmaCS& levelCS = *a_coordSys[lev];
+      const DisjointBoxLayout& levelGrids = a_grids[lev];
+      
+      for (DataIterator dit(levelGrids); dit.ok(); ++dit)
+	{
+	  const FArrayBox& thisPhi = levelPhi[dit];
+	  FArrayBox& thisH = levelCS.getH()[dit];
+
+	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
+	  for (BoxIterator bit(levelGrids[dit]); bit.ok(); ++bit)
+	    {
+	      const IntVect& iv = bit();
+	      if (mask(iv) == FLOATINGMASKVAL && thisPhi(iv) < 0.5)
+	      	{
+		  thisH(iv) = 0.0;
+	      	}
+
+	    }
+	}
+
+      LevelSigmaCS* crseCS = (lev > 0)?&(*a_coordSys[lev-1]):NULL;
+      int refRatio = (lev > 0)?a_refRatio[lev-1]:-1;
+      levelCS.recomputeGeometry(crseCS, refRatio);     
+    }
+
+  for (int lev=0; lev <= a_finestLevel ; ++lev)
+    {
+      if (phi[lev] != NULL)
+ 	{
+ 	  delete phi[lev];
+ 	  phi[lev] = NULL;
+ 	}
+    }
+
+}
 
 
 #include "NamespaceFooter.H"

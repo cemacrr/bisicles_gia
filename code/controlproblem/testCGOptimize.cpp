@@ -82,6 +82,7 @@ public:
     return f;
   }
   
+  void restart(){}
 
   void computeObjectiveAndGradient(Real& f, Real& r, RealVector& g, const  RealVector& x, bool a_inner)
   {

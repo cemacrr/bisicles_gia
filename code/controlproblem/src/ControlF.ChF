@@ -129,6 +129,28 @@ c x <- (min(ub,max(lb,x)))
       return
       end
 
+c----------------------------------------------------
+c z <- y + (min(ub,max(lb,x)))
+      subroutine incrboundctrl( 
+     &     CHF_FRA1[z], 
+     &     CHF_CONST_FRA1[y],
+     &     CHF_CONST_FRA1[x],
+     &     CHF_CONST_REAL[lb],
+     &     CHF_CONST_REAL[ub],  
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      REAL_T t
+
+      CHF_AUTOMULTIDO[box; i]
+      t = x(CHF_AUTOIX[i])
+      z(CHF_AUTOIX[i]) = y(CHF_AUTOIX[i]) +  min(ub,max(lb,t))
+      CHF_ENDDO
+      return
+      end
+
+
+
 c--------------------------------------------------------
 c barrier penalty p and its gradient g
 c p = -ln( (x+b+tol)*(b+tol-x) / b^2), where b > 0
@@ -240,6 +262,88 @@ c-------------------------------------
             CHF_ENDDO
          end do
       end if
+
+      return
+      end
+
+c----------------------------------------------------
+c set dh <- max(-h, dh)
+c and topg <- topg + d
+c d = max(-dh, -(h+dh)*r - topg) on land 
+c d = min(-dh, -(h+dh)*r - topg) in shelf
+c ie modify topg so that the mask does not change
+c and subject to that, the surface does not change
+c----------------------------------------------------
+
+      subroutine updatehctrl(CHF_FRA1[h],
+     &     CHF_FRA1[topg], CHF_FRA1[dh],
+     &     CHF_CONST_FIA1[mask], CHF_CONST_REAL[r],
+     &     CHF_BOX[box])
+
+      
+      integer CHF_AUTODECL[i]
+      REAL_T d, t
+
+      CHF_AUTOMULTIDO[box; i]
+      dh(CHF_AUTOIX[i]) = max(dh(CHF_AUTOIX[i]),-h(CHF_AUTOIX[i]))
+
+      if ( h(CHF_AUTOIX[i]) .lt. TINY_THICKNESS) then
+         dh(CHF_AUTOIX[i]) = zero
+      end if
+
+      h(CHF_AUTOIX[i]) = h(CHF_AUTOIX[i]) + dh(CHF_AUTOIX[i])
+      t = -h(CHF_AUTOIX[i])*r - topg(CHF_AUTOIX[i])
+      
+      if (mask (CHF_AUTOIX[i]) .eq. FLOATINGMASKVAL) then
+         d = min(-dh(CHF_AUTOIX[i]), t) 
+      else if (mask (CHF_AUTOIX[i]) .eq. GROUNDEDMASKVAL) then
+         d = max(-dh(CHF_AUTOIX[i]), t) 
+      end if
+      topg(CHF_AUTOIX[i]) = topg(CHF_AUTOIX[i]) + d
+      CHF_ENDDO
+
+      return
+      end
+
+
+c----------------------------------------------------
+c set dh <- max(-h, dh)
+c and topg <- topg + d
+c d = -dh on land
+c d = min(-dh, -(h+dh)*r - topg) in shelf
+c ie modify topg so that the mask does not change
+c for floating ice and the surface does not change for grounded ice
+c So, the grounding line can retreat but not re-advance
+c----------------------------------------------------
+
+      subroutine updatehctrlb(CHF_FRA1[h],
+     &     CHF_FRA1[topg], CHF_FRA1[dh],
+     &     CHF_CONST_FIA1[mask], CHF_CONST_REAL[r],
+     &     CHF_BOX[box])
+
+      
+      integer CHF_AUTODECL[i]
+      REAL_T d, t
+
+      CHF_AUTOMULTIDO[box; i]
+      dh(CHF_AUTOIX[i]) = max(dh(CHF_AUTOIX[i]),-h(CHF_AUTOIX[i]))
+
+      if ( h(CHF_AUTOIX[i]) .lt. TINY_THICKNESS) then
+         dh(CHF_AUTOIX[i]) = zero
+      end if
+
+      h(CHF_AUTOIX[i]) = h(CHF_AUTOIX[i]) + dh(CHF_AUTOIX[i])
+      t = -h(CHF_AUTOIX[i])*r - topg(CHF_AUTOIX[i])
+      
+      if (mask (CHF_AUTOIX[i]) .eq. FLOATINGMASKVAL) then
+         d = min(-dh(CHF_AUTOIX[i]), t) 
+      else if (mask (CHF_AUTOIX[i]) .eq. GROUNDEDMASKVAL) then
+         d = -dh(CHF_AUTOIX[i])
+      else
+         d = zero
+      end if
+      topg(CHF_AUTOIX[i]) = topg(CHF_AUTOIX[i]) + d
+      CHF_ENDDO
 
       return
       end

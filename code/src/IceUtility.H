@@ -7,15 +7,16 @@
 *    Please refer to Copyright.txt, in Chombo's root directory.
 */
 #endif
-#ifndef _ICEVELOCITY_H_
-#define _ICEVELOCITY_H_
+#ifndef _ICEUTILITY_H_
+#define _ICEUTILITY_H_
 #include "Vector.H"
 #include "LevelSigmaCS.H"
 #include "ConstitutiveRelation.H"
 #include "IceThicknessIBC.H"
 #include "NamespaceHeader.H"
 
-namespace IceVelocity
+/// IceUtility namespace : general purpose ice sheet functions common to the 'big' classes (AmrIce and AMRIceControl for now)
+namespace IceUtility
 {
 
   void addWallDrag(FArrayBox& a_drag, 
@@ -39,6 +40,7 @@ namespace IceVelocity
 		    const Vector<DisjointBoxLayout>& a_grids,
 		    const Real& a_basalFrictionDecay);
 
+  /// compute the operator L phi = a * phi + b * grad^2 (phi) 
   void applyHelmOp
   (LevelData<FArrayBox>& a_lapPhi,
    const LevelData<FArrayBox>& a_phi, 
@@ -46,32 +48,43 @@ namespace IceVelocity
    const DisjointBoxLayout& a_grids,
    const RealVect& a_dx);
 
-  //apply cell-centred  operator div(u)
-  //to face-centred u. Assumes that ghost cells
-  //have been set
+  ///apply cell-centred  operator div(phi) to face-centred u. 
+  ///Assumes that ghost cells have been set
   void applyDiv
   (LevelData<FArrayBox>& a_divU,
    const LevelData<FluxBox>& a_u, 
    const DisjointBoxLayout& a_grids,
    const RealVect& a_dx);
 
+  ///apply cell-centred  operator [grad(phi)]^2 to face-centred u. 
+  ///Assumes that ghost cells have been set
   void applyGradSq
   (LevelData<FArrayBox>& a_gradPhiSq,
    const LevelData<FArrayBox>& a_phi, 
    const DisjointBoxLayout& a_grids, 
    const RealVect& a_dx);
  
-//compute face-centered us given cell-centered
-//vector u and scalar s 
-//Assumes that boundary values have been set.
-//USES CENTERED DIFFERENCES
-  void computeFaceFlux
+  ///compute face-centered us given cell-centered
+  ///vector u and scalar s 
+  ///Assumes that boundary values have been set.
+  ///USES CENTERED SCHEME
+  void computeFaceFluxCentered
   (LevelData<FluxBox>& a_us,
    const LevelData<FArrayBox>& a_u, 
    const LevelData<FArrayBox>& a_s, 
    const DisjointBoxLayout& a_grids);
 
+  ///compute face-centered us given cell-centered
+  ///vector u and scalar s 
+  ///Assumes that boundary values have been set.
+  ///USES  FIRST ORDER UPWIND SCHEME
+  void computeFaceFluxUpwind
+  (LevelData<FluxBox>& a_us,
+   const LevelData<FluxBox>& a_u, 
+   const LevelData<FArrayBox>& a_s, 
+   const DisjointBoxLayout& a_grids);
 
+  ///compute cell centered rate factor A from the temperature 
   void computeA
   (LevelData<FArrayBox>& a_A,
    const Vector<Real>& a_sigma,
@@ -79,7 +92,7 @@ namespace IceVelocity
    const RateFactor* a_rateFactor,
    const LevelData<FArrayBox>& a_temperature);
 
-
+  ///compute face-centered velocity and thickness diffusion coefficients from cell-centered velocity
   void computeFaceVelocity
   (LevelData<FluxBox>& a_faceVelAdvection,
    LevelData<FluxBox>& a_faceVelTotal,
@@ -103,6 +116,15 @@ namespace IceVelocity
    const ConstitutiveRelation* a_constitutiveRelation,
    const bool a_additionalVelocity); 
 
+  ///Identify regions of floating ice that are remote
+  ///from grounded ice and eliminate them.
+  void eliminateRemoteIce
+  (Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+   const Vector<DisjointBoxLayout>& a_grids,
+   const Vector<ProblemDomain>& a_domain,
+   const Vector<int>& a_refRatio, Real a_crseDx,
+   int a_finestLevel, int a_maxIter);
+  
 }
 
 #include "NamespaceFooter.H"

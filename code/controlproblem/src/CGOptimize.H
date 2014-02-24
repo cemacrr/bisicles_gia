@@ -151,6 +151,7 @@ void CGOptimize(O& a_F, X& a_x,
 	  pout() << "CGOptimize restart k = " << k 
 		 << " beta = " << beta << std::endl;
 	  a_F.assign(d,s);
+	  a_F.restart();
 	  k = 0;
 	}
       else

@@ -33,9 +33,10 @@
 #include "CoarseAverageFace.H"
 #include "computeNorm.H"
 #include "computeSum.H"
-#include "IceVelocity.H"
+#include "IceUtility.H"
 #include "IceConstants.H"
 #include "JFNKSolver.H"
+#include "AMRPoissonOp.H"
 #include <sstream>
 #include "NamespaceHeader.H"
 
@@ -218,7 +219,7 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   create(m_adjVel,SpaceDim,IntVect::Unit);
 
   create(m_rhs,SpaceDim,IntVect::Unit);
-  IceVelocity::defineRHS(m_rhs, m_coordSys, m_grids, m_dx);
+  IceUtility::defineRHS(m_rhs, m_coordSys, m_grids, m_dx);
   
   create(m_adjRhs,SpaceDim,IntVect::Unit);
 
@@ -234,6 +235,19 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   //create(m_muCoef,1,IntVect::Unit);
   create(m_faceMuCoef,1,IntVect::Zero);
 
+  //copy of the original thickness
+  create(m_thicknessOrigin, 1, IntVect::Unit);
+  create(m_lapThickness,1,IntVect::Zero);
+  create(m_gradThicknessSq,1,IntVect::Zero);
+  for (int lev = 0; lev <= m_finestLevel; ++lev)
+    {
+      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	{
+	  const FArrayBox& thck = m_coordSys[lev]->getH()[dit];
+	  (*m_thicknessOrigin[lev])[dit].copy(thck);
+	}
+    }
+
   create(m_divUH,1,IntVect::Unit);
   create(m_faceThckFlux,1,IntVect::Unit);
   
@@ -248,7 +262,7 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
        m_tempIBCPtr->initializeIceTemperature
 	 (*m_temperature[lev], *m_sTemperature[lev], *m_bTemperature[lev],*m_coordSys[lev]);
 
-      IceVelocity::computeA(*m_A[lev],m_coordSys[lev]->getSigma(), *m_coordSys[lev], m_rateFactor, *m_temperature[lev]);
+      IceUtility::computeA(*m_A[lev],m_coordSys[lev]->getSigma(), *m_coordSys[lev], m_rateFactor, *m_temperature[lev]);
       CellToEdge(*m_A[lev], *m_faceA[lev]);
     }
   
@@ -290,12 +304,12 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
 
   m_velocityInitialised = false;
 
-  m_referenceCOrigin = NULL;
-  m_referenceMuCoefOrigin = NULL; 
-  m_referenceVelObs = NULL;
-  m_referenceVelCoef = NULL;
-  m_referenceDivUHObs =NULL;
-  m_referenceDivUHCoef =  NULL;
+  // m_referenceCOrigin = NULL;
+  // m_referenceMuCoefOrigin = NULL; 
+  // m_referenceVelObs = NULL;
+  // m_referenceVelCoef = NULL;
+  // m_referenceDivUHObs =NULL;
+  // m_referenceDivUHCoef =  NULL;
 
 
 
@@ -474,27 +488,25 @@ void AMRIceControl::solveControl()
   m_gradMuCoefsqRegularization = m_gradCsqRegularization;
   pp.query("gradMuCoefsqRegularization",m_gradMuCoefsqRegularization);
 
+  m_gradHsqRegularization =  m_gradCsqRegularization;
+  pp.query("gradHsqRegularization",m_gradHsqRegularization);
+
   m_X0Regularization = 0.0;
   pp.query("X0Regularization",m_X0Regularization);
 
   m_X1Regularization = 0.0;
   pp.query("X1Regularization",m_X1Regularization);
 
-  m_muCoefLEQOne = false;
-  pp.query("muCoefLEQOne",m_muCoefLEQOne);
-  m_muCoefLEQOneGround = false;
-  pp.query("muCoefLEQOneGround",m_muCoefLEQOneGround);
-  m_muCoefGEQOne = false;
-  pp.query("muCoefGEQOne",m_muCoefGEQOne);
-  m_muCoefGEQOneGround = false;
-  pp.query("muCoefGEQOneGround",m_muCoefGEQOneGround);
+  m_X2Regularization = 0.0;
+  pp.query("X2Regularization",m_X2Regularization);
 
-  
 
   m_boundArgX0 = 3.0;
   m_boundArgX1 = 2.0;
+  m_boundArgX2 = 0.0;
   pp.query("boundArgX0",m_boundArgX0);
   pp.query("boundArgX1",m_boundArgX1);
+  pp.query("boundArgX2",m_boundArgX2);
 
   m_lowerX0 = - m_boundArgX0;
   m_upperX0 = + m_boundArgX0;
@@ -505,6 +517,12 @@ void AMRIceControl::solveControl()
   m_upperX1 = + m_boundArgX1;
   pp.query("lowerX1",m_lowerX1);
   pp.query("upperX1",m_upperX1);
+
+  m_lowerX2 = - m_boundArgX2;
+  m_upperX2 = + m_boundArgX2;
+  pp.query("lowerX2",m_lowerX2);
+  pp.query("upperX2",m_upperX2);
+
 
   {
     std::string s = "None";
@@ -525,7 +543,7 @@ void AMRIceControl::solveControl()
 
 
   Vector<LevelData<FArrayBox>* > X;
-  create(X,2,IntVect::Zero);
+  create(X,3,IntVect::Zero);
   setToZero(X);
 
   m_writeInnerSteps = false;
@@ -540,8 +558,19 @@ void AMRIceControl::solveControl()
   m_outerCounter = 0;
   pp.query("restart",m_outerCounter);
 
+  m_restartInterval = 10;
+  pp.query("restartInterval",m_restartInterval);
 
-  
+  m_evolve = false;
+  m_evolveOnRestart = false;
+  pp.query("evolveOnRestart",m_evolveOnRestart);
+  m_evolveDt = 0.01;
+  pp.query("evolveDt",m_evolveDt);
+  m_evolveTime = 1.0;
+  pp.query("evolveTime",m_evolveTime);
+  m_evolveMeltRateLengthScale = 0.4e+4 ; //4 km smoothness scale
+  pp.query("evolveMeltRateLengthScale",m_evolveMeltRateLengthScale);
+
   if (m_outerCounter > 0)
     {
       
@@ -549,7 +578,8 @@ void AMRIceControl::solveControl()
       pout() << "restarting from " << restartfile << std::endl;
       readState(restartfile, m_innerCounter, X);
       m_outerCounter++;
-      m_velocityInitialised = true;      
+      m_velocityInitialised = true;
+      restart();
     }
   else
     {
@@ -595,6 +625,9 @@ AMRIceControl::~AMRIceControl()
   free(m_gradMuCoefSq);
   free(m_faceMuCoef);
   free(m_divUH);
+  free(m_thicknessOrigin);
+  free(m_lapThickness);
+  free(m_gradThicknessSq);
   free(m_faceThckFlux);
   free(m_temperature);
   free(m_sTemperature);
@@ -749,10 +782,10 @@ Real AMRIceControl::dotProduct
 
 }
 
-// how many degrees of freedom are there in x?
+// max no of CG iterations before restart.
 int AMRIceControl::nDoF(const Vector<LevelData<FArrayBox>* >& x)
 {
-  return 10;
+  return m_restartInterval;
 }
 void AMRIceControl::checkBounds(Vector<LevelData<FArrayBox>* >& a_X)
 {
@@ -769,11 +802,288 @@ void AMRIceControl::checkBounds(Vector<LevelData<FArrayBox>* >& a_X)
 	  		 CHF_CONST_REAL(m_lowerX1),
 			 CHF_CONST_REAL(m_upperX1),
 	  		 CHF_BOX(x.box()));
+	  FORT_BOUNDCTRL(CHF_FRA1(x,2),
+	  		 CHF_CONST_REAL(m_lowerX2),
+			 CHF_CONST_REAL(m_upperX2),
+	  		 CHF_BOX(x.box()));
 
 	}
     }
 
 }
+
+
+void AMRIceControl::helmholtzSolve
+(Vector<LevelData<FArrayBox>* >& a_phi,
+ const Vector<LevelData<FArrayBox>* >& a_rhs,
+ Real a_alpha, Real a_beta) const
+{
+  CH_assert(a_phi[0]->nComp() == 1);
+  // AMRPoissonOp supports only one component of phi
+
+  //Natural boundary conditions
+  BCHolder bc(ConstDiriNeumBC(IntVect::Zero, RealVect::Zero,
+			      IntVect::Zero, RealVect::Zero));
+      
+      
+  AMRPoissonOpFactory opf;
+  opf.define(m_domain[0],  m_grids , m_refRatio,
+	     m_dx[0][0], bc, a_alpha, -a_beta );
+  
+  AMRMultiGrid<LevelData<FArrayBox> > mgSolver;
+  BiCGStabSolver<LevelData<FArrayBox> > bottomSolver;
+  mgSolver.define(m_domain[0], opf, &bottomSolver, m_finestLevel+1);
+  mgSolver.m_eps = TINY_NORM;
+  mgSolver.m_normThresh = TINY_NORM;
+  mgSolver.m_iterMax = 8;
+  int numMGSmooth = 4;
+  mgSolver.m_pre = numMGSmooth;
+  mgSolver.m_post = numMGSmooth;
+  mgSolver.m_bottom = numMGSmooth;
+  mgSolver.m_verbosity = 3;
+  
+  mgSolver.solve(a_phi, a_rhs, m_finestLevel, 0,  false);
+  
+  
+}
+
+
+
+void AMRIceControl::helmholtzSolve
+(Vector<LevelData<FArrayBox>* >& a_phi, Real a_alpha, Real a_beta) const
+{
+  
+  Vector<LevelData<FArrayBox>* > rhs(m_finestLevel + 1, NULL);
+ 
+  for (int lev=0; lev < m_finestLevel + 1; ++lev)
+    {
+      const LevelData<FArrayBox>& levelPhi = *a_phi[lev]; 
+      rhs[lev] = new LevelData<FArrayBox>
+	(m_grids[lev], levelPhi.nComp(), IntVect::Zero);
+      levelPhi.copyTo(*rhs[lev]);
+    }
+ 
+  helmholtzSolve(a_phi, rhs, a_alpha, a_beta);
+
+  for (int lev=0; lev < m_finestLevel + 1; ++lev)
+     {
+       if (rhs[lev] != NULL){
+	 delete rhs[lev];
+	 rhs[lev] = NULL;
+       }
+     }
+
+}
+
+
+void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
+{
+
+  
+  int nStep = int ( a_time/a_dt) ;
+
+  Vector<LevelData<FArrayBox>*> x(m_finestLevel+1);
+  Vector<LevelData<FArrayBox>*> g(m_finestLevel+1);
+  for (int lev = 0; lev <= m_finestLevel;lev++)
+    {
+      x[lev]  = new LevelData<FArrayBox>(m_grids[lev],3,IntVect::Zero);
+      g[lev]  = new LevelData<FArrayBox>(m_grids[lev],3,IntVect::Zero);
+    }
+  writeState("preAdvect.2d.hdf5", m_innerCounter, x,g );
+
+
+  for (int step = 0; step < nStep ; step++)
+    {
+      pout() << "AMRIceControl::restart timestep " << step << std::endl;
+      //compute the surface velocity and face-centered fluxes.
+      LevelData<FArrayBox>* cellDiffusivity = NULL;
+      
+      for (int lev = 0; lev <= m_finestLevel ;lev++)
+	{
+	  int nLayer = m_A[lev]->nComp();
+	  LevelData<FArrayBox> layerSFaceXYVel(m_grids[lev],SpaceDim*(nLayer+1), IntVect::Unit);
+	  LevelData<FluxBox> layerXYFaceXYVel(m_grids[lev],nLayer, IntVect::Unit);
+	  LevelData<FluxBox> faceVelAdvection(m_grids[lev],1, IntVect::Unit);
+	  LevelData<FluxBox> faceVelTotal(m_grids[lev],1, IntVect::Unit);
+	  LevelData<FluxBox> faceDiffusivity(m_grids[lev],1, IntVect::Unit);
+	  
+	  LevelData<FArrayBox>* crseCellDiffusivityPtr = 
+	    (lev > 0)?cellDiffusivity:NULL;
+      
+	  cellDiffusivity = new LevelData<FArrayBox>(m_grids[lev],1,IntVect::Unit);
+	  CH_assert(cellDiffusivity != NULL);
+	  LevelData<FArrayBox> sA(m_grids[lev],1, IntVect::Unit);
+	  LevelData<FArrayBox> bA(m_grids[lev],1, IntVect::Unit);
+	  
+	  for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	    {
+	      const FArrayBox& A = (*m_A[lev])[dit];
+	      sA[dit].copy(A,0,0);
+	      bA[dit].copy(A,nLayer-1,0);
+	    }
+	  
+	  IceUtility::computeFaceVelocity
+	    (faceVelAdvection, faceVelTotal, faceDiffusivity, *cellDiffusivity, 
+	     layerXYFaceXYVel,  layerSFaceXYVel,
+	     *m_velb[lev], *m_coordSys[lev],m_ibcPtr,
+	     *m_A[lev], sA, bA,
+	     (lev > 0)?m_velb[lev-1]:NULL,
+	     crseCellDiffusivityPtr,
+	     (lev > 0)?m_refRatio[lev-1]:1,
+	     m_constRelPtr, false);
+      
+	  //face-centered fluxes will be needed to compute div(UH)
+	  IceUtility::computeFaceFluxUpwind
+	    (*m_faceThckFlux[lev],faceVelAdvection,m_coordSys[lev]->getH(),m_grids[lev]);
+	  
+	  if (crseCellDiffusivityPtr != NULL)
+	    delete crseCellDiffusivityPtr;
+	  
+	  layerSFaceXYVel.copyTo(Interval(0,1),*m_vels[lev],Interval(0,1));
+	}
+      if (cellDiffusivity != NULL)
+	delete cellDiffusivity;
+
+      // coarse average fluxes to covered regions
+      for (int lev= m_finestLevel; lev>0; lev--)
+	{
+	  CoarseAverageFace faceAverager(m_grids[lev],
+					 1, m_refRatio[lev-1]);
+	  faceAverager.averageToCoarse(*m_faceThckFlux[lev-1], *m_faceThckFlux[lev]);
+	}
+      
+      if (step == 0)
+	{
+	  //compute a smoothed melt-rate such that set m_divUHObs \approx m_divUH in the ice shelf 
+	  //(using m_divUH as workspace)
+	  for (int lev=0; lev <= m_finestLevel ;lev++)
+	    {
+	      IceUtility::applyDiv(*m_divUH[lev],*m_faceThckFlux[lev],
+				    m_grids[lev],m_dx[lev]);
+
+	      //set m_divUH to zero outside of the ice : this avoids
+	      //a melt spike at the calving front
+	      Real tol = 1.0;
+	      for (DataIterator dit(m_grids[lev]); dit.ok(); ++dit)
+		{
+		  const FArrayBox& H = m_coordSys[lev]->getH()[dit];
+		  FArrayBox& m = (*m_divUH[lev])[dit];
+		  for (BoxIterator bit(m_grids[lev][dit]);bit.ok();++bit)
+		    {
+		      const IntVect& iv = bit();
+		      if ( H(iv) < tol )
+			{
+			  m(iv) = 0.0;
+			}
+		    }
+		}
+
+	      m_divUH[lev]->exchange();
+	    }
+	  
+	  Real alpha = 1.0; Real scale = m_evolveMeltRateLengthScale ; 
+	  helmholtzSolve(m_divUH, alpha, alpha*scale*scale);
+
+	  //update the 'observed' melt-rate, chosing the largest negative value to minimize thicknening near the GL
+	  for (int lev=0; lev <= m_finestLevel ;lev++)
+	    {
+	      for (DataIterator dit(m_grids[lev]); dit.ok(); ++dit)
+		{
+		  const BaseFab<int>& mask = m_coordSys[lev]->getFloatingMask()[dit];
+		  for (BoxIterator bit(m_grids[lev][dit]);bit.ok();++bit)
+		    {
+		      const IntVect& iv = bit();
+		      if (mask(iv) != GROUNDEDMASKVAL)
+			{
+			  (*m_divUHObs[lev])[dit](iv) = min((*m_divUHObs[lev])[dit](iv), (*m_divUH[lev])[dit](iv));
+			}
+		    }
+		}
+	      m_divUHObs[lev]->exchange();
+	    }
+	}
+
+      //compute cell-centered div(UH)
+      for (int lev=0; lev <= m_finestLevel ;lev++)
+	{
+
+	  IceUtility::applyDiv(*m_divUH[lev],*m_faceThckFlux[lev],
+				m_grids[lev],m_dx[lev]);
+	  m_divUH[lev]->exchange();
+	  
+	}
+      
+      for (int lev=0; lev <= m_finestLevel ;lev++)
+	{
+	  for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	    {
+	      //modify the thickness *and* topography so that 
+	      //the mask does not change and subject to that
+	      //condition the surface does not change
+	      FArrayBox& H = m_coordSys[lev]->getH()[dit];
+	      const BaseFab<int>& mask = m_coordSys[lev]->getFloatingMask()[dit];
+	      const Box& box = m_grids[lev][dit];
+	      FArrayBox dH(box,1);
+	      const FArrayBox& div = (*m_divUH[lev])[dit];
+	      const FArrayBox& divo = (*m_divUHObs[lev])[dit];
+	      dH.setVal(0.0);
+	      dH -= div; dH += divo; dH *= a_dt;
+	      
+	      for (BoxIterator bit(box);bit.ok();++bit)
+		{
+		  const IntVect& iv = bit();
+		  //dH(iv) = max(dH(iv),-H(iv));
+		  if (H(iv) < 10.0)
+		    H(iv) = 0.0;
+		}
+	      
+	      Real r = m_coordSys[lev]->iceDensity() / m_coordSys[lev]->waterDensity();
+
+	      FORT_UPDATEHCTRLB(CHF_FRA1(H,0),
+			       CHF_FRA1(m_coordSys[lev]->getTopography()[dit],0),
+			       CHF_FRA1(dH,0),
+			       CHF_FIA1(mask,0),
+			       CHF_CONST_REAL(r),
+			       CHF_BOX(box));
+
+	    }
+	  m_coordSys[lev]->getTopography().exchange();
+	  m_coordSys[lev]->getH().exchange();
+
+	  if (lev > 0)
+	    {
+	      m_coordSys[lev]->recomputeGeometry(m_coordSys[lev-1],m_refRatio[lev-1]);
+	    }
+	  else
+	    {
+	      m_coordSys[lev]->recomputeGeometry(NULL,0);
+	    }
+
+	}
+      
+    } // end time loop
+
+ 
+  writeState("postAdvect.2d.hdf5", m_innerCounter, x,g );
+  for (int lev = 0; lev <= m_finestLevel;lev++)
+    {
+      delete x[lev] ;
+      delete g[lev]  ;
+    }
+
+
+}
+
+
+// restart
+void AMRIceControl::restart()
+{
+  if (m_evolveOnRestart)
+    {
+      m_evolve = true;
+    }
+}
+
 
 void AMRIceControl::computeObjectiveAndGradient
 (Real& a_fm, Real& a_fp,
@@ -782,12 +1092,14 @@ void AMRIceControl::computeObjectiveAndGradient
  bool a_inner)
 {
 
-  //compute C and muCoef from a_x : 
+  //compute C , muCoef, topography from a_x : 
   //C = exp(a_x[0]) * COrigin
-  // muCoef = exp(a_x[1]) * muCoefOrigin
+  //muCoef = exp(a_x[1]) * muCoefOrigin
+  //H = exp(a_x[2]) * HOrigin
 
 #define CCOMP 0
 #define MUCOMP 1
+#define HCOMP 2
 
   setToZero(a_g);
 
@@ -799,22 +1111,30 @@ void AMRIceControl::computeObjectiveAndGradient
       avg.averageToCoarse(*a_x[lev-1],*a_x[lev]);
     }
 
+  // evolve the geoemetry if flagged
+  if (m_evolve)
+    {
+      evolveGeometry(m_evolveDt, m_evolveTime);
+      m_evolve = false;
+    }
+
+
   for (int lev=0; lev <= m_finestLevel;lev++)
     {
 
       const LevelData<FArrayBox>& levelX =  *a_x[lev];
-      const LevelSigmaCS& levelCS =  *m_coordSys[lev];
+      LevelSigmaCS& levelCS =  *m_coordSys[lev];
       LevelData<FArrayBox>& levelC =  *m_C[lev];
       LevelData<FArrayBox>& levelCcopy =  *m_Ccopy[lev];
       LevelData<FArrayBox>& levelCOrigin =  *m_COrigin[lev];
       LevelData<FArrayBox>& levelMuCoef =  *m_muCoef[lev];
       LevelData<FArrayBox>& levelMuCoefOrigin =  *m_muCoefOrigin[lev];
+      LevelData<FArrayBox>& levelHOrigin =  *m_thicknessOrigin[lev];
       const DisjointBoxLayout levelGrids =  m_grids[lev];
       
       for (DataIterator dit(levelGrids);dit.ok();++dit)
 	{
 	  const Box& box = levelGrids[dit];
-
 	  
 	  FArrayBox& thisC = levelC[dit];
 	  thisC.copy(levelCOrigin[dit]);
@@ -829,50 +1149,35 @@ void AMRIceControl::computeObjectiveAndGradient
 	  thisCcopy.copy(thisC);
 
 	  FArrayBox& thisMuCoef = levelMuCoef[dit];
-	  //Real initialMuCoef = 1.0;
-	  //thisMuCoef.setVal(initialMuCoef);
 	  thisMuCoef.copy(levelMuCoefOrigin[dit]);
 	  FORT_BOUNDEXPCTRL(CHF_FRA1(thisMuCoef,0),
 	  		    CHF_CONST_FRA1(levelX[dit],MUCOMP),
 	  		    CHF_CONST_REAL(m_lowerX1),
 			    CHF_CONST_REAL(m_upperX1),
 	  		    CHF_BOX(box));
-	  	  
+#ifdef USEX2
+	  //modify the thickness *and* topography so that 
+          //the surface elevation is not altered
+	  const FArrayBox& H0 = levelHOrigin[dit];
+	  FArrayBox& H = levelCS.getH()[dit];
+	  FArrayBox dH(H.box(),1); dH.copy(H);
 
-	  if (m_muCoefLEQOne || m_muCoefLEQOneGround)
-	    {
+	  H.copy(levelX[dit],HCOMP,0);
 
-	      
-	      const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
-	      for (BoxIterator bit(thisMuCoef.box());bit.ok();++bit)
-		{
-		  const IntVect& iv = bit();
-		  if (m_muCoefLEQOne || (m_muCoefLEQOneGround && mask(iv) == GROUNDEDMASKVAL))
-		    {
-		      thisMuCoef(iv) = std::min(1.0, thisMuCoef(iv));
-		    }
-		}
-	      
-	    }
-	  if (m_muCoefGEQOne || m_muCoefGEQOneGround)
-	    {
+	  FORT_BOUNDCTRL(CHF_FRA1(H,0),
+			 CHF_CONST_REAL(m_lowerX2),
+			 CHF_CONST_REAL(m_upperX2),
+			 CHF_BOX(box));
 
-	      const LevelSigmaCS& levelCS =  *m_coordSys[lev];
-	      const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
-	      for (BoxIterator bit(thisMuCoef.box());bit.ok();++bit)
-		{
-		  const IntVect& iv = bit();
-		  if (m_muCoefGEQOne || (m_muCoefGEQOneGround && mask(iv) == GROUNDEDMASKVAL))
-		    {
-		      thisMuCoef(iv) = std::max(1.0, thisMuCoef(iv));
-		    }
-		}
-	      
-	    }
-	  
+	  H *= 100.0 ;// \make this scale a ParmParse option
+
+	  H += H0;
+	  dH -= H; 
+	  levelCS.getTopography()[dit] += dH;
+#endif
 	}
-    
-      //boundary values for C and muCoef: extrapolation or reflection should be sufficient
+
+      //boundary values for C, muCoef, topography, thickness: extrapolation or reflection should be sufficient
       for (int dir = 0; dir < SpaceDim; dir++)
 	{
 	  if (! m_domain[lev].isPeriodic(dir))
@@ -881,6 +1186,10 @@ void AMRIceControl::computeObjectiveAndGradient
 	      ReflectGhostCells(levelC, m_domain[lev], dir, Side::Hi);
 	      ReflectGhostCells(levelMuCoef, m_domain[lev], dir, Side::Lo);
 	      ReflectGhostCells(levelMuCoef, m_domain[lev], dir, Side::Hi);
+	      ReflectGhostCells(levelCS.getTopography(), m_domain[lev], dir, Side::Lo);
+	      ReflectGhostCells(levelCS.getTopography(), m_domain[lev], dir, Side::Hi);
+	      ReflectGhostCells(levelCS.getH(), m_domain[lev], dir, Side::Lo);
+	      ReflectGhostCells(levelCS.getH(), m_domain[lev], dir, Side::Hi);
 	    }
 	}
 
@@ -890,12 +1199,8 @@ void AMRIceControl::computeObjectiveAndGradient
 	  CoarseAverage avg(m_grids[lev],1,m_refRatio[lev-1]);
 	  avg.averageToCoarse(*m_C[lev-1],*m_C[lev]);
 	  avg.averageToCoarse(*m_muCoef[lev-1],*m_muCoef[lev]);
-		  
-	  //  QuadCFInterp qcfi(levelGrids, &m_grids[lev-1], m_dx[lev][0], 
-	  //		    m_refRatio[lev-1],1, m_domain[lev]);
-	  //
-	  //qcfi.coarseFineInterp(levelC, *m_C[lev-1]);
-	  //qcfi.coarseFineInterp(levelMuCoef, *m_muCoef[lev-1]);
+	  avg.averageToCoarse(m_coordSys[lev-1]->getTopography(),m_coordSys[lev]->getTopography());	  
+	  avg.averageToCoarse(m_coordSys[lev-1]->getH(),m_coordSys[lev]->getH());
 	  int nGhost = 1;
 	  PiecewiseLinearFillPatch li(levelGrids, 
 				      m_grids[lev-1],
@@ -916,22 +1221,46 @@ void AMRIceControl::computeObjectiveAndGradient
 			*m_C[lev-1],
 			time_interp_coeff,
 			0, 0, 1);
-
+	  li.fillInterp(m_coordSys[lev]->getTopography(),
+			m_coordSys[lev-1]->getTopography(),
+			m_coordSys[lev-1]->getTopography(),
+			time_interp_coeff,
+			0, 0, 1);
+	  li.fillInterp(m_coordSys[lev]->getH(),
+			m_coordSys[lev-1]->getH(),
+			m_coordSys[lev-1]->getH(),
+			time_interp_coeff,
+			0, 0, 1);
              
-
         }
 
     
       levelC.exchange();
       levelMuCoef.exchange();
-    
+      levelCS.getH().exchange();
+      levelCS.exchangeTopography();
+      // if (lev > 0)
+      // 	{
+      // 	  levelCS.recomputeGeometry(m_coordSys[lev-1], m_refRatio[lev-1]);
+      // 	}
+      // else
+      // 	{
+      // 	  levelCS.recomputeGeometry(NULL, 0);
+      // 	}
+
       CellToEdge(levelMuCoef, *m_faceMuCoef[lev]);
-      IceVelocity::applyHelmOp(*m_lapC[lev], levelC, 0.0, 1.0, 
+      IceUtility::applyHelmOp(*m_lapC[lev], levelC, 0.0, 1.0, 
 			       m_grids[lev], m_dx[lev]);
-      IceVelocity::applyGradSq(*m_gradCSq[lev], levelC,m_grids[lev], m_dx[lev]);
-      IceVelocity::applyHelmOp(*m_lapMuCoef[lev], levelMuCoef, 0.0, 1.0,
+      IceUtility::applyGradSq(*m_gradCSq[lev], levelC,m_grids[lev], m_dx[lev]);
+     
+      IceUtility::applyHelmOp(*m_lapMuCoef[lev], levelMuCoef, 0.0, 1.0,
 			       m_grids[lev], m_dx[lev]);
-      IceVelocity::applyGradSq(*m_gradMuCoefSq[lev], levelMuCoef,  m_grids[lev], m_dx[lev]);
+      IceUtility::applyGradSq(*m_gradMuCoefSq[lev], levelMuCoef,  m_grids[lev], m_dx[lev]);
+      
+      IceUtility::applyHelmOp(*m_lapThickness[lev], levelCS.getH(), 0.0, 1.0,
+			       m_grids[lev], m_dx[lev]);
+      IceUtility::applyGradSq(*m_gradThicknessSq[lev], levelCS.getH(),  m_grids[lev], m_dx[lev]);
+
     }
 
   {
@@ -959,7 +1288,7 @@ void AMRIceControl::computeObjectiveAndGradient
 
 
 
-  IceVelocity::setFloatingC(m_C, m_coordSys, m_grids, 0.0);
+  IceUtility::setFloatingC(m_C, m_coordSys, m_grids, 0.0);
 
   // add drag due to ice in contact with ice-free rocky walls
 	 
@@ -982,7 +1311,7 @@ void AMRIceControl::computeObjectiveAndGradient
 
 	      FArrayBox wallC(levelGrids[dit],1);
 	      wallC.setVal(0.0);
-	      IceVelocity::addWallDrag(wallC, 
+	      IceUtility::addWallDrag(wallC, 
 				       levelCS.getFloatingMask()[dit], levelCS.getSurfaceHeight()[dit],
 				       levelCS.getH()[dit], levelCS.getTopography()[dit], 
 				       levelCCopy[dit], wallDragExtra,m_dx[lev],levelGrids[dit]);
@@ -1009,8 +1338,11 @@ void AMRIceControl::computeObjectiveAndGradient
     }
   solveForwardProblem(m_velb,false,m_rhs,m_C,m_C0,m_A,m_faceMuCoef);
 #if BISCICLES_Z == BISICLES_LAYERED
-  //compute the surface velocity
 
+  
+
+
+  //compute the surface velocity and face-centered fluxes.
   LevelData<FArrayBox>* cellDiffusivity = NULL;
 
   for (int lev = 0; lev <= m_finestLevel ;lev++)
@@ -1039,7 +1371,7 @@ void AMRIceControl::computeObjectiveAndGradient
 	  bA[dit].copy(A,nLayer-1,0);
 	}
 
-      IceVelocity::computeFaceVelocity
+      IceUtility::computeFaceVelocity
 	(faceVelAdvection, faceVelTotal, faceDiffusivity, *cellDiffusivity, 
 	 layerXYFaceXYVel,  layerSFaceXYVel,
 	 *m_velb[lev], *m_coordSys[lev],m_ibcPtr,
@@ -1047,8 +1379,12 @@ void AMRIceControl::computeObjectiveAndGradient
 	 (lev > 0)?m_velb[lev-1]:NULL,
 	 crseCellDiffusivityPtr,
 	 (lev > 0)?m_refRatio[lev-1]:1,
-	 m_constRelPtr, true);
+	 m_constRelPtr, false);
       
+      //face-centered fluxes will be needed to compute div(UH)
+      IceUtility::computeFaceFluxUpwind
+	(*m_faceThckFlux[lev],faceVelAdvection,m_coordSys[lev]->getH(),m_grids[lev]);
+
       if (crseCellDiffusivityPtr != NULL)
 	delete crseCellDiffusivityPtr;
 
@@ -1067,32 +1403,22 @@ void AMRIceControl::computeObjectiveAndGradient
       avg.averageToCoarse(*m_vels[lev-1],*m_vels[lev]);
     }
 
-  
-
-
-
-  //compute cell-centered div(UH), needed to compute part of the adjoint equation's rhs
+ 
+  //compute cell-centered div(UH), needed to compute 
+  //part of the adjoint equation's rhs and the derivatives w.r.t H
   for (int lev=0; lev <= m_finestLevel ;lev++)
     {
-      IceVelocity::computeFaceFlux
-	(*m_faceThckFlux[lev],*m_velb[lev],m_coordSys[lev]->getH(),m_grids[lev]);
-    }
-  for (int lev=m_finestLevel; lev > 0 ;lev--)
-    {
-      CoarseAverageFace avg(m_grids[lev],1,m_refRatio[lev-1]);
-      avg.averageToCoarse(*m_faceThckFlux[lev-1],*m_faceThckFlux[lev]);
-    }
-  for (int lev=0; lev <= m_finestLevel ;lev++)
-    {
-      IceVelocity::applyDiv(*m_divUH[lev],*m_faceThckFlux[lev],m_grids[lev],m_dx[lev]);
+      IceUtility::applyDiv(*m_divUH[lev],*m_faceThckFlux[lev],
+			    m_grids[lev],m_dx[lev]);
       if (lev > 0)
 	{
 	  // fill ghost cells 
 	  QuadCFInterp qcfi(m_grids[lev], &m_grids[lev-1], m_dx[lev][0], 
 			    m_refRatio[lev-1],1, m_domain[lev]);
 	  qcfi.coarseFineInterp(*m_divUH[lev], *m_divUH[lev-1]);
-	  qcfi.coarseFineInterp(*m_divUHObs[lev], *m_divUHObs[lev-1]);
-	}
+	  
+	}      
+      m_divUH[lev]->exchange();
     }
   //compute RHS for adjoint problem, and set m_adjVel = m_vel 
   //so that the viscosities are computed correctly. 
@@ -1101,6 +1427,7 @@ void AMRIceControl::computeObjectiveAndGradient
   for (int lev=0; lev <= m_finestLevel ;lev++)
     {
       const LevelData<FArrayBox>& levelVelObs =  *m_velObs[lev];
+      const LevelData<FArrayBox>& levelH =  m_coordSys[lev]->getH();
       LevelData<FArrayBox>& levelVelCoef =  *m_velCoef[lev];
       const LevelData<FArrayBox>& levelVel =  *m_velb[lev];
       LevelData<FArrayBox>& levelAdjRhs = *m_adjRhs[lev];
@@ -1134,6 +1461,10 @@ void AMRIceControl::computeObjectiveAndGradient
 	      const IntVect& iv = bit();
 	      if (levelVelCoef[dit](iv) < 0.975)
 		levelVelCoef[dit](iv) = 0.0;
+
+	      const Real saneIceThickness = 100.0;
+	      if (levelH[dit](iv) < saneIceThickness)
+		levelVelCoef[dit](iv) = 0.0;
 	    }
 
 	  misfit.mult(levelVelCoef[dit]);
@@ -1157,7 +1488,7 @@ void AMRIceControl::computeObjectiveAndGradient
       for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
 	{
 	  
-	  FArrayBox& adjRhs = levelAdjRhs[dit];
+	  //FArrayBox& adjRhs = levelAdjRhs[dit];
 	  const FArrayBox& divuhm = levelDivUH[dit];
 	  const FArrayBox& divuho = levelDivUHObs[dit];
 	  const Box& box = m_grids[lev][dit];
@@ -1178,23 +1509,26 @@ void AMRIceControl::computeObjectiveAndGradient
 			      CHF_CONST_FRA1(levelCS.getH()[dit],0),
 			      CHF_CONST_REAL(dx),
 			      CHF_BOX(sbox)); 
-
+	  
 	  for (BoxIterator bit(levelVelCoef[dit].box());bit.ok();++bit)
 	    {
 	      const IntVect& iv = bit();
 	      if (levelDivUHCoef[dit](iv) < 0.975)
 		levelDivUHCoef[dit](iv) = 0.0;
 	    }
-
+	  misfit *= misfit;
 	  misfit.mult(levelDivUHCoef[dit]);
 	  for (int dir = 0; dir < SpaceDim; dir++)
 	    {
 	      tmp.mult(levelDivUHCoef[dit],0,dir);
 	    }
-	  
-	  tmp *= m_massImbalanceCoefficient;
+
 	  misfit *= m_massImbalanceCoefficient;
-	  adjRhs += tmp;
+	  // if (m_outerCounter > 10)
+	  //   {
+	  //     tmp *= m_massImbalanceCoefficient;   
+	  //     adjRhs += tmp;
+	  //   }
 	}
 
     }
@@ -1202,17 +1536,22 @@ void AMRIceControl::computeObjectiveAndGradient
   //compute the objective function 
   Real vobj = computeSum(m_velocityMisfit, m_refRatio, m_dx[0][0]);
   Real mobj = computeSum(m_massBalanceMisfit, m_refRatio, m_dx[0][0]);
+
   Real sumGradCSq = computeSum(m_gradCSq,m_refRatio, m_dx[0][0]);
   Real sumGradMuSq = computeSum(m_gradMuCoefSq,m_refRatio, m_dx[0][0]);
+  Real sumGradHSq = computeSum(m_gradThicknessSq,m_refRatio, m_dx[0][0]);
+
   Real normX0 = computeNorm(a_x,m_refRatio, m_dx[0][0], Interval(0,0));
   Real normX1 = computeNorm(a_x,m_refRatio, m_dx[0][0], Interval(1,1));
+  Real normX2 = computeNorm(a_x,m_refRatio, m_dx[0][0], Interval(2,2));
 
   a_fm = vobj + mobj ;
   a_fp =  m_gradCsqRegularization * sumGradCSq
     + m_gradMuCoefsqRegularization * sumGradMuSq
+    + m_gradHsqRegularization * sumGradHSq
     + m_X0Regularization * normX0*normX0
-    + m_X1Regularization * normX1*normX1;
-
+    + m_X1Regularization * normX1*normX1
+    + m_X2Regularization * normX2*normX2;
   pout() << " ||velocity misfit||^2 = " << vobj
 	 << " ||mass balance misfit||^2 = " << mobj
 	 << std::endl;
@@ -1237,31 +1576,44 @@ void AMRIceControl::computeObjectiveAndGradient
       const LevelData<FArrayBox>& levelMuCoef  =  *m_muCoef[lev];
       const LevelData<FArrayBox>& levelLapC  =  *m_lapC[lev];
       const LevelData<FArrayBox>& levelLapMuCoef  =  *m_lapMuCoef[lev];
-
+      const LevelData<FArrayBox>& levelThickness  =  m_coordSys[lev]->getH();
+      const LevelData<FArrayBox>& levelLapThickness  =  *m_lapThickness[lev];
       for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
 	{
 	  FArrayBox& thisG =  levelG[dit];
 	  const FArrayBox& thisX =  levelX[dit];
 	  thisG.setVal(0.0,CCOMP);
 	  thisG.setVal(0.0,MUCOMP);
+	  thisG.setVal(0.0,HCOMP);
 
 	  FArrayBox t(thisG.box(),1);
+	  
+	  
 	  t.copy(levelLapC[dit]);t*= levelC[dit]; t*= -m_gradCsqRegularization;
 	  thisG.plus(t,0,CCOMP);
-
-	
+	  
 	  t.copy(levelLapMuCoef[dit]);t*= levelMuCoef[dit]; t*= -m_gradMuCoefsqRegularization;
 	  thisG.plus(t,0,MUCOMP);
-
 	  
 	  t.copy(thisX,CCOMP,0);
 	  t *= m_X0Regularization;
 	  thisG.plus(t,0,CCOMP);
-
+	  
 	  t.copy(thisX,MUCOMP,0);
 	  t *= m_X1Regularization;
 	  thisG.plus(t,0,MUCOMP);
+	
+	  
+	  // H = H0 + X2, so need for factor of H
+	  t.copy(levelLapThickness[dit]); t*= -m_gradHsqRegularization;
+	  thisG.plus(t,0,HCOMP);
+	  t.copy(thisX,HCOMP,0);
+	  t *= m_X2Regularization;
+	  thisG.plus(t,0,HCOMP);
+	  
 	}
+
+	
 
     }
   
@@ -1281,15 +1633,6 @@ void AMRIceControl::computeObjectiveAndGradient
 	  
 	 
 	  FArrayBox& thisG = levelG[dit];
-	  //FArrayBox t(thisG.box(),1);
-	  //t.copy(thisU,0,0);
-	  //t.mult(thisLambda,0,0);
-	  //t.mult(thisC,0,0);
-	  //thisG.minus(t,0,CCOMP);
-	  //t.copy(thisU,1,0);
-	  //t.mult(thisLambda,1,0);
-	  //t.mult(thisC,0,0);
-	  //thisG.minus(t,0,CCOMP);
 	  
 	  FArrayBox t(thisG.box(),1);
 	  FORT_CADOTBCTRL(CHF_FRA1(t,0),
@@ -1303,7 +1646,7 @@ void AMRIceControl::computeObjectiveAndGradient
 	    {
 	      const LevelData<FArrayBox>& levelX =  *a_x[lev];
 	      const FArrayBox& thisX =  levelX[dit];
-	      //FORT_MULTHATCTRL
+	     
 	      FORT_HARDPOINTINCTRL(CHF_FRA1(t,0),
 			       CHF_CONST_FRA1(thisX,CCOMP),
 			       CHF_CONST_REAL(m_lowerX0),
@@ -1311,8 +1654,9 @@ void AMRIceControl::computeObjectiveAndGradient
 			       CHF_BOX(t.box()));
 	    }
 
-	  thisG.plus(t,0,CCOMP);
 	  
+	      thisG.plus(t,0,CCOMP);
+	    
 	  
 	}
     }
@@ -1332,12 +1676,29 @@ void AMRIceControl::computeObjectiveAndGradient
 	const LevelData<FluxBox>& levelVT =  *m_vtFace[lev];
 	const LevelData<FArrayBox>& levelMuCoef  =  *m_muCoef[lev];
 	const LevelData<FArrayBox>& levelLambda =  *m_adjVel[lev];
+	const LevelData<FArrayBox>& levelH =  m_coordSys[lev]->getH();
 	for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
 	  {
 	    const FArrayBox& muCoef = levelMuCoef[dit];
 	    const FArrayBox& lambda = levelLambda[dit];
+	    const FArrayBox& H = levelH[dit];
 	    const Box& box = m_grids[lev][dit]; 
 	    const FluxBox& vt = levelVT[dit];
+	    
+	    //need to avoid the calving front, so construct an interior mask 
+	    BaseFab<bool> interior(box,1);
+	    const Real tol = 1.0;
+	    for (BoxIterator bit(box);bit.ok();++bit)
+	      {
+		const IntVect& iv = bit();
+		interior(iv) = (H(iv) > tol);
+		for (int dir = 0; dir < SpaceDim; dir++)
+		  {
+		    interior(iv) &= ( H(iv+BASISV(dir)) > tol);
+		    interior(iv) &= ( H(iv-BASISV(dir)) > tol);
+		  }
+	      }
+
 	    FArrayBox t(box,1);
 	    t.setVal(0.0);
 	    for (int facedir = 0; facedir < SpaceDim; facedir++)
@@ -1348,9 +1709,11 @@ void AMRIceControl::computeObjectiveAndGradient
 		    for (int dir = 0; dir < SpaceDim; dir++)
 		      {
 			const IntVect& iv = bit();
-			
-			t(iv) += (lambda(iv+e,dir)-lambda(iv,dir))* vt[facedir](iv+e,dir)
-			  + (lambda(iv,dir)-lambda(iv-e,dir))* vt[facedir](iv,dir);
+			if ( interior(iv) )
+			  {
+			    t(iv) += (lambda(iv+e,dir)-lambda(iv,dir))* vt[facedir](iv+e,dir)
+			      + (lambda(iv,dir)-lambda(iv-e,dir))* vt[facedir](iv,dir);
+			  }
 		      }
 		  }
 	      }
@@ -1372,14 +1735,129 @@ void AMRIceControl::computeObjectiveAndGradient
 				     CHF_BOX(t.box()));
 	    }
 
-
-	    FArrayBox& thisG =  levelG[dit];
-	    thisG.plus(t,0,MUCOMP);
+	    
+		FArrayBox& thisG =  levelG[dit];
+		thisG.plus(t,0,MUCOMP);
+	      
 
 	  }
       }
 
   }
+
+  
+  //compute unregularized part of gradient with respect to a_x component 2 (thickness)
+  // = - H * (grad lambda : vtop(mu, U, C = 0) + rho * g * lambda . grad(s)) - divuhc * 2u.grad(divuh - divuhobs)
+  for (int lev = 0; lev <= m_finestLevel; lev++)
+    {
+      const LevelData<FArrayBox>& levelLambda =  *m_adjVel[lev];
+      const LevelSigmaCS& levelCS = *m_coordSys[lev];
+    
+      // At this point we have stored
+      // H * mu * (grad(U)...) in m_vtFace (with muCoef = 1)
+      const LevelData<FluxBox>& levelVT =  *m_vtFace[lev];
+      const LevelData<FArrayBox>& levelMuCoef  =  *m_muCoef[lev];
+     
+      LevelData<FArrayBox>& levelG =  *a_g[lev];
+      const LevelData<FArrayBox>& levelU =  *m_velb[lev];
+      Box shrinkDomain = m_domain[lev].domainBox();
+      shrinkDomain.grow(-1);
+      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	{
+	  const FArrayBox& muCoef = levelMuCoef[dit];
+	  const FArrayBox& lambda = levelLambda[dit];
+	  const FluxBox& vt = levelVT[dit];
+	  
+	  Box box = m_grids[lev][dit];
+	  // exclude the domain boundary
+	  // \todo consider the domain boundary in g 
+	  box &= shrinkDomain;
+	  
+	  FArrayBox t(box,1);
+	  t.setVal(0.0);
+	  for (int facedir = 0; facedir < SpaceDim; facedir++)
+	    {
+	      const IntVect e = BASISV(facedir);
+	      for (BoxIterator bit(box);bit.ok();++bit)
+		{
+		  for (int dir = 0; dir < SpaceDim; dir++)
+		    {
+		      const IntVect& iv = bit();
+		      
+		      // t(iv) += (lambda(iv+e,dir)-lambda(iv,dir))* vt[facedir](iv+e,dir)
+		      // 	+ (lambda(iv,dir)-lambda(iv-e,dir))* vt[facedir](iv,dir) ;
+
+		    }
+		}
+	    }
+	  RealVect oneOnTwoDx = 1.0/ (2.0 * m_dx[lev]);
+	  t.mult(-oneOnTwoDx[0]);
+	  t.mult(muCoef); // todo : correct this so face-centered muCoef appears above
+	  RealVect oneOnDx = 1.0/ (m_dx[lev]);
+     
+	  const FArrayBox& grads = levelCS.getGradSurface()[dit];
+	  const FArrayBox& H = levelCS.getH()[dit];
+	  const FArrayBox& divuh = (*m_divUH[lev])[dit];
+	  const FArrayBox& divuhc = (*m_divUHCoef[lev])[dit];
+	  const FArrayBox& divuho = (*m_divUHObs[lev])[dit];
+	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
+	  const FArrayBox& u = levelU[dit];
+	  Real rhog = levelCS.gravity()*levelCS.iceDensity();
+	  for (int dir = 0; dir < SpaceDim; dir++)
+	    {
+	      const IntVect e = BASISV(dir);
+	      for (BoxIterator bit(box);bit.ok();++bit)
+		{
+		  const IntVect& iv = bit();
+		  // t(iv) -= rhog * H(iv) * grads(iv,dir) 
+		  //   * oneOnTwoDx[dir] * (lambda(iv+e,dir)-lambda(iv-e,dir)); 
+
+		  // a diffusion like term. 
+		  // if (m_outerCounter > 10)
+		  {
+		    t(iv) -= m_massImbalanceCoefficient * u(iv,dir) 
+		      * oneOnTwoDx[dir] *  divuhc(iv)*
+		      (divuh(iv+e) - divuho(iv+e) - divuh(iv-e) + divuho(iv-e));
+		  }
+	
+		  // thickness advection... need to work out the objective function, but...
+		  //    t(iv) += m_massImbalanceCoefficient  
+		  //	* divuhc(iv)* (divuh(iv) - divuho(iv));
+		    
+	
+
+
+		  if (mask(iv) != GROUNDEDMASKVAL)
+		    {
+		      //t(iv) = 0.0; // don't consider variation in H in the ice shelf
+		    }
+
+		}
+	    }
+	  
+	  
+	  
+
+
+	  if (m_boundMethod == Projection)
+	    {
+		const LevelData<FArrayBox>& levelX =  *a_x[lev];
+		const FArrayBox& thisX =  levelX[dit];
+		//FORT_MULTHATCTRL
+		
+		FORT_HARDPOINTINCTRL(CHF_FRA1(t,0),
+				     CHF_CONST_FRA1(thisX,HCOMP),
+				     CHF_CONST_REAL(m_lowerX2),
+				     CHF_CONST_REAL(m_upperX2),
+				     CHF_BOX(t.box()));
+	    }
+	  
+	  
+	  FArrayBox& thisG =  levelG[dit];
+	  thisG.plus(t,0,HCOMP);
+	  
+	}
+    }
 
   //dump data
   if (a_inner)
@@ -1447,7 +1925,7 @@ void AMRIceControl::readState(const std::string& a_file, int& a_counter,
     {
       int j = 0;
       restartData[lev]->copyTo(Interval(j,j+1),*(a_x[lev]),Interval(0,1));
-      j+=2;
+      j+=3;
       //restartData[lev]->copyTo(Interval(j,j),*(m_Ccopy[lev]),Interval(0,0));
       j++;
       //restartData[lev]->copyTo(Interval(j,j),*(m_C[lev]),Interval(0,0));
@@ -1490,6 +1968,7 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
   names.resize(0);
   names.push_back("X0");
   names.push_back("X1");
+  names.push_back("X2");
   names.push_back("C");
   names.push_back("Cwshelf");
   names.push_back("muCoef");
@@ -1507,6 +1986,7 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
   names.push_back("yAdjRhs");
   names.push_back("gradJC");
   names.push_back("gradJMuCoef");
+  names.push_back("gradJH");
   names.push_back("velc");
   names.push_back("divuhc");
   names.push_back("topg");
@@ -1521,6 +2001,7 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
       int j = 0;
       a_x[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
       a_x[lev]->copyTo(Interval(1,1),data,Interval(j,j));j++;
+      a_x[lev]->copyTo(Interval(2,2),data,Interval(j,j));j++;
       //use m_Ccopy rather than m_C because m_C is set to zero in shelves etc
       m_Ccopy[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
       m_C[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;  
@@ -1534,6 +2015,7 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
       m_adjRhs[lev]->copyTo(Interval(0,1),data,Interval(j,j+1));j+=2;
       a_g[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
       a_g[lev]->copyTo(Interval(1,1),data,Interval(j,j));j++;
+      a_g[lev]->copyTo(Interval(2,2),data,Interval(j,j));j++;
       m_velCoef[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
       m_divUHCoef[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
       m_coordSys[lev]->getTopography().copyTo(Interval(0,0),data,Interval(j,j));j++;
@@ -1596,36 +2078,5 @@ void AMRIceControl::solveForwardProblem(Vector<LevelData<FArrayBox>* >& a_u,
 
 }
 
-void AMRIceControl::CviscoustoCplastic(LevelData<FArrayBox>& a_Cplastic, 
-				       const LevelData<FArrayBox>& a_Cviscous, 
-				       const LevelData<FArrayBox>&  a_u,
-				       const LevelData<BaseFab<int> >&  a_mask) const
-{
-
-  CH_assert(SpaceDim < 3); //not done for spacedim = 3...
-
-  const DisjointBoxLayout& grids = a_Cplastic.disjointBoxLayout();
-  for (DataIterator dit(grids); dit.ok(); ++dit)
-    {
-      FArrayBox& Cp =  a_Cplastic[dit];
-      const FArrayBox& Cv = a_Cviscous[dit];
-      const FArrayBox& u = a_u[dit];
-      const BaseFab<int>& mask = a_mask[dit];
-      //Cp.setVal(0.0);
-      Cp.copy(Cv);
-      for (BoxIterator bit(Cp.box());bit.ok();++bit)
-	{
-	  const IntVect& iv = bit();
-	  if (mask(iv) == GROUNDEDMASKVAL)
-	    {
-	      Real usq = (D_TERM(u(iv,0)*u(iv,0), + u(iv,1)*u(iv,1), +0.0));
-	      usq = std::min(usq,1e+8);
-	      Cp(iv) = Cv(iv) * std::pow(usq,1.0/3.0);
-	    }
-	}
-
-    }
-
-}
   
 #include "NamespaceFooter.H"

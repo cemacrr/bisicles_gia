@@ -65,7 +65,7 @@ using std::string;
 #include "VCAMRPoissonOp2.H"
 #include "AMRPoissonOpF_F.H"
 #include "CH_HDF5.H"
-#include "IceVelocity.H"
+#include "IceUtility.H"
 #include "LevelMappedDerivatives.H"
 #ifdef HAVE_PYTHON
 #include "PythonInterface.H"
@@ -4711,7 +4711,7 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 	  thisC0.setVal(0.0);
 	  if (m_wallDrag)
 	  {
-	    IceVelocity::addWallDrag(thisC0, floatingMask, levelCS.getSurfaceHeight()[dit],
+	    IceUtility::addWallDrag(thisC0, floatingMask, levelCS.getSurfaceHeight()[dit],
 				     thisH, levelCS.getTopography()[dit], thisC, m_wallDragExtra,
 				     RealVect::Unit*m_amrDx[lev], gridBox);
 	  }
@@ -4831,7 +4831,7 @@ AmrIce::computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVelAdvection,
       CH_assert(m_sA[lev] != NULL);
       CH_assert(m_bA[lev] != NULL);
       
-       IceVelocity::computeFaceVelocity
+       IceUtility::computeFaceVelocity
        	(*a_faceVelAdvection[lev], *a_faceVelTotal[lev], *a_diffusivity[lev],
 	 *cellDiffusivity,*a_layerXYFaceXYVel[lev], *a_layerSFaceXYVel[lev],
 	 *m_velocity[lev],*m_vect_coordSys[lev], m_thicknessIBCPtr, 
@@ -5569,136 +5569,12 @@ const LevelData<FArrayBox>* AmrIce::groundingLineProximity(int a_level) const
 
 ///Identify regions of floating ice that are remote
 ///from grounded ice and eliminate them.
-/**
-   Regions of floating ice unconnected to land 
-   lead to an ill-posed problem, with a zero
-   basal traction coefficient and Neumann boundary
-   conditions. Here, we attempt to identify them
-   by carrying out a procedure that in the worst case can be 
-   O(N^2). 
-   
-
- */ 
 void AmrIce::eliminateRemoteIce()
 {
-  CH_TIME("AmrIce::eliminateRemoteIce");
-  //Define phi = 1 on grounded ice, 0 elsewhere
-  Vector<LevelData<FArrayBox>* > phi(m_finest_level + 1);
-  for (int lev=0; lev <= m_finest_level ; ++lev)
-    {
-      const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-      LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
-      phi[lev] = new LevelData<FArrayBox>(levelGrids,1,IntVect::Unit);
-      for (DataIterator dit(levelGrids); dit.ok(); ++dit)
-	{
-	  const FArrayBox& thisH = levelCS.getH()[dit];
-	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
-	  FArrayBox& thisPhi = (*phi[lev])[dit];
-	  thisPhi.setVal(0.0);
-	  Real a = 1.0;
-	  int b = GROUNDEDMASKVAL;
-	  FORT_SETONMASK(CHF_FRA1(thisPhi,0),
-			 CHF_CONST_FIA1(mask,0),
-			 CHF_CONST_INT(b),CHF_CONST_REAL(a),
-			 CHF_BOX(levelGrids[dit]));
-			 
-	}
-    }
-
-  //
-  {
-    int maxIter = 10; // \todo make this a ParmParse option
-    int iter = 0; 
-    Real sumPhi = computeSum(phi, m_refinement_ratios,m_amrDx[0], Interval(0,0), 0);
-    Real oldSumPhi = 0.0;
-    
-    do {
-      oldSumPhi = sumPhi;
-
-      
-      for (int lev=0; lev <= m_finest_level ; ++lev)
-	{
-	  LevelData<FArrayBox>& levelPhi = *phi[lev];
-	  LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
-	  const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-
-	  if (lev > 0)
-	    {
-	      //fill ghost cells
-	      PiecewiseLinearFillPatch ghostFiller(levelGrids, 
-						   m_amrGrids[lev-1],
-						   1, 
-						   m_amrDomains[lev-1],
-						   m_refinement_ratios[lev-1],
-						   1);
-
-	  ghostFiller.fillInterp(levelPhi, *phi[lev-1],*phi[lev-1] , 0.0, 0, 0, 1);
-	      
-	    }
-	  
-	   for  (DataIterator dit(levelGrids); dit.ok(); ++dit)
-	     {
-	       //sweep in all four directions, copying phi = 1 into cells with thickness > tol 
-	       Real tol = 1.0;
-	       FORT_SWEEPCONNECTED2D(CHF_FRA1(levelPhi[dit],0),
-				     CHF_CONST_FRA1(levelCS.getH()[dit],0),
-				     CHF_CONST_REAL(tol), 
-				     CHF_BOX(levelGrids[dit]));
-	     }
-
-
-	   levelPhi.exchange();
-	}
-      
-
-      sumPhi = computeSum(phi, m_refinement_ratios,m_amrDx[0], Interval(0,0), 0);
-      pout() << "sumPhi = " << sumPhi << std::endl;
-      iter++;
-    } while ( iter < maxIter && sumPhi > oldSumPhi );
-  }
-  //now destroy the doomed regions, and reset m_vect_coordSys
-
-  for (int lev=0; lev <= m_finest_level ; ++lev)
-    {
-      const LevelData<FArrayBox>& levelPhi = *phi[lev];
-      LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
-      const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-     
-      for (DataIterator dit(levelGrids); dit.ok(); ++dit)
-	{
-	  const FArrayBox& thisPhi = levelPhi[dit];
-	  FArrayBox& thisH = levelCS.getH()[dit];
-
-	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
-	  for (BoxIterator bit(levelGrids[dit]); bit.ok(); ++bit)
-	    {
-	      const IntVect& iv = bit();
-	      if (mask(iv) == FLOATINGMASKVAL && thisPhi(iv) < 0.5)
-	      	{
-		  thisH(iv) = 0.0;
-	      	}
-
-	    }
-	}
-
-      LevelSigmaCS* crseCS = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
-      int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
-      levelCS.recomputeGeometry(crseCS, refRatio);     
-    }
-
-
-
- 
-
-  for (int lev=0; lev <= m_finest_level ; ++lev)
-    {
-      if (phi[lev] != NULL)
- 	{
- 	  delete phi[lev];
- 	  phi[lev] = NULL;
- 	}
-    }
-
+  int maxIter = 10; // \todo make this a parmparse option
+  IceUtility::eliminateRemoteIce(m_vect_coordSys, m_amrGrids, m_amrDomains, 
+				 m_refinement_ratios, m_amrDx[0], 
+				 m_finest_level, maxIter);
 }
 
 
@@ -7464,87 +7340,18 @@ void AmrIce::computeA(Vector<LevelData<FArrayBox>* >& a_A,
       
       const Vector<Real>& sigma = levelCoords.getSigma();
       a_A[lev] = new LevelData<FArrayBox>(m_amrGrids[lev], m_nLayers, IntVect::Unit);
-      IceVelocity::computeA(*a_A[lev], sigma, levelCoords, 
+      IceUtility::computeA(*a_A[lev], sigma, levelCoords, 
 			    m_rateFactor, *a_temperature[lev]);
       
       Vector<Real> sSigma(1,0.0);
       a_sA[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1, IntVect::Unit);
-      IceVelocity::computeA(*a_sA[lev], sSigma, levelCoords,  
+      IceUtility::computeA(*a_sA[lev], sSigma, levelCoords,  
 			    m_rateFactor, *a_sTemperature[lev]);
       Vector<Real> bSigma(1,1.0);
       a_bA[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1, IntVect::Unit);
-      IceVelocity::computeA(*a_bA[lev], bSigma, levelCoords,  
+      IceUtility::computeA(*a_bA[lev], bSigma, levelCoords,  
 			    m_rateFactor, *a_bTemperature[lev]);
-    //   for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
-    // 	{
-    // 	  // compute A(T)
-    // 	  // need a temperature field corrected to the pressure melting point,
-    // 	  // \theta ^* = \min(\theta,\theta _r) + a * p)
-    // 	  // a is a constant, p is pressure, \thera _r is the melting point in standard pressure
-    // 	  // using p = \rho * g * \sigma * H 
-    //       // (used by Glimmer, even with higher order stresses)
-    // 	  // should be p = T_xx + T_yy + \rho * g * \sigma * H
-    // 	  Real Tmax = triplepoint - TINY_NORM;
-    // 	  Real fbase = levelCoords.iceDensity() * levelCoords.gravity() * icepmeltfactor;
-    // 	  const FArrayBox& theta = (*a_temperature[lev])[dit];
-    // 	  // if (s_verbosity > 0)
-    // // 	    {
-    // // 	      Real Amin = theta.min();
-    // // 	      Real Amax = theta.max();
-    // // 	      pout() << Amin << " <= theta(x,y,sigma) <= " << Amax << std::endl;
-	      
-    // // }
-    // 	  for (int layer = 0; layer < m_nLayers; ++layer)
-    // 	    {
-    // 	      Real f = fbase * sigma[layer];
-    // 	      FArrayBox layerA;
-    // 	      layerA.define(Interval(layer,layer),(*a_A[lev])[dit]);
-    // 	      const Box& box = layerA.box();
-    // 	      FArrayBox thetaStar(box,1);
-	      
-	      
-
-    // 	      FORT_FABMINPLUS(CHF_FRA1(thetaStar,0),
-    // 			      CHF_FRA1(theta,layer),
-    // 			      CHF_FRA1(levelCoords.getH()[dit],0),
-    // 			      CHF_CONST_REAL(f),
-    // 			      CHF_CONST_REAL(Tmax),
-    // 			      CHF_BOX(box));
-	
-
-    // 	      CH_assert(0.0 < thetaStar.min(box));
-    // 	      CH_assert(thetaStar.max(box) < triplepoint); 
-
-    // 	      m_rateFactor->computeA(layerA,
-    // 				     thetaStar, 
-    // 				     layerA.box());
-
-
-
-
-    // 	    } // end loop over layers
-	  
-    // 	  //surface
-    // 	  {
-    // 	    m_rateFactor->computeA((*a_sA[lev])[dit],
-    // 				   (*a_sTemperature[lev])[dit] , 
-    // 				   (*a_sA[lev])[dit].box());
-    // 	  }
-    // 	  //base
-    // 	  {
-    // 	    const Box& box = (*m_bA[lev])[dit].box();
-    // 	    FArrayBox thetaStar((*a_bA[lev])[dit].box() ,1);
-    // 	    FORT_FABMINPLUS(CHF_FRA1(thetaStar,0),
-    // 			    CHF_FRA1((*a_bTemperature[lev])[dit],0),
-    // 			    CHF_FRA1(levelCoords.getH()[dit],0),
-    // 			    CHF_CONST_REAL(fbase),
-    // 			    CHF_CONST_REAL(Tmax),
-    // 			    CHF_BOX(box));
-    // 	    m_rateFactor->computeA((*a_bA[lev])[dit],
-    // 				   thetaStar , box);
-    // 	  }
-    // 	} // end loop over boxes
-      
+   
     }//end loop over AMR levels
 
   if (s_verbosity > 0)

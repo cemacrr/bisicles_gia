@@ -88,7 +88,7 @@ class AMRIceControl
   Vector<LevelData<FArrayBox>*> m_lapC;
   Vector<LevelData<FArrayBox>*> m_gradCSq;
   // coefficients of mu.
-  // m_muCoef = exp(X[0]) * m_referenceMuCoefOrigin;
+  // m_muCoef = exp(X[1]) * m_referenceMuCoefOrigin;
   Vector<LevelData<FArrayBox>*> m_muCoefOrigin;
   Vector<RefCountedPtr<LevelData<FArrayBox> > > m_referenceMuCoefOrigin;
   Vector<LevelData<FArrayBox>*> m_muCoef;
@@ -96,6 +96,11 @@ class AMRIceControl
   Vector<LevelData<FArrayBox>*> m_gradMuCoefSq;
   Vector<LevelData<FluxBox>*> m_faceMuCoef;
 
+  //thickness
+  //thickness = exp(X[2]) * m_thicknessOrigin;
+  Vector<LevelData<FArrayBox>*> m_thicknessOrigin;
+  Vector<LevelData<FArrayBox>*> m_lapThickness;
+  Vector<LevelData<FArrayBox>*> m_gradThicknessSq;
   //right-hand side of the velocity equation
   Vector<LevelData<FArrayBox>*> m_rhs;
   //right-hand side of the adjoint velocity equation
@@ -154,14 +159,20 @@ class AMRIceControl
   Vector<LevelDataOps<FArrayBox> > m_vectOps;
 
   //control problem parameters
-  Real m_boundArgX0, m_boundArgX1, 
-    m_velMisfitCoefficient, m_massImbalanceCoefficient,
-    m_gradCsqRegularization,m_gradMuCoefsqRegularization,
-    m_X0Regularization, m_X1Regularization;
-  bool m_muCoefLEQOne, m_muCoefLEQOneGround;
-  bool m_muCoefGEQOne, m_muCoefGEQOneGround;
+  Real m_boundArgX0, 
+    m_boundArgX1, 
+    m_boundArgX2,
+    m_velMisfitCoefficient, 
+    m_massImbalanceCoefficient,
+    m_gradCsqRegularization,
+    m_gradMuCoefsqRegularization, 
+    m_gradHsqRegularization, 
+    m_X0Regularization, 
+    m_X1Regularization, 
+    m_X2Regularization ;
+ 
 
-  Real m_lowerX0, m_upperX0, m_lowerX1, m_upperX1;
+  Real m_lowerX0, m_upperX0, m_lowerX1, m_upperX1, m_lowerX2, m_upperX2;
 
   enum BoundMethod {None, Projection, MAX_BOUND_METHOD};
   BoundMethod m_boundMethod;
@@ -169,10 +180,15 @@ class AMRIceControl
   int m_outerCounter;
   int m_innerCounter;
 
+  int m_restartInterval;
+
   //options for writing data
   bool m_writeInnerSteps;
   std::string m_innerStepFileNameBase;
   std::string m_outerStepFileNameBase;
+
+  
+
 
 public:
   ~AMRIceControl();
@@ -204,6 +220,10 @@ public:
    const  Vector<LevelData<FArrayBox>* >& a_x, 
    bool a_inner);
   
+  void restart();
+
+
+
   //apply preconditioner s = M^{-1}r
   void preCond(Vector<LevelData<FArrayBox>* >& a_s, 
 	       const Vector<LevelData<FArrayBox>* >& a_r);
@@ -305,10 +325,28 @@ private:
   void readState(const std::string& a_file, int& a_counter,
 		 Vector<LevelData<FArrayBox>* >& a_x);
 
-  void CviscoustoCplastic(LevelData<FArrayBox>& a_Cplastic, 
-			  const LevelData<FArrayBox>& a_Cviscous, 
-			  const LevelData<FArrayBox>&  a_u,
-			  const LevelData<BaseFab<int> >&  a_mask) const;
+  
+  void helmholtzSolve(Vector<LevelData<FArrayBox>* >& a_phi,
+				     const Vector<LevelData<FArrayBox>* >& a_rhs,
+				     Real a_alpha, Real a_beta) const;
+  
+  void helmholtzSolve(Vector<LevelData<FArrayBox>* >& a_phi, 
+				     Real a_alpha, Real a_beta) const;
+
+
+
+  /// flag whether an evolution is required or not at the start of the 
+  /// next call to computeObjectiveAndGradient
+  bool m_evolve;
+  /// time step parameters for evolution
+  Real m_evolveDt;
+  Real m_evolveTime;
+  Real m_evolveMeltRateLengthScale;
+  /// evolve the geoemtry on restart ?
+  bool m_evolveOnRestart;
+  /// evolve geoemtry according to the thickness transport equation
+  void evolveGeometry(Real a_dt, Real a_time);
+
 };
 
 #else

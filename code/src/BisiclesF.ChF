@@ -269,3 +269,35 @@ c-----------------------------------------------------------
 
       return
       end
+
+c---------------------------------------------------
+c compute first order upwind face-centered flux us 
+c from face-centered u and cell-centered s
+
+      subroutine upwindfluxb(CHF_FRA1[flux],
+     &     CHF_CONST_FRA1[u],
+     &     CHF_CONST_FRA1[s],
+     &     CHF_CONST_INT[dir],
+     &     CHF_BOX[fbox])
+
+
+      integer CHF_AUTODECL[i]
+      integer CHF_AUTODECL[ii]
+      REAL_T upws
+
+      CHF_DTERM[ii0 = CHF_ID(dir,0);
+                ii1 = CHF_ID(dir,1);
+                ii2 = CHF_ID(dir,2)]
+      
+      CHF_AUTOMULTIDO[fbox; i]
+      if ( u(CHF_AUTOIX[i]) .gt. zero) then
+         upws = s(CHF_OFFSETIX[i;-ii])
+      else
+         upws = s(CHF_AUTOIX[i])
+      end if
+
+      flux(CHF_AUTOIX[i]) = upws * u(CHF_AUTOIX[i])
+      CHF_ENDDO
+
+      return
+      end
