@@ -1351,7 +1351,7 @@ FortranInterfaceIBC::flattenIceGeometry(const Vector<RefCountedPtr<LevelSigmaCS>
         {
           // have to average back to nodes
           DataIterator dit= m_inputTopographyLDF->dataIterator();
-          const DisjointBoxLayout& grids = m_inputTopographyLDF->getBoxes();
+          //const DisjointBoxLayout& grids = m_inputTopographyLDF->getBoxes();
           for (dit.begin(); dit.ok(); ++dit)
             {
               
@@ -1557,7 +1557,7 @@ FortranInterfaceIBC::flattenData(Real* a_data_ptr,
     {
       // have to average back to nodes
       DataIterator dit= ldf.dataIterator();
-      const DisjointBoxLayout& grids = ldf.getBoxes();
+      //const DisjointBoxLayout& grids = ldf.getBoxes();
       for (dit.begin(); dit.ok(); ++dit)
         {
           const Box nodeBox = dataFab.box();

@@ -5080,7 +5080,8 @@ AmrIce::computeDt()
   // (m_dt > 0 test screens out initial time, when we set m_dt to a negative 
   // number by default)
   // Use the value stored in m_stable_dt in case dt was altered to hit a plot interval
-  if (dt > m_max_dt_grow*m_stable_dt && (m_stable_dt > 0) )
+  // m_max_dt_grow < 0 implies that we don't enforce this.
+  if ((m_max_dt_grow > 0) && (dt > m_max_dt_grow*m_stable_dt) && (m_stable_dt > 0) )
     dt = m_max_dt_grow*m_stable_dt;
   
   if (m_timeStepTicks){

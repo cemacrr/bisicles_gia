@@ -562,7 +562,7 @@ void IceUtility::eliminateRemoteIce
       phi[lev] = new LevelData<FArrayBox>(levelGrids,1,IntVect::Unit);
       for (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	{
-	  const FArrayBox& thisH = levelCS.getH()[dit];
+	  //const FArrayBox& thisH = levelCS.getH()[dit];
 	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
 	  FArrayBox& thisPhi = (*phi[lev])[dit];
 	  thisPhi.setVal(0.0);
