@@ -26,7 +26,7 @@
 #include "PicardSolver.H"
 #include "JFNKSolver.H"
 #include "CoarseAverageFace.H"
-#include "IceVelocity.H"
+#include "IceUtility.H"
 #include "LevelSigmaCS.H"
 #ifdef CH_USE_FAS
 #include "FASIceSolver.H"
@@ -660,7 +660,7 @@ int main(int argc, char* argv[]) {
 		      }
 		  }
 		
-		IceVelocity::computeA(*vectA[lev],levelCS.getSigma(),levelCS,&rateFactor,levelTemp);
+		IceUtility::computeA(*vectA[lev],levelCS.getSigma(),levelCS,&rateFactor,levelTemp);
 	      }
 	  }
       }
