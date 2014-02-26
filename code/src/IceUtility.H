@@ -98,7 +98,7 @@ namespace IceUtility
    LevelData<FluxBox>& a_faceVelTotal,
    LevelData<FluxBox>& a_faceDiffusivity,
    LevelData<FArrayBox>& a_cellDiffusivity,
-#if BISCICLES_Z == BISICLES_LAYERED
+#if BISICLES_Z == BISICLES_LAYERED
    LevelData<FluxBox>& a_layerXYFaceXYVel,
    LevelData<FArrayBox>& a_layerSFaceXYVel,
 #endif
@@ -106,7 +106,7 @@ namespace IceUtility
    const LevelSigmaCS& a_coordSys,
    const IceThicknessIBC* a_bc,
    const LevelData<FArrayBox>& a_A,
-#if BISCICLES_Z == BISICLES_LAYERED
+#if BISICLES_Z == BISICLES_LAYERED
    const LevelData<FArrayBox>& a_sA,
    const LevelData<FArrayBox>& a_bA,
 #endif			 

@@ -763,7 +763,7 @@ protected:
   //face velocities
   Vector<LevelData<FluxBox>* > m_faceVelAdvection;
   Vector<LevelData<FluxBox>* > m_faceVelTotal; // m_faceVelTotal = m_faceVelAdvection - m_diffusivity * grad(H)
-#if BISCICLES_Z == BISICLES_LAYERED
+#if BISICLES_Z == BISICLES_LAYERED
   Vector<LevelData<FArrayBox>* > m_layerSFaceXYVel;
   Vector<LevelData<FluxBox>* > m_layerXYFaceXYVel;
 #endif
@@ -779,14 +779,14 @@ protected:
   Vector<LevelData<FArrayBox>* > m_A;
   // used to decide whether A needs updating (after a regrid, or a temperature update)
   mutable bool m_A_valid;
-#if BISCICLES_Z == BISICLES_LAYERED
+#if BISICLES_Z == BISICLES_LAYERED
   // Temperature and A at the top and bottom surfaces of 
   // the ice, horizontally cell centred (but at vertical faces)
   Vector<LevelData<FArrayBox>* > m_sTemperature;
   Vector<LevelData<FArrayBox>* > m_bTemperature;
   Vector<LevelData<FArrayBox>* > m_sA;
   Vector<LevelData<FArrayBox>* > m_bA;
-#elif BISCICLES_Z == BISICLES_FULL
+#elif BISICLES_Z == BISICLES_FULL
   // possibly won't even need surface and basal temperature
   // field, but if we do they will need to be 2D
 #endif

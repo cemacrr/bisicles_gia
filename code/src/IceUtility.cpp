@@ -335,7 +335,7 @@ void IceUtility::computeFaceVelocity
  LevelData<FluxBox>& a_faceVelTotal,
  LevelData<FluxBox>& a_faceDiffusivity,
  LevelData<FArrayBox>& a_cellDiffusivity,
-#if BISCICLES_Z == BISICLES_LAYERED
+#if BISICLES_Z == BISICLES_LAYERED
  LevelData<FluxBox>& a_layerXYFaceXYVel,
  LevelData<FArrayBox>& a_layerSFaceXYVel,
 #endif
@@ -343,7 +343,7 @@ void IceUtility::computeFaceVelocity
  const LevelSigmaCS& a_coordSys,
  const IceThicknessIBC* a_iceThicknessIBC,
  const LevelData<FArrayBox>& a_A,
-#if BISCICLES_Z == BISICLES_LAYERED
+#if BISICLES_Z == BISICLES_LAYERED
  const LevelData<FArrayBox>& a_sA,
  const LevelData<FArrayBox>& a_bA,
 #endif			 
@@ -394,7 +394,7 @@ void IceUtility::computeFaceVelocity
       
   //default calculation : average to faces 
   CellToEdge(grownVel, a_faceVelAdvection);
-#if BISCICLES_Z == BISICLES_LAYERED
+#if BISICLES_Z == BISICLES_LAYERED
   //for layered models (SSA,L1L2) assume du/dz = 0
   for (int j = 0; j < a_layerXYFaceXYVel.nComp(); ++j)
     a_faceVelAdvection.copyTo(Interval(0,0), a_layerXYFaceXYVel, Interval(j,j));
@@ -470,7 +470,7 @@ void IceUtility::computeFaceVelocity
 	}
     }
 				       
-#if BISCICLES_Z == BISICLES_LAYERED
+#if BISICLES_Z == BISICLES_LAYERED
   //copy the basal velocity into the vertically varying velocities.
   {
     
@@ -526,7 +526,7 @@ void IceUtility::computeFaceVelocity
 
   a_faceVelAdvection.exchange();
   a_faceVelTotal.exchange();
-#if BISCICLES_Z == BISICLES_LAYERED
+#if BISICLES_Z == BISICLES_LAYERED
   a_layerXYFaceXYVel.exchange();
   a_layerSFaceXYVel.exchange();
 #endif

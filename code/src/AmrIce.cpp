@@ -641,7 +641,7 @@ AmrIce::~AmrIce()
 	}
     }
 
-#if BISCICLES_Z == BISICLES_LAYERED
+#if BISICLES_Z == BISICLES_LAYERED
   for (int lev=0; lev < m_layerSFaceXYVel.size(); lev++)
     {
       if (m_layerSFaceXYVel[lev] != NULL)
@@ -680,7 +680,7 @@ AmrIce::~AmrIce()
           m_A[lev] = NULL;
         }
     }
-#if BISCICLES_Z == BISICLES_LAYERED
+#if BISICLES_Z == BISICLES_LAYERED
 
   for (int lev=0; lev < m_sA.size(); lev++)
     {
@@ -6851,7 +6851,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   m_faceVelAdvection.resize(m_max_level+1,NULL);
   m_faceVelTotal.resize(m_max_level+1,NULL);
   m_temperature.resize(m_max_level+1,NULL);
-#if BISCICLES_Z == BISICLES_LAYERED
+#if BISICLES_Z == BISICLES_LAYERED
   m_sTemperature.resize(m_max_level+1,NULL);
   m_bTemperature.resize(m_max_level+1,NULL);
   m_layerSFaceXYVel.resize(m_max_level+1,NULL);
