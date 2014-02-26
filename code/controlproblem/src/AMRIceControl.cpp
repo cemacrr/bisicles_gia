@@ -1337,7 +1337,7 @@ void AMRIceControl::computeObjectiveAndGradient
       m_velocityInitialised = true;
     }
   solveForwardProblem(m_velb,false,m_rhs,m_C,m_C0,m_A,m_faceMuCoef);
-#if BISCICLES_Z == BISICLES_LAYERED
+#if BISICLES_Z == BISICLES_LAYERED
 
   
 
