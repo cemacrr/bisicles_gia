@@ -49,6 +49,13 @@ basalFlux.floating.n = 2
 basalFlux.floating.abscissae = 50.0 500.0
 basalFlux.floating.ordinates = 0 -50.0
 
+#Get surface energy balance from the interface
+amr.isothermal = false
+surfaceHeatBoundaryData.type = MemoryLevelData
+surfaceHeatBoundaryData.Dirichlett = false
+
+#basalHeatBoundaryData.type = MemoryLevelData
+
 #calving model
 CalvingModel.type = FixedFrontCalvingModel
 CalvingModel.min_thickness = 1.0
@@ -86,8 +93,8 @@ JFNKSolver.switchRate = 2.0
 
 
 #time stepping
-main.maxTime = 75  # maximum time to run to
-main.maxStep = 10000   # maximum number of steps to runx
+main.maxTime = 5  # maximum time to run to
+main.maxStep = 5   # maximum number of steps to runx
 amr.temporal_accuracy = 1
 amr.cfl = 0.25  
 amr.initial_cfl = 0.25  
@@ -101,6 +108,8 @@ amr.plot_prefix = plot.pigv5.1km.l1l2.1lev.
 #amr.write_preSolve_plotfiles = true
 amr.write_solver_rhs = 1
 amr.write_thickness_sources = true
+amr.write_temperature = true
+
 
 #check points
 amr.check_interval = 10

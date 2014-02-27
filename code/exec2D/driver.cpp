@@ -223,6 +223,8 @@ int main(int argc, char* argv[]) {
 
     amrObject.setBasalFlux(basal_flux_ptr); 
 
+
+
     // ---------------------------------------------
     // set mu coefficient
     // ---------------------------------------------
@@ -888,14 +890,55 @@ int main(int argc, char* argv[]) {
 	MayDay::Error("bad temperature type");
       }	
 	
-      amrObject.setTemperatureBC(temperatureIBC);
+    amrObject.setTemperatureBC(temperatureIBC);
+  
+    {
+      // ---------------------------------------------
+      // set surface heat boundary data 
+      // ---------------------------------------------
+      
+      SurfaceFlux* surf_heat_boundary_data_ptr = SurfaceFlux::parseSurfaceFlux("surfaceHeatBoundaryData");
+      ParmParse pps("surfaceHeatBoundaryData");
+      bool diri = true; //Dirichlett boundary data by default
+      pps.query("Dirichlett",diri);
+      if (surf_heat_boundary_data_ptr == NULL)
+	{
+	  if (!diri)
+	    {
+	      surf_heat_boundary_data_ptr = new zeroFlux();
+	    }
+	}
+      
+      amrObject.setSurfaceHeatBoundaryData(surf_heat_boundary_data_ptr, diri);
+      if (surf_heat_boundary_data_ptr != NULL)
+	{
+	  delete surf_heat_boundary_data_ptr;
+	  surf_heat_boundary_data_ptr=NULL;
+	}
     
-     
-      amrObject.setDomainSize(domainSize);
-
+      // ---------------------------------------------
+      // set basal (lower surface) heat boundary data. 
+      // ---------------------------------------------
+      
+      SurfaceFlux* basal_heat_boundary_data_ptr = SurfaceFlux::parseSurfaceFlux("basalHeatBoundaryData");
+      // if (basal_heat_boundary_data_ptr == NULL)
+      // 	{
+      // 	  basal_heat_boundary_data_ptr = new zeroFlux();
+      // 	}
+      
+      amrObject.setBasalHeatBoundaryData(basal_heat_boundary_data_ptr);
+      if (basal_heat_boundary_data_ptr != NULL)
+	{
+	  delete basal_heat_boundary_data_ptr;
+	  basal_heat_boundary_data_ptr=NULL;
+	}
+      
+    }
+      
+    amrObject.setDomainSize(domainSize);
     // set up initial grids, initialize data, etc.
     amrObject.initialize();
-
+  
 
     int maxStep;
     Real maxTime;

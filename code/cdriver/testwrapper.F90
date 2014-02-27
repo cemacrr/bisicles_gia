@@ -14,7 +14,7 @@ program fwrapper
   integer, dimension(1:2) :: dims, boxlo, boxhi
   real(kind=8) :: dx, max_time 
   integer, parameter :: nx = 64, ny = 96
-  real(kind=8), dimension(:,:), allocatable :: smb, bmbf, bmbg, usrf
+  real(kind=8), dimension(:,:), allocatable :: smb, bmbf, bmbg, usrf, seb
   integer ixlo,ixhi,iylo,iyhi
   
   integer :: rank,nproc,ierr
@@ -59,6 +59,7 @@ program fwrapper
 
   !if (rank.le.1) then
      allocate (smb(ixlo:ixhi,iylo:iyhi))
+     allocate (seb(ixlo:ixhi,iylo:iyhi))
      allocate (usrf(ixlo:ixhi,iylo:iyhi))
      allocate (bmbf(ixlo:ixhi,iylo:iyhi))
      allocate (bmbg(ixlo:ixhi,iylo:iyhi))
@@ -90,6 +91,8 @@ program fwrapper
      call f_bisicles_set_2d_data(instance_id, smb, BISICLES_FIELD_SURFACE_FLUX, dx, dims, boxlo, boxhi)
      bmbf = -100.0d0
      call f_bisicles_set_2d_data(instance_id, bmbf, BISICLES_FIELD_FLOATING_ICE_BASAL_FLUX, dx, dims, boxlo, boxhi)
+     seb = 1.0d+7
+     call f_bisicles_set_2d_data(instance_id, seb, BISICLES_FIELD_SURFACE_HEAT_FLUX, dx, dims, boxlo, boxhi)
   !end if
 
   !At this point, we have given BISICLES as much data as it needs to run. So, initialize it here, at which point the AMR velocity problem gets solved (or a checkpoint loaded)

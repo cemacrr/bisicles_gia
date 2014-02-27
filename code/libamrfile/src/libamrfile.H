@@ -32,6 +32,10 @@ extern "C"
 #define LIBAMRFILE_ERR_BAD_NGHOST 9
 #define LIBAMRFILE_ERR_NO_SUCH_COMP 10
 #define LIBAMRFILE_ERR_CREATE_FAILED 11
+#define LIBAMRFILE_ERR_TOO_MANY_AMR_HIERARCHIES  12
+
+
+#define LIBAMRFILE_MAX_AMR_HIERARCHIES 3
 
     /// read in amr file into memory, provide an integer id (amr_id). Although
     /// amr_id *could* be a simple pointer, an int has been chosen for portability

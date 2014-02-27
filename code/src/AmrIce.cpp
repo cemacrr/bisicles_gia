@@ -376,6 +376,8 @@ AmrIce::AmrIce() : m_velSolver(NULL),
                    m_thicknessIBCPtr(NULL), 
                    m_surfaceFluxPtr(NULL),
 		   m_basalFluxPtr(NULL),
+		   m_surfaceHeatBoundaryDataPtr(NULL),
+		   m_basalHeatBoundaryDataPtr(NULL),
                    m_basalFrictionPtr(NULL)
 {
   setDefaults();
@@ -450,6 +452,7 @@ AmrIce::setDefaults()
   m_max_base_grid_size = -1;
   m_isothermal = true;
   m_isothermalTemperature = 238.5;
+  m_surfaceTemperatureDirichlett = true;
   m_iceDensity = 910.0; 
   m_seaWaterDensity = 1028.0;
   m_gravity = 9.81;
@@ -959,7 +962,6 @@ AmrIce::initialize()
 
   ppAmr.query("isothermal",m_isothermal);
   ppAmr.query("isothermalTemperature",m_isothermalTemperature);
-
   ppAmr.query("plot_interval", m_plot_interval);
   ppAmr.query("plot_time_interval", m_plot_time_interval);
   ppAmr.query("plot_prefix", m_plot_prefix);
@@ -7729,9 +7731,34 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	   levelCoordsOld , m_amrDomains[lev], IntVect::Zero);
       }
       
+      LevelData<FArrayBox> surfaceHeatFlux(levelGrids,1,IntVect::Zero);
+      if (m_surfaceTemperatureDirichlett)
+	{
+	  if (m_surfaceHeatBoundaryDataPtr != NULL)
+	    {
+	      m_surfaceHeatBoundaryDataPtr->evaluate(*m_sTemperature[lev], *this, lev, a_dt);
+	    }
+	}
+      else
+	{
+	  m_surfaceHeatBoundaryDataPtr->evaluate(surfaceHeatFlux, *this, lev, a_dt);
+	}
+      
       LevelData<FArrayBox> basalHeatFlux(levelGrids,1,IntVect::Zero);
-      CH_assert(m_temperatureIBCPtr != NULL);
-      m_temperatureIBCPtr->basalHeatFlux(basalHeatFlux, *this, lev, a_dt);
+      if (m_basalHeatBoundaryDataPtr != NULL)
+	{
+	  m_basalHeatBoundaryDataPtr->evaluate(basalHeatFlux, *this, lev, a_dt);
+	}      
+      else if (m_temperatureIBCPtr != NULL)
+	{
+	  //backward compatibility : boundary data included in with m_temperatureIBCPtr,
+	  m_temperatureIBCPtr->basalHeatFlux(basalHeatFlux, *this, lev, a_dt);
+	}
+      else
+	{
+	  CH_assert(m_basalHeatBoundaryDataPtr != NULL || m_temperatureIBCPtr != NULL);
+	  MayDay::Error("no basal heat flux");
+	}
 
       for (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	{
@@ -7781,7 +7808,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  //add to user set (e.g geothermal) heat flux
 	  basalHeatFlux[dit] += basalDissipation;
 	  basalHeatFlux[dit] /= (iceheatcapacity * levelCoordsNew.iceDensity()); // scale conversion
-
+	  surfaceHeatFlux[dit] /= (iceheatcapacity * levelCoordsNew.iceDensity()); // scale conversion
 	  //zero heat flux outside grounded ice
 	  for (BoxIterator bit(rhs.box());bit.ok();++bit)
 	    {
@@ -7793,7 +7820,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	    }
 
 	  //solve H(t+dt)T(t+dt) + vertical transport terms = H(t)T(t) - rhs(t+/dt)
-          //with a Dirichlett boundary condition at the upper surface and a flux condition at base
+          //with either a Dirichlett or flux boundary condition at the upper surface and a flux condition at base
 	 
 	  Real halftime = time() + 0.5*a_dt;
 	  int nLayers = m_nLayers;
@@ -7811,11 +7838,14 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	      CH_assert(T.max(layer) < triplepoint);
 	    }
 #endif
+	  
+	  int surfaceTempDirichlett = (m_surfaceTemperatureDirichlett)?1:0;
 
 	  FORT_UPDATETEMPERATURE
 	       (CHF_FRA(T), 
 		CHF_FRA1(sT,0), 
 		CHF_FRA1(bT,0),
+		CHF_CONST_FRA1(surfaceHeatFlux[dit],0),
 		CHF_CONST_FRA1(basalHeatFlux[dit],0),
 		CHF_CONST_FIA1(levelCoordsOld.getFloatingMask()[dit],0),
 		CHF_CONST_FIA1(levelCoordsNew.getFloatingMask()[dit],0),
@@ -7831,6 +7861,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 		CHF_CONST_REAL(rhoo),
 		CHF_CONST_REAL(gravity),
 		CHF_CONST_INT(nLayers),
+		CHF_CONST_INT(surfaceTempDirichlett),
 		CHF_BOX(box));
 #ifndef NDEBUG	  
 	  for (int layer = 0; layer < nLayers; layer++)

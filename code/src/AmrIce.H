@@ -109,6 +109,40 @@ public:
     m_basalFluxPtr = a_basalFluxPtr->new_surfaceFlux(); 
   }
 
+  /// set surface Heat flux for ice sheet
+  void setSurfaceHeatBoundaryData(SurfaceFlux* a_surfaceHeatBoundaryDataPtr, bool a_dirichlett)
+  {
+    if (m_surfaceHeatBoundaryDataPtr != NULL)
+      {
+	delete(m_surfaceHeatBoundaryDataPtr);
+	m_surfaceHeatBoundaryDataPtr = NULL;
+      }
+    
+    //special case for backward compatibility : allow a NULL m_surfaceHeatBoundaryDataPtr
+    //with the Dirichlett boundary condition. Data will then be determined by the TemperatureIBC
+    CH_assert(a_dirichlett | (a_surfaceHeatBoundaryDataPtr != NULL));
+    m_surfaceTemperatureDirichlett = a_dirichlett;
+    if (a_surfaceHeatBoundaryDataPtr != NULL)
+      {
+	m_surfaceHeatBoundaryDataPtr = a_surfaceHeatBoundaryDataPtr->new_surfaceFlux(); 
+      }
+  }
+  
+  /// set basal Heat flux for ice sheet
+  void setBasalHeatBoundaryData(SurfaceFlux* a_basalHeatBoundaryDataPtr)
+  {
+    if (m_basalHeatBoundaryDataPtr != NULL)
+      {
+	delete(m_basalHeatBoundaryDataPtr);
+	m_basalHeatBoundaryDataPtr = NULL;
+      }
+    //special case for backward compatibility : allow a NULL m_basalHeatBoundaryDataPtr and determine the flux from m_temperatureIBCPtr
+    if (a_basalHeatBoundaryDataPtr != NULL)
+      {
+	m_basalHeatBoundaryDataPtr = a_basalHeatBoundaryDataPtr->new_surfaceFlux(); }
+  }
+
+
   /// set basal friction
   void setBasalFriction(const BasalFriction* a_basalFrictionPtr)
   {m_basalFrictionPtr = a_basalFrictionPtr->new_basalFriction();}
@@ -513,6 +547,12 @@ protected:
   /// sets basal flux for ice sheet
   SurfaceFlux* m_basalFluxPtr;
   
+   /// sets surface heat flux or temperature for ice sheet
+  SurfaceFlux* m_surfaceHeatBoundaryDataPtr;
+  /// sets basal heat flux or temperature for ice sheet
+  SurfaceFlux* m_basalHeatBoundaryDataPtr;
+  
+
   /// sets basal friction coefficient (beta^2)
   BasalFriction* m_basalFrictionPtr;
 
@@ -725,6 +765,9 @@ protected:
   
   // isothermal temperature
   Real m_isothermalTemperature;
+
+  /// should a Dirichlett condition be imposed at the upper surface?
+  bool m_surfaceTemperatureDirichlett;
 
   //ice density
   Real m_iceDensity;

@@ -57,7 +57,10 @@ struct BisiclesWrapper
   LevelDataSurfaceFlux* m_basal_flux;
   LevelDataSurfaceFlux* m_floating_ice_basal_flux;
   LevelDataSurfaceFlux* m_grounded_ice_basal_flux;
-  
+  LevelDataSurfaceFlux* m_surface_heat_boundary_data;
+  bool m_surface_heat_boundary_dirichlett;
+  LevelDataSurfaceFlux* m_basal_heat_boundary_data;
+
   //optional (initial) geometry data
   RefCountedPtr<LevelData<FArrayBox> >m_geometry_ice_thickness;
   RefCountedPtr<LevelData<FArrayBox> > m_geometry_bedrock_elevation;
@@ -69,6 +72,9 @@ struct BisiclesWrapper
     m_basal_flux = NULL;
     m_floating_ice_basal_flux = NULL;
     m_grounded_ice_basal_flux = NULL;
+    m_surface_heat_boundary_data = NULL;
+    m_surface_heat_boundary_dirichlett = true;
+    m_basal_heat_boundary_data = NULL;
     m_geometry_dx = -RealVect::Unit;
   }
 
@@ -82,6 +88,10 @@ struct BisiclesWrapper
       delete m_floating_ice_basal_flux;
     if (m_grounded_ice_basal_flux != NULL) 
       delete m_grounded_ice_basal_flux;
+    if (m_surface_heat_boundary_data != NULL) 
+      delete m_surface_heat_boundary_data;
+    if (m_basal_heat_boundary_data != NULL) 
+      delete m_basal_heat_boundary_data;
   }
 };
 
@@ -713,6 +723,69 @@ void init_bisicles_instance( int argc, char *argv[], const char *a_inputfile, Bi
 	
   amrObject.setTemperatureBC(temperatureIBC);
     
+  {
+    // ---------------------------------------------
+    // set surface heat boundary data 
+    // ---------------------------------------------
+        
+    ParmParse pps("surfaceHeatBoundaryData");
+    std::string surface_heat_type = "";
+    pps.query("type",surface_heat_type);
+    
+    if (surface_heat_type == "MemoryLevelData")
+      {
+	//first try the in-memory interface data
+	CH_assert(a_wrapper.m_surface_heat_boundary_data != NULL);
+	amrObject.setSurfaceHeatBoundaryData(a_wrapper.m_surface_heat_boundary_data, a_wrapper.m_surface_heat_boundary_dirichlett);
+      }
+    else
+      {
+	//try the standalone BISICLES boundary data options
+	bool diri = true; //Dirichlett boundary data by default
+	pps.query("Dirichlett",diri);
+	SurfaceFlux* surf_heat_boundary_data_ptr =
+	  SurfaceFlux::parseSurfaceFlux("surfaceHeatBoundaryData");
+	if ( surf_heat_boundary_data_ptr == NULL)
+	  {
+	    if (!diri)
+	      {
+		surf_heat_boundary_data_ptr = new zeroFlux();
+	      }
+	  }
+	amrObject.setSurfaceHeatBoundaryData(surf_heat_boundary_data_ptr, diri);
+	if (surf_heat_boundary_data_ptr != NULL)
+	  {
+	    delete surf_heat_boundary_data_ptr;
+	    surf_heat_boundary_data_ptr=NULL;
+	  }
+      }
+  
+    
+      // ---------------------------------------------
+      // set basal (lower surface) heat boundary data. 
+      // ---------------------------------------------
+    ParmParse ppb("basalHeatBoundaryData");
+    std::string basal_heat_type = "";
+    ppb.query("type",basal_heat_type);
+    if (basal_heat_type == "MemoryLevelData")
+      {
+	CH_assert(a_wrapper.m_basal_heat_boundary_data != NULL);
+	amrObject.setBasalHeatBoundaryData(a_wrapper.m_basal_heat_boundary_data);//first try the in-memory interface data
+      }
+    else
+      {
+	//try the standalone BISICLES boundary data options
+	SurfaceFlux* basal_heat_boundary_data_ptr = 
+	  SurfaceFlux::parseSurfaceFlux("basalHeatBoundaryData");
+	amrObject.setBasalHeatBoundaryData(basal_heat_boundary_data_ptr);
+	if (basal_heat_boundary_data_ptr != NULL)
+	  {
+	    delete basal_heat_boundary_data_ptr;
+	    basal_heat_boundary_data_ptr=NULL;
+	  }
+      } 
+  }
+
      
   amrObject.setDomainSize(domainSize);
 
@@ -899,6 +972,10 @@ void bisicles_set_2d_data
 	  break;
 	case BISICLES_FIELD_GROUNDED_ICE_BASAL_FLUX:
 	  wrapper_ptr->m_grounded_ice_basal_flux = new LevelDataSurfaceFlux(ptr, dxv);
+	  break;
+	case BISICLES_FIELD_SURFACE_HEAT_FLUX:
+	  wrapper_ptr->m_surface_heat_boundary_data = new LevelDataSurfaceFlux(ptr, dxv);
+	  wrapper_ptr->m_surface_heat_boundary_dirichlett = false;
 	  break;
 	default: 
 	  MayDay::Error("bisicles_set_2d_data: unknown (or unimplemented) field");

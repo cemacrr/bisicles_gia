@@ -848,6 +848,7 @@ c ---------------------------------------------------------------
      &     CHF_FRA[temp],
      &     CHF_FRA1[stemp],
      &     CHF_FRA1[btemp],
+     &     CHF_CONST_FRA1[sflux],
      &     CHF_CONST_FRA1[bflux],
      &     CHF_CONST_FIA1[floatingMaskOld],
      &     CHF_CONST_FIA1[floatingMaskNew],
@@ -863,6 +864,7 @@ c ---------------------------------------------------------------
      &     CHF_CONST_REAL[rhoo],
      &     CHF_CONST_REAL[grav], 
      &     CHF_CONST_INT[nlay],
+     &     CHF_CONST_INT[sdiric],
      &     CHF_BOX[box])
           
       Real_T coltemp(0:nlay-1), colrhs(0:nlay-1)
@@ -896,6 +898,7 @@ c     call ice floating if it is nor grounded (ie open sea or floating)
       end if
 
       call tarmac_update_temperature(coltemp, stemp(CHF_AUTOIX[i]),
+     &     sflux(CHF_AUTOIX[i]), sdiric.gt.0, 
      &     btemp(CHF_AUTOIX[i]), mask,
      &     bflux(CHF_AUTOIX[i]), colrhs,  
      &     thckold(CHF_AUTOIX[i]),  thcknew(CHF_AUTOIX[i]),

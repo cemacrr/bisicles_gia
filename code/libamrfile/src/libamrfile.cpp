@@ -134,6 +134,12 @@ void amr_read_file(int *status, int *amr_id, const char *file)
   if (!status)
     return;
 
+  if (libamrfile::g_store.size() > LIBAMRFILE_MAX_AMR_HIERARCHIES )
+    {
+      *status = LIBAMRFILE_ERR_TOO_MANY_AMR_HIERARCHIES ;
+      return;
+    }
+	    
   AMRHierarchy* h = new AMRHierarchy(file);
  
   if (h->ok())
@@ -166,6 +172,12 @@ void amr_create_coarse(int *status, int *amr_id,
   if (!(amr_id && D_TERM(nx, && ny, && nz) && n_comp && n_ghost))
     {
       *status = LIBAMRFILE_ERR_NULL_POINTER;
+      return;
+    }
+
+  if (libamrfile::g_store.size() > LIBAMRFILE_MAX_AMR_HIERARCHIES )
+    {
+      *status = LIBAMRFILE_ERR_TOO_MANY_AMR_HIERARCHIES ;
       return;
     }
 

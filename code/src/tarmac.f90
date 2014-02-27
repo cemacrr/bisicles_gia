@@ -99,25 +99,28 @@ module glunnamed
     end subroutine sigma_advect
 
   
-    subroutine fo_diffusive_advance(temp,stemp,btemp,bflux,rhs,chi, &
+    subroutine fo_diffusive_advance(temp,stemp,sflux,sdiric,btemp,bflux,rhs,chi, &
          thckold,thcknew,fsig,dt,mask,n)
       ! solve the equation 
       ! H_nT_n - dt * 1/H * \chi * d^2 T_n / dsigma^2 = H_To + rhs
-      ! with Robin boundary conditions 
+      ! with either a Dirichlett boundary condition T = stemp 
+      ! or a flux boundary condition - chi dT/dz = sflux at sigma = 0
+      ! and a flux boundary condition - chi dT/dz = bflux at sigma = 1
       ! (first order - backward Euler integration)
       integer :: n
       real(kind=8), intent(inout) :: stemp,btemp
-      real(kind=8), intent(in) :: bflux,chi,thckold,thcknew,dt
+      real(kind=8), intent(in) :: sflux,bflux,chi,thckold,thcknew,dt
       real(kind=8), dimension(1:n), intent(in) :: rhs
       real(kind=8), dimension(1:n), intent(inout) :: temp
       real(kind=8), dimension(1:n+1), intent(in) :: fsig ! sigma at layer faces
       integer, intent(in) :: mask
+      logical, intent(in) :: sdiric
       !locals
       real(kind=8), dimension(1:n) :: a,c,b,r ! TDMA coefficients
       real(kind=8), dimension(1:n) :: cdsig
       real(kind=8), dimension(1:n+1) :: fdsig
       real(kind=8) :: chistar, tpmp, eps, bmb, dtempdz
-      logical :: diric
+      logical :: bdiric
       integer :: i
 
       do i = 1,n
@@ -138,21 +141,37 @@ module glunnamed
          r(i) = thckold * temp(i) + rhs(i)
       end do
 
+      eps = 1.0e-12 
+
+      ! top layer
+      ! hold temperature eps K below the pressure melting point
       ! top layer : Dirichlett boundary condition temp = stemp
-      a(1) = 0.
-      b(1) =  thcknew + 3. * chistar / (cdsig(1)*fdsig(1))
-      c(1) = - chistar / (cdsig(1)*fdsig(1))
-      r(1) = thckold * temp(1) +  rhs(1) + &
-           2. * stemp * chistar / (cdsig(1)*fdsig(1))
+      tpmp = trpt -  eps
+      if (stemp .gt. tpmp) stemp = tpmp
+      
+      if (sdiric) then
+         !Dirichlett boundary condition
+         a(1) = 0.0d0
+         b(1) =  thcknew + 3. * chistar / (cdsig(1)*fdsig(1))
+         c(1) = - chistar / (cdsig(1)*fdsig(1))
+         r(1) = thckold * temp(1) +  rhs(1) + &
+              2. * stemp * chistar / (cdsig(1)*fdsig(1))
+      else
+         !Flux boundary condition
+         a(1) = 0.0d0
+         c(1) =  - chistar / (cdsig(1)*fdsig(1))
+         b(1) = thcknew - c(1)
+         r(1) = thckold * temp(1) +  rhs(1)  + dt * sflux/cdsig(1) 
+      end if
 
       ! bottom layer
-      eps = 1.0e-12 ! hold temperature eps K below the pressure melting point
+      ! hold temperature eps K below the pressure melting point
       tpmp = trpt - pmlt * rhoi * grav * thcknew - eps
       !diric = ((mask.eq.floatingmaskval) .or. (btemp .ge. tpmp))
       
-      diric = .false.
+      bdiric = .false.
       if ((btemp .ge. tpmp))  then 
-         diric = .true.
+         bdiric = .true.
          btemp = tpmp 
          !compute basal melt rate
          dtempdz = temp(n) + pmlt * rhoi * grav * thcknew * 0.5*(fsig(i) + fsig(i+1))
@@ -161,7 +180,7 @@ module glunnamed
         
       end if
 
-      if (diric) then
+      if (bdiric) then
          ! ice at pressure melting point 
          ! Dirichlett condition, temp = btemp
          a(n) =  - chistar / (cdsig(n)*fdsig(n+1))
@@ -175,24 +194,26 @@ module glunnamed
          a(n) =  - chistar / (cdsig(n)*fdsig(n+1))
          b(n) = thcknew - a(n)
          c(n) = 0.0
-         r(n) = thckold * temp(n) +  rhs(n)  + dt * bflux/cdsig(n)
+         r(n) = thckold * temp(n) +  rhs(n)  + dt * bflux/cdsig(n) 
       end if
       
-  
-
       call tdmasolve(n,temp,a,b,c,r)
 
-      if (.not. diric) then 
-         btemp = 1.5 * temp(n) - 0.5 * temp(n-1)
-         !write(*,*) chistar * (btemp-temp(n)) / ( 0.5* fdsig(n+1)), dt * bflux
-         if (btemp .ge. tpmp) btemp = tpmp   
+      if (.not. sdiric) then
+         stemp = 1.5 * temp(1) - 0.5 * temp(2)
+         if (stemp .ge. trpt - eps) stemp = trpt - eps
       end if
 
-       do i = 1, n
-           tpmp = trpt - pmlt * rhoi * grav * thcknew * 0.5*(fsig(i) + fsig(i+1)) - eps
-           if (temp(i) .ge. tpmp) temp(i) = tpmp 
-       end do
-
+      if (.not. bdiric) then 
+         btemp = 1.5 * temp(n) - 0.5 * temp(n-1)
+         if (btemp .ge. tpmp) btemp = tpmp   
+      end if
+      
+      !This is a kludge, and should be replaced with something conservative
+      do i = 1, n
+         tpmp = trpt - pmlt * rhoi * grav * thcknew * 0.5*(fsig(i) + fsig(i+1)) - eps
+         if (temp(i) .ge. tpmp) temp(i) = tpmp 
+      end do
 
     end subroutine fo_diffusive_advance
 
@@ -230,7 +251,7 @@ subroutine tarmac_set_constants( ascyr , arhoi , arhoo, agrav , ashci, alhci, ac
     trpt = atrpt
 end subroutine tarmac_set_constants
 
-subroutine tarmac_update_temperature(temp, stemp, btemp, mask, &
+subroutine tarmac_update_temperature(temp, stemp, sflux, sdiric, btemp, mask, &
      bflux, rhs, thckold, thcknew, usig, fsig, dsig, time, dt, n)
 
   !update the mid-layer temperarures temp, surface temparature
@@ -247,8 +268,9 @@ subroutine tarmac_update_temperature(temp, stemp, btemp, mask, &
   real(kind=8), dimension(1:n), intent(inout) :: temp,rhs,dsig
   real(kind=8), dimension(1:n+1), intent(inout) :: usig,fsig
   real(kind=8), intent(inout) :: stemp,btemp
-  real(kind=8), intent(in) :: time,dt,thckold,thcknew,bflux
+  real(kind=8), intent(in) :: time,dt,thckold,thcknew,bflux,sflux
   integer, intent(in) :: mask
+  logical, intent(in) :: sdiric
   !locals
   
   real(kind=8) :: chi
@@ -258,12 +280,11 @@ subroutine tarmac_update_temperature(temp, stemp, btemp, mask, &
   if ((mask.eq.groundedmaskval).or.(mask.eq.floatingmaskval)) then
      chi = coni/(shci * rhoi) *  scyr 
 
-    
      !modify rhs to include interlayer advection across constant sigma faces
      call sigma_advect(rhs, temp, stemp, btemp, usig , &
            fsig, dt, mask,  n)
      !compute vertical diffusion & update the basal temperature
-     call fo_diffusive_advance(temp, stemp, btemp, bflux, rhs, chi, &
+     call fo_diffusive_advance(temp, stemp, sflux, sdiric, btemp, bflux, rhs, chi, &
           thckold, thcknew,fsig,dt,mask,n)
     
 

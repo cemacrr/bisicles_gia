@@ -53,6 +53,15 @@ public:
 				    const AmrIce& a_amrIce, 
 				    int a_level, Real a_dt) = 0;
   
+  /// Sub-classes of this class turned out to be useful for various data apart from thickness fluxes...
+  virtual void evaluate(LevelData<FArrayBox>& a_flux,
+			const AmrIce& a_amrIce, 
+			int a_level, Real a_dt)
+  {
+    surfaceThicknessFlux(a_flux,a_amrIce, a_level,a_dt);
+  }
+
+
   //assemble a SurfaceFlux* object from ParmParse input
   static SurfaceFlux* parseSurfaceFlux(const char* a_prefix);
 
