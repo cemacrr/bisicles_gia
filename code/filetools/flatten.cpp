@@ -195,6 +195,7 @@ int main(int argc, char* argv[]) {
 	  {
 	    DataIterator dit(flatDBL); 
 	    const FArrayBox& fab = flatLevelData[dit];
+
 	    // Looking for illegal / character in variables names
 	    for (int iname=0; iname < names.size();iname++)
 	      {
@@ -207,7 +208,14 @@ int main(int argc, char* argv[]) {
 		    pout() << "... to " <<  names[iname] << std::endl;	    
 		  }
 	      }
-	    writeNetCDF(out_file, names, fab, flatDx, x0);
+            
+            // remove ghost cells from netcdf data, since they're 
+            // going to be unset anyway
+            Box gridBox = flatLevelData.getBoxes()[dit];
+            FArrayBox validFab(gridBox, fab.nComp());
+            validFab.copy(fab);
+            
+	    writeNetCDF(out_file, names, validFab, flatDx, x0);
 	  }
       }
    
