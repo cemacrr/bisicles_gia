@@ -973,10 +973,18 @@ void bisicles_set_2d_data
 	case BISICLES_FIELD_GROUNDED_ICE_BASAL_FLUX:
 	  wrapper_ptr->m_grounded_ice_basal_flux = new LevelDataSurfaceFlux(ptr, dxv);
 	  break;
+	case BISICLES_FIELD_SURFACE_TEMPERATURE:
+	  wrapper_ptr->m_surface_heat_boundary_data = new LevelDataSurfaceFlux(ptr, dxv);
+	  wrapper_ptr->m_surface_heat_boundary_dirichlett = true;
+	  break;
 	case BISICLES_FIELD_SURFACE_HEAT_FLUX:
 	  wrapper_ptr->m_surface_heat_boundary_data = new LevelDataSurfaceFlux(ptr, dxv);
 	  wrapper_ptr->m_surface_heat_boundary_dirichlett = false;
 	  break;
+	case BISICLES_FIELD_BASAL_HEAT_FLUX:
+	  wrapper_ptr->m_basal_heat_boundary_data = new LevelDataSurfaceFlux(ptr, dxv);
+	  break;
+
 	default: 
 	  MayDay::Error("bisicles_set_2d_data: unknown (or unimplemented) field");
 	}

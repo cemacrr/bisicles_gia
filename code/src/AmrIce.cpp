@@ -371,7 +371,9 @@ AmrIce::isDefined() const
 
 AmrIce::AmrIce() : m_velSolver(NULL),
                    m_constitutiveRelation(NULL),
+		   m_rateFactor(NULL),
 		   m_basalFrictionRelation(NULL),
+		   m_basalRateFactor(NULL),
                    m_thicknessPhysPtr(NULL),
                    m_thicknessIBCPtr(NULL), 
                    m_surfaceFluxPtr(NULL),
@@ -379,6 +381,7 @@ AmrIce::AmrIce() : m_velSolver(NULL),
 		   m_surfaceHeatBoundaryDataPtr(NULL),
 		   m_basalHeatBoundaryDataPtr(NULL),
                    m_basalFrictionPtr(NULL)
+		   
 {
   setDefaults();
 }
@@ -504,7 +507,7 @@ AmrIce::setDefaults()
   m_reset_floating_friction_to_zero = true; // set basal friction to zero where ice is floating
  
   m_basalLengthScale = 0.0; // don't mess about with the basal friction / rhs by default
-  
+ 
   m_wallDrag = true; //compute additional drag due to contact with rocky walls 
   m_wallDragExtra = 0.0; // assume wall drag proportional to basal drag
 
@@ -789,12 +792,25 @@ AmrIce::~AmrIce()
       delete m_constitutiveRelation;
       m_constitutiveRelation = NULL;
     }
+
+  if (m_rateFactor != NULL)
+    {
+      delete m_rateFactor;
+      m_rateFactor = NULL;
+    }
+
   if (m_basalFrictionRelation != NULL)
     {
       delete m_basalFrictionRelation;
       m_basalFrictionRelation = NULL;
     }
   
+  if (m_basalRateFactor != NULL)
+    {
+      delete m_basalRateFactor;
+      m_basalRateFactor = NULL;
+    }
+
   for (int lev=0; lev<m_thicknessPatchGodVect.size(); lev++)
     {
       if (m_thicknessPatchGodVect[lev] != NULL)
@@ -4792,7 +4808,22 @@ AmrIce::setBasalFriction(Vector<LevelData<FArrayBox>* >& a_vectBeta)
       m_basalFrictionPtr->setBasalFriction(*a_vectBeta[lev],
                                            *m_vect_coordSys[lev],
                                            m_time,
-                                           m_dt);      
+                                           m_dt); 
+
+      if (m_basalRateFactor != NULL)
+	{
+	  //basal temperature dependence
+	  LevelData<FArrayBox>& B = *a_vectBeta[lev];
+	  Vector<Real> bSigma(1,1.0);
+	  LevelData<FArrayBox> A(B.disjointBoxLayout(),1,B.ghostVect());
+	  IceUtility::computeA(A, bSigma,*m_vect_coordSys[lev],  
+			       m_basalRateFactor, *m_bTemperature[lev]);
+	  for (DataIterator dit = B.dataIterator(); dit.ok(); ++dit)
+	    {
+	      B[dit] /= A[dit];
+	    }
+	}
+     
       a_vectBeta[lev]->exchange();
     }
 }

@@ -49,6 +49,9 @@ public:
                                 Real a_time,
                                 Real a_dt) = 0;
 
+  class AmrIce;
+  static BasalFriction *parseBasalFriction(const char* a_prefix, 
+					   const RealVect& a_domainSize);
 
 private:
   // Disallowed for all the usual reasons

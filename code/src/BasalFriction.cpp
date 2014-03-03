@@ -1,15 +1,24 @@
 #ifdef CH_LANG_CC
 /*
-*      _______              __
-*     / ___/ /  ___  __ _  / /  ___
-*    / /__/ _ \/ _ \/  V \/ _ \/ _ \
-*    \___/_//_/\___/_/_/_/_.__/\___/
-*    Please refer to Copyright.txt, in Chombo's root directory.
-*/
+ *      _______              __
+ *     / ___/ /  ___  __ _  / /  ___
+ *    / /__/ _ \/ _ \/  V \/ _ \/ _ \
+ *    \___/_//_/\___/_/_/_/_.__/\___/
+ *    Please refer to Copyright.txt, in Chombo's root directory.
+ */
 #endif
 
 #include "BasalFriction.H"
 #include "IceConstants.H"
+#include "ParmParse.H"
+#include "twistyStreamFriction.H"
+#include "singularStreamFriction.H"
+#include "GaussianBumpFriction.H"
+#include "LevelDataBasalFriction.H"
+#include "ReadLevelData.H"
+#ifdef HAVE_PYTHON
+#include "PythonInterface.H"
+#endif
 #include "CONSTANTS.H"
 #include "BoxIterator.H"
 
@@ -29,10 +38,10 @@ zeroFriction::new_basalFriction() const
   return static_cast<BasalFriction*>(newPtr);
 }
 
-  /// define source term for thickness evolution and place it in flux
-  /** dt is included in case one needs integrals or averages over a
-      timestep
-  */
+/// define source term for thickness evolution and place it in flux
+/** dt is included in case one needs integrals or averages over a
+    timestep
+*/
 void
 zeroFriction::setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
                                LevelSigmaCS& a_coordSys,
@@ -69,10 +78,10 @@ constantFriction::new_basalFriction() const
   return static_cast<BasalFriction*>(newPtr);
 }
 
-  /// define source term for thickness evolution and place it in flux
-  /** dt is included in case one needs integrals or averages over a
-      timestep
-  */
+/// define source term for thickness evolution and place it in flux
+/** dt is included in case one needs integrals or averages over a
+    timestep
+*/
 void
 constantFriction::setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
 				   LevelSigmaCS& a_coordSys,
@@ -190,3 +199,190 @@ sinusoidalFriction::setSinParameters(const Real& a_betaVal,
 }
 
 #include "NamespaceFooter.H"
+
+BasalFriction* BasalFriction::parseBasalFriction(const char* a_prefix, 
+						 const RealVect& a_domainSize)
+{
+  BasalFriction* basalFrictionPtr = NULL;
+  std::string type = "";
+
+  ParmParse pp(a_prefix);
+
+  pp.query("beta_type",type);
+    
+
+  if (type == "constantBeta")
+    {
+      Real betaVal;
+      pp.get("betaValue", betaVal);
+      basalFrictionPtr = static_cast<BasalFriction*>(new constantFriction(betaVal));
+    }
+  else if (type == "sinusoidalBeta")
+    {
+      Real betaVal, eps;
+      RealVect omega(RealVect::Unit);
+      Vector<Real> omegaVect(SpaceDim);
+      pp.get("betaValue", betaVal);
+      if (pp.contains("omega"))
+	{
+	  pp.getarr("omega", omegaVect, 0, SpaceDim);
+	  omega = RealVect(D_DECL(omegaVect[0], omegaVect[1], omegaVect[2]));
+	}
+      pp.get("betaEps", eps);
+      basalFrictionPtr = static_cast<BasalFriction*>(new sinusoidalFriction(betaVal, 
+									    omega, 
+									    eps,
+									    a_domainSize));
+    }
+  // keep this one around for backward compatibility, even if it
+  // is a special case of sinusoidalBeta
+  else if (type == "sinusoidalBetay")
+    {
+      Real betaVal, eps, omegaVal;
+      RealVect omega(RealVect::Zero);
+      omega[1] = 1;
+        
+      pp.get("betaValue", betaVal);
+      if (pp.contains("omega"))
+	{
+	  pp.get("omega", omegaVal);
+	  omega[1] = omegaVal;
+	}
+      pp.get("betaEps", eps);
+      basalFrictionPtr = static_cast<BasalFriction*>(new sinusoidalFriction(betaVal, 
+									    omega, 
+									    eps,
+									    a_domainSize));
+
+    }
+  else if (type == "twistyStreamx")
+    {
+      Real betaVal, eps, magOffset;
+      magOffset = 0.25;
+      RealVect omega(RealVect::Unit);
+      Vector<Real> omegaVect(SpaceDim);
+      pp.get("betaValue", betaVal);
+      if (pp.contains("omega"))
+	{
+	  pp.getarr("omega", omegaVect, 0, SpaceDim);
+	  omega = RealVect(D_DECL(omegaVect[0], omegaVect[1], omegaVect[2]));
+	}
+      pp.query("magOffset", magOffset);
+      pp.get("betaEps", eps);
+      basalFrictionPtr = static_cast<BasalFriction*>(new twistyStreamFriction(betaVal, 
+									      omega, 
+									      magOffset, 
+									      eps,
+									      a_domainSize));          
+    }
+  else if (type == "singularStream")
+    {
+      Real slippyC,stickyC,width,twistNumber,twistAmplitude;
+      pp.get("slippyC",slippyC);
+      pp.get("stickyC",stickyC);
+      pp.get("width",width);
+      pp.get("twistNumber",twistNumber);
+      pp.get("twistAmplitude",twistAmplitude);
+      basalFrictionPtr = static_cast<BasalFriction*>
+	(new singularStreamFriction
+	 (slippyC,stickyC,width,twistNumber,twistAmplitude,a_domainSize));
+
+    }
+  else if (type == "gaussianBump")
+    {
+      int nt;
+      pp.get("gaussianBump_nt", nt);
+      Vector<Real> t(nt-1);
+      Vector<Real> C0(nt),a(nt);
+      Vector<RealVect> b(nt),c(nt);
+
+      pp.getarr("gaussianBump_t", t, 0, nt-1);
+      pp.getarr("gaussianBump_C", C0, 0, nt);
+      pp.getarr("gaussianBump_a", a, 0, nt);
+     
+#if CH_SPACEDIM == 1
+      Vector<Real> xb(nt),xc(nt);
+      pp.getarr("gaussianBump_xb", xb, 0, nt);
+      pp.getarr("gaussianBump_xc", xc, 0, nt);
+      for (int i = 0; i < nt; ++i)
+	{
+	  b[i][0] = xb[i];
+	  c[i][0] = xc[i];
+	}
+#elif CH_SPACEDIM == 2
+      Vector<Real> xb(nt),yb(nt),xc(nt),yc(nt);
+      pp.getarr("gaussianBump_xb", xb, 0, nt);
+      pp.getarr("gaussianBump_xc", xc, 0, nt);
+      pp.getarr("gaussianBump_yb", yb, 0, nt);
+      pp.getarr("gaussianBump_yc", yc, 0, nt);
+      for (int i = 0; i < nt; ++i)
+	{
+	  b[i][0] = xb[i];
+	  b[i][1] = yb[i];
+	  c[i][0] = xc[i];
+	  c[i][1] = yc[i];
+	}
+#else
+      MayDay::Error("type = gaussianBump not implemented for CH_SPACEDIM > 2")
+#endif
+        basalFrictionPtr = static_cast<BasalFriction*>
+	(new GaussianBumpFriction(t, C0, a, b, c));
+    }
+  else if (type == "LevelData")
+    {
+      //read a one level beta^2 from an AMR Hierarchy, and  store it in a LevelDataBasalFriction
+      ParmParse ildPP("inputLevelData");
+      std::string infile;
+      ildPP.get("frictionFile",infile);
+      std::string frictionName = "btrc";
+      ildPP.query("frictionName",frictionName);
+
+      RefCountedPtr<LevelData<FArrayBox> > levelC (new LevelData<FArrayBox>());
+
+      Real dx;
+
+      Vector<RefCountedPtr<LevelData<FArrayBox> > > vectC;
+      vectC.push_back(levelC);
+
+      Vector<std::string> names(1);
+      names[0] = frictionName;
+
+      readLevelData(vectC,dx,infile,names,1);
+	   
+      RealVect levelDx = RealVect::Unit * dx;
+      basalFrictionPtr = static_cast<BasalFriction*>
+	(new LevelDataBasalFriction(levelC,levelDx));
+    }
+  else if (type == "MultiLevelData")
+    {
+      //read a multi level beta^2 from an AMR Hierarchy, and  store it in a MultiLevelDataBasalFriction
+      ParmParse ildPP("inputLevelData");
+      std::string infile;
+      ildPP.get("frictionFile",infile);
+      std::string frictionName = "btrc";
+      ildPP.query("frictionName",frictionName);
+      Vector<Vector<RefCountedPtr<LevelData<FArrayBox> > > > vectC;
+      Real dx;
+      Vector<int> ratio;
+      Vector<std::string> names(1);
+      names[0] = frictionName;
+      readMultiLevelData(vectC,dx,ratio,infile,names,1);
+      RealVect dxCrse = RealVect::Unit * dx;
+      basalFrictionPtr = static_cast<BasalFriction*>
+	(new MultiLevelDataBasalFriction(vectC[0],dxCrse,ratio));
+    }
+#ifdef HAVE_PYTHON
+  else if (type == "Python")
+    {
+      ParmParse pyPP("PythonBasalFriction");
+      std::string module;
+      pyPP.get("module",module);
+      std::string funcName = "friction";
+      pyPP.query("function",funcName);
+      basalFrictionPtr = static_cast<BasalFriction*>
+	(new PythonInterface::PythonBasalFriction(module, funcName));
+
+    }
+#endif
+  return basalFrictionPtr;
+}

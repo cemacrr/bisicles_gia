@@ -390,6 +390,10 @@ public:
  
   void setDefaultParameters();
  
+  void setA0(Real a_A0)
+  {
+    m_A0 = a_A0;
+  }
 
   void setParameters(Real a_E, Real a_A0, Real a_T0, Real a_R, 
 		     Real a_Qm, Real a_Qp);

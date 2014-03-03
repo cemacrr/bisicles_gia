@@ -144,6 +144,7 @@ int main(int argc, char* argv[]) {
         MayDay::Error("bad Constitutive relation type");
       }
     Real epsSqr0 = 1.0e-9;
+    
     std::string rateFactorType = "constRate";
     pp2.query("rateFactor", rateFactorType);
     if (rateFactorType == "constRate")
@@ -195,6 +196,16 @@ int main(int argc, char* argv[]) {
       }
     amrObject.setConstitutiveRelation(constRelPtr);
  
+    std::string basalRateFactorType = "";
+    pp2.query("basalRateFactor", basalRateFactorType);
+    
+    if (basalRateFactorType == "patersonRate")
+      {
+	PatersonRateFactor rateFactor;
+	rateFactor.setA0(1.0);
+	amrObject.setBasalRateFactor(&rateFactor);
+      }
+
     // ---------------------------------------------
     // set surface flux. 
     // ---------------------------------------------
@@ -248,190 +259,14 @@ int main(int argc, char* argv[]) {
 
     ParmParse geomPP("geometry");
     
-    BasalFriction* basalFrictionPtr = NULL;
-
-    std::string beta_type;
-    geomPP.get("beta_type", beta_type);
-    // read in type of beta^2 distribution
+    BasalFriction* basalFrictionPtr 
+      = BasalFriction::parseBasalFriction("geometry", domainSize);
     
-    if (beta_type == "constantBeta")
+    if (basalFrictionPtr == NULL)
       {
-        Real betaVal;
-        geomPP.get("betaValue", betaVal);
-        basalFrictionPtr = static_cast<BasalFriction*>(new constantFriction(betaVal));
+	MayDay::Error("undefined  geometry.beta_type in inputs");
       }
-    else if (beta_type == "sinusoidalBeta")
-      {
-        Real betaVal, eps;
-        RealVect omega(RealVect::Unit);
-        Vector<Real> omegaVect(SpaceDim);
-        geomPP.get("betaValue", betaVal);
-        if (geomPP.contains("omega"))
-          {
-            geomPP.getarr("omega", omegaVect, 0, SpaceDim);
-            omega = RealVect(D_DECL(omegaVect[0], omegaVect[1], omegaVect[2]));
-          }
-        geomPP.get("betaEps", eps);
-        basalFrictionPtr = static_cast<BasalFriction*>(new sinusoidalFriction(betaVal, 
-                                                                              omega, 
-                                                                              eps,
-                                                                              domainSize));
-      }
-    // keep this one around for backward compatibility, even if it
-    // is a special case of sinusoidalBeta
-    else if (beta_type == "sinusoidalBetay")
-      {
-        Real betaVal, eps, omegaVal;
-        RealVect omega(RealVect::Zero);
-        omega[1] = 1;
-        
-        geomPP.get("betaValue", betaVal);
-        if (geomPP.contains("omega"))
-          {
-            geomPP.get("omega", omegaVal);
-            omega[1] = omegaVal;
-          }
-        geomPP.get("betaEps", eps);
-        basalFrictionPtr = static_cast<BasalFriction*>(new sinusoidalFriction(betaVal, 
-                                                                              omega, 
-                                                                              eps,
-                                                                              domainSize));
-
-        }
-    else if (beta_type == "twistyStreamx")
-      {
-        Real betaVal, eps, magOffset;
-        magOffset = 0.25;
-        RealVect omega(RealVect::Unit);
-        Vector<Real> omegaVect(SpaceDim);
-        geomPP.get("betaValue", betaVal);
-        if (geomPP.contains("omega"))
-          {
-            geomPP.getarr("omega", omegaVect, 0, SpaceDim);
-            omega = RealVect(D_DECL(omegaVect[0], omegaVect[1], omegaVect[2]));
-          }
-        geomPP.query("magOffset", magOffset);
-        geomPP.get("betaEps", eps);
-        basalFrictionPtr = static_cast<BasalFriction*>(new twistyStreamFriction(betaVal, 
-                                                                                omega, 
-                                                                                magOffset, 
-                                                                                eps,
-                                                                                domainSize));          
-      }
-    else if (beta_type == "singularStream")
-      {
-	Real slippyC,stickyC,width,twistNumber,twistAmplitude;
-	geomPP.get("slippyC",slippyC);
-	geomPP.get("stickyC",stickyC);
-	geomPP.get("width",width);
-	geomPP.get("twistNumber",twistNumber);
-	geomPP.get("twistAmplitude",twistAmplitude);
-	basalFrictionPtr = static_cast<BasalFriction*>
-	  (new singularStreamFriction
-	   (slippyC,stickyC,width,twistNumber,twistAmplitude,domainSize));
-
-      }
-     else if (beta_type == "gaussianBump")
-      {
-	int nt;
-	geomPP.get("gaussianBump_nt", nt);
-	Vector<Real> t(nt-1);
-	Vector<Real> C0(nt),a(nt);
-	Vector<RealVect> b(nt),c(nt);
-
-	geomPP.getarr("gaussianBump_t", t, 0, nt-1);
-	geomPP.getarr("gaussianBump_C", C0, 0, nt);
-	geomPP.getarr("gaussianBump_a", a, 0, nt);
-     
-#if CH_SPACEDIM == 1
-	Vector<Real> xb(nt),xc(nt);
-	geomPP.getarr("gaussianBump_xb", xb, 0, nt);
-	geomPP.getarr("gaussianBump_xc", xc, 0, nt);
-	for (int i = 0; i < nt; ++i)
-	  {
-	    b[i][0] = xb[i];
-	    c[i][0] = xc[i];
-	  }
-#elif CH_SPACEDIM == 2
-	Vector<Real> xb(nt),yb(nt),xc(nt),yc(nt);
-	geomPP.getarr("gaussianBump_xb", xb, 0, nt);
-	geomPP.getarr("gaussianBump_xc", xc, 0, nt);
-	geomPP.getarr("gaussianBump_yb", yb, 0, nt);
-	geomPP.getarr("gaussianBump_yc", yc, 0, nt);
-	for (int i = 0; i < nt; ++i)
-	  {
-	    b[i][0] = xb[i];
-	    b[i][1] = yb[i];
-	    c[i][0] = xc[i];
-	    c[i][1] = yc[i];
-	  }
-#else
-	       MayDay::Error("beta_type = gaussianBump not implemented for CH_SPACEDIM > 2")
-#endif
-        basalFrictionPtr = static_cast<BasalFriction*>
-	  (new GaussianBumpFriction(t, C0, a, b, c));
-      }
-     else if (beta_type == "LevelData")
-       {
-	 //read a one level beta^2 from an AMR Hierarchy, and  store it in a LevelDataBasalFriction
-	 ParmParse ildPP("inputLevelData");
-	 std::string infile;
-	 ildPP.get("frictionFile",infile);
-	 std::string frictionName = "btrc";
-	 ildPP.query("frictionName",frictionName);
-
-	 RefCountedPtr<LevelData<FArrayBox> > levelC (new LevelData<FArrayBox>());
-
-	 Real dx;
-
-	 Vector<RefCountedPtr<LevelData<FArrayBox> > > vectC;
-	 vectC.push_back(levelC);
-
-	 Vector<std::string> names(1);
-	 names[0] = frictionName;
-
-	 readLevelData(vectC,dx,infile,names,1);
-	   
-	 RealVect levelDx = RealVect::Unit * dx;
-	 basalFrictionPtr = static_cast<BasalFriction*>
-	   (new LevelDataBasalFriction(levelC,levelDx));
-       }
-         else if (beta_type == "MultiLevelData")
-       {
-	 //read a multi level beta^2 from an AMR Hierarchy, and  store it in a MultiLevelDataBasalFriction
-	 ParmParse ildPP("inputLevelData");
-	 std::string infile;
-	 ildPP.get("frictionFile",infile);
-	 std::string frictionName = "btrc";
-	 ildPP.query("frictionName",frictionName);
-	 Vector<Vector<RefCountedPtr<LevelData<FArrayBox> > > > vectC;
-	 Real dx;
-	 Vector<int> ratio;
-	 Vector<std::string> names(1);
-	 names[0] = frictionName;
-	 readMultiLevelData(vectC,dx,ratio,infile,names,1);
-	 RealVect dxCrse = RealVect::Unit * dx;
-	 basalFrictionPtr = static_cast<BasalFriction*>
-	   (new MultiLevelDataBasalFriction(vectC[0],dxCrse,ratio));
-       }
-#ifdef HAVE_PYTHON
-    else if (beta_type == "Python")
-      {
-	ParmParse pyPP("PythonBasalFriction");
-	std::string module;
-	pyPP.get("module",module);
-	std::string funcName = "friction";
-	pyPP.query("function",funcName);
-	basalFrictionPtr = static_cast<BasalFriction*>
-	  (new PythonInterface::PythonBasalFriction(module, funcName));
-
-      }
-#endif
-    else 
-      {
-        MayDay::Error("undefined beta_type in inputs");
-      }
-
+    
     amrObject.setBasalFriction(basalFrictionPtr);
     
     BasalFrictionRelation* basalFrictionRelationPtr;

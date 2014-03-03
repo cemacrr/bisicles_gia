@@ -74,6 +74,14 @@ public:
   void setRateFactor(RateFactor* a_rateFactorPtr)
   {m_rateFactor = a_rateFactorPtr->getNewRateFactor(); }
 
+
+   /// set rate factor at base
+  /** needs to be done before calling initialize
+   */
+  void setBasalRateFactor(RateFactor* a_rateFactorPtr)
+  {m_basalRateFactor = a_rateFactorPtr->getNewRateFactor(); }
+  
+
   /// set basal Friction relation
   /** needs to be done before calling initialize
    */
@@ -495,6 +503,8 @@ protected:
   RateFactor* m_rateFactor;
   /// basal Friction relation
   BasalFrictionRelation* m_basalFrictionRelation;
+  /// rate factor at base
+  RateFactor* m_basalRateFactor;
 
   /// if false, don't reset basal friction for floating ice to zero (default is true)
   /** This option exists primarly so that we can run the CISM circular 
