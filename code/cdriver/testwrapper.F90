@@ -89,7 +89,7 @@ program fwrapper
      !tell BISICLES to read a surface flux from smb, and a basal fluxes from bmbf and bmbg
      smb = 1.0d0 +  dble(mod(rank,2))
      call f_bisicles_set_2d_data(instance_id, smb, BISICLES_FIELD_SURFACE_FLUX, dx, dims, boxlo, boxhi)
-     bmbf = -100.0d0
+     bmbf = -0.0d0
      call f_bisicles_set_2d_data(instance_id, bmbf, BISICLES_FIELD_FLOATING_ICE_BASAL_FLUX, dx, dims, boxlo, boxhi)
      seb = 1.0d+7
      call f_bisicles_set_2d_data(instance_id, seb, BISICLES_FIELD_SURFACE_HEAT_FLUX, dx, dims, boxlo, boxhi)

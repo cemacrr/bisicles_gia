@@ -25,7 +25,7 @@ class CalvingModel
 public:
 
   //alter the thickness field prior to the first time step. 
-  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
+  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness,  
 				  const AmrIce& a_amrIce,
 				  int a_level) = 0;
 

@@ -636,6 +636,11 @@ AmrIce::~AmrIce()
 	  delete m_basalThicknessSource[lev];
 	  m_basalThicknessSource[lev] = NULL;
 	}
+      if (m_calvedIceThickness[lev] != NULL)
+	{
+	  delete m_calvedIceThickness[lev];
+	  m_calvedIceThickness[lev] = NULL;
+	}
     }
   
   for (int lev=0; lev < m_balance.size(); lev++)
@@ -1571,6 +1576,7 @@ AmrIce::initialize()
       m_velRHS.resize(m_max_level+1, NULL);
       m_surfaceThicknessSource.resize(m_max_level+1, NULL);
       m_basalThicknessSource.resize(m_max_level+1, NULL);
+      m_calvedIceThickness.resize(m_max_level+1, NULL);
       m_balance.resize(m_max_level+1, NULL);
       m_temperature.resize(m_max_level+1, NULL);
 #if BISICLES_Z == BISICLES_LAYERED
@@ -1885,6 +1891,18 @@ AmrIce::defineSolver()
 //  return std::min( p - i, p - 1 - i);
 //}
 
+void AmrIce::zeroCalvedIceThickness()
+{
+  for (int lev=0; lev<= m_finest_level; lev++)
+    {
+      LevelData<FArrayBox>& calv = *m_calvedIceThickness[lev];
+       for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+	{
+	  calv[dit].setVal(0.0);
+	}
+    }
+}
+
 void
 AmrIce::run(Real a_max_time, int a_max_step)
 {
@@ -1895,7 +1913,7 @@ AmrIce::run(Real a_max_time, int a_max_step)
              << ", max_step = " << a_max_step << endl;
     }
 
-
+  zeroCalvedIceThickness();
   Real dt;
   // only call computeInitialDt if we're not doing restart
   if (!m_do_restart)
@@ -2720,8 +2738,20 @@ AmrIce::updateThickness(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_ne
   //allow calving model to modify geometry and velocity
   for (int lev=0; lev<= m_finest_level; lev++)
     {
-      m_calvingModelPtr->endTimeStepModifyState
-        (m_vect_coordSys[lev]->getH(), *this, lev);
+      //keep track of the calved ice
+      LevelData<FArrayBox> prevThck(m_amrGrids[lev],1,IntVect::Unit);
+      LevelData<FArrayBox>& thck = m_vect_coordSys[lev]->getH();
+      LevelData<FArrayBox>& calv = *m_calvedIceThickness[lev];
+      for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+	{
+	  prevThck[dit].copy(thck[dit]);
+	}
+      m_calvingModelPtr->endTimeStepModifyState(thck, *this, lev);
+      for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+	{
+	  calv[dit] += prevThck[dit];
+	  calv[dit] -= thck[dit];
+	}
     }
   
   
@@ -2888,7 +2918,7 @@ AmrIce::regrid()
 	      LevelData<FArrayBox>* old_oldDataPtr = m_old_thickness[lev];
 	      LevelData<FArrayBox>* old_velDataPtr = m_velocity[lev];
 	      LevelData<FArrayBox>* old_tempDataPtr = m_temperature[lev];
-
+	      LevelData<FArrayBox>* old_calvDataPtr = m_calvedIceThickness[lev];
 	      
 	     
 	      LevelData<FArrayBox>* new_oldDataPtr = 
@@ -2903,7 +2933,9 @@ AmrIce::regrid()
 	      //since the temperature data has changed
 	      m_A_valid = false;
 
-
+	      LevelData<FArrayBox>* new_calvDataPtr = 
+		new LevelData<FArrayBox>(newDBL, m_calvedIceThickness[0]->nComp(), 
+					 m_calvedIceThickness[0]->ghostVect());
 	      
 #if BISICLES_Z == BISICLES_LAYERED
 	      LevelData<FArrayBox>* old_sTempDataPtr = m_sTemperature[lev];
@@ -3060,6 +3092,36 @@ AmrIce::regrid()
 		
 	      }
 	      
+	      
+	      {
+		// may eventually want to do post-regrid smoothing on this
+		FineInterp interpolator(newDBL,m_calvedIceThickness[0]->nComp(),
+					m_refinement_ratios[lev-1],
+					m_amrDomains[lev]);
+		interpolator.interpToFine(*new_calvDataPtr, *m_calvedIceThickness[lev-1]);
+
+		
+		PiecewiseLinearFillPatch ghostFiller
+		  (m_amrGrids[lev],
+		   m_amrGrids[lev-1],
+		   m_calvedIceThickness[lev-1]->nComp(),
+		   m_amrDomains[lev-1],
+		   m_refinement_ratios[lev-1],
+		   m_calvedIceThickness[lev-1]->ghostVect()[0]);
+
+		ghostFiller.fillInterp(*new_calvDataPtr,*m_calvedIceThickness[lev-1],
+				      *m_calvedIceThickness[lev-1],1.0,0,0,
+				      m_calvedIceThickness[lev-1]->nComp());
+
+		if (old_calvDataPtr != NULL && oldDBL.isClosed())
+		  {
+		    old_calvDataPtr->copyTo(*new_calvDataPtr);
+		  }
+		delete old_calvDataPtr;
+		
+	      }
+
+
 #if BISICLES_Z == BISICLES_LAYERED
 	      {
 		// may eventually want to do post-regrid smoothing on this
@@ -3118,6 +3180,7 @@ AmrIce::regrid()
 	      m_old_thickness[lev] = new_oldDataPtr;
 	      m_velocity[lev] = new_velDataPtr;
 	      m_temperature[lev] = new_tempDataPtr;
+	      m_calvedIceThickness[lev] = new_calvDataPtr;
 #if BISICLES_Z == BISICLES_LAYERED
 	      m_sTemperature[lev] = new_sTempDataPtr;
 	      m_bTemperature[lev] = new_bTempDataPtr;
@@ -3183,6 +3246,9 @@ AmrIce::regrid()
 	      m_basalThicknessSource[lev] = 
 		new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
 	      
+	      
+	      
+
 	      if (m_balance[lev] != NULL)
 		{
 		  delete m_balance[lev];
@@ -4098,36 +4164,23 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
     } // end interpolate/copy new velocity
 
   levelAllocate(&m_faceVelAdvection[a_level] ,a_grids,1,IntVect::Unit);
-  //m_faceVelAdvection[a_level] = new LevelData<FluxBox>(a_grids,1,IntVect::Unit);
   levelAllocate(&m_faceVelTotal[a_level],a_grids,1,IntVect::Unit);
-  //m_faceVelTotal[a_level] = new LevelData<FluxBox>(a_grids,1,IntVect::Unit);
   levelAllocate(&m_diffusivity[a_level],a_grids, 1, IntVect::Zero);
-  //m_diffusivity[a_level] = new LevelData<FluxBox>(a_grids, 1, IntVect::Zero);
 
 #if BISICLES_Z == BISICLES_LAYERED
   levelAllocate(&m_layerXYFaceXYVel[a_level] ,a_grids, m_nLayers, IntVect::Unit);
-  //m_layerXYFaceXYVel[a_level] = new LevelData<FluxBox>(a_grids, m_nLayers, IntVect::Unit);
   levelAllocate(&m_layerSFaceXYVel[a_level], a_grids, SpaceDim*(m_nLayers + 1), IntVect::Unit);
-  //m_layerSFaceXYVel[a_level] = new LevelData<FArrayBox>(a_grids, SpaceDim*(m_nLayers + 1), IntVect::Unit);
 #endif
 
   levelAllocate(&m_velBasalC[a_level],a_grids, 1, ghostVect);
-  //m_velBasalC[a_level] = new LevelData<FArrayBox>(a_grids, 1, ghostVect);
   levelAllocate(&m_cellMuCoef[a_level],a_grids, 1, ghostVect);
-  //m_cellMuCoef[a_level] = new LevelData<FArrayBox>(a_grids, 1, ghostVect);
   levelAllocate(&m_faceMuCoef[a_level],a_grids, 1, ghostVect);
-  //m_faceMuCoef[a_level] = new LevelData<FluxBox>(a_grids, 1, ghostVect);
   levelAllocate(&m_velRHS[a_level],a_grids, SpaceDim,  IntVect::Zero);
-  //m_velRHS[a_level] = new LevelData<FArrayBox>(a_grids, SpaceDim,  IntVect::Zero);
+  
   levelAllocate(&m_surfaceThicknessSource[a_level], a_grids,   1, IntVect::Unit) ;
-  //m_surfaceThicknessSource[a_level] = 
-  //  new LevelData<FArrayBox>(a_grids,   1, IntVect::Unit) ;
   levelAllocate(&m_basalThicknessSource[a_level], a_grids,  1, IntVect::Unit) ;
-  //m_basalThicknessSource[a_level] = 
-  //  new LevelData<FArrayBox>(a_grids,   1, IntVect::Unit) ;
   levelAllocate(&m_balance[a_level],a_grids,   1, IntVect::Zero) ;
-  //m_balance[a_level] = 
-  //  new LevelData<FArrayBox>(a_grids,   1, IntVect::Zero) ;
+  levelAllocate(&m_calvedIceThickness[a_level],a_grids, 1, IntVect::Unit);
 
   // probably eventually want to do this differently
   RealVect dx = m_amrDx[a_level]*RealVect::Unit;
@@ -4146,21 +4199,13 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
   //in poor-man's multidim mode, use one FArrayBox component per layer
   //to hold the 3D temperature field
   levelAllocate(&m_temperature[a_level],a_grids, m_nLayers,thicknessGhostVect);
-  //m_temperature[a_level] = new LevelData<FArrayBox>(a_grids, m_nLayers, 
-  //					      thicknessGhostVect);
-  // plus base and surface temperatures
   levelAllocate(&m_sTemperature[a_level], a_grids, 1, thicknessGhostVect);
-  //m_sTemperature[a_level] = new LevelData<FArrayBox>(a_grids, 1, 
-  //					       thicknessGhostVect);
   levelAllocate(&m_bTemperature[a_level], a_grids, 1, thicknessGhostVect);
-  //m_bTemperature[a_level] = new LevelData<FArrayBox>(a_grids, 1, 
-  //					       thicknessGhostVect);
-  
+ 
   m_vect_coordSys[a_level]->setFaceSigma(getFaceSigma());
 
 #elif BISICLES_Z == BISICLES_FULLZ
   levelAllocate(&m_temperature[a_level],a_grids, 1, thicknessGhostVect);
-  //m_temperature[a_level] = new LevelData<FArrayBox>(a_grids, 1, thicknessGhostVect);	
 #endif
 
 
@@ -4220,6 +4265,8 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
 #endif
     }
   
+  zeroCalvedIceThickness();
+
   // now call velocity solver to initialize velocity field
   solveVelocityField();
 

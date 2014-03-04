@@ -1057,7 +1057,17 @@ void bisicles_get_2d_data
 	  
 	  break;
 
+	case BISICLES_FIELD_CALVED_THICKNESS:
 	  
+	  for (int lev = 0; lev < n ; lev++)
+	    {
+	      data[lev] = const_cast<LevelData<FArrayBox>* >(amrIce.calvedIceThickness()[lev]);
+	      amrDx[lev] = amrIce.dx(lev);
+	    }
+	  
+	  flattenCellData(*ptr,dxv,data,amrDx,true);	
+	  
+	  break;
 
 	default: 
 	  MayDay::Error("bisicles_get_2d_data: unknown (or unimplemented) field");

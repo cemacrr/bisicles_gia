@@ -297,7 +297,8 @@ public:
   /// access function for layered face-centered velocities
   const Vector<LevelData<FluxBox>* >& faceVelocitiesLayered() const {return m_layerXYFaceXYVel;} 
 
-  /// access function to vertical 
+  /// access function for calved ice thickness
+  const  Vector<LevelData<FArrayBox>* >& calvedIceThickness() const {return m_calvedIceThickness; }
  
 protected:
   /// compute tags for regridding
@@ -371,7 +372,8 @@ protected:
   /// compute timestep at initial time
   Real computeInitialDt();
 
-  
+  //set the calved ice thickness to zero
+  void zeroCalvedIceThickness();
 
   /// implicit solve for diffusive fluxes
   void implicitThicknessCorrection(Real a_dt,
@@ -821,6 +823,7 @@ protected:
   Vector<LevelData<FluxBox>* > m_layerXYFaceXYVel;
 #endif
 
+ 
 
   // SigmaCS mapping
   Vector<RefCountedPtr<LevelSigmaCS > > m_vect_coordSys;
@@ -850,6 +853,8 @@ protected:
   Vector<LevelData<FArrayBox>* > m_basalThicknessSource;
   
   Vector<LevelData<FArrayBox>* > m_balance; // set to -dH/dt
+  //(accumulated) thickness of calved ice 
+  Vector<LevelData<FArrayBox>* > m_calvedIceThickness;
 
   //cell centered storage for the stress-balance equation coefficients
   mutable Vector<LevelData<FArrayBox>* > m_dragCoef;
