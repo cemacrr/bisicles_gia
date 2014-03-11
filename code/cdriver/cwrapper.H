@@ -44,6 +44,12 @@ extern "C"
   void bisicles_advance(int *instance_id, double *max_time, int *max_step);
   
   
+  ///write a checkpoint file 
+  void bisicles_write_checkpoint(int *instance_id, const char *checkpoint_fname);
+  ///read a checkpoint file 
+  void bisicles_read_checkpoint(int *instance_id, const char *checkpoint_fname);
+  
+
   // FORTRAN compatibility stuff : function foo gets a f_foo_ and f_foo
   void f_bisicles_new_instance_(int *instance_id,  char *input_fname, const int *len_fname);
 
@@ -65,6 +71,10 @@ extern "C"
 
   void f_bisicles_advance_(int *instance_id, double *max_time, int *max_step);
 
+  void f_bisicles_write_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname);
+
+  void f_bisicles_read_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname);
+
   void f_bisicles_new_instance(int *instance_id,  char *input_fname, const int *len_fname);
 
   void f_bisicles_free_instance(int *instance_id);
@@ -85,6 +95,9 @@ extern "C"
 
   void f_bisicles_advance(int *instance_id, double *max_time, int *max_step);
 
+  void f_bisicles_write_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname);
+
+  void f_bisicles_read_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname);
 
 }
 #include "NamespaceFooter.H"

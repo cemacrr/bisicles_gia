@@ -110,6 +110,20 @@ void f_bisicles_free_instance_(int *instance_id)
 {
   bisicles_free_instance(instance_id);
 }
+
+void f_bisicles_write_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname)
+{
+  checkpoint_fname[*len_fname - 1] = 0; // null terminate the string
+  bisicles_write_checkpoint(instance_id, checkpoint_fname);
+}
+
+void f_bisicles_read_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname)
+{
+  checkpoint_fname[*len_fname - 1] = 0; // null terminate the string
+  bisicles_read_checkpoint(instance_id, checkpoint_fname);
+}
+
+
 void f_bisicles_set_2d_data_(int *instance_id,  double *data_ptr, const int *field, 
 			   const double *dx, const int *dims, 
 			   const int *boxlo, const int *boxhi)
@@ -188,6 +202,18 @@ void f_bisicles_advance(int *instance_id, double *max_time, int *max_step)
     bisicles_advance(instance_id, max_time, max_step);
   }
 
+
+void f_bisicles_write_checkpoint(int *instance_id, char *checkpoint_fname, const int *len_fname)
+{
+  checkpoint_fname[*len_fname - 1] = 0; // null terminate the string
+  bisicles_write_checkpoint(instance_id, checkpoint_fname);
+}
+
+void f_bisicles_read_checkpoint(int *instance_id, char *checkpoint_fname, const int *len_fname)
+{
+  checkpoint_fname[*len_fname - 1] = 0; // null terminate the string
+  bisicles_read_checkpoint(instance_id, checkpoint_fname);
+}
 
 
 // initialize the AmrIce object in a wrapper. Any surface
@@ -1203,6 +1229,44 @@ void bisicles_get_2d_data(int *instance_id,  double *data_ptr, const int *field,
       if (i != bisicles_c_wrapper::instances.end())
 	{
 	  bisicles_get_2d_data(i->second, data_ptr, field, dx, dims, boxlo, boxhi);
+	}
+    }
+}
+
+///write a checkpoint file 
+void bisicles_write_checkpoint(int *instance_id, const char *checkpoint_fname)
+{
+  if (instance_id) //\todo : check all pointers
+    {
+      std::map<int, BisiclesWrapper*>::iterator i 
+	= bisicles_c_wrapper::instances.find(*instance_id) ;
+      if (i != bisicles_c_wrapper::instances.end())
+	{
+	  if (i->second != NULL && checkpoint_fname != NULL)
+	    {
+	      AmrIce& amrIce = i->second->m_amrIce;
+	      std::string s = checkpoint_fname;
+	      amrIce.writeCheckpointFile(std::string(s));
+	    }
+	}
+    }
+}
+
+///read a checkpoint file 
+void bisicles_read_checkpoint(int *instance_id, const char *checkpoint_fname)
+{
+  if (instance_id) //\todo : check all pointers
+    {
+      std::map<int, BisiclesWrapper*>::iterator i 
+	= bisicles_c_wrapper::instances.find(*instance_id) ;
+      if (i != bisicles_c_wrapper::instances.end())
+	{
+	  if (i->second != NULL && checkpoint_fname != NULL)
+	    {
+	      AmrIce& amrIce = i->second->m_amrIce;
+	      std::string s = checkpoint_fname;
+	      amrIce.restart(std::string(s));
+	    }
 	}
     }
 }
