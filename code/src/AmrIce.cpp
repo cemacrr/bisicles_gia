@@ -6505,52 +6505,13 @@ AmrIce::writePlotFile()
     }
 }
 
-  /// write checkpoint file out for later restarting
+/// write checkpoint file out for later restarting
 void 
 AmrIce::writeCheckpointFile() const
 {
-
-  if (s_verbosity > 3) 
-    { 
-      pout() << "AmrIce::writeCheckpointfile" << endl;
-    }
-
-#ifdef CH_USE_HDF5
-
-  string thicknessName("thickness");
-  Vector<string> vectName(1);
-  for (int comp=0; comp<1; comp++)
-    {
-      char idx[4]; sprintf(idx, "%d", comp);
-      vectName[comp] = thicknessName+string(idx);
-    } 
-  Box domain = m_amrDomains[0].domainBox();
-  //int numLevels = m_finest_level +1;      
-
   // generate checkpointfile name
   char (iter_str[100]);
-#if 0
-  if (m_cur_step < 10)
-    {
-      sprintf(iter_str, "%s000%d.%dd.hdf5", m_check_prefix.c_str(), 
-              m_cur_step, SpaceDim);
-    } 
-  else if (m_cur_step < 100)
-    {
-      sprintf(iter_str, "%s00%d.%dd.hdf5", m_check_prefix.c_str(), 
-              m_cur_step, SpaceDim);
-    }       
-  else if (m_cur_step < 1000)
-    {
-      sprintf(iter_str, "%s0%d.%dd.hdf5", m_check_prefix.c_str(), 
-              m_cur_step, SpaceDim);
-    }       
-  else
-    {
-      sprintf(iter_str, "%s%d.%dd.hdf5", m_check_prefix.c_str(), 
-              m_cur_step, SpaceDim);
-    }         
-  #endif
+
   if (m_check_overwrite)
     {
       // overwrite the same checkpoint file, rather than re-writing them
@@ -6568,7 +6529,35 @@ AmrIce::writeCheckpointFile() const
       pout() << "checkpoint file name = " << iter_str << endl;
     }
 
-  HDF5Handle handle(iter_str, HDF5Handle::CREATE);
+  writeCheckpointFile(std::string(iter_str));
+  
+}
+
+/// write checkpoint file out for later restarting
+void 
+AmrIce::writeCheckpointFile(const string& a_file) const
+{
+
+  if (s_verbosity > 3) 
+    { 
+      pout() << "AmrIce::writeCheckpointfile" << endl;
+      pout() << "checkpoint file name = " << a_file << endl;
+    }
+
+#ifdef CH_USE_HDF5
+
+  string thicknessName("thickness");
+  Vector<string> vectName(1);
+  for (int comp=0; comp<1; comp++)
+    {
+      char idx[4]; sprintf(idx, "%d", comp);
+      vectName[comp] = thicknessName+string(idx);
+    } 
+  Box domain = m_amrDomains[0].domainBox();
+  //int numLevels = m_finest_level +1;      
+
+  
+  HDF5Handle handle(a_file.c_str(), HDF5Handle::CREATE);
 
   // write amr data -- only dump out things which are essential
   // to restarting the computation (i.e. max_level, finest_level, 
@@ -7199,7 +7188,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 
 /// set up for restart
 void 
-AmrIce::restart(string& a_restart_file)
+AmrIce::restart(const string& a_restart_file)
 {
   if (s_verbosity > 3) 
     { 

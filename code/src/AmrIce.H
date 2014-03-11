@@ -211,6 +211,10 @@ public:
    */
   void writeCheckpointFile() const;
 
+  /// write checkpoint file out for later restarting
+  /** writes checkpoint data to the location specified by a_file
+   */
+  void writeCheckpointFile(const string& a_file) const;
 
   /// read checkpoint file for restart 
   /** read checkpoint data from file pointed to by a_handle
@@ -218,7 +222,7 @@ public:
   void readCheckpointFile(HDF5Handle& a_handle);
 
   /// set up for restart
-  void restart(string& a_restart_file);
+  void restart(const string& a_restart_file);
 
 #endif
 
