@@ -303,7 +303,13 @@ public:
 
   /// access function for calved ice thickness
   const  Vector<LevelData<FArrayBox>* >& calvedIceThickness() const {return m_calvedIceThickness; }
- 
+  
+  /// access function for surface temperature
+  const  Vector<LevelData<FArrayBox>* >& surfaceTemperature() const {return m_sTemperature; }
+
+  /// access function for surface heat flux
+  const  Vector<LevelData<FArrayBox>* >& surfaceHeatFlux() const {return m_sHeatFlux; }
+
 protected:
   /// compute tags for regridding
   void tagCells(Vector<IntVectSet>& a_tags);
@@ -844,6 +850,8 @@ protected:
   // the ice, horizontally cell centred (but at vertical faces)
   Vector<LevelData<FArrayBox>* > m_sTemperature;
   Vector<LevelData<FArrayBox>* > m_bTemperature;
+  Vector<LevelData<FArrayBox>* > m_sHeatFlux;
+  Vector<LevelData<FArrayBox>* > m_bHeatFlux;
   Vector<LevelData<FArrayBox>* > m_sA;
   Vector<LevelData<FArrayBox>* > m_bA;
 #elif BISICLES_Z == BISICLES_FULL

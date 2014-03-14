@@ -710,7 +710,14 @@ AmrIce::~AmrIce()
 	  m_sTemperature[lev] = NULL;
 	}
     }
-  
+  for (int lev=0; lev < m_sHeatFlux.size(); lev++)
+    {
+      if (m_sHeatFlux[lev] != NULL)
+	{
+	  delete m_sHeatFlux[lev];
+	  m_sHeatFlux[lev] = NULL;
+	}
+    }
   for (int lev=0; lev < m_bTemperature.size(); lev++)
     {
       if (m_bTemperature[lev] != NULL)
@@ -719,7 +726,15 @@ AmrIce::~AmrIce()
           m_bTemperature[lev] = NULL;
         }
     }
-  
+
+  for (int lev=0; lev < m_bHeatFlux.size(); lev++)
+    {
+      if (m_bHeatFlux[lev] != NULL)
+	{
+	  delete m_bHeatFlux[lev];
+	  m_bHeatFlux[lev] = NULL;
+	}
+    }
   for (int lev=0; lev < m_bA.size(); lev++)
     {
       if (m_bA[lev] != NULL)
@@ -1584,6 +1599,8 @@ AmrIce::initialize()
       m_layerSFaceXYVel.resize(m_max_level+1, NULL);
       m_sTemperature.resize(m_max_level+1, NULL);
       m_bTemperature.resize(m_max_level+1, NULL);
+      m_sHeatFlux.resize(m_max_level+1, NULL);
+      m_bHeatFlux.resize(m_max_level+1, NULL);
 #endif
       // allocate storage for m_old_thickness and m_velocity
       for (int lev=0; lev<m_velocity.size(); lev++)
@@ -1602,6 +1619,8 @@ AmrIce::initialize()
 #if BISICLES_Z == BISICLES_LAYERED
 	  m_sTemperature[lev] = new LevelData<FArrayBox>;
 	  m_bTemperature[lev] = new LevelData<FArrayBox>;
+	  m_sHeatFlux[lev] = new LevelData<FArrayBox>;
+	  m_bHeatFlux[lev] = new LevelData<FArrayBox>;
 	  m_layerXYFaceXYVel[lev] = new LevelData<FluxBox>;
 	  m_layerSFaceXYVel[lev] = new LevelData<FArrayBox>;
 #endif
@@ -3246,8 +3265,6 @@ AmrIce::regrid()
 	      m_basalThicknessSource[lev] = 
 		new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
 	      
-	      
-	      
 
 	      if (m_balance[lev] != NULL)
 		{
@@ -3255,6 +3272,22 @@ AmrIce::regrid()
 		}
 	      m_balance[lev] = 
 		new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
+
+
+	      if (m_bHeatFlux[lev] != NULL)
+		{
+		  delete m_bHeatFlux[lev];
+		}
+	      m_bHeatFlux[lev] = 
+		new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit);
+
+	      if (m_sHeatFlux[lev] != NULL)
+		{
+		  delete m_sHeatFlux[lev];
+		}
+	      m_sHeatFlux[lev] = 
+		new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit);
+
 
 
 #if BISICLES_Z == BISICLES_LAYERED
@@ -4179,6 +4212,7 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
   
   levelAllocate(&m_surfaceThicknessSource[a_level], a_grids,   1, IntVect::Unit) ;
   levelAllocate(&m_basalThicknessSource[a_level], a_grids,  1, IntVect::Unit) ;
+
   levelAllocate(&m_balance[a_level],a_grids,   1, IntVect::Zero) ;
   levelAllocate(&m_calvedIceThickness[a_level],a_grids, 1, IntVect::Unit);
 
@@ -4201,7 +4235,8 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
   levelAllocate(&m_temperature[a_level],a_grids, m_nLayers,thicknessGhostVect);
   levelAllocate(&m_sTemperature[a_level], a_grids, 1, thicknessGhostVect);
   levelAllocate(&m_bTemperature[a_level], a_grids, 1, thicknessGhostVect);
- 
+  levelAllocate(&m_sHeatFlux[a_level], a_grids, 1, thicknessGhostVect);
+  levelAllocate(&m_bHeatFlux[a_level], a_grids, 1, thicknessGhostVect);
   m_vect_coordSys[a_level]->setFaceSigma(getFaceSigma());
 
 #elif BISICLES_Z == BISICLES_FULLZ
@@ -5835,7 +5870,7 @@ AmrIce::writePlotFile()
     numPlotComps += m_temperature[0]->nComp();
 #if BISICLES_Z == BISICLES_LAYERED
   if (m_write_temperature)
-    numPlotComps += 2;// surface and basal temperatures
+    numPlotComps += 4;// surface and basal temperatures and heat fluxes
 
   //layer velocities
   if (m_write_layer_velocities)
@@ -5879,6 +5914,7 @@ AmrIce::writePlotFile()
   string zbVelName("zbVel");
 
   string temperatureName("temperature");
+  string heatFluxName("heatflux");
 #if BISICLES_Z == BISICLES_LAYERED
   string xlayerVelName("xlayerVel");
   string ylayerVelName("ylayerVel");
@@ -6014,6 +6050,10 @@ AmrIce::writePlotFile()
     
 #if BISICLES_Z == BISICLES_LAYERED
   vectName[comp] = temperatureName + string("Base");
+  comp++;
+  vectName[comp] = heatFluxName + string("Surface");
+  comp++;
+  vectName[comp] = heatFluxName + string("Base");
   comp++;
 #endif 
     }
@@ -6331,6 +6371,10 @@ AmrIce::writePlotFile()
 	      {
 		const FArrayBox& thisTemp = (*m_bTemperature[lev])[dit];
 		thisPlotData.copy(thisTemp, 0, comp, thisTemp.nComp());
+		comp++;
+		thisPlotData.copy((*m_sHeatFlux[lev])[dit], 0, comp, 1);
+		comp++;
+		thisPlotData.copy((*m_bHeatFlux[lev])[dit], 0, comp, 1);
 		comp++;
 	      }
 #endif
@@ -6924,6 +6968,8 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 #if BISICLES_Z == BISICLES_LAYERED
   m_sTemperature.resize(m_max_level+1,NULL);
   m_bTemperature.resize(m_max_level+1,NULL);
+  m_sHeatFlux.resize(m_max_level+1,NULL);
+  m_bHeatFlux.resize(m_max_level+1,NULL);
   m_layerSFaceXYVel.resize(m_max_level+1,NULL);
   m_layerXYFaceXYVel.resize(m_max_level+1,NULL);
 #endif
@@ -7013,6 +7059,10 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	  m_sTemperature[lev] =  new LevelData<FArrayBox>
 	    (levelDBL, 1, m_num_thickness_ghost*IntVect::Unit);
 	  m_bTemperature[lev] =  new LevelData<FArrayBox>
+	    (levelDBL, 1, m_num_thickness_ghost*IntVect::Unit);
+	  m_sHeatFlux[lev] =  new LevelData<FArrayBox>
+	    (levelDBL, 1, m_num_thickness_ghost*IntVect::Unit);
+	  m_bHeatFlux[lev] =  new LevelData<FArrayBox>
 	    (levelDBL, 1, m_num_thickness_ghost*IntVect::Unit);
 #elif BISICLES_Z == BISICLES_FULLZ
 	  m_temperature[lev] =  new LevelData<FArrayBox>
@@ -7800,7 +7850,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	   levelCoordsOld , m_amrDomains[lev], IntVect::Zero);
       }
       
-      LevelData<FArrayBox> surfaceHeatFlux(levelGrids,1,IntVect::Zero);
+      LevelData<FArrayBox>& surfaceHeatFlux = *m_sHeatFlux[lev];
       if (m_surfaceTemperatureDirichlett)
 	{
 	  if (m_surfaceHeatBoundaryDataPtr != NULL)
@@ -7813,7 +7863,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  m_surfaceHeatBoundaryDataPtr->evaluate(surfaceHeatFlux, *this, lev, a_dt);
 	}
       
-      LevelData<FArrayBox> basalHeatFlux(levelGrids,1,IntVect::Zero);
+      LevelData<FArrayBox>& basalHeatFlux = *m_bHeatFlux[lev];
       if (m_basalHeatBoundaryDataPtr != NULL)
 	{
 	  m_basalHeatBoundaryDataPtr->evaluate(basalHeatFlux, *this, lev, a_dt);
@@ -7837,7 +7887,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  FArrayBox& T = (*m_temperature[lev])[dit];
 	  FArrayBox& sT = (*m_sTemperature[lev])[dit];	
 	  FArrayBox& bT = (*m_bTemperature[lev])[dit];
-
+	  
 
 	  // first, do the ordinary fluxes : if we just had
 	  // horizontal advection and grad(H) = grad(S) = 0., 
@@ -7876,8 +7926,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 
 	  //add to user set (e.g geothermal) heat flux
 	  basalHeatFlux[dit] += basalDissipation;
-	  basalHeatFlux[dit] /= (iceheatcapacity * levelCoordsNew.iceDensity()); // scale conversion
-	  surfaceHeatFlux[dit] /= (iceheatcapacity * levelCoordsNew.iceDensity()); // scale conversion
+
 	  //zero heat flux outside grounded ice
 	  for (BoxIterator bit(rhs.box());bit.ok();++bit)
 	    {
@@ -7887,6 +7936,16 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 		  basalHeatFlux[dit](iv) = 0.0;
 		}
 	    }
+	  
+	  //basalHeatFlux[dit] /= (iceheatcapacity * levelCoordsNew.iceDensity()); // scale conversion
+	  FArrayBox scaledBasalHeatFlux(basalHeatFlux[dit].box(),basalHeatFlux[dit].nComp());
+	  scaledBasalHeatFlux.copy(basalHeatFlux[dit]);
+	  scaledBasalHeatFlux /= (iceheatcapacity * levelCoordsNew.iceDensity());
+
+	  //surfaceHeatFlux[dit] /= (iceheatcapacity * levelCoordsNew.iceDensity()); // scale conversion
+	  FArrayBox scaledSurfaceHeatFlux(surfaceHeatFlux[dit].box(),surfaceHeatFlux[dit].nComp());
+	  scaledSurfaceHeatFlux.copy(surfaceHeatFlux[dit]);
+	  scaledSurfaceHeatFlux /= (iceheatcapacity * levelCoordsNew.iceDensity());
 
 	  //solve H(t+dt)T(t+dt) + vertical transport terms = H(t)T(t) - rhs(t+/dt)
           //with either a Dirichlett or flux boundary condition at the upper surface and a flux condition at base
@@ -7914,8 +7973,8 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	       (CHF_FRA(T), 
 		CHF_FRA1(sT,0), 
 		CHF_FRA1(bT,0),
-		CHF_CONST_FRA1(surfaceHeatFlux[dit],0),
-		CHF_CONST_FRA1(basalHeatFlux[dit],0),
+		CHF_CONST_FRA1(scaledSurfaceHeatFlux,0),
+		CHF_CONST_FRA1(scaledBasalHeatFlux,0),
 		CHF_CONST_FIA1(levelCoordsOld.getFloatingMask()[dit],0),
 		CHF_CONST_FIA1(levelCoordsNew.getFloatingMask()[dit],0),
 		CHF_CONST_FRA(rhs),
@@ -7932,11 +7991,17 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 		CHF_CONST_INT(nLayers),
 		CHF_CONST_INT(surfaceTempDirichlett),
 		CHF_BOX(box));
+
+	  scaledBasalHeatFlux *= (iceheatcapacity * levelCoordsNew.iceDensity());
+	  basalHeatFlux[dit].copy(scaledBasalHeatFlux);
+	  scaledSurfaceHeatFlux *= (iceheatcapacity * levelCoordsNew.iceDensity());
+	  surfaceHeatFlux[dit].copy(scaledSurfaceHeatFlux);
+	  
 #ifndef NDEBUG	  
 	  for (int layer = 0; layer < nLayers; layer++)
 	    {
 	      CH_assert(T.min(layer) > 0.0);
-	      CH_assert(T.max(layer) < triplepoint);
+	      CH_assert(T.max(layer) <= triplepoint);
 	    }
 #endif
 	  
@@ -7971,13 +8036,16 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  
 	  avOne.averageToCoarse(*m_sTemperature[lev-1], *m_sTemperature[lev]);
 	  avOne.averageToCoarse(*m_bTemperature[lev-1], *m_bTemperature[lev]);
-	  
+	  avOne.averageToCoarse(*m_sHeatFlux[lev-1], *m_sHeatFlux[lev]);
+	  avOne.averageToCoarse(*m_bHeatFlux[lev-1], *m_bHeatFlux[lev]);
 	}
       
       
       m_temperature[lev]->exchange();
       m_sTemperature[lev]->exchange();
       m_bTemperature[lev]->exchange();
+      m_sHeatFlux[lev]->exchange();
+      m_bHeatFlux[lev]->exchange();
     }
   
   for (int lev = 0; lev < vectLayerFluxes.size(); ++lev)
