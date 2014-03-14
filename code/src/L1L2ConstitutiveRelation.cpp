@@ -328,7 +328,7 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
   FArrayBox A(a_box,1);
   FArrayBox res(a_box,1);
   
-  const int maxIter = 10;
+  const int maxIter = 150;
   //const Box& muBox = a_box;
 
   for (unsigned int l = 0; l < a_mu.nComp(); ++l){
