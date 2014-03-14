@@ -1095,6 +1095,31 @@ void bisicles_get_2d_data
 	  
 	  break;
 
+	case BISICLES_FIELD_SURFACE_TEMPERATURE:
+	  
+	  for (int lev = 0; lev < n ; lev++)
+	    {
+	      data[lev] = const_cast<LevelData<FArrayBox>* >(amrIce.surfaceTemperature()[lev]);
+	      amrDx[lev] = amrIce.dx(lev);
+	    }
+	  
+	  flattenCellData(*ptr,dxv,data,amrDx,true);	
+	  
+	  break;
+	  
+	case BISICLES_FIELD_SURFACE_HEAT_FLUX:
+	  
+	  for (int lev = 0; lev < n ; lev++)
+	    {
+	      data[lev] = const_cast<LevelData<FArrayBox>* >(amrIce.surfaceHeatFlux()[lev]);
+	      amrDx[lev] = amrIce.dx(lev);
+	    }
+	  
+	  flattenCellData(*ptr,dxv,data,amrDx,true);	
+	  
+	  break;
+
+
 	default: 
 	  MayDay::Error("bisicles_get_2d_data: unknown (or unimplemented) field");
 	}
