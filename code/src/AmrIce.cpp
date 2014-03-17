@@ -410,6 +410,8 @@ AmrIce::setDefaults()
   
   m_velocity_solver_tolerance = 1e-10;
 
+  //by default, solve the full velocity problem on every timestep
+  m_velocity_solve_interval = 1;
   //m_velSolver = NULL;
   m_domainSize = -1*RealVect::Unit;
 
@@ -1014,7 +1016,10 @@ AmrIce::initialize()
   ppAmr.query("write_layer_velocities", m_write_layer_velocities);
 
   ppAmr.query("evolve_thickness", m_evolve_thickness);
+
   ppAmr.query("evolve_velocity", m_evolve_velocity);
+  ppAmr.query("velocity_solve_interval", m_velocity_solve_interval);
+
   ppAmr.query("grounded_ice_stable", m_grounded_ice_stable);
   ppAmr.query("floating_ice_stable", m_floating_ice_stable);
 
@@ -2209,7 +2214,7 @@ AmrIce::timeStep(Real a_dt)
         } // end loop over levels
       
           // compute new ice velocity field
-      if (m_evolve_velocity)
+      if (m_evolve_velocity )
 	{
 	  solveVelocityField();
 	}
@@ -2315,7 +2320,7 @@ AmrIce::timeStep(Real a_dt)
     }
 
   // compute new ice velocity field
-  if (m_evolve_velocity)
+  if (m_evolve_velocity )
     {
       solveVelocityField();
     }
@@ -3069,6 +3074,8 @@ AmrIce::regrid()
 					m_amrDomains[lev]);
 		
 		interpolator.interpToFine(*new_velDataPtr, *m_velocity[lev-1]);
+
+		
 		
 		// now copy old-grid data into new holder
 		if (old_velDataPtr != NULL)
@@ -3080,7 +3087,18 @@ AmrIce::regrid()
 		    // can now delete old data 
 		    delete old_velDataPtr;
 		  }
+
+		//handle ghost cells on the coarse-fine interface
+		QuadCFInterp qcfi(m_amrGrids[lev], &m_amrGrids[lev-1],
+				  m_amrDx[lev], m_refinement_ratios[lev-1],
+				  2, m_amrDomains[lev]);
+		qcfi.coarseFineInterp(*new_velDataPtr, *m_velocity[lev-1]);
 		
+		//boundary ghost cells
+		m_thicknessIBCPtr->velocityGhostBC
+		  (*new_velDataPtr, *m_vect_coordSys[lev],m_amrDomains[lev],m_time);
+		
+
 	      }
 
 	      {
@@ -4332,6 +4350,7 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
 
   CH_TIME("AmrIce::solveVelocityField");
 
+  
   if (m_eliminate_remote_ice)
     eliminateRemoteIce();
 
@@ -4615,16 +4634,18 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
 	    }
 	}
 
-	solverRetVal = m_velSolver->solve(m_velocity,
-					  m_velocitySolveInitialResidualNorm, 
-					  m_velocitySolveFinalResidualNorm,
-					  a_convergenceMetric,
-					  m_velRHS, m_velBasalC, vectC0,
-					  m_A, m_faceMuCoef,
-					  m_vect_coordSys,
-					  m_time,
-					  0, m_finest_level);
-	  
+	if (m_cur_step%m_velocity_solve_interval == 0)
+	  {
+	    solverRetVal = m_velSolver->solve(m_velocity,
+					      m_velocitySolveInitialResidualNorm, 
+					      m_velocitySolveFinalResidualNorm,
+					      a_convergenceMetric,
+					      m_velRHS, m_velBasalC, vectC0,
+					      m_A, m_faceMuCoef,
+					      m_vect_coordSys,
+					      m_time,
+					      0, m_finest_level);
+	  }
       }
     }
 
@@ -7554,7 +7575,8 @@ void AmrIce::computeTHalf(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	      FluxBox layerXYFaceXYVel(box,1);layerXYFaceXYVel.setVal(0.0);
 	      for (int dir = 0; dir < SpaceDim; ++dir){
 		layerXYFaceXYVel[dir].copy(levelLayerXYFaceXYVel[dit][dir],layer,0,1);
-		CH_assert(layerXYFaceXYVel[dir].norm(0) < HUGE_NORM);
+		Box faceBox = levelGrids[dit].surroundingNodes(dir);
+		CH_assert(layerXYFaceXYVel[dir].norm(faceBox,0) < HUGE_NORM);
 	      }
 
 	      FArrayBox layerCellXYVel(box,SpaceDim);

@@ -502,6 +502,9 @@ protected:
   /// solver tolerance for velSolver.
   Real  m_velocity_solver_tolerance;
 
+  /// solve the velocity problem every m_velocitySolveInterval timesteps
+  int m_velocity_solve_interval;
+
   /// Residual norms at the start and end of the last velocity solve
   Real  m_velocitySolveInitialResidualNorm;
   Real  m_velocitySolveFinalResidualNorm;
