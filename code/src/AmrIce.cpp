@@ -7866,6 +7866,9 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	    crseVelPtr = m_velocity[lev-1];
 	    nRefCrse = m_refinement_ratios[lev-1];
 	  }
+
+	m_velocity[lev]->exchange();
+
 	m_constitutiveRelation->computeDissipation
 	  (dissipation,*m_velocity[lev],  crseVelPtr,
 	   nRefCrse, *m_A[lev],
