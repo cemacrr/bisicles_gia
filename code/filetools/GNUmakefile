@@ -10,7 +10,7 @@ DIM=2
 
 include ../mk/Make.defs
 
-ebase :=  nctoamr amrtotxt amrtoplot flatten extract merge addbox amrtocf
+ebase :=  nctoamr amrtotxt amrtoplot flatten extract merge addbox amrtocf stats glfaces faces
 
 ifneq ($(PYTHON_INC),)
 ebase += pythonf
@@ -19,7 +19,7 @@ endif
 ##
 ## names of Chombo libraries needed by this program, in order of search.
 ##
-LibNames := AMRTools BoxTools 
+LibNames := AMRElliptic AMRTimeDependent AMRTools BoxTools BaseTools 
 
 base_dir = .
 
@@ -27,7 +27,7 @@ BASE_DIR = ../
 
 EXEC_DIR = .
 
-src_dirs = src 
+src_dirs = src ../src ../util
 
 
 XTRACPPFLAGS=-I$(NETCDF_HOME)/include
