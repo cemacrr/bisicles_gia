@@ -377,10 +377,25 @@ int main(int argc, char* argv[]) {
 	  readMultiLevelData(vectData,dx,refRatio,infile,names,1);
 	
 	  RealVect crseDx = RealVect::Unit * dx;
-	  MultiLevelDataIBC* ptr = new MultiLevelDataIBC
-	    (vectData[0],vectData[1],crseDx,refRatio);
-	
-	  thicknessIBC  = static_cast<IceThicknessIBC*>(ptr);
+
+	  if (geomType == "LevelData")
+	    {
+	      //TODO : MultiLevelThicknessIBC can replace LevelDataThicknessIBC
+	      //when it is finished 
+	      CH_assert(vectData[0].size() == 1);
+	      CH_assert(vectData[1].size() == 1);
+	      LevelDataIBC* ptr = new LevelDataIBC
+		(vectData[0][0],vectData[1][0],crseDx);
+	      thicknessIBC  = static_cast<IceThicknessIBC*>(ptr);
+	    }
+	  else
+	    {
+	      //MultiLevelThicknessIBC can replace LevelDataThicknessIBC
+	      MultiLevelDataIBC* ptr = new MultiLevelDataIBC
+		(vectData[0],vectData[1],crseDx,refRatio);
+	      thicknessIBC  = static_cast<IceThicknessIBC*>(ptr);
+	    }
+	  
 
 
 
