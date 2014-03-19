@@ -185,7 +185,7 @@ int main(int argc, char* argv[]) {
       }
     else if (rateFactorType == "zwingerRate")
       {
-	PatersonRateFactor rateFactor;
+	ZwingerRateFactor rateFactor;
 	ParmParse arPP("ZwingerRate");
 	arPP.query("epsSqr0", epsSqr0);
 	amrObject.setRateFactor(&rateFactor);
