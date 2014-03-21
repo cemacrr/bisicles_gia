@@ -181,7 +181,6 @@ void iceDirichletBC(FArrayBox& a_state,
 
 #endif
 
-
 /// diagnostic function -- integrates thickness over domain
 Real
 AmrIce::computeTotalIce() const
@@ -221,7 +220,65 @@ AmrIce::computeVolumeAboveFlotation() const
       return VAF;
 }
 
+// compute crevasse depths
+void
+AmrIce::computeCrevasseDepths(LevelData<FArrayBox>& a_surfaceCrevasse,
+			      LevelData<FArrayBox>& a_basalCrevasse,
+			      int a_level) const
+{
+  const LevelSigmaCS& levelCoords = *geometry(a_level);
+  //const LevelData<FArrayBox>& thk = levelCoords.getH();
+  const LevelData<FArrayBox>& vt  = *viscousTensor(a_level);
+  const Real& rhoi = levelCoords.iceDensity();
+  const Real& rhoo = levelCoords.waterDensity();
+  const Real& grav = levelCoords.gravity();
+  for (DataIterator dit (levelCoords.grids()); dit.ok(); ++dit)
+    {
+      const FArrayBox& thck = levelCoords.getH()[dit];
+      const FArrayBox& VT = vt[dit];
+      const FArrayBox& Hab = levelCoords.getThicknessOverFlotation()[dit];
+      const Box& b = levelCoords.grids()[dit];
+      Box remnantBox = b; remnantBox.grow(1);
+      FArrayBox remnant(remnantBox,1);
+      
+      for (BoxIterator bit(remnantBox); bit.ok(); ++bit)
+	{
+	  const IntVect& iv = bit();
+	  const Real& sxx = VT(iv,0);
+	  const Real& syy = VT(iv,3);
+	  const Real& sxy = 0.5 *(VT(iv,2) + VT(iv,1));
 
+	  //vertically integrated first principal stress
+	  Real s1 = 
+	    0.5 * (sxx + syy) +
+	    std::sqrt ( std::pow ( 0.5*(sxx - syy), 2) + std::pow(sxy,2));
+
+	  //vertically averaged first principal stress
+	  s1 *= thck(iv) / (1.0e-6 + thck(iv)*thck(iv));
+
+	  //crevasse depths
+	  //only allow crevasses for extensional flow
+	  if (s1 > 1e-6)
+	    {
+
+	      a_surfaceCrevasse[dit](iv) = 
+		std::max(0.0,(s1 / (grav*rhoi) + 
+			      1000.0/rhoi * m_waterDepth));
+	      a_basalCrevasse[dit](iv) =
+		std::max(0.0,((rhoi/(rhoo-rhoi)) * ((s1/(grav*rhoi))
+						    - Hab(iv))));
+
+	    }
+	  else
+	    {
+	      //no crevasses if s1 <= 0.0
+	      a_surfaceCrevasse[dit](iv) = 0.0;
+	      a_basalCrevasse[dit](iv) = 0.0;
+	    }
+	}
+    }
+}
+      
 Real 
 AmrIce::computeFluxOverIce(const Vector<LevelData<FArrayBox>* > a_flux)
 {
@@ -457,6 +514,7 @@ AmrIce::setDefaults()
   m_max_base_grid_size = -1;
   m_isothermal = true;
   m_isothermalTemperature = 238.5;
+  m_waterDepth = 0.0;
   m_surfaceTemperatureDirichlett = true;
   m_iceDensity = 910.0; 
   m_seaWaterDensity = 1028.0;
@@ -5902,7 +5960,7 @@ AmrIce::writePlotFile()
 
   if (m_write_viscousTensor)
     {
-      numPlotComps += 1 + 1 + SpaceDim * SpaceDim;
+      numPlotComps += 1 + 1 + 1 + 1 + SpaceDim * SpaceDim;
     }
   
   if (m_write_thickness_sources)
@@ -5959,6 +6017,9 @@ AmrIce::writePlotFile()
   string basalThicknessSourceName("basalThicknessSource");
   string surfaceThicknessSourceName("surfaceThicknessSource");
   string surfaceThicknessBalanceName("surfaceThicknessBalance");
+
+  string surfaceCrevasseName("surfaceCrevasse");
+  string basalCrevasseName("basalCrevasse");
 
   Vector<string> vectName(numPlotComps);
   //int dThicknessComp;
@@ -6102,7 +6163,9 @@ AmrIce::writePlotFile()
     {
       vectName[comp] = dragCoefName; comp++;
       vectName[comp] = viscosityCoefName; comp++;
-      
+      vectName[comp] = surfaceCrevasseName;comp++;
+      vectName[comp] = basalCrevasseName;comp++;
+     
       vectName[comp] = xxVTname;comp++;
       if (SpaceDim > 1)
 	{
@@ -6113,6 +6176,7 @@ AmrIce::writePlotFile()
 	    }
 	  vectName[comp] = xyVTname;comp++;
 	  vectName[comp] = yyVTname;comp++;
+
 	  if (SpaceDim > 2)
 	    {
 	      vectName[comp] = zyVTname;comp++;
@@ -6229,7 +6293,13 @@ AmrIce::writePlotFile()
       LevelData<FArrayBox> levelZsurf(m_amrGrids[lev], 1, ghostVect);
       levelCS.getSurfaceHeight(levelZsurf);
 
+      LevelData<FArrayBox> levelSurfaceCrevasseDepth (m_amrGrids[lev], 1, ghostVect);
+      LevelData<FArrayBox> levelBasalCrevasseDepth (m_amrGrids[lev], 1, ghostVect);
       
+      if (m_write_viscousTensor)
+	{
+	  computeCrevasseDepths(levelSurfaceCrevasseDepth,levelBasalCrevasseDepth,lev);
+	}
 
       DataIterator dit = m_amrGrids[lev].dataIterator();
       for (dit.begin(); dit.ok(); ++dit)
@@ -6427,6 +6497,10 @@ AmrIce::writePlotFile()
 	      thisPlotData.copy( (*dragCoefficient(lev))[dit],0,comp);
 	      comp++;
 	      thisPlotData.copy( (*viscosityCoefficient(lev))[dit],0,comp);
+	      comp++;
+	      thisPlotData.copy( levelSurfaceCrevasseDepth[dit],0,comp);
+	      comp++;
+	      thisPlotData.copy( levelBasalCrevasseDepth[dit],0,comp);
 	      comp++;
 	      thisPlotData.copy( (*viscousTensor(lev))[dit],0,comp, SpaceDim*SpaceDim);
 	      comp += SpaceDim * SpaceDim;

@@ -235,6 +235,11 @@ public:
   /// compute total flux over ice
   Real computeFluxOverIce(const Vector<LevelData<FArrayBox>*> a_flux);
 
+  /// compute crevasses depths
+  void computeCrevasseDepths(LevelData<FArrayBox>& a_surfaceCrevasse,
+			     LevelData<FArrayBox>& a_basalCrevasse,
+			     int a_level) const;
+
   enum velSolverTypes { Picard = 0,
 			JFNK = 1,
 			KnownVelocity = 2,
@@ -790,6 +795,9 @@ protected:
   
   // isothermal temperature
   Real m_isothermalTemperature;
+
+  //depth of water in surface crevasses
+  Real m_waterDepth;
 
   /// should a Dirichlett condition be imposed at the upper surface?
   bool m_surfaceTemperatureDirichlett;
