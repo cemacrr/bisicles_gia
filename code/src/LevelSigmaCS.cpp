@@ -528,7 +528,7 @@ void
 LevelSigmaCS::getSurfaceHeight(LevelData<FArrayBox>& a_zSurface) const
 {
   CH_assert(a_zSurface.getBoxes().compatible(m_grids));
- 
+  CH_TIME("LevelSigmaCS::getSurfaceHeight");
 
   DataIterator dit = m_grids.dataIterator();
   for (dit.begin(); dit.ok(); ++dit)
@@ -557,8 +557,9 @@ void
 LevelSigmaCS::recomputeGeometry(const LevelSigmaCS* a_crseCoords, 
 				const int a_refRatio)
 {
+  CH_TIME("LevelSigmaCS::recomputeGeometry");
   CH_assert(m_isDefined);
-
+  
   // compute face-averaged Him 
   CellToEdge(m_H, m_faceH);    
 
@@ -659,7 +660,7 @@ LevelSigmaCS::recomputeGeometryFace(const LevelSigmaCS* a_crseCoords,
 				    const int a_refRatio)
 {
   CH_assert(m_isDefined);
-
+ CH_TIME("LevelSigmaCS::recomputeGeometryFace");
   // compute cell-averaged H
   // H = 0.5*(x-average + y_average)
   DataIterator dit = m_grids.dataIterator();
@@ -791,7 +792,7 @@ LevelSigmaCS::computeSurface(const LevelSigmaCS* a_crseCoords,
 			     const int a_refRatio)
 {
   
-
+ CH_TIME("LevelSigmaCS::computeSurface");
   const LevelSigmaCS* crseCoords = a_crseCoords;
   const int& refRatio = a_refRatio;
   
@@ -973,6 +974,8 @@ LevelSigmaCS::computeSurface(const LevelSigmaCS* a_crseCoords,
 void
 LevelSigmaCS::computeFloatingMask(const LevelData<FArrayBox>& a_surface)
 {
+  CH_TIME("LevelSigmaCS::computeFloatingMask");
+
   // first, need to create temporary surface height (I don't think 
   // we actually need to store this anywhere, however)
   //LevelData<FArrayBox> surfaceHeight(m_Hgrids, 1, m_H.ghostVect());
@@ -1266,6 +1269,7 @@ void LevelSigmaCS::interpFromCoarse(const LevelSigmaCS& a_crseCoords,
 				    const bool a_interpolateThicknessGhost, 
 				    const bool a_preserveMaskGhost)
 {
+  CH_TIME("LevelSigmaCS::interpFromCoarse");
   int ncomp = m_H.nComp();
   const IntVect& ghost = m_H.ghostVect();
   int nghost = ghost[0];
