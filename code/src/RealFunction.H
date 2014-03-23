@@ -181,8 +181,14 @@ public:
 #else
     file_access = H5P_DEFAULT;
 #endif
+
     hid_t file_id = H5Fopen(a_file.c_str(), H5F_ACC_RDONLY, file_access);
+#ifdef H516
     hid_t dset_id = H5Dopen(file_id, a_set.c_str());
+#else
+    hid_t dset_id = H5Dopen2(file_id, a_set.c_str(),
+                             H5P_DEFAULT);
+#endif
     hid_t space_id = H5Dget_space(dset_id);
     CH_assert( H5Sis_simple(space_id) > 0);
     CH_assert( H5Sget_simple_extent_ndims(space_id) == 1);
