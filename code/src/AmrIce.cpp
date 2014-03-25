@@ -481,6 +481,9 @@ AmrIce::setDefaults()
 
   // set the rest of these to reasonable defaults
   m_nesting_radius = 1;
+#ifdef CH_USE_PETSC
+  m_nesting_radius = 3;
+#endif
   m_tagOnGradVel = false;
   m_tagging_val = 0.1;
   m_tagOnLapVel = false;
@@ -1147,7 +1150,16 @@ AmrIce::initialize()
   ppAmr.get("fill_ratio", m_fill_ratio);
 
   ppAmr.query("nestingRadius", m_nesting_radius);
-  
+
+ #ifdef CH_USE_PETSC
+  // petsc solvers require nesting radius >= 3
+  if (m_nesting_radius < 3)
+    {
+      MayDay::Warning("PETSC solvers require nesting radius >= 3 -- resetting to 3");
+      m_nesting_radius = 3;
+    }
+#endif
+
   bool isThereATaggingCriterion = false;
   ppAmr.query("tag_on_grad_velocity", m_tagOnGradVel);
   isThereATaggingCriterion |= m_tagOnGradVel;
@@ -4545,6 +4557,9 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
 		{
 		  //JFNK can be instructed to assume a linear solve
 		  m_solverType = JFNK;
+                  // (DFM 2/4/14) this is not a memory leak -- velSolver is 
+                  // saved in velSolverSave and will be swapped back after 
+                  // the initial guess solve
 		  m_velSolver = NULL;
 		  defineSolver();
 		  JFNKSolver* jfnkSolver = dynamic_cast<JFNKSolver*>(m_velSolver);
