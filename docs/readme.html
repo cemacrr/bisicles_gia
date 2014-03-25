@@ -273,7 +273,7 @@ If we're planning to use the PETSc solver interface, it's a good idea to install
 git clone -b maint https://bitbucket.org/petsc/petsc petsc
 </pre>
 
-<li>  configure petsc. This is the configure command that I used (this builds a parallel version):
+<li>  Configure petsc. This is the configure command that I used (this builds a parallel version):
 <pre>
 cd petsc
 ./configure --download-f-blas-lapack=yes --download-hypre=yes -with-x=0
@@ -284,10 +284,9 @@ cd petsc
 The petsc install system is pretty helpful and will tell you what to do
 if it runs into problems (unlike, say, Chombo)
 
-<li>follow the instructions to make and install the library
+<li> Follow the instructions to make and install the library
 
-<li> set the PETSC_DIR and PETSC_ARCH environment variables. For my
-installation (I'm using tcsh)
+<li> Finally, set the PETSC_DIR and PETSC_ARCH environment variables, which Chombo will use in order to find your PETSc installation.. For my installation (I'm using tcsh) 
 <pre>
 setenv PETSC_DIR /usr/local/petsc/petsc-maint-mpi
 setenv PETSC_ARCH arch-linux2-c-debug
@@ -295,9 +294,6 @@ setenv PETSC_ARCH arch-linux2-c-debug
 
 </ol>
 
-
-
-Finally, set the PETSC_DIR and PETSC_ARCH environment variables, which Chombo will use in order to find your PETSc installation.
 
 </p>
 <h2><a name="chombo">Chombo configuration</a></h2>
