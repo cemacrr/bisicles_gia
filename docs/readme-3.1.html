@@ -8,8 +8,6 @@
 
 <h1>BISICLES build instructions</h1>
 
-<p>These are the instructions to build BISICLES against the Chombo 3.2 release. To build against the older 3.1 Chombo release, go <a href='readme-3.1.html'>here<a/>
-
 <p>To build (and run) BISICLES you need to</p>
 <ol>
   <li> Meet the <a href='#sysreq'>system requirements</a></li>
@@ -64,10 +62,15 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
 
 <h2><a name="deps"> Dependencies.</a> </h2>
 <p>
-  Chombo requires the hdf5 libraries. As of the Chombo 3.2 release, Chombo builds against the current hdf5 1.8 interface directly. (Chombo 3.1 and earlier built against the older hdf5 1.6 interface, which required some effort when building)
+  Chombo requires the hdf5 libraries. The current version of hdf5 is 1.8. However, Chombo was written to build against version 1.6, which has a somewhat different interface than 1.8. Luckily, the hdf5 developers took this into account and provided a backwards compatible 1.6 interface in the current release. Three approaches to hdf5 will work:
+<ul>
+<li> Download the older 1.6 version of hdf5 and build against that one. </li>
+<li> Download the current 1.8 release and make sure the compilation flag "-DH5_USE_16_API" is present to Make.defs.local</li>
+<li> Use an already installed hdf5, and modify Make.defs.local accordingly </li>
+</ul> 
 
-</p>
-Chombo 3.2 also contains an optional interface to the <a href='http://www.mcs.anl.gov/petsc/'> PETSc</a>  solver library. We have found that using the Chombo AMR interface to the petsc algebraic multigrid solvers (either GAMG or Hypre's BoomerAMG) can substantially improve the performance of the nonlinear ice velocity solve for problems where the native Chombo geometric multigrid (GMG) solvers struggle. 
+<p>The rest of the instructions in this document employ the second approach. 
+An <a href='oldbuild.html'>earlier set</a> employed the first, and works with older gcc (e.g 4.1.2)
 
 </p>
 <p>  Glimmer-CISM also requires netcdf, and in a non-standard configuration to boot. BISICLES
@@ -261,44 +264,6 @@ Possibly, building two versions of netcdf is a waste of time.
 > CC=mpicc CXX=mpiCC FC=mpif90  CPPFLAGS="-DgFortran -I$BISICLES_HOME/hdf5/parallel/include/" LDFLAGS=-L$BISICLES_HOME/hdf5/parallel/lib/  ./configure --prefix=$BISICLES_HOME/netcdf/parallel  --enable-shared=no --enable-static=yes --enable-dap=no
 > make  check install
 </pre>
-
-</p>
-<h2><a name="petsc">Installing PETSc</a></h2>
-<p>
-If we're planning to use the PETSc solver interface, it's a good idea to install PETSc before building Chombo. 
-
-<ol>
-<li> First, download PETSc:
-<pre>
-git clone -b maint https://bitbucket.org/petsc/petsc petsc
-</pre>
-
-<li>  configure petsc. This is the configure command that I used (this builds a parallel version):
-<pre>
-cd petsc
-./configure --download-f-blas-lapack=yes --download-hypre=yes -with-x=0
---with-c++-support=yes --with-mpi=yes --with-hypre=yes
---prefix=/usr/local/petsc/petsc-maint-mpi --with-c2html=0
-</pre> 
-
-The petsc install system is pretty helpful and will tell you what to do
-if it runs into problems (unlike, say, Chombo)
-
-<li>follow the instructions to make and install the library
-
-<li> set the PETSC_DIR and PETSC_ARCH environment variables. For my
-installation (I'm using tcsh)
-<pre>
-setenv PETSC_DIR /usr/local/petsc/petsc-maint-mpi
-setenv PETSC_ARCH arch-linux2-c-debug
-</pre>
-
-</ol>
-
-
-
-Finally, set the PETSC_DIR and PETSC_ARCH environment variables, which Chombo will use in order to find your PETSc installation.
-
 </p>
 <h2><a name="chombo">Chombo configuration</a></h2>
 <p>
@@ -368,11 +333,6 @@ For serious runs, this is the one you need. Even on workstations with a few proc
 Finally, should you feel the urge, you can have a non-optimized parallel version, which can be used for hunting down low-level
 bugs that crop up in parallel operation but not in serial operation. 
 </p>
-To build with PETSc support, add "USE_PETSC=TRUE" to your build line, e.g.
-<pre>
-> cd $BISICLES_HOME/BISICLES/code/exec2D
-> make all OPT=TRUE MPI=TRUE USE_PETSC=TRUE
-</pre>
 
 <h2><a name="makeclean">Make clean</a></h2>
 <p>On occasion it might be necessary to rebuild BISICLES entirely, rather than just those parts where a file
