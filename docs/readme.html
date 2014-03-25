@@ -433,6 +433,31 @@ and eventually, you will get a series of plot*2d.hdf5 files that you can view in
 
 See the <a href='sites.html'>Site specific notes</a>
 
+<h3> Using the PETSc solvers</h3> 
+The examples presented in this tutorial all use the default Chombo geometric multigrid (GMG) solvers. If you find that convergence of the velocity solver is stalling (or even diverging), you might want to try a PETSc algebraic multigrid (AMG) solver. To switch to the PETSc solvers,
+<ol>
+<li> You will need a <pre>.petsrc</pre> file to tell the PETSc solvers what to do. There is an example one in the exec2D directory which is set to parameters which have worked well for us. For example, it uses the <a href='http://computation.llnl.gov/casc/linear_solvers/sls_hypre.html'>HYPRE </a> BoomerAMG solver. 
+
+<li> Edit your BISICLES input file. There are two ways to use PETSC:
+<ul>
+<li> As a bottom solver in the Chombo GMG solver. (if you don't know what that means, don't worry -- suffice it to say that in many cases, this option occupies the middle ground between the Chombo native GMG solvers and a full AMR AMG solver.). Assuming you are using the JFNKSolver for your velocity solve, add the following line to your inputs file:
+<pre>
+JFNKSolver.bottom_solver_type = 1
+</pre>
+
+<li> If that doesn't help, then you're ready for the full AMR PETSc solver. Assuming once again that you're using the JFNKSolver, then change 
+<pre> 
+JFNKSolver.solverType = 0
+</pre>
+to 
+<pre> 
+JFNKSolver.solverType = 4
+<\pre>
+
+<\ul>
+
+</ol>
+
 <h3><a name='nctoamr'>Compiling and using the file tools</a></h3>
 <p>
 To compile the file tools you might need to edit file $BISICLES_HOME/BISICLES/code/mk/Make.defs. 
