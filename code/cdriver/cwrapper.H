@@ -17,7 +17,12 @@ extern "C"
  
 
   ///create a new BISICLES instance, return an ID 
-  void bisicles_new_instance(int *instance_id, const char *input_fname);
+#ifdef CH_MPI
+  void bisicles_new_instance(int *instance_id, const char *input_fname, MPI_Comm comm);
+#else
+  void bisicles_new_instance(int *instance_id, const char *input_fname, int comm);
+#endif
+
   ///free the BISICLES instance specified by instance ID 
   void bisicles_free_instance(int *instance_id);
   /// instruct BISICLES to read 2d data from an array at data_ptr.
@@ -51,7 +56,7 @@ extern "C"
   
 
   // FORTRAN compatibility stuff : function foo gets a f_foo_ and f_foo
-  void f_bisicles_new_instance_(int *instance_id,  char *input_fname, const int *len_fname);
+  void f_bisicles_new_instance_(int *instance_id,  char *input_fname, const int *len_fname, const int *mpi_comm);
 
   void f_bisicles_free_instance_(int *instance_id);
 
@@ -75,7 +80,7 @@ extern "C"
 
   void f_bisicles_read_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname);
 
-  void f_bisicles_new_instance(int *instance_id,  char *input_fname, const int *len_fname);
+  void f_bisicles_new_instance(int *instance_id,  char *input_fname, const int *len_fname, const int *mpi_comm);
 
   void f_bisicles_free_instance(int *instance_id);
 

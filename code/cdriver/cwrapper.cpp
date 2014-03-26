@@ -51,6 +51,9 @@
 
 struct BisiclesWrapper
 {
+#ifdef CH_MPI
+  MPI_Comm mpi_comm;
+#endif
   AmrIce m_amrIce;
   std::string m_input_fname;
   LevelDataSurfaceFlux* m_surface_flux;
@@ -101,10 +104,16 @@ namespace bisicles_c_wrapper
 }
 
 //fortran wrappers
-void f_bisicles_new_instance_(int *instance_id,  char *input_fname, const int *len_fname)
+void f_bisicles_new_instance_(int *instance_id,  char *input_fname, const int *len_fname, const int *f_mpi_comm)
   {
     input_fname[*len_fname - 1] = 0; // null terminate the string
-    bisicles_new_instance(instance_id, input_fname);
+#ifdef CH_MPI
+    MPI_Comm mpi_comm =  MPI_Comm_f2c(*f_mpi_comm);
+    bisicles_new_instance(instance_id, input_fname, mpi_comm);
+#else
+    bisicles_new_instance(instance_id, input_fname, *f_mpi_comm);
+#endif
+   
   }
 void f_bisicles_free_instance_(int *instance_id)
 {
@@ -159,10 +168,15 @@ void f_bisicles_advance_(int *instance_id, double *max_time, int *max_step)
   }
 
 
-void f_bisicles_new_instance(int *instance_id,  char *input_fname, const int *len_fname)
+void f_bisicles_new_instance(int *instance_id,  char *input_fname, const int *len_fname, const int *f_mpi_comm)
   {
     input_fname[*len_fname - 1] = 0; // null terminate the string
-    bisicles_new_instance(instance_id, input_fname);
+#ifdef CH_MPI
+    MPI_Comm mpi_comm =  MPI_Comm_f2c(*f_mpi_comm);
+    bisicles_new_instance(instance_id, input_fname, mpi_comm);
+#else
+    bisicles_new_instance(instance_id, input_fname, *f_mpi_comm);
+#endif
   }
 void f_bisicles_free_instance(int *instance_id)
 {
@@ -224,6 +238,7 @@ void f_bisicles_read_checkpoint(int *instance_id, char *checkpoint_fname, const 
 void init_bisicles_instance( int argc, char *argv[], const char *a_inputfile, BisiclesWrapper& a_wrapper)
 {
 #ifdef CH_MPI
+  //Chombo_MPI::comm = a_wrapper.mpi_comm;
   MPI_Barrier(Chombo_MPI::comm);
 #endif
   int rank, number_procs;
@@ -1131,13 +1146,32 @@ void bisicles_get_2d_data
 
 
 
-
-void bisicles_new_instance(int *instance_id, const char *input_fname)
+#ifdef CH_MPI
+void bisicles_new_instance(int *instance_id, const char *input_fname, MPI_Comm mpi_comm)
+#else
+void bisicles_new_instance(int *instance_id, const char *input_fname, int mpi_comm)
+#endif
 {
   //fake argc
 #define NARGS 2
 
   BisiclesWrapper* ptr = new BisiclesWrapper;
+#ifdef CH_MPI
+  CH_assert(mpi_comm);
+  ptr->mpi_comm = mpi_comm;
+  Chombo_MPI::comm = mpi_comm;
+  
+  int rank, number_procs;
+  MPI_Comm_rank(Chombo_MPI::comm, &rank);
+  MPI_Comm_size(Chombo_MPI::comm, &number_procs);
+
+  // std::cout << "bisicles_new_instance before first barrier";
+  // std::cout << "rank " << rank << std::endl;
+  MPI_Barrier(Chombo_MPI::comm);
+  // std::cout << "and after ";std::cout << "rank " << rank << std::endl
+			      ;
+#endif
+
   ptr->m_input_fname = input_fname;
   CH_assert(ptr != NULL);
 
