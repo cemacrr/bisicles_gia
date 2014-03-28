@@ -151,6 +151,7 @@ c -------------------------------------------------------------
       REAL_T ratio, zs
       REAL_T groundedHeight, floatingHeight
 
+      
       ratio = one - (iceDensity/waterDensity)
 
       CHF_AUTOMULTIDO[box; i]
@@ -695,7 +696,6 @@ c--------------------------------------------------
       subroutine thicknessoverflotation(CHF_FRA1[p], 
      &     CHF_CONST_FRA1[thck],
      &     CHF_CONST_FRA1[topg],
-     &     CHF_CONST_FIA1[mask],
      &     CHF_CONST_REAL[rhoi],
      &     CHF_CONST_REAL[rhoo],
      &     CHF_CONST_REAL[sealevel], 
@@ -717,14 +717,6 @@ c--------------------------------------------------
      &        + thck(CHF_AUTOIX[i])))
       endif
 
-c$$$      if (mask(CHF_AUTOIX[i]).eq.GROUNDEDMASKVAL) then
-c$$$         p(CHF_AUTOIX[i]) = (topg(CHF_AUTOIX[i])-sealevel) * ratio 
-c$$$     &        + thck(CHF_AUTOIX[i])
-c$$$      else if (mask(CHF_AUTOIX[i]).eq.FLOATINGMASKVAL) then
-c$$$         p(CHF_AUTOIX[i]) = 1.0
-c$$$      else
-c$$$         p(CHF_AUTOIX[i]) = 1.0
-c$$$      end if
       CHF_ENDDO
 
       return
