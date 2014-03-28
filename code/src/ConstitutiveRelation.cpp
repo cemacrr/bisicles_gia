@@ -16,6 +16,9 @@
 #include "TensorCFInterp.H"
 #include "ViscousTensorOpF_F.H"
 #include "ViscousTensorOp.H"
+#include "ParmParse.H"
+#include "L1L2ConstitutiveRelation.H"
+#include "NyeCrevasseConstitutiveRelation.H"
 #include "NamespaceHeader.H"
 
 /// compute cell-centered epsilon^2
@@ -54,30 +57,7 @@ ConstitutiveRelation::computeStrainRateInvariantFace(LevelData<FluxBox>& a_epsil
 
 }
 
-#if 0
-//hereherehere
-  DataIterator dit = grids.dataIterator();
 
-  for (dit.begin(); dit.ok(); ++dit)
-    {
-      const Box& gridBox = grids[dit];
-      Box growBox = gridBox;
-      derivBox.grow(a_ghostVect);
-      FluxBox& epsSqr = a_epsilonSquared[dit];
-      FArrayBox& vel = a_velocity[dit];
-
-      for (int faceDir=0; faceDir<SpaceDim; faceDir++)
-        {
-          Box faceBox(derivBox);
-          faceBox.surroundingNodes(faceDir);
-          // now call single-face version
-
-      computeStrainRateInvariantFace(a_epsilonSquared[faceDir],
-                                     a_velocity, a_coordSys,
-                                     faceBox, faceDir);
-    }
-}
-#endif
 
 /// compute cell-centered epsilon^2 and grad(u)
 void
@@ -294,11 +274,10 @@ ConstitutiveRelation::computeStrainRateInvariantFace(LevelData<FluxBox>& a_epsil
 
 
 ///
-GlensFlowRelation::GlensFlowRelation() : m_rateFactor(NULL)
+GlensFlowRelation::GlensFlowRelation() 
 {
   // initialize parameter values
   setDefaultParameters();
-
 }
 
 
@@ -503,8 +482,7 @@ GlensFlowRelation::getNewConstitutiveRelation() const
 {
   GlensFlowRelation* newPtr = new GlensFlowRelation;
   
-  newPtr->setParameters(m_n, m_rateFactor->getNewRateFactor(), 
-			m_epsSqr0);
+  newPtr->setParameters(m_n,  m_epsSqr0);
                                                 
   return static_cast<ConstitutiveRelation*>(newPtr);
 }
@@ -517,30 +495,21 @@ void GlensFlowRelation::setDefaultParameters()
   /// Power law index = 3.0
   Real n = 3.0;
   /// default rate factor 
-
   // small number to ensure that viscosity remains finite 
   // Pattyn (2003) uses 1e-30, but that's likely way too small
-  // so instead use 1e-6 to put us more or less in the right neighborhood
-  Real epsSqr0 = 1.0e-6;
-
-  ConstantRateFactor crf; 
-  setParameters(n, &crf , epsSqr0);
-                                               
+  // so instead use 1e-12 to put us more or less in the right neighborhood
+  Real epsSqr0 = 1.0e-12;
+  setParameters(n, epsSqr0);                                               
 }
 
 // set flow parameters 
 void
 GlensFlowRelation::setParameters(Real a_n,
-				 RateFactor* a_rateFactor,
                                  Real a_epsSqr0)
 {
   
   /// Power law index
   m_n = a_n;
-  /// rate factor
-  if (m_rateFactor)
-    delete (m_rateFactor);
-  m_rateFactor = a_rateFactor->getNewRateFactor();
   // small number to ensure that viscosity remains finite (1e-30)
   m_epsSqr0 = a_epsSqr0;
 }
@@ -918,7 +887,55 @@ RateFactor* ZwingerRateFactor::getNewRateFactor() const
   return static_cast<RateFactor*>(newPtr);
 }
 
+ConstitutiveRelation* ConstitutiveRelation::parse(const char* a_prefix)
+{
+  ConstitutiveRelation* constRelPtr = NULL;
+  ParmParse pp(a_prefix);
+  std::string constRelType;
+  pp.get("constitutiveRelation",constRelType);
 
+  if (constRelType == "constMu")
+      {
+        constMuRelation* newPtr = new constMuRelation;
+        ParmParse crPP("constMu");
+        Real muVal;
+        crPP.get("mu", muVal);
+        newPtr->setConstVal(muVal);
+        constRelPtr = static_cast<ConstitutiveRelation*>(newPtr);
+      }
+    else if (constRelType == "GlensLaw")
+      {
+        GlensFlowRelation* ptr = new GlensFlowRelation;
+	ParmParse glpp("GlensLaw");
+	Real n = 3.0;
+	glpp.query("n",n);
+	Real epsSqr0 = 1.0e-12;
+	glpp.query("epsSqr0",epsSqr0);
+	ptr->setParameters(n, epsSqr0);
+	constRelPtr = static_cast<ConstitutiveRelation*>(ptr);
+      }
+    else if (constRelType == "L1L2")
+      {
+        L1L2ConstitutiveRelation* ptr = new L1L2ConstitutiveRelation;
+        ptr->parseParameters();
+        constRelPtr = static_cast<ConstitutiveRelation*>(ptr);
+      }
+    else if (constRelType == "NyeCrevasse")
+      {
+	CH_assert(a_prefix != constRelType); //don't allow more recursion here
+	ConstitutiveRelation* crptr = ConstitutiveRelation::parse(constRelType.c_str());
+	NyeCrevasseConstitutiveRelation* ptr = 
+	  new NyeCrevasseConstitutiveRelation(crptr);
+	delete crptr;
+        constRelPtr = static_cast<ConstitutiveRelation*>(ptr);
+      }
+    else 
+      {
+        MayDay::Error("bad Constitutive relation type");
+      }
+  
+  return constRelPtr;
+}
 
 
 #include "NamespaceFooter.H"

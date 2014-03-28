@@ -1,0 +1,154 @@
+c----------------------------------------------
+c  Compute symmettric tensor Vij = 1/2 (Uij + Uji) 
+c  1D,2D only
+c----------------------------------------------
+      subroutine uplusut(CHF_FRA[e],
+     &     CHF_CONST_FRA[u],
+     &     CHF_INT[xxComp],
+     &     CHF_INT[xyComp],
+     &     CHF_INT[yxComp],
+     &     CHF_INT[yyComp], 
+     &     CHF_BOX[box])
+
+      integer CHF_AUTOIX[i]
+      REAL_T uxx,uxy,uyx,uyy
+
+      CHF_AUTOMULTIDO[box; i]
+#if (CH_SPACEDIM == 1)
+
+      e(CHF_AUTOIX[i],0) = gradu(CHF_AUTOIX[i],0)
+
+#elif (CH_SPACEDIM == 2)
+
+      uxx = u(CHF_AUTOIX[i],xxComp)
+      uyy = u(CHF_AUTOIX[i],yyComp)
+      uxy = u(CHF_AUTOIX[i],xyComp)
+      uyx = u(CHF_AUTOIX[i],yxComp)
+
+      e(CHF_AUTOIX[i],xxComp) = uxx;
+      e(CHF_AUTOIX[i],xyComp) = half * ( uxy + uyx ) ;
+      e(CHF_AUTOIX[i],yxComp) = e(CHF_AUTOIX[i],xyComp);
+      e(CHF_AUTOIX[i],yyComp) = uyy;
+
+#endif
+      
+      CHF_ENDDO
+      return 
+      end
+
+
+c----------------------------------------------
+c  Compute eigenvalues of a tensor Tij. 
+c
+c  In 2D, requires
+c  Txy * Tyx >= - (half*(Txx - Tyy))**2 (for real eigenvalues),
+c  which is always true for symmetric tensors 
+c
+c  3D case not included
+c----------------------------------------------
+      subroutine symteigen(CHF_FRA[lambda],
+     &                     CHF_CONST_FRA[T],
+     &                     CHF_INT[xxComp],
+     &                     CHF_INT[xyComp],
+     &                     CHF_INT[yxComp],
+     &                     CHF_INT[yyComp], 
+     &                     CHF_BOX[box])
+
+      integer CHF_AUTOIX[i]
+      REAL_T b,d,txx,txy,tyx,tyy
+
+      CHF_AUTOMULTIDO[box; i]
+#if (CH_SPACEDIM == 1)
+
+      lambda(CHF_AUTOIX[i],0) = T(CHF_AUTOIX[i],0)
+
+#elif (CH_SPACEDIM == 2)
+
+      txx = T(CHF_AUTOIX[i],xxComp)
+      tyy = T(CHF_AUTOIX[i],yyComp)
+      txy = T(CHF_AUTOIX[i],xyComp)
+      tyx = T(CHF_AUTOIX[i],yxComp)
+
+      b = half * (txx + tyy)
+      d = ( (half*(txx - tyy))**2 + txy*tyx)**half
+
+      lambda(CHF_AUTOIX[i],0) = b + d;
+      lambda(CHF_AUTOIX[i],1) = b - d;
+
+#endif
+      
+      CHF_ENDDO
+      return 
+      end
+
+c----------------------------------------------------
+c compute a crevasse depth d = a d_0 + b d_NYE, where
+c d_NYE depends on stress and d_0 is input
+c----------------------------------------------------
+      subroutine crevassedepth(CHF_FRA1[depth],
+     &     CHF_CONST_FRA1[depth0],
+     &     CHF_CONST_FRA1[thck],
+     &     CHF_CONST_FRA1[stress],
+     &     CHF_CONST_FRA1[thckab],
+     &     CHF_CONST_REAL[rhoi],
+     &     CHF_CONST_REAL[rhow],
+     &     CHF_CONST_REAL[g],
+     &     CHF_CONST_REAL[a],
+     &     CHF_CONST_REAL[b],  
+     &     CHF_CONST_REAL[eps], 
+     &     CHF_BOX[box])
+      
+      integer CHF_AUTOIX[i]
+      REAL_T h,tp,hab,d0,Q,tcrit,ds,dtot
+
+      CHF_AUTOMULTIDO[box; i]
+
+      h = thck(CHF_AUTOIX[i])
+      tp = stress( CHF_AUTOIX[i] )
+      hab = thckab(CHF_AUTOIX[i])
+      d0 = depth0(CHF_AUTOIX[i])
+
+     
+      Q = rhoi * g * h * h
+      
+!     surface and basal crevasses
+      dtot  = ( a * d0 * Q * (rhow - rhoi) 
+     &     + b * (rhow * h * Tp - rhoi * hab * Q) ) /
+     &     ( rhow * (Q + b*Tp) - rhoi * Q + eps)
+      
+!     just surface crevasses
+      ds  = (a * d0 * Q + b * h * Tp) /
+     &     (eps + Q + b * Tp) 
+
+    
+      depth(CHF_AUTOIX[i])  = max(ds,dtot)
+
+
+
+      CHF_ENDDO
+      return 
+      end
+
+
+c----------------------------------------------------
+c m *= (1-d/h) with d < h, h > 0
+c----------------------------------------------------
+
+      subroutine crevassemu(CHF_FRA1[mu],
+     &     CHF_CONST_FRA1[thck],
+     &     CHF_CONST_FRA1[depth],  
+     &     CHF_CONST_REAL[eps], 
+     &     CHF_BOX[box])
+
+      integer CHF_AUTOIX[i]
+      REAL_T h,d
+      CHF_AUTOMULTIDO[box; i]
+      d = depth(CHF_AUTOIX[i])
+      h = thck(CHF_AUTOIX[i])
+      
+      mu(CHF_AUTOIX[i]) = mu(CHF_AUTOIX[i])
+     &    * h * (h - min(d,h-eps))/(h*h + eps)
+
+      CHF_ENDDO
+      return 
+      end

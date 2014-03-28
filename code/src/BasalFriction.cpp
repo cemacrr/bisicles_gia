@@ -198,7 +198,7 @@ sinusoidalFriction::setSinParameters(const Real& a_betaVal,
   m_domainSize = a_domainSize;
 }
 
-#include "NamespaceFooter.H"
+
 
 BasalFriction* BasalFriction::parseBasalFriction(const char* a_prefix, 
 						 const RealVect& a_domainSize)
@@ -386,3 +386,4 @@ BasalFriction* BasalFriction::parseBasalFriction(const char* a_prefix,
 #endif
   return basalFrictionPtr;
 }
+#include "NamespaceFooter.H"

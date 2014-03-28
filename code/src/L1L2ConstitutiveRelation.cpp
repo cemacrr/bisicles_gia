@@ -37,20 +37,28 @@ L1L2ConstitutiveRelation::getNewConstitutiveRelation() const
   newPtr->m_startFromAnalyticMu = m_startFromAnalyticMu;
   GlensFlowRelation* gfr =  newPtr->getGlensFlowRelationPtr();
   gfr->setParameters(glensFlowRelation.m_n, 
-		     glensFlowRelation.m_rateFactor->getNewRateFactor(), 
 		     glensFlowRelation.m_epsSqr0);
   return static_cast<ConstitutiveRelation*>(newPtr);
 
 }
 
+
 void
 L1L2ConstitutiveRelation::parseParameters()
 {
-  ParmParse ppL1L2("l1l2");
+  ParmParse ppL1L2("L1L2");
   ppL1L2.query("solverTolerance", m_solverTol);
   ppL1L2.query("additionalVelocitySIAGradSLimit", m_additionalVelocitySIAGradSLimit);
   ppL1L2.query("additionalVelocitySIAOnly", m_additionalVelocitySIAOnly);
   ppL1L2.query("startFromAnalyticMu",m_startFromAnalyticMu);
+  
+  //underlying glen's flow flaw parameters
+  Real n = 3.0;
+  ppL1L2.query("n",n);
+  Real epsSqr0 = 1.0e-12;
+  ppL1L2.query("epsSqr0",epsSqr0);
+  glensFlowRelation.setParameters(n, epsSqr0);
+ 
 }
 
 void

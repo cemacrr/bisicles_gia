@@ -30,6 +30,8 @@ ConstitutiveRelation
 
 public:
 
+  static ConstitutiveRelation* parse(const char* a_prefix);
+
   /// default constructor
   ConstitutiveRelation() {;}
 
@@ -103,25 +105,6 @@ public:
                              const IntVect& a_ghostVect = IntVect::Zero) const = 0;
 
 
-#if 0
-  /// computes face-centered \f$\mu_{AS}\f$ for a single face direction 
-  /**
-     \param a_mu: face-centered \f$\mu_{AS}\f$ based on the local velocity field.
-     \param a_vel: Cell-centered velocity field.
-     \param a_A: Cell-centered flow law coefficient (glenn's A) field
-     \param a_coordSys: SigmaCS object containing the geometry of this patch.
-     \param a_faceBox: face-centered box over which to do this computation
-     \param a_faceDir: face direction
-  */
-  virtual void computeFaceMu(FArrayBox& a_mu,
-                             const FArrayBox& a_vel, 
-                             const FArrayBox& a_A,
-                             const LevelSigmaCS& a_coordSys,
-                             const Box& a_faceBox,
-                             int a_faceDir) const = 0;
-  
-#endif
-
   /// creates a new copy of this  ConstitutiveRelation object.
   virtual ConstitutiveRelation* getNewConstitutiveRelation() const = 0;
 
@@ -140,15 +123,6 @@ public:
                                       int a_nRefCrse,
                                       const LevelSigmaCS& a_coordSys,
                                       const IntVect& a_ghostVect = IntVect::Zero) const;  
-
-#if 0
-  /// compute face-centered epsilon^2 for face-direction dir 
-  void computeStrainRateInvariantFace(FArrayBox& a_epsilonSquared,
-                                      const FArrayBox& a_velocity,
-                                      const LevelSigmaCS& a_coordSys,
-                                      const Box& a_faceBox,
-                                      int a_faceDir) const;
-#endif
 
   /// compute cell-centered epsilon^2 and velocity gradients.
   /// no more costly than just computing epsilon^2
@@ -170,71 +144,7 @@ public:
                                       const LevelSigmaCS& a_coordSys,
                                       const IntVect& a_ghostVect = IntVect::Zero) const;  
 
-
-#if 0
-  /// compute face-centered epsilon^2 and velocity gradients for face-direction dir 
-  /// based on cell-centered velocity. no more costly than just computing epsilon^2
-  void computeStrainRateInvariantFace(FArrayBox& a_epsilonSquared,
-				      FArrayBox& a_gradVelocity,
-                                      const FArrayBox& a_velocity,
-                                      const LevelSigmaCS& a_coordSys,
-                                      const Box& a_faceBox,
-                                      int a_faceDir) const;
-
-#endif
-#if 0 // getting rid of computeFaceFluxVelocity
-  //calculate the mass flux velocity at cell faces of a_domain, given a velocity
-  //field at cell centres. default implementation uses simple average
-#if BISICLES_Z == BISICLES_LAYERED
-  // in the 2D case, we need two velocities : a 2D, 2 component field which appears
-  // in the thickness evolution equation and a 3D field for temperature advection.
-  // The 3D field is split into a LevelData<FluxBox> a_layerXYFaceXYVel  of 
-  // horizontal velocities at horizontal faces,
-  // each FluxBox having n components, and a LevelData<FArrayBox> a_layerSFaceXYVel of 
-  // horizontal velocities at sigma faces, each FArrayBox having (n+1)*SpaceDim 
-  // components, and 0 < direction index < SpaceDim running faster than layer index 
-  virtual void computeFaceFluxVelocity(const LevelData<FArrayBox>& a_cellVel,
-                                       const LevelData<FArrayBox>* a_crseVel,
-                                       int nRefCrse,
-				       const LevelSigmaCS& a_coordSys,
-				       const DisjointBoxLayout& a_grids,
-				       const ProblemDomain& a_domain,
-				       const LevelData<FArrayBox>& a_A,
-				       const LevelData<FArrayBox>& a_surfaceA,
-				       const LevelData<FArrayBox>& a_baseA,
-				       LevelData<FluxBox>& a_faceVel,
-				       LevelData<FluxBox>& a_layerXYFaceXYVel,
-				       LevelData<FArrayBox>& a_layerSFaceXYVel) const = 0;  
-
-
-
-#elif BISICLES_Z == BISICLES_FULLZ
-  virtual void computeFaceFluxVelocity(const LevelData<FArrayBox>& a_cellVel,
-                                       const LevelData<FArrayBox>* a_crseVel,
-                                       int nRefCrse,
-				       const LevelSigmaCS& a_coordSys,
-				       const DisjointBoxLayout& a_grids,
-				       const ProblemDomain& a_domain,
-				       const LevelData<FArrayBox>& a_A,
-				       LevelData<FluxBox>& a_faceVel) const = 0;
-  
-#endif
-
-
-
-  //modify the face centred thickness diffusivity. default implementation 
-  //does nothing
-  virtual void modifyThicknessDiffusivity(const LevelData<FArrayBox>& a_cellVel,
-                                          const LevelData<FArrayBox>* a_crseVelPtr, 
-                                          int a_nRefCrse,
-					  const LevelSigmaCS& a_coordSys,
-					  const DisjointBoxLayout& a_grids,
-					  const LevelData<FluxBox>& a_A,
-					  LevelData<FluxBox>& a_diffusivity) const
-  {;}
-
-#endif // getting rid of computeFaceFluxVelocity
-  virtual Real power() const = 0;
+  //virtual Real power() const = 0;
 
 protected:
 
@@ -627,7 +537,6 @@ public:
   virtual void setDefaultParameters();
 
   virtual void setParameters(Real a_n,
-			     RateFactor* a_rateFactor,
                              Real a_epsSqr0);
 
   /// creates a new copy of this ConstitutiveRelation object.
@@ -643,7 +552,7 @@ public:
   virtual Real power() const {return m_n;}
 
   /// Rate factor object
-  RateFactor* m_rateFactor;
+  //RateFactor* m_rateFactor;
 
   /// small number to ensure that viscosity remains finite
   Real m_epsSqr0;
