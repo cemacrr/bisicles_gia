@@ -242,35 +242,13 @@ int main(int argc, char* argv[]) {
       // ---------------------------------------------
       // set constitutive relation & rate factor
       // ---------------------------------------------
-      std::string constRelType;
-      ppMain.get("constitutiveRelation", constRelType);
-     
-      GlensFlowRelation* gfrPtr = NULL;
-      if (constRelType == "constMu")
+      ConstitutiveRelation* constRelPtr = ConstitutiveRelation::parse("main");
+      
+      if (constRelPtr == NULL)
 	{
-	  constMuRelation* newPtr = new constMuRelation;
-	  ParmParse crPP("constMu");
-	  Real muVal;
-	  crPP.get("mu", muVal);
-	  newPtr->setConstVal(muVal);
-	  constRelPtr = static_cast<ConstitutiveRelation*>(newPtr);
+	  MayDay::Error("undefined constitutiveRelation in inputs");
 	}
-      else if (constRelType == "GlensLaw")
-	{
-	  constRelPtr = new GlensFlowRelation;
-	  gfrPtr = dynamic_cast<GlensFlowRelation*>(constRelPtr);
-	}
-      else if (constRelType == "L1L2")
-	{
-	  L1L2ConstitutiveRelation* l1l2ptr = new L1L2ConstitutiveRelation;
-	  l1l2ptr->parseParameters();
-	  gfrPtr = l1l2ptr->getGlensFlowRelationPtr();
-	  constRelPtr = l1l2ptr;
-	}
-      else 
-	{
-	  MayDay::Error("bad Constitutive relation type");
-	}
+
       Real epsSqr0 = 1.0e-9;
       std::string rateFactorType = "constRate";
      
@@ -284,10 +262,7 @@ int main(int argc, char* argv[]) {
 	  rateFactorPtr = rateFactor.getNewRateFactor();
 	  crPP.query("epsSqr0", epsSqr0);
 	
-	  if (gfrPtr) 
-	    {
-	      gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
-	    }
+	 
 	}
       else if (rateFactorType == "arrheniusRate")
 	{
@@ -295,10 +270,7 @@ int main(int argc, char* argv[]) {
 	  ParmParse arPP("ArrheniusRate");
 	  arPP.query("epsSqr0", epsSqr0);
 	  rateFactorPtr = rateFactor.getNewRateFactor();
-	  if (gfrPtr) 
-	    {
-	      gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
-	    }
+	 
 	}
       else if (rateFactorType == "patersonRate")
 	{
@@ -306,10 +278,7 @@ int main(int argc, char* argv[]) {
 	  ParmParse arPP("PatersonRate");
 	  arPP.query("epsSqr0", epsSqr0);
 	  rateFactorPtr = rateFactor.getNewRateFactor();
-	  if (gfrPtr) 
-	    {
-	      gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
-	    }
+	 
 	}
     else if (rateFactorType == "zwingerRate")
 	{
@@ -317,10 +286,7 @@ int main(int argc, char* argv[]) {
 	  ParmParse arPP("ZwingerRate");
 	  arPP.query("epsSqr0", epsSqr0);
 	  rateFactorPtr = rateFactor.getNewRateFactor();
-	  if (gfrPtr) 
-	    {
-	      gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
-	    }
+	 
 	}
       // ---------------------------------------------------
       // set initial basal friction coefficient and relation

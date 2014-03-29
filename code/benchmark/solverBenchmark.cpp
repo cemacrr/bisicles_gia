@@ -548,37 +548,14 @@ int main(int argc, char* argv[]) {
     // set constitutive relation & rate factor 
     // (this info isn't in the plotfile)
     // ---------------------------------------------
-    std::string constRelType;
-    pp2.get("constitutiveRelation", constRelType);
-    ConstitutiveRelation* constRelPtr = NULL;
-    GlensFlowRelation* gfrPtr = NULL;
-    if (constRelType == "constMu")
+    ConstitutiveRelation* constRelPtr = ConstitutiveRelation::parse("main");
+
+    if (constRelPtr == NULL)
       {
-        constMuRelation* newPtr = new constMuRelation;
-        ParmParse crPP("constMu");
-        Real muVal;
-        crPP.get("mu", muVal);
-        newPtr->setConstVal(muVal);
-        constRelPtr = static_cast<ConstitutiveRelation*>(newPtr);
-      }
-    else if (constRelType == "GlensLaw")
-      {
-        constRelPtr = new GlensFlowRelation;
-	gfrPtr = dynamic_cast<GlensFlowRelation*>(constRelPtr);
-      }
-    else if (constRelType == "L1L2")
-      {
-        ParmParse ppL1L2("l1l2");
-        L1L2ConstitutiveRelation* l1l2Ptr = new L1L2ConstitutiveRelation;
-	l1l2Ptr->parseParameters();
-	gfrPtr = l1l2Ptr->getGlensFlowRelationPtr();
-	constRelPtr = l1l2Ptr;
-      }
-    else 
-      {
-        MayDay::Error("bad Constitutive relation type");
+	MayDay::Error("undefined constitutiveRelation in inputs");
       }
 
+   
      
 #if BISICLES_Z == BISICLES_LAYERED
     // num layers is the third component of num_cells in inputs file
@@ -614,10 +591,7 @@ int main(int argc, char* argv[]) {
 	ConstantRateFactor rateFactor(constA);
 	Real epsSqr0 = 1.0e-9;
 	crPP.query("epsSqr0", epsSqr0);
-	if (gfrPtr) 
-	  {
-	    gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);   
-	  } 
+ 
 	for (int lev=0; lev<numLevels; lev++)
 	  {
 	    for (DataIterator dit(amrGrids[lev]); dit.ok(); ++dit)
@@ -632,10 +606,7 @@ int main(int argc, char* argv[]) {
 	ParmParse arPP("ArrheniusRate");
 	Real epsSqr0 = 1.0e-9;
 	arPP.query("epsSqr0", epsSqr0);
-	if (gfrPtr) 
-	  {
-	    gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
-	  }
+
 	//if we have an arrenhius rate, then we need to read temperature from
 	//plot file and compute A.
 	for (int lev=0; lev<numLevels; lev++)
