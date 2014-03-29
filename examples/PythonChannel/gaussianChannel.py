@@ -48,3 +48,11 @@ def friction(x,y,t,thck,topg):
         friction = 1.0e+3
         
     return friction
+
+def frictionTemp(x,y,t,thck,topg):
+    friction = 1.0e+6
+    surface = 300.0 + slope(x)
+    if (  surface > topg ):
+        friction = 1.0e+4
+        
+    return friction
