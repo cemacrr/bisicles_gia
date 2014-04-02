@@ -200,37 +200,14 @@ int main(int argc, char* argv[]) {
 	  }	
       }
 
-    double glen_n = 3.0;
-    
     //constitutive relation and rate factor
-    string constRelType;
-    pp2.get("constitutiveRelation", constRelType);
-    ConstitutiveRelation* constRelPtr = NULL;
-    GlensFlowRelation* gfrPtr = NULL;
-    if (constRelType == "constMu")
+    ConstitutiveRelation* constRelPtr = ConstitutiveRelation::parse("main");
+    if (constRelPtr == NULL)
       {
-        constMuRelation* newPtr = new constMuRelation;
-        ParmParse crPP("constMu");
-        Real muVal;
-        crPP.get("mu", muVal);
-        newPtr->setConstVal(muVal);
-        constRelPtr = static_cast<ConstitutiveRelation*>(newPtr);
+	MayDay::Error("undefined constitutiveRelation in inputs");
       }
-    else if (constRelType == "GlensLaw")
-      {
-        constRelPtr = new GlensFlowRelation;
-	gfrPtr = dynamic_cast<GlensFlowRelation*>(constRelPtr);
-      }
-    else if (constRelType == "L1L2")
-      {
-        constRelPtr = new L1L2ConstitutiveRelation;
-	gfrPtr = (dynamic_cast<L1L2ConstitutiveRelation*>(constRelPtr))->getGlensFlowRelationPtr();
-      }
-    else 
-      {
-        MayDay::Error("bad Constitutive relation type");
-      }
-    Real epsSqr0 = 1.0e-9;
+
+    
     std::string rateFactorType = "constRate";
     pp2.query("rateFactor", rateFactorType);
     RateFactor* rateFactorPtr; 
@@ -241,24 +218,27 @@ int main(int argc, char* argv[]) {
 	crPP.query("A", A);
 	ConstantRateFactor* crf = new ConstantRateFactor(A);
 	rateFactorPtr = static_cast<RateFactor*>(crf);
-	crPP.query("epsSqr0", epsSqr0);
 	
-	if (gfrPtr) 
-	  {
-	    gfrPtr->setParameters(glen_n , rateFactorPtr, epsSqr0);
-	  }
       }
     else if (rateFactorType == "arrheniusRate")
       {
 	ArrheniusRateFactor* arf = new ArrheniusRateFactor();
 	ParmParse arPP("ArrheniusRate");
-	arPP.query("epsSqr0", epsSqr0);
 	rateFactorPtr = static_cast<RateFactor*>(arf);
-	if (gfrPtr) 
-	  {
-	    gfrPtr->setParameters(glen_n , rateFactorPtr, epsSqr0);
-	  }
       }
+    else if (rateFactorType == "patersonRate")
+      {
+	PatersonRateFactor* prf =  new PatersonRateFactor();
+	ParmParse arPP("PatersonRate");
+	rateFactorPtr = static_cast<RateFactor*>(prf);
+      }
+    else if (rateFactorType == "zwingerRate")
+      {
+	ZwingerRateFactor* zrf = new ZwingerRateFactor();
+	ParmParse arPP("ZwingerRate");
+	rateFactorPtr = static_cast<RateFactor*>(zrf);
+      }
+
 
     BasalFrictionRelation* basalFrictionRelationPtr;
     std::string basalFrictionRelType = "powerLaw";
