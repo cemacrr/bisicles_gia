@@ -33,8 +33,19 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
   const LevelData<FArrayBox>& vt  = *a_amrIce.viscousTensor(a_level);
   const LevelData<FArrayBox>& levelVel = *(a_amrIce.velocity(a_level));
   srand(time(NULL)+ a_level + procID());
-
-
+  // expand m_selected if < a_level
+  if (m_selected.size() < a_level + 1)
+    {
+      m_selected.resize(a_level + 1,NULL);
+    }
+  //clear up any old memory
+  if (m_selected[a_level] != NULL)
+    {
+      delete m_selected[a_level];
+    }
+  //create one element of m_selected
+  m_selected[a_level] = new LevelData<BaseFab<int> > (levelCoords.grids(),1,IntVect::Zero);
+  
   for (DataIterator dit (levelCoords.grids()); dit.ok(); ++dit)
    {
       FArrayBox& source = a_flux[dit];
@@ -43,13 +54,15 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
       const FArrayBox& usrf = levelCoords.getSurfaceHeight()[dit];
       const FArrayBox& vel = levelVel[dit];
       const FArrayBox& Hab = levelCoords.getThicknessOverFlotation()[dit];
-
+      BaseFab<int>& selected = (*m_selected[a_level])[dit];
       const Box& b = levelCoords.grids()[dit];
 
       Box remnantBox = b; remnantBox.grow(1); //we need one layer of ghost cells to do upwind calculations
       FArrayBox remnant(remnantBox,1);
       //compute the total remnant size (surface + basal) [needs to go in a fortran kernel]
-	
+
+      //set selected to zero everywhere
+      selected.setVal(0);
       for (BoxIterator bit(remnantBox); bit.ok(); ++bit)
 	{
 	  const IntVect& iv = bit();
@@ -115,8 +128,23 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 		    
 		}
 	    }
-	  const Real decay = 3.0e+2;
-	  source(iv) -= 10.0 * thck(iv)/a_dt * std::min(upwThck,1.0) * std::min(1.0, std::exp( - decay * upwRemnant/(upwThck)));
+	  // set mask to 1 to indicate calving event
+	  if ((m_setZeroThck == true) && (upwRemnant < 5.0))
+	    {
+	      selected(iv) = 1;
+	    }
+	  else if (m_oldMeltRate == true) // use a_dt melt rate
+	    {
+	      const Real decay = 3.0e+2;
+	      source(iv) -= 10.0 * thck(iv)/a_dt * std::min(upwThck,1.0) 
+		* std::min(1.0, std::exp( - decay * upwRemnant/(upwThck)));
+	    }
+	  else // use decay and ts melt rate
+	    {
+	      source(iv) -=  thck(iv)/m_timescale * std::min(upwThck,1.0) 
+		* std::min(1.0, std::exp( - m_decay * upwRemnant/(upwThck)));
+	      
+	    }
 	}  
    }
    
@@ -128,19 +156,50 @@ void BennCalvingModel::initialModifyState
  const AmrIce& a_amrIce,
  int a_level)
 {
-  endTimeStepModifyState(a_thickness, a_amrIce,a_level);
+  //endTimeStepModifyState(a_thickness, a_amrIce,a_level);
+m_domainEdgeCalvingModel.endTimeStepModifyState(a_thickness, a_amrIce, a_level);
 }
 	      		 
 void BennCalvingModel::endTimeStepModifyState
 (LevelData<FArrayBox>& a_thickness, 
  const AmrIce& a_amrIce,
  int a_level)
-{
 
+{
+  if ((m_setZeroThck == true) && (m_selected.size() >= a_level + 1) 
+      && (m_selected[a_level] != NULL))
+    {
+      const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
+      for (DataIterator dit (levelCoords.grids()); dit.ok(); ++dit)
+       {
+	 FArrayBox& thickness = a_thickness[dit];
+	 const BaseFab<int>& selected = (*m_selected[a_level])[dit];
+	 const Box& b = levelCoords.grids()[dit];      
+	 for (BoxIterator bit(b); bit.ok(); ++bit)
+	   {
+	     const IntVect& iv = bit();
+	     if (selected(iv) == 1)
+	       {
+		 thickness(iv) = 0.0;
+	       }
+	   }
+       }
+   }  
   m_domainEdgeCalvingModel.endTimeStepModifyState(a_thickness, a_amrIce, a_level);
 
 }
 
+BennCalvingModel::~BennCalvingModel()
+{
+  for (int i = 0; i < m_selected.size(); i++)
+    {
+      if (m_selected[i] != NULL)
+	{
+	  delete m_selected[i];
+	  m_selected[i] = NULL;
+	}
+    }
+}
 #include "NamespaceFooter.H"	      
 	      
 	  

@@ -51,28 +51,43 @@ public:
 		    bool a_inclBasalCrev,
 		    bool a_oneDimCrev,
 		    bool a_RedFreqCalv,
+		    bool a_setZeroThck,
+		    bool a_oldMeltRate,
 		    const Real& a_NoiseScale,
-		    const Real& a_CalvingFreq)
+		    const Real& a_CalvingFreq,
+		    const Real& a_decay,
+		    const Real& a_timescale)
     : m_waterDepth(a_waterDepth),
       m_inclBasalCrev(a_inclBasalCrev),
       m_oneDimCrev(a_oneDimCrev),
       m_RedFreqCalv(a_RedFreqCalv),
+      m_setZeroThck(a_setZeroThck),
+      m_oldMeltRate(a_oldMeltRate),
       m_NoiseScale(a_NoiseScale),
       m_CalvingFreq(a_CalvingFreq),
+      m_decay(a_decay),
+      m_timescale(a_timescale),
       m_domainEdgeCalvingModel(a_frontLo,a_frontHi, 
 			       a_preserveSea, a_preserveLand)
   {
     
   }
 
+  ~BennCalvingModel();
+
 private:
   Real m_waterDepth;
   bool m_inclBasalCrev;
   bool m_oneDimCrev;
   bool m_RedFreqCalv;
+  bool m_setZeroThck;
+  bool m_oldMeltRate;
   Real m_NoiseScale;
   Real m_CalvingFreq;
+  Real m_decay;
+  Real m_timescale;
   DomainEdgeCalvingModel(m_domainEdgeCalvingModel);
+  Vector<LevelData<BaseFab<int> >* > m_selected;
 
   //BennCalvingModel() : 
 };
