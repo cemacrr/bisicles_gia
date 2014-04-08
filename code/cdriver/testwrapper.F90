@@ -17,15 +17,17 @@ program fwrapper
   real(kind=8), dimension(:,:), allocatable :: smb, bmbf, bmbg, usrf, seb
   integer ixlo,ixhi,iylo,iyhi
   
-  integer :: rank,nproc,ierr
+  integer :: rank,nproc,ierr,comm
 
 #ifdef CH_MPI
   call MPI_Init ( ierr )
   call MPI_Comm_rank ( mpi_comm_world, rank, ierr )
   call MPI_Comm_size ( mpi_comm_world, nproc, ierr )
+  comm = mpi_comm_world
 #else
   rank = 0
   nproc = 1
+  comm = 0
 #endif
 
   !example domain decompistion scheme : in serial, one block of data and in parallel two blocks
@@ -69,7 +71,7 @@ program fwrapper
   file = "inputs.pigv5.1km.l1l2.l1" 
   
   !create an instance
-  call f_bisicles_new_instance(instance_id, file, 25)
+  call f_bisicles_new_instance(instance_id, file, 25, comm)
  
   !if (rank.le.1) then
      !now set up some uniform mesh data to read from / write to the interface

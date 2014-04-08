@@ -272,36 +272,6 @@ void init_bisicles_instance( int argc, char *argv[], const char *a_inputfile, Bi
   // ---------------------------------------------
   // set constitutive relation & rate factor
   // ---------------------------------------------
-  std::string constRelType;
-  pp2.get("constitutiveRelation", constRelType);
-  ConstitutiveRelation* constRelPtr = NULL;
-  GlensFlowRelation* gfrPtr = NULL;
-  if (constRelType == "constMu")
-    {
-      constMuRelation* newPtr = new constMuRelation;
-      ParmParse crPP("constMu");
-      Real muVal;
-      crPP.get("mu", muVal);
-      newPtr->setConstVal(muVal);
-      constRelPtr = static_cast<ConstitutiveRelation*>(newPtr);
-    }
-  else if (constRelType == "GlensLaw")
-    {
-      constRelPtr = new GlensFlowRelation;
-      gfrPtr = dynamic_cast<GlensFlowRelation*>(constRelPtr);
-    }
-  else if (constRelType == "L1L2")
-    {
-      L1L2ConstitutiveRelation* l1l2Ptr = new L1L2ConstitutiveRelation;
-      l1l2Ptr->parseParameters();
-      gfrPtr = l1l2Ptr->getGlensFlowRelationPtr();
-      constRelPtr = l1l2Ptr;
-    }
-  else 
-    {
-      MayDay::Error("bad Constitutive relation type");
-    }
-  Real epsSqr0 = 1.0e-9;
   std::string rateFactorType = "constRate";
   pp2.query("rateFactor", rateFactorType);
   if (rateFactorType == "constRate")
@@ -310,48 +280,45 @@ void init_bisicles_instance( int argc, char *argv[], const char *a_inputfile, Bi
       Real A = 9.2e-18;
       crPP.query("A", A);
       ConstantRateFactor rateFactor(A);
-
-      crPP.query("epsSqr0", epsSqr0);
       amrObject.setRateFactor(&rateFactor);
-      if (gfrPtr) 
-	{
-	  gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
-	}
     }
   else if (rateFactorType == "arrheniusRate")
     {
       ArrheniusRateFactor rateFactor;
       ParmParse arPP("ArrheniusRate");
-      arPP.query("epsSqr0", epsSqr0);
       amrObject.setRateFactor(&rateFactor);
-      if (gfrPtr) 
-	{
-	  gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
-	}
     }
   else if (rateFactorType == "patersonRate")
     {
       PatersonRateFactor rateFactor;
       ParmParse arPP("PatersonRate");
-      arPP.query("epsSqr0", epsSqr0);
       amrObject.setRateFactor(&rateFactor);
-      if (gfrPtr) 
-	{
-	  gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
-	}
     }
-    else if (rateFactorType == "zwingerRate")
+  else if (rateFactorType == "zwingerRate")
+      {
+	ZwingerRateFactor rateFactor;
+	ParmParse arPP("ZwingerRate");
+	amrObject.setRateFactor(&rateFactor);
+      }
+  
+  ConstitutiveRelation* constRelPtr = ConstitutiveRelation::parse("main");
+
+  if (constRelPtr == NULL)
     {
-      ZwingerRateFactor rateFactor;
-      ParmParse arPP("ZwingerRate");
-      arPP.query("epsSqr0", epsSqr0);
-      amrObject.setRateFactor(&rateFactor);
-      if (gfrPtr) 
-	{
-	  gfrPtr->setParameters(3.0 , &rateFactor, epsSqr0);
-	}
+      MayDay::Error("undefined constitutiveRelation in inputs");
     }
+  
   amrObject.setConstitutiveRelation(constRelPtr);
+  
+  std::string basalRateFactorType = "";
+  pp2.query("basalRateFactor", basalRateFactorType);
+  
+  if (basalRateFactorType == "patersonRate")
+    {
+      PatersonRateFactor rateFactor;
+      rateFactor.setA0(1.0);
+      amrObject.setBasalRateFactor(&rateFactor);
+    }
  
   // -------------------------------------------------
   // set surface flux.
