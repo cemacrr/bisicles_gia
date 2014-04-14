@@ -735,7 +735,8 @@ protected:
 
   //attempt to eliminate floating ice that is unconnected to grounded ice 
   bool m_eliminate_remote_ice;
-  
+  int m_eliminate_remote_ice_max_iter;
+
 #ifdef HAVE_PYTHON
   /// tag cells according to a python function
   bool m_tagPython;

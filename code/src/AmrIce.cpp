@@ -282,6 +282,7 @@ AmrIce::computeCrevasseDepths(LevelData<FArrayBox>& a_surfaceCrevasse,
 Real 
 AmrIce::computeFluxOverIce(const Vector<LevelData<FArrayBox>* > a_flux)
 {
+
    //compute sum of a flux component over ice
    //construct fluxOverIce
    Vector<LevelData<FArrayBox>* > fluxOverIce ( m_finest_level+1, NULL);
@@ -526,6 +527,7 @@ AmrIce::setDefaults()
   m_report_total_flux = false;
   m_report_grounded_ice = false;
   m_eliminate_remote_ice = false;
+  m_eliminate_remote_ice_max_iter = 10;
 
   m_plot_prefix = "plot";
   m_plot_interval = 10000000;
@@ -1271,7 +1273,7 @@ AmrIce::initialize()
   ppAmr.query("report_total_flux", m_report_total_flux);
   
   ppAmr.query("eliminate_remote_ice", m_eliminate_remote_ice);
-
+  ppAmr.query("eliminate_remote_ice_max_iter", m_eliminate_remote_ice_max_iter);
   // get temporal accuracy
   ppAmr.query("temporal_accuracy", m_temporalAccuracy);
 
@@ -5781,10 +5783,9 @@ const LevelData<FArrayBox>* AmrIce::groundingLineProximity(int a_level) const
 ///from grounded ice and eliminate them.
 void AmrIce::eliminateRemoteIce()
 {
-  int maxIter = 10; // \todo make this a parmparse option
   IceUtility::eliminateRemoteIce(m_vect_coordSys, m_amrGrids, m_amrDomains, 
 				 m_refinement_ratios, m_amrDx[0], 
-				 m_finest_level, maxIter);
+				 m_finest_level, m_eliminate_remote_ice_max_iter);
 }
 
 

@@ -574,6 +574,7 @@ void IceUtility::eliminateRemoteIce
 			 CHF_BOX(levelGrids[dit]));
 			 
 	}
+      phi[lev]->exchange();
     }
  
   int iter = 0; 
@@ -622,7 +623,8 @@ void IceUtility::eliminateRemoteIce
     sumPhi = computeSum(phi, a_refRatio, a_crseDx, Interval(0,0), 0);
     iter++;
   } while ( iter < a_maxIter && sumPhi > oldSumPhi );
-  
+
+ 
   //now destroy the doomed regions, and reset a_coordSys
   for (int lev=0; lev <= a_finestLevel ; ++lev)
     {
