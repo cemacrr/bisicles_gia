@@ -737,6 +737,9 @@ protected:
   bool m_eliminate_remote_ice;
   int m_eliminate_remote_ice_max_iter;
 
+  //attempt to eliminate unconnected floating ice after regridding
+  bool m_eliminate_remote_ice_after_regrid;
+  
 #ifdef HAVE_PYTHON
   /// tag cells according to a python function
   bool m_tagPython;

@@ -528,6 +528,7 @@ AmrIce::setDefaults()
   m_report_grounded_ice = false;
   m_eliminate_remote_ice = false;
   m_eliminate_remote_ice_max_iter = 10;
+  m_eliminate_remote_ice_after_regrid = false;
 
   m_plot_prefix = "plot";
   m_plot_interval = 10000000;
@@ -1274,6 +1275,8 @@ AmrIce::initialize()
   
   ppAmr.query("eliminate_remote_ice", m_eliminate_remote_ice);
   ppAmr.query("eliminate_remote_ice_max_iter", m_eliminate_remote_ice_max_iter);
+  ppAmr.query("eliminate_remote_ice_after_regrid", m_eliminate_remote_ice_after_regrid);
+
   // get temporal accuracy
   ppAmr.query("temporal_accuracy", m_temporalAccuracy);
 
@@ -3516,12 +3519,22 @@ AmrIce::regrid()
 	      CH_assert(m_evolve_velocity);
 	      MayDay::Error("AmrIce::regrid() not implemented for !m_evolve_velocity");
 	    }
+          // this is a good time to check for remote ice
+          if ((m_eliminate_remote_ice_after_regrid) 
+              && !(m_eliminate_remote_ice))
+            eliminateRemoteIce();
+          
+	  //velocity solver needs to be re-defined
+	  defineSolver();
+	  //solve velocity field, but use the previous initial residual norm in place of this one
+	  solveVelocityField(m_velocitySolveInitialResidualNorm);
+	  
 	} // end if tags changed
     } // end if max level > 0 in the first place
   
   m_groundingLineProximity_valid = false;
   m_viscousTensor_valid = false;
-} 
+}
       
                               
 void 
@@ -4389,6 +4402,12 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
       m_temperatureIBCPtr->initializeIceTemperature(*m_temperature[lev],*a_vectCoordSys[lev]);
 #endif
     }
+
+  // this is a good time to check for remote ice
+  // (don't bother if we're doing it as a matter of course, since we'd
+  // wind up doing it 2x)
+  if ((m_eliminate_remote_ice_after_regrid) && !(m_eliminate_remote_ice))
+    eliminateRemoteIce();
   
   zeroCalvedIceThickness();
 
@@ -4404,7 +4423,7 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
     }
 
 
-#define writePlotsImmediately
+  //#define writePlotsImmediately
 #ifdef  writePlotsImmediately
   if (m_plot_interval >= 0)
     {
