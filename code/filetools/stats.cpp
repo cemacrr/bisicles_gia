@@ -208,6 +208,10 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
 
 int main(int argc, char* argv[]) {
 
+#ifdef CH_MPI
+  MPI_Init(&argc, &argv);
+#endif 
+
   { // Begin nested scope
 
 #ifdef CH_MPI
