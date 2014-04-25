@@ -91,7 +91,7 @@ c----------------------------------------------------
      &     CHF_CONST_FRA1[stress],
      &     CHF_CONST_FRA1[thckab],
      &     CHF_CONST_REAL[rhoi],
-     &     CHF_CONST_REAL[rhow],
+     &     CHF_CONST_REAL[rhoo],
      &     CHF_CONST_REAL[g],
      &     CHF_CONST_REAL[a],
      &     CHF_CONST_REAL[b],  
@@ -112,9 +112,9 @@ c----------------------------------------------------
       Q = rhoi * g * h * h
       
 !     surface and basal crevasses
-      dtot  = ( a * d0 * Q * (rhow - rhoi) 
-     &     + b * (rhow * h * Tp - rhoi * hab * Q) ) /
-     &     ( rhow * (Q + b*Tp) - rhoi * Q + eps)
+      dtot  = ( a * d0 * Q * (rhoo - rhoi) 
+     &     + b * (rhoo * h * Tp - rhoi * hab * Q) ) /
+     &     ( rhoo * (Q + b*Tp) - rhoi * Q + eps)
       
 !     just surface crevasses
       ds  = (a * d0 * Q + b * h * Tp) /

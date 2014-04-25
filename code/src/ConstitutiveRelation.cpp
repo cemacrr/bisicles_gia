@@ -924,8 +924,15 @@ ConstitutiveRelation* ConstitutiveRelation::parse(const char* a_prefix)
       {
 	CH_assert(a_prefix != constRelType); //don't allow more recursion here
 	ConstitutiveRelation* crptr = ConstitutiveRelation::parse(constRelType.c_str());
+	ParmParse ncpp("NyeCrevasse");
+	Real NyeWaterDepth = 0.0;
+	ncpp.query("NyeWaterDepth",NyeWaterDepth);
+	Real NyeA = 0.0;
+	ncpp.query("NyeA",NyeA);
+	//("NyeWaterDepth",NyeWaterDepth);
+	//pp.get("NyeA",NyeA);
 	NyeCrevasseConstitutiveRelation* ptr = 
-	  new NyeCrevasseConstitutiveRelation(crptr);
+	  new NyeCrevasseConstitutiveRelation(crptr,NyeWaterDepth,NyeA);
 	delete crptr;
         constRelPtr = static_cast<ConstitutiveRelation*>(ptr);
       }

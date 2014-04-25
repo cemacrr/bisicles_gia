@@ -15,10 +15,10 @@
 #include "LevelMappedDerivatives.H"
 #include "NamespaceHeader.H"
 
-NyeCrevasseConstitutiveRelation::NyeCrevasseConstitutiveRelation(ConstitutiveRelation* a_ptr)
-{
-  m_uncrevassedConstitutiveRelation = a_ptr->getNewConstitutiveRelation();
-}
+//NyeCrevasseConstitutiveRelation::NyeCrevasseConstitutiveRelation(ConstitutiveRe//lation* a_ptr, const Real& a_NyeWaterDepth, const Real& a_NyeA)
+//{
+//  m_uncrevassedConstitutiveRelation = a_ptr->getNewConstitutiveRelation();
+//}
 
 NyeCrevasseConstitutiveRelation::~NyeCrevasseConstitutiveRelation()
 {
@@ -32,7 +32,8 @@ NyeCrevasseConstitutiveRelation::~NyeCrevasseConstitutiveRelation()
 ConstitutiveRelation* 
 NyeCrevasseConstitutiveRelation::getNewConstitutiveRelation() const
 {
-  NyeCrevasseConstitutiveRelation* newPtr = new NyeCrevasseConstitutiveRelation(m_uncrevassedConstitutiveRelation);
+  NyeCrevasseConstitutiveRelation* newPtr = new NyeCrevasseConstitutiveRelation(m_uncrevassedConstitutiveRelation,m_NyeWaterDepth,m_NyeA);
+
   return static_cast<ConstitutiveRelation*>(newPtr);
 }
 
@@ -143,10 +144,11 @@ NyeCrevasseConstitutiveRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
 	  Real sea =  a_coordSys.seaLevel();
 	  Real gravity =  a_coordSys.gravity();
 
-	  //todo : these all need to be class args of some sort
-	  FArrayBox depth0(box, 1); depth0.setVal(0.0);
+	  //todo : these all need to be class args of some sort]
+	  Real waterDepth = m_NyeWaterDepth; // water depth
+	  FArrayBox depth0(box, 1); depth0.setVal(waterDepth);
 	  Real rhow = 1.0e3; // fresh water density
-	  Real a = 0.0e0; // weight for old crevasses / water filling of crevasses
+	  Real a = m_NyeA; // weight for old crevasses / water filling of crevasses
 	  Real b = 1.0e0; // weight for nye crevasses
 	  Real eps = 1.0e-10; // minimum denominator
 	 
@@ -166,7 +168,7 @@ NyeCrevasseConstitutiveRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
 			     CHF_CONST_FRA1(lambda,0),
 			     CHF_CONST_FRA1(thckab,0),
 			     CHF_CONST_REAL(rhoi),
-			     CHF_CONST_REAL(rhow),
+			     CHF_CONST_REAL(rhoo),
 			     CHF_CONST_REAL(gravity),
 			     CHF_CONST_REAL(a),
 			     CHF_CONST_REAL(b),

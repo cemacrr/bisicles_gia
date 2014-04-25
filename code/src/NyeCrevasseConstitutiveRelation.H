@@ -29,8 +29,16 @@ class NyeCrevasseConstitutiveRelation : public ConstitutiveRelation
   ConstitutiveRelation* m_uncrevassedConstitutiveRelation;
 public:
 
-  NyeCrevasseConstitutiveRelation(ConstitutiveRelation* a_ptr);
-  
+  NyeCrevasseConstitutiveRelation(ConstitutiveRelation* a_ptr,
+  				  const Real& a_NyeWaterDepth, 
+  				  const Real& a_NyeA)
+  : m_NyeWaterDepth(a_NyeWaterDepth),
+    m_NyeA(a_NyeA)
+  {
+    m_uncrevassedConstitutiveRelation = a_ptr->getNewConstitutiveRelation();
+  }
+
+
   virtual ~NyeCrevasseConstitutiveRelation();
   
   /// computes cell-centered \f$\mu_{AS}\f$ based on the cell-centered velocity
@@ -101,7 +109,11 @@ public:
   virtual ConstitutiveRelation* getNewConstitutiveRelation() const;
 
 private:
+
+  Real m_NyeWaterDepth;
+  Real m_NyeA;
   NyeCrevasseConstitutiveRelation() : m_uncrevassedConstitutiveRelation(NULL)
+				      
   {;}
 
 };
