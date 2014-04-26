@@ -123,7 +123,7 @@ namespace IceUtility
    const Vector<DisjointBoxLayout>& a_grids,
    const Vector<ProblemDomain>& a_domain,
    const Vector<int>& a_refRatio, Real a_crseDx,
-   int a_finestLevel, int a_maxIter);
+   int a_finestLevel, int a_maxIter, Real a_tol);
   
 }
 

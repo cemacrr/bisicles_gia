@@ -528,6 +528,7 @@ AmrIce::setDefaults()
   m_report_grounded_ice = false;
   m_eliminate_remote_ice = false;
   m_eliminate_remote_ice_max_iter = 10;
+  m_eliminate_remote_ice_tol = 1.0;
   m_eliminate_remote_ice_after_regrid = false;
 
   m_plot_prefix = "plot";
@@ -1275,6 +1276,7 @@ AmrIce::initialize()
   
   ppAmr.query("eliminate_remote_ice", m_eliminate_remote_ice);
   ppAmr.query("eliminate_remote_ice_max_iter", m_eliminate_remote_ice_max_iter);
+  ppAmr.query("eliminate_remote_ice_tol", m_eliminate_remote_ice_tol);
   ppAmr.query("eliminate_remote_ice_after_regrid", m_eliminate_remote_ice_after_regrid);
 
   // get temporal accuracy
@@ -5804,7 +5806,8 @@ void AmrIce::eliminateRemoteIce()
 {
   IceUtility::eliminateRemoteIce(m_vect_coordSys, m_amrGrids, m_amrDomains, 
 				 m_refinement_ratios, m_amrDx[0], 
-				 m_finest_level, m_eliminate_remote_ice_max_iter);
+				 m_finest_level, m_eliminate_remote_ice_max_iter,
+				 m_eliminate_remote_ice_tol);
 }
 
 

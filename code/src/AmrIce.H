@@ -736,6 +736,7 @@ protected:
   //attempt to eliminate floating ice that is unconnected to grounded ice 
   bool m_eliminate_remote_ice;
   int m_eliminate_remote_ice_max_iter;
+  Real m_eliminate_remote_ice_tol;
 
   //attempt to eliminate unconnected floating ice after regridding
   bool m_eliminate_remote_ice_after_regrid;

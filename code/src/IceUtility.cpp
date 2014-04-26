@@ -550,7 +550,7 @@ void IceUtility::eliminateRemoteIce
  const Vector<DisjointBoxLayout>& a_grids,
  const Vector<ProblemDomain>& a_domain,
  const Vector<int>& a_refRatio, Real a_crseDx,
- int a_finestLevel, int a_maxIter)
+ int a_finestLevel, int a_maxIter, Real a_tol)
 {
   CH_TIME("IceUtility::eliminateRemoteIce");
   //Define phi = 1 on grounded ice, 0 elsewhere
@@ -608,10 +608,10 @@ void IceUtility::eliminateRemoteIce
 	for  (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	  {
 	    //sweep in all four directions, copying phi = 1 into cells with thickness > tol 
-	    Real tol = 1.0;
+	    //Real tol = 1.0;
 	    FORT_SWEEPCONNECTED2D(CHF_FRA1(levelPhi[dit],0),
 				  CHF_CONST_FRA1(levelCS.getH()[dit],0),
-				  CHF_CONST_REAL(tol), 
+				  CHF_CONST_REAL(a_tol), 
 				  CHF_BOX(levelGrids[dit]));
 	  }
 
