@@ -19,6 +19,10 @@
 
 #include "FArrayBox.H"
 #include "NamespaceHeader.H"
+
+class LevelSigmaCS;
+class DataIterator;
+
 class BasalFrictionRelation
 {
 public:
@@ -31,16 +35,17 @@ public:
   /** 
       \param a_alpha -- \f$C\f$ based on the local velocity field. 
       \param a_basalVel -- Cell-centered basal velocity field.
-      \param a_thckOverFlotation -- Cell-centered thckness over flotation field.
-      \param a_C: Cell-centered coefficient field
+      \param a_C -- Cell-centered coefficient field
+      \param a_coords -- whole level geometry data
+      \param a_dit -- index needed to retrieve data from a_coords
       \param a_box: cell-centered box over which to do this computation
   */
 
   virtual void computeAlpha(FArrayBox& a_alpha,
 			    const FArrayBox& a_basalVel,
-			    const FArrayBox& a_thckOverFlotation,
 			    const FArrayBox& a_C,
-			    const BaseFab<int>& a_mask,
+			    const LevelSigmaCS& a_coords, 
+			    const DataIterator& a_dit,
 			    const Box& a_box) const = 0;
 
   /// computes cell-centered heat source \f$ s = T_b . u_b  / k_ice \f$
@@ -50,13 +55,15 @@ public:
       \param a_dissipation -- \f$C\f$ based on the local velocity field. 
       \param a_basalVel -- Cell-centered basal velocity field.
       \param a_C: Cell-centered coefficient field
+      \param a_coords -- whole level geometry data
+      \param a_dit -- index needed to retrieve data from a_coords
       \param a_box: cell-centered box over which to do this computation
   */
   virtual void computeDissipation(FArrayBox& a_dissipation,  
 				  const FArrayBox& a_basalVel,
-				  const FArrayBox& a_thckOverFlotation,
 				  const FArrayBox& a_C,
-				  const BaseFab<int>& a_mask,
+				  const LevelSigmaCS& a_coords, 
+				  const DataIterator& a_dit,
 				  const Box& a_box) const;
 
   
@@ -89,10 +96,10 @@ public:
   virtual ~BasalFrictionPowerLaw() {;}
 
   virtual void computeAlpha(FArrayBox& a_alpha,
-			    const FArrayBox& a_basalVel, 
-			    const FArrayBox& a_thckOverFlotation,
+			    const FArrayBox& a_basalVel,
 			    const FArrayBox& a_C,
-			    const BaseFab<int>& a_mask,
+			    const LevelSigmaCS& a_coords, 
+			    const DataIterator& a_dit,
 			    const Box& a_box) const;
 
   BasalFrictionRelation* getNewBasalFrictionRelation() const{

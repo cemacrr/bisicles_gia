@@ -567,8 +567,8 @@ void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
           const Box& gridBox = levelGrids[dit];
 	  
 	  m_basalFrictionRelPtr->computeAlpha
-	    (levelAlpha[dit], levelVel[dit], levelCoords.getThicknessOverFlotation()[dit] 
-	     , levelC[dit] , 	levelCoords.getFloatingMask()[dit], gridBox);
+	    (levelAlpha[dit], levelVel[dit], levelC[dit] , 	
+	     levelCoords, dit, gridBox);
 	  levelAlpha[dit] += (*m_C0[lev])[dit];
 	  CH_assert(levelAlpha[dit].min(gridBox) >= 0.0);
 

@@ -8057,8 +8057,8 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  //compute heat flux across base due to basal dissipation
 	  FArrayBox basalDissipation(rhs.box(),1);
 	  m_basalFrictionRelation->computeDissipation
-	    (basalDissipation , (*m_velocity[lev])[dit] , levelCoordsOld.getThicknessOverFlotation()[dit],
-	     (*m_velBasalC[lev])[dit], levelCoordsNew.getFloatingMask()[dit],rhs.box());
+	    (basalDissipation , (*m_velocity[lev])[dit] , (*m_velBasalC[lev])[dit],
+	     levelCoordsOld , dit ,rhs.box());
 	  
 
 	  //add to user set (e.g geothermal) heat flux

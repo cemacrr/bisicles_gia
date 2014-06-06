@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
 #endif
   
 #ifdef CH_MPI
-    std::string msg = argv[0] + " is serial only";
+    std::string msg = argv[0] + std::string(" is serial only");
     MayDay::Error(msg.c_str());
 #endif
     

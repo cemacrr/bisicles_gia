@@ -1109,9 +1109,9 @@ PicardSolver::computeMu(Vector<LevelData<FArrayBox>*        >& a_horizontalVel,
           const Box& gridBox = levelGrids[dit];
 	  m_basalFrictionRelPtr->computeAlpha(levelC                             [dit], 
                                               levelVel                           [dit], 
-                                              levelCS.getThicknessOverFlotation()[dit], 
                                               levelBeta                          [dit],
-                                              levelCS.getFloatingMask()          [dit],
+                                              levelCS, 
+					      dit,
                                               gridBox);
 
         }
