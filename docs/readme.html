@@ -61,9 +61,10 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
 </pre>
 </p> 
 
-
 <h2><a name="deps"> Dependencies.</a> </h2>
 <p>
+  If you're working on a system which is maintained by somebody else (like, for example, the supercomputers at NERSC), it's likely that most, if not all, of these dependencies have been built and installed already, which can save you some effort. So, check to see what's already installed, with an eye open to the possibility that things have been configured in some odd way which makes them unusable for us, in which case you you're back to where you were anyway)
+
   Chombo requires the hdf5 libraries. As of the Chombo 3.2 release, Chombo builds against the current hdf5 1.8 interface directly. (Chombo 3.1 and earlier built against the older hdf5 1.6 interface, which required some effort when building)
 
 </p>
@@ -265,7 +266,7 @@ Possibly, building two versions of netcdf is a waste of time.
 </p>
 <h2><a name="petsc">Installing PETSc</a></h2>
 <p>
-If we're planning to use the PETSc solver interface, it's a good idea to install PETSc before building Chombo. 
+If we're planning to use the PETSc solver interface, it's a good idea to install PETSc before building Chombo. It's likely that some version of petsc may be pre-installed on your system -- we need petsc version 3.3.4 or later,
 
 <ol>
 <li> First, download PETSc:
