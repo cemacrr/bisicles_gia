@@ -125,7 +125,11 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
 
   ppAMR.query("max_level_floating",m_maxFinestLevelFloating);
   ppAMR.query("max_level_grounded",m_maxFinestLevelGrounded);
-   
+
+  m_additionalVelocity = false;
+  ppAMR.query("additional_velocity",m_additionalVelocity); 
+  // this doesn't obviously belong to the amr section, but that is where it lives in the main program
+
 
   if (m_maxFinestLevel > 0)
     {
@@ -930,7 +934,7 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 	     (lev > 0)?m_velb[lev-1]:NULL,
 	     crseCellDiffusivityPtr,
 	     (lev > 0)?m_refRatio[lev-1]:1,
-	     m_constRelPtr, false);
+	     m_constRelPtr, m_additionalVelocity);
       
 	  //face-centered fluxes will be needed to compute div(UH)
 	  IceUtility::computeFaceFluxUpwind
@@ -1379,7 +1383,7 @@ void AMRIceControl::computeObjectiveAndGradient
 	 (lev > 0)?m_velb[lev-1]:NULL,
 	 crseCellDiffusivityPtr,
 	 (lev > 0)?m_refRatio[lev-1]:1,
-	 m_constRelPtr, false);
+	 m_constRelPtr, m_additionalVelocity);
       
       //face-centered fluxes will be needed to compute div(UH)
       IceUtility::computeFaceFluxUpwind
@@ -1429,7 +1433,7 @@ void AMRIceControl::computeObjectiveAndGradient
       const LevelData<FArrayBox>& levelVelObs =  *m_velObs[lev];
       const LevelData<FArrayBox>& levelH =  m_coordSys[lev]->getH();
       LevelData<FArrayBox>& levelVelCoef =  *m_velCoef[lev];
-      const LevelData<FArrayBox>& levelVel =  *m_velb[lev];
+      const LevelData<FArrayBox>& levelVel =  (m_additionalVelocity)?(*m_vels[lev]):(*m_velb[lev]);
       LevelData<FArrayBox>& levelAdjRhs = *m_adjRhs[lev];
       LevelData<FArrayBox>& levelAdjVel = *m_adjVel[lev];
       

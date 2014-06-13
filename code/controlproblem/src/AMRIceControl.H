@@ -110,6 +110,8 @@ class AMRIceControl
   //velocity (at surface of ice)
   Vector<LevelData<FArrayBox>*> m_vels;
 
+  bool m_additionalVelocity;
+
   bool m_velocityInitialised;
   //lagrange multipler (at base of ice)
   Vector<LevelData<FArrayBox>*> m_adjVel;
