@@ -438,6 +438,7 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
   CH_TIMER("integrateH",t2);
   CH_TIMER("integrateHab",t3);
   CH_TIMER("integrateGA",t4);
+  CH_TIMER("integrateTA",t5);
   
   int numLevels = topography.size();
 
@@ -453,6 +454,7 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
   CH_STOP(t2);
   Real iceVolumeAbove = 0.0;
   Real groundedArea = 0.0;
+  Real totalArea = 0.0;
 
   //Creating a LevelSigmaCS is expensive, so only do it if there is some ice
   if (iceVolumeAll > 1.0e-10)
@@ -531,7 +533,34 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
     
       }
       CH_STOP(t4);
-
+      CH_START(t5);
+      {
+	//total area
+	for (int lev=0; lev< numLevels; lev++)
+	  {
+	     
+	    const DisjointBoxLayout& grids = coords[lev]->grids();
+	    tmp[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+	    for (DataIterator dit(grids);dit.ok();++dit)
+	      {
+		const BaseFab<int>& mask =  coords[lev]->getFloatingMask()[dit];
+		const Box& b = grids[dit];
+		FArrayBox& a = (*tmp[lev])[dit];
+		a.setVal(0.0);
+		for (BoxIterator bit(b);bit.ok();++bit)
+		  {
+		    const IntVect& iv = bit();
+		    if ((mask(iv) == GROUNDEDMASKVAL) | (mask(iv) == FLOATINGMASKVAL))
+		      {
+			a(iv) = 1.0;
+		      }
+		
+		  }
+	      }
+	  }
+	totalArea = computeSum(tmp, ratio, dx[0], Interval(0,0), 0);
+      }
+      CH_STOP(t5);
 
       for (int lev=0; lev< numLevels; lev++)
 	{
@@ -545,8 +574,7 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
   pout() << " iceVolumeAll = " << iceVolumeAll << " ";
   pout() << " iceVolumeAbove = " << iceVolumeAbove << " ";
   pout() << " groundedArea = " << groundedArea << " ";
-
-
+  pout() << " totalArea = " << totalArea << " ";
  
   
 }
