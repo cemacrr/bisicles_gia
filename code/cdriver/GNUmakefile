@@ -106,11 +106,6 @@ libs: bisiclesObjects$(config) libBisicles$(config).a libChomboLibs$(config).a
 
 
 
-ctestwrapper.$(config).ex :libs 
-	$(cxxc) $(CXXFLAGS) $(CPPFLAGS) -DCH_LANG_CC -o  ctestwrapper.$(config).ex testwrapper.cpp -L ./ -lBisicles$(config) -lChomboLibs$(config) $(LIBFLAGS)   
-
-
-
 fcc := $(subst FALSE,$(FC),$(subst TRUE,mpif90,$(MPI)))
 
 fcflag := $(subst FALSE,,$(subst TRUE,-DCH_MPI,$(MPI)))
@@ -120,7 +115,6 @@ ftestwrapper.$(config).ex : libs
 	$(fcc) $(fcflag) -g -DCH_LANG_CC -o  ftestwrapper.$(config).ex testwrapper.F90 -L ./ -lBisicles$(config) -lChomboLibs$(config) $(LIBFLAGS) -lstdc++ $(lmpicxx)
 
 
-ctestwrapper:  ctestwrapper.$(config).ex
 
 ftestwrapper:  ftestwrapper.$(config).ex
 
