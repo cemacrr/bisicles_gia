@@ -54,11 +54,11 @@ libChomboLibs$(config).a: $(CHOMBO_HOME)/libamrelliptic$(config).a $(CHOMBO_HOME
 	mkdir tmp_lib_objects; \
 	cd tmp_lib_objects; \
 		pwd; \
-		ar -x $(CHOMBO_HOME)/libamrelliptic$(config).a; \
-		ar -x $(CHOMBO_HOME)/libamrtimedependent$(config).a; \
-		ar -x $(CHOMBO_HOME)/libamrtools$(config).a; \
-		ar -x $(CHOMBO_HOME)/libboxtools$(config).a; \
-		ar -x $(CHOMBO_HOME)/libbasetools$(config).a; 
+		ar -x $(PWD)/$(CHOMBO_HOME)/libamrelliptic$(config).a; \
+		ar -x $(PWD)/$(CHOMBO_HOME)/libamrtimedependent$(config).a; \
+		ar -x $(PWD)/$(CHOMBO_HOME)/libamrtools$(config).a; \
+		ar -x $(PWD)/$(CHOMBO_HOME)/libboxtools$(config).a; \
+		ar -x $(PWD)/$(CHOMBO_HOME)/libbasetools$(config).a; 
 	ar -cvq libChomboLibs$(config).a  tmp_lib_objects/*.o
 	rm tmp_lib_objects/*.o
 	rmdir tmp_lib_objects
