@@ -13,7 +13,6 @@
 #define _LEVELDATABASALFRICTION_H_
 
 #include "BasalFriction.H"
-#include "FillFromReference.H"
 #include "NamespaceHeader.H"
 
 
@@ -23,10 +22,24 @@ public:
   /// constructor
   LevelDataBasalFriction(RefCountedPtr<LevelData<FArrayBox> > a_C,
 			 const RealVect& a_dx)
-    :m_C(a_C),m_dx(a_dx),m_verbose(true)
+    :m_timeFileMap(NULL),m_startTime(-1.2345678e+300),m_endTime(1.2345678e+300),
+     m_C(a_C),m_endC(a_C),m_dx(a_dx),m_verbose(true),m_name("")
   {
   }
   
+  
+  LevelDataBasalFriction(RefCountedPtr<std::map<Real, std::string> >& a_timeFileMap, 
+		       const std::string& a_name)
+    :m_timeFileMap(a_timeFileMap),m_startTime(1.2345678e+299),m_endTime(-1.2345678e+299),
+     m_C(new LevelData<FArrayBox>()),m_endC(new LevelData<FArrayBox>())
+    ,m_verbose(true),m_name(a_name)
+  {
+    
+  }
+
+  
+  
+
   /// destructor
   virtual ~LevelDataBasalFriction()
   {;}
@@ -36,26 +49,38 @@ public:
    */
   virtual BasalFriction* new_basalFriction() const
   {
-    LevelDataBasalFriction* ptr = new LevelDataBasalFriction(m_C,m_dx);
+    LevelDataBasalFriction* ptr;
+    if (m_timeFileMap == NULL)
+      {
+	ptr = new LevelDataBasalFriction(m_C,m_dx);
+      }
+    else
+      {
+	RefCountedPtr<std::map<double, std::basic_string<char> > > r = m_timeFileMap;
+	  
+	ptr = new LevelDataBasalFriction(r,m_name);
+      }
     return static_cast<BasalFriction*>(ptr);
   }
 
   /// define basal friction coefficient C and place in a_betaSqr
-  /** time and dt are included in case this is time-dependent. Units 
-      should be Pa*a/m 
+  /** Either copy data from a single stored level, or load files as needed
+      depending on a_time
   */
   virtual void setBasalFriction(LevelData<FArrayBox>& a_C,
                                 LevelSigmaCS& a_coordSys,
                                 Real a_time,
-                                Real a_dt)
-  {
-    FillFromReference(a_C, *m_C, a_coordSys.dx(),m_dx,m_verbose);
-  }
+                                Real a_dt);
 
+  
 protected:
-  RefCountedPtr< LevelData<FArrayBox> > m_C;
+  RefCountedPtr<std::map<Real,std::string> > m_timeFileMap;
+  Real m_startTime, m_endTime;
+  RefCountedPtr< LevelData<FArrayBox> > m_C; // C at t = m_startTime
+  RefCountedPtr< LevelData<FArrayBox> > m_endC; // C at t = m_endTime
   RealVect m_dx;
   bool m_verbose;
+  std::string m_name;
 
 private:
   void operator=(const LevelDataBasalFriction& a_input)
@@ -93,51 +118,26 @@ public:
     MultiLevelDataBasalFriction* ptr = new MultiLevelDataBasalFriction(m_C,m_dxCrse,m_ratio);
     return static_cast<BasalFriction*>(ptr);
   }
-
+  /// define basal friction coefficient C and place in a_betaSqr
+  /** Copy data from a single stored AMR HIerarchy
+  */
   void setBasalFriction(LevelData<FArrayBox>& a_C, 
 			RealVect a_dx,
 			Real a_time,
-			Real a_dt)
-  {
-    RealVect dx(m_dxCrse);
-    for (int refDataLev = 0; refDataLev < m_C.size(); refDataLev++)
-    {
-     
-      if (a_dx[0] < dx[0] && refDataLev > 0)
-	{
-	  //We need a LevelData<FArrayBox> whose DisjointBoxLayout covers
-	  //a_C's, but m_C[refDataLev] doesn't necessarily provide one. Since we secretly
-	  //want to be lisp programmers, we turn to recursion to build one,
-	  //throwing performance worries to the wind.
-	  //\todo consider modifying the BasalFriction interface to avoid recompuing levels 1 to n-1
-	  const int& nRef = int(dx[0]/a_dx[0]);
-	  DisjointBoxLayout crseDBL;
-	  coarsen(crseDBL, a_C.disjointBoxLayout(), nRef);
-	  LevelData<FArrayBox> crseC(crseDBL, 1 , IntVect::Zero);
-	  this->setBasalFriction(crseC , dx, a_time, a_dt);
-	  FillFromReference(a_C, crseC , a_dx, dx ,m_verbose);
-	}
-      else
-	{
-	  FillFromReference(a_C, *m_C[refDataLev], a_dx, dx ,m_verbose);
-	}
-      dx /= Real(m_ratio[refDataLev]);
-    }
-  }
-
+			Real a_dt);
+ 
   /// define basal friction coefficient C and place in a_betaSqr
-  /** time and dt are included in case this is time-dependent. Units 
-      should be Pa*a/m 
-  */
-  virtual void setBasalFriction(LevelData<FArrayBox>& a_C, 
+  virtual void setBasalFriction(LevelData<FArrayBox>& a_C,
                                 LevelSigmaCS& a_coordSys,
                                 Real a_time,
                                 Real a_dt)
   {
-    setBasalFriction(a_C,a_coordSys.dx(),a_time,a_dt);
+    setBasalFriction( a_C,a_coordSys.dx(),a_time,a_dt);
   }
 
+
 protected:
+
   Vector<RefCountedPtr< LevelData<FArrayBox> > > m_C;
   RealVect m_dxCrse;
   Vector<int> m_ratio;

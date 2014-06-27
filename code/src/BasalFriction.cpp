@@ -332,26 +332,56 @@ BasalFriction* BasalFriction::parseBasalFriction(const char* a_prefix,
     {
       //read a one level beta^2 from an AMR Hierarchy, and  store it in a LevelDataBasalFriction
       ParmParse ildPP("inputLevelData");
-      std::string infile;
-      ildPP.get("frictionFile",infile);
       std::string frictionName = "btrc";
       ildPP.query("frictionName",frictionName);
-
-      RefCountedPtr<LevelData<FArrayBox> > levelC (new LevelData<FArrayBox>());
-
-      Real dx;
-
-      Vector<RefCountedPtr<LevelData<FArrayBox> > > vectC;
-      vectC.push_back(levelC);
-
-      Vector<std::string> names(1);
-      names[0] = frictionName;
-
-      readLevelData(vectC,dx,infile,names,1);
-	   
-      RealVect levelDx = RealVect::Unit * dx;
-      basalFrictionPtr = static_cast<BasalFriction*>
-	(new LevelDataBasalFriction(levelC,levelDx));
+      
+      std::string infileFormat = "";
+      ildPP.query("frictionFileFormat",infileFormat);
+     
+      if (infileFormat == "")
+	{
+	  //basic case : one file is specified. this might be unnecessary since the multiple file case
+	  //includes the one file case, but for now we are holding onto the older code
+	  std::string infile = "";
+	  ildPP.get("frictionFile",infile);
+	  
+	  RefCountedPtr<LevelData<FArrayBox> > levelC (new LevelData<FArrayBox>());
+	  Real dx;
+	  
+	  Vector<RefCountedPtr<LevelData<FArrayBox> > > vectC;
+	  vectC.push_back(levelC);
+	  
+	  Vector<std::string> names(1);
+	  names[0] = frictionName;
+	  
+	  readLevelData(vectC,dx,infile,names,1);
+	  
+	  RealVect levelDx = RealVect::Unit * dx;
+	  basalFrictionPtr = static_cast<BasalFriction*>
+	    (new LevelDataBasalFriction(levelC,levelDx));
+	}
+      else
+	{
+	  int n = 1;
+	  ildPP.query("frictionFileSteps",n);
+	  
+	  int startTime = 0, timeStep = 1;
+	  ildPP.query("frictionFileStartTime", startTime);
+	  ildPP.query("frictionFileTimeStep", timeStep);
+	  RefCountedPtr<std::map<Real,std::string> > tf
+	    (new std::map<Real,std::string>);
+	  for (int i =0; i < n; i++)
+	    {
+	      char* file = new char[infileFormat.length()+32];
+	      int j = startTime + i * timeStep;
+	      sprintf(file, infileFormat.c_str(),j);
+	      tf->insert(make_pair(Real(j), file));
+	      delete file;
+	    }
+	  
+	  basalFrictionPtr = static_cast<BasalFriction*>
+	    (new LevelDataBasalFriction(tf,frictionName));
+	}
     }
   else if (type == "MultiLevelData")
     {

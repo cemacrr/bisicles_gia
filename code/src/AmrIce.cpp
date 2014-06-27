@@ -5006,7 +5006,7 @@ AmrIce::setBasalFriction(Vector<LevelData<FArrayBox>* >& a_vectBeta)
     {
       m_basalFrictionPtr->setBasalFriction(*a_vectBeta[lev],
                                            *m_vect_coordSys[lev],
-                                           m_time,
+                                           this->time(),
                                            m_dt); 
 
       if (m_basalRateFactor != NULL)
