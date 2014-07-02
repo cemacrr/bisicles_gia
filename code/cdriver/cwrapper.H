@@ -48,62 +48,71 @@ extern "C"
   ///step BISICLES forward in time by up to max_time or max_steps (whichever is sooner)
   void bisicles_advance(int *instance_id, double *max_time, int *max_step);
   
-  
   ///write a checkpoint file 
-  void bisicles_write_checkpoint(int *instance_id, const char *checkpoint_fname);
+  void bisicles_write_checkpoint(int *instance_id);
   ///read a checkpoint file 
   void bisicles_read_checkpoint(int *instance_id, const char *checkpoint_fname);
   
+  void bisicles_set_header_int(int *instance_id, const char* key,  const int *val);
+  void bisicles_set_header_dble(int *instance_id, const char* key, const double *val);
+  void bisicles_set_header_char(int *instance_id, const char* key, const char *val);
+  void bisicles_get_header_int(int *instance_id, const char* key, int *val);
+  void bisicles_get_header_dble(int *instance_id, const char* key, double *val);
+  void bisicles_get_header_char(int *instance_id, const char* key, char *val);
 
   // FORTRAN compatibility stuff : function foo gets a f_foo_ and f_foo
   void f_bisicles_new_instance_(int *instance_id,  char *input_fname, const int *len_fname, const int *mpi_comm);
-
   void f_bisicles_free_instance_(int *instance_id);
-
   void f_bisicles_set_2d_data_(int *instance_id,  double *data_ptr, const int *field, 
 			  const double *dx, const int *dims, 
 			     const int *boxlo, const int *boxhi);
-
   void f_bisicles_set_2d_geometry_(int *instance_id,  double *thck_data_ptr, double *topg_data_ptr,
 				 const double *dx, const int *dims, 
 				 const int *boxlo, const int *boxhi);
-
   void f_bisicles_get_2d_data_(int *intance_id, double *data_ptr, const int *field,
 			    const double *dx, const int *dims, 
 			     const int *boxlo, const int *boxhi);
-
   void f_bisicles_init_instance_(int *instance_id);
-
   void f_bisicles_advance_(int *instance_id, double *max_time, int *max_step);
-
-  void f_bisicles_write_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname);
-
+  void f_bisicles_write_checkpoint_(int *instance_id);
   void f_bisicles_read_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname);
+  void f_bisicles_set_header_int_(int *instance_id, char* key, const int *len_key, const int *val);
+  void f_bisicles_set_header_dble_(int *instance_id, char* key, const int *len_key, const double *val);
+  void f_bisicles_set_header_char_(int *instance_id, char* key, const int *len_key,  char *val, const int *len_val);
+  void f_bisicles_get_header_int_(int *instance_id, char* key, const int *len_key,  int *val);
+  void f_bisicles_get_header_dble_(int *instance_id, char* key, const int *len_key,  double *val);
+  void f_bisicles_get_header_char_(int *instance_id, char* key, const int *len_key,  char *val, const int *len_val);
+
 
   void f_bisicles_new_instance(int *instance_id,  char *input_fname, const int *len_fname, const int *mpi_comm);
-
   void f_bisicles_free_instance(int *instance_id);
-
   void f_bisicles_set_2d_data(int *instance_id,  double *data_ptr, const int *field, 
 			  const double *dx, const int *dims, 
 			     const int *boxlo, const int *boxhi);
-
   void f_bisicles_set_2d_geometry(int *instance_id,  double *thck_data_ptr, double *topg_data_ptr,
 				 const double *dx, const int *dims, 
 				 const int *boxlo, const int *boxhi);
-
   void f_bisicles_get_2d_data(int *intance_id, double *data_ptr, const int *field,
 			    const double *dx, const int *dims, 
 			     const int *boxlo, const int *boxhi);
-
   void f_bisicles_init_instance(int *instance_id);
-
   void f_bisicles_advance(int *instance_id, double *max_time, int *max_step);
-
-  void f_bisicles_write_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname);
-
-  void f_bisicles_read_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname);
-
+  void f_bisicles_write_checkpoint(int *instance_id);
+  void f_bisicles_read_checkpoint(int *instance_id, char *checkpoint_fname, const int *len_fname);
+  void f_bisicles_set_header_int(int *instance_id, char* key, const int *len_key, const int *val);
+  void f_bisicles_set_header_dble(int *instance_id, char* key, const int *len_key, const double *val);
+  void f_bisicles_set_header_char(int *instance_id, char* key, const int *len_key,  char *val, const int *len_val);
+  void f_bisicles_get_header_int(int *instance_id, char* key, const int *len_key,  int *val);
+  void f_bisicles_get_header_dble(int *instance_id, char* key, const int *len_key,  double *val);
+  void f_bisicles_get_header_char(int *instance_id, char* key, const int *len_key,  char *val, const int *len_val);
 }
+
+//set header data
+template<typename T>
+void bisicles_set_header(int *instance_id, const char *key, const T *val);
+//retrieve header data
+template<typename T>
+void bisicles_get_header(int *instance_id, const char *key, T *val);
+void bisicles_get_header(int *instance_id, const char *key, char *val);
 #include "NamespaceFooter.H"
 #endif

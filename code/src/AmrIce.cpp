@@ -5947,11 +5947,11 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 
 #ifdef CH_USE_HDF5
 
-  /// write hdf5 plotfile to the standard location
+
+/// write hdf5 plotfile to the standard location
 void 
 AmrIce::writePlotFile() 
 {
-   
   if (s_verbosity > 3) 
     { 
       pout() << "AmrIce::writePlotFile" << endl;
@@ -5960,8 +5960,6 @@ AmrIce::writePlotFile()
   // plot comps: thickness + horizontal velocity + zb + zs
   // slc: + base velocity + 'flux' velocity
   int numPlotComps = 4 + SpaceDim;
-
-
 
   // may need a zvel for visit to do "3d" streamlines correctly
   bool writeZvel = true;
@@ -6280,43 +6278,6 @@ AmrIce::writePlotFile()
     }
 
 
-
-
-  // Vector<LevelData<FluxBox>*> viscousTensor(numLevels,NULL);
-  // Vector<LevelData<FluxBox>*> faceA(numLevels,NULL);
-  // Vector<RefCountedPtr<LevelData<FluxBox> > > viscosityCoef;
-  // Vector<RefCountedPtr<LevelData<FArrayBox> > > dragCoef;
-  // if (m_write_viscousTensor)
-  //   {
-  //     //need to compute the  Viscous Tensor, which might be expensive
-  //     Vector<RealVect> vdx(numLevels);
-  //     for (int lev =0; lev < numLevels; lev++)
-  // 	{
-  // 	  faceA[lev] = new LevelData<FluxBox>(m_amrGrids[lev],m_A[lev]->nComp(),IntVect::Unit);
-  // 	  CellToEdge(*m_A[lev],*faceA[lev]);
-  // 	  viscousTensor[lev] = new LevelData<FluxBox>(m_amrGrids[lev],SpaceDim,IntVect::Unit);
-  // 	  vdx[lev] = RealVect::Unit*m_amrDx[lev];
-  // 	}
-      
-  //     //these parameters don't matter because we don't solve anything here. 
-  //     Real vtopSafety = 1.0;
-  //     int vtopRelaxMinIter = 4;
-  //     Real vtopRelaxTol = 1.0;
-  //     Real muMin = 0.0; 
-  //     Real muMax = 1.23456789e+300;
-
-  //     IceJFNKstate state(m_amrGrids, m_refinement_ratios, m_amrDomains, vdx, m_vect_coordSys, 
-  // 			 m_velocity, m_velBasalC, vectC0, numLevels-1, 
-  // 			 *m_constitutiveRelation,  *m_basalFrictionRelation, *m_thicknessIBCPtr,  
-  // 			 m_A, faceA, m_time, vtopSafety, vtopRelaxMinIter, vtopRelaxTol, 
-  // 			 muMin, muMax);
-  //     state.setState(m_velocity);
-  //     viscosityCoef = state.getViscosityCoef();
-  //     dragCoef = state.getDragCoef();
-  //     state.computeViscousTensorFace(viscousTensor);
-  //   }
-
-
   for (int lev=0; lev<numLevels; lev++)
     {
       // now copy new-time solution into plotData
@@ -6545,38 +6506,7 @@ AmrIce::writePlotFile()
 	    }
 	  
 
-	  // if (m_write_viscousTensor)
-	  //   {
-	  //     thisPlotData.copy((*dragCoef[lev])[dit],0,comp);
-	  //     comp++;
 
-	  //     for (int dir = 0; dir < SpaceDim; ++dir)
-	  // 	{
-	  // 	  const FArrayBox& thisVisc = (*viscosityCoef[lev])[dit][dir];
-		  
-	  // 	  for (BoxIterator bit(gridBox); bit.ok(); ++bit)
-	  // 	    {
-	  // 	      const IntVect& iv = bit();
-	  // 	      const IntVect ivp = iv + BASISV(dir);
-	  // 	      thisPlotData(iv,comp) = half*(thisVisc(iv) + thisVisc(ivp));
-	  // 	    }
-	  // 	   comp++;
-	  // 	}
-	  //     for (int dir = 0; dir < SpaceDim; ++dir)
-	  // 	{
-	  // 	  const FArrayBox& thisVT = (*viscousTensor[lev])[dit][dir];
-	  // 	  for (int vtcomp=0;vtcomp<SpaceDim;vtcomp++)
-	  // 	    {
-	  // 	      for (BoxIterator bit(gridBox); bit.ok(); ++bit)
-	  // 		{
-	  // 		  const IntVect& iv = bit();
-	  // 		  const IntVect ivp = iv + BASISV(dir);
-	  // 		  thisPlotData(iv,comp) = half*(thisVT(iv,vtcomp) + thisVT(ivp,vtcomp));
-	  // 		}
-	  // 	      comp++;
-	  // 	    }
-	  // 	}
-	  //   }
 
 	  if (m_write_thickness_sources)
 	    {
@@ -6648,9 +6578,15 @@ AmrIce::writePlotFile()
           filename.append("3d.hdf5");
         }
 
-      WriteAMRHierarchyHDF5(filename, m_amrGrids, plotData, vectName, 
-                            domain, m_amrDx[0], dt, time(), m_refinement_ratios, 
-                            numLevels);
+      HDF5Handle handle(filename.c_str(), HDF5Handle::CREATE);
+
+      //Chombo AMR data (VisIt compatible)
+      WriteAMRHierarchyHDF5(handle, m_amrGrids, plotData, vectName, 
+			    domain, m_amrDx[0], dt, time(), m_refinement_ratios, 
+			    numLevels);
+      //Additional data (BISICLES specific)
+      m_headerData.writeToFile(handle);
+      handle.close();
     }
 
   // need to delete plotData
@@ -6684,7 +6620,7 @@ AmrIce::writePlotFile()
 
 /// write checkpoint file out for later restarting
 void 
-AmrIce::writeCheckpointFile() const
+AmrIce::writeCheckpointFile() 
 {
   // generate checkpointfile name
   char (iter_str[100]);
@@ -6712,7 +6648,7 @@ AmrIce::writeCheckpointFile() const
 
 /// write checkpoint file out for later restarting
 void 
-AmrIce::writeCheckpointFile(const string& a_file) const
+AmrIce::writeCheckpointFile(const string& a_file) 
 {
 
   if (s_verbosity > 3) 
@@ -6744,7 +6680,7 @@ AmrIce::writeCheckpointFile(const string& a_file) const
   // At the moment, the maximum level is not allowed to change,
   // although in principle, there is no real reason why it couldn't
   // 
-  HDF5HeaderData header;
+  HDF5HeaderData&  header = m_headerData;
   header.m_int["max_level"] = m_max_level;
   header.m_int["finest_level"] = m_finest_level;
   header.m_int["current_step"] = m_cur_step;
@@ -6939,7 +6875,9 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 #endif
 
 #ifdef CH_USE_HDF5
-  HDF5HeaderData header;
+
+ 
+  HDF5HeaderData& header = m_headerData;
   header.readFromFile(a_handle);
 
   if (s_verbosity >= 3)

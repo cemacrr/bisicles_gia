@@ -24,6 +24,8 @@
 #include "IceTemperatureIBC.H"
 #include "CalvingModel.H"
 #include "MuCoefficient.H"
+#include "CH_HDF5.H"
+#include <sstream>
 #ifdef HAVE_PYTHON
 #include "PythonInterface.H"
 #endif
@@ -198,6 +200,40 @@ public:
 
 #ifdef CH_USE_HDF5
 
+private:
+  // General purpose storage for (small) metadata. Anything placed here
+  // will get written to the plot and checkpoint files on write 
+  // and read from checkpoint file on restart
+  
+  HDF5HeaderData m_headerData;
+
+public:
+  void setHeader(const std::string& a_key, const std::string& a_val)
+  {
+    m_headerData.m_string[a_key] = a_val;
+  }
+  void getHeader(const std::string& a_key, std::string& a_val)
+  {
+    a_val =  m_headerData.m_string[a_key];
+  }
+  void setHeader(const std::string& a_key, const int& a_val)
+  {
+    m_headerData.m_int[a_key] = a_val;
+  }
+  void getHeader(const std::string& a_key, int& a_val)
+  {
+    a_val = m_headerData.m_int[a_key];
+  }
+  void setHeader(const std::string& a_key, const Real& a_val)
+  {
+    m_headerData.m_real[a_key] = a_val;
+  }
+  
+  void getHeader(const std::string& a_key, Real& a_val)
+  {
+    a_val =  m_headerData.m_real[a_key];
+  }
+ 
   /// write hdf5 plotfile to the standard location
   /** writes plotfile to the standard location; filename is
       <plot_root>.<step>.<DIM>d.hdf5
@@ -209,12 +245,12 @@ public:
   /** writes checkpoint data to the standard location; filename is
       <check_root>.<step>.<DIM>d.hdf5
    */
-  void writeCheckpointFile() const;
+  void writeCheckpointFile() ;
 
   /// write checkpoint file out for later restarting
   /** writes checkpoint data to the location specified by a_file
    */
-  void writeCheckpointFile(const string& a_file) const;
+  void writeCheckpointFile(const string& a_file) ;
 
   /// read checkpoint file for restart 
   /** read checkpoint data from file pointed to by a_handle
@@ -316,6 +352,11 @@ public:
   const  Vector<LevelData<FArrayBox>* >& surfaceHeatFlux() const {return m_sHeatFlux; }
 
 protected:
+
+  
+
+
+
   /// compute tags for regridding
   void tagCells(Vector<IntVectSet>& a_tags);
 
@@ -1043,7 +1084,6 @@ protected:
   // if true, report sum of grounded ice (volume) -- default is false
   bool m_reportGroundedIce;
 
-  
 
 
 

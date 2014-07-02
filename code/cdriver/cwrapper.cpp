@@ -13,6 +13,7 @@
 //===========================================================================
 #include <iostream>
 #include <fstream>
+#include <cstring>
 #include "ParmParse.H"
 #include "AMRIO.H"
 #include "SPMD.H"
@@ -73,6 +74,7 @@ struct BisiclesWrapper
 
   BisiclesWrapper()
   {
+    
     m_surface_flux = NULL;
     m_basal_flux = NULL;
     m_floating_ice_basal_flux = NULL;
@@ -117,15 +119,15 @@ void f_bisicles_new_instance_(int *instance_id,  char *input_fname, const int *l
 #endif
    
   }
+
 void f_bisicles_free_instance_(int *instance_id)
 {
   bisicles_free_instance(instance_id);
 }
 
-void f_bisicles_write_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname)
+void f_bisicles_write_checkpoint_(int *instance_id)
 {
-  checkpoint_fname[*len_fname - 1] = 0; // null terminate the string
-  bisicles_write_checkpoint(instance_id, checkpoint_fname);
+  bisicles_write_checkpoint(instance_id);
 }
 
 void f_bisicles_read_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname)
@@ -219,10 +221,9 @@ void f_bisicles_advance(int *instance_id, double *max_time, int *max_step)
   }
 
 
-void f_bisicles_write_checkpoint(int *instance_id, char *checkpoint_fname, const int *len_fname)
+void f_bisicles_write_checkpoint(int *instance_id)
 {
-  checkpoint_fname[*len_fname - 1] = 0; // null terminate the string
-  bisicles_write_checkpoint(instance_id, checkpoint_fname);
+  bisicles_write_checkpoint(instance_id);
 }
 
 void f_bisicles_read_checkpoint(int *instance_id, char *checkpoint_fname, const int *len_fname)
@@ -231,13 +232,100 @@ void f_bisicles_read_checkpoint(int *instance_id, char *checkpoint_fname, const 
   bisicles_read_checkpoint(instance_id, checkpoint_fname);
 }
 
+void bisicles_set_header_int(int *instance_id, const char* key,  const int *val)
+{
+  bisicles_set_header(instance_id, key, val);
+}
+
+
+
+
+void f_bisicles_set_header_int(int *instance_id, char* key, const int *len_key, const int *val)
+{
+  key[*len_key - 1] = 0; // null terminate the string
+  bisicles_set_header_int(instance_id,key,val);
+}
+void f_bisicles_set_header_dble(int *instance_id, char* key, const int *len_key, const double *val)
+{
+  key[*len_key - 1] = 0; // null terminate the string
+  bisicles_set_header_dble(instance_id,key,val);
+}
+
+void f_bisicles_set_header_char(int *instance_id, char* key, const int *len_key,  char *val, const int *len_val)
+{
+  key[*len_key - 1] = 0; // null terminate the string
+  val[*len_val - 1] = 0;
+  bisicles_set_header_char(instance_id,key,val);
+}
+
+
+void f_bisicles_get_header_char(int *instance_id, char* key, const int *len_key,  int *val)
+{
+  key[*len_key - 1] = 0; // null terminate the string
+  bisicles_get_header_int(instance_id,key,val);
+}
+void f_bisicles_get_header_dble(int *instance_id, char* key, const int *len_key,  double *val)
+{
+  key[*len_key - 1] = 0; // null terminate the string
+  bisicles_get_header_dble(instance_id,key,val);
+}
+void f_bisicles_get_header_char(int *instance_id, char* key, const int *len_key,  char *val, const int *len_val)
+{
+  key[*len_key - 1] = 0; // null terminate the string
+  val[*len_val - 1] = 0;
+  bisicles_get_header_char(instance_id,key,val);
+}
+
+
+void f_bisicles_set_header_int_(int *instance_id, char* key, const int *len_key, const int *val)
+{
+  key[*len_key - 1] = 0; // null terminate the string
+  bisicles_set_header_int(instance_id,key,val);
+}
+
+void f_bisicles_set_header_dble_(int *instance_id, char* key, const int *len_key, const double *val)
+{
+  key[*len_key - 1] = 0; // null terminate the string
+  bisicles_set_header_dble(instance_id,key,val);
+}
+void f_bisicles_set_header_char_(int *instance_id, char* key, const int *len_key,  char *val, const int *len_val)
+{
+  key[*len_key - 1] = 0; // null terminate the string
+  val[*len_val - 1] = 0;
+  bisicles_set_header_char(instance_id,key,val);
+}
+void f_bisicles_get_header_char_(int *instance_id, char* key, const int *len_key,  int *val)
+{
+  key[*len_key - 1] = 0; // null terminate the string
+  bisicles_get_header_int(instance_id,key,val);
+}
+
+void f_bisicles_get_header_int_(int *instance_id, char* key, const int *len_key,  int *val)
+{
+  key[*len_key - 1] = 0; // null terminate the string
+  bisicles_get_header_int(instance_id,key,val);
+}
+
+void f_bisicles_get_header_dble_(int *instance_id, char* key, const int *len_key,  double *val)
+{
+  key[*len_key - 1] = 0; // null terminate the string
+  bisicles_get_header_dble(instance_id,key,val);
+}
+void f_bisicles_get_header_char_(int *instance_id, char* key, const int *len_key,  char *val, const int *len_val)
+{
+  key[*len_key - 1] = 0; // null terminate the string
+  val[*len_val - 1] = 0;
+  bisicles_get_header_char(instance_id,key,val);
+}
+
+
 
 // initialize the AmrIce object in a wrapper. Any surface
 // fluxes specified in the wrapper will be added to whatever
 // is specified in the input file (a_innputfile) 
 // computes the initial solve / load from checkpoint etc
 // such that the object is ready to be used in timestepping
-void init_bisicles_instance( int argc, char *argv[], const char *a_inputfile, BisiclesWrapper& a_wrapper)
+void init_bisicles_instance(BisiclesWrapper& a_wrapper)
 {
 #ifdef CH_MPI
   //Chombo_MPI::comm = a_wrapper.mpi_comm;
@@ -252,11 +340,18 @@ void init_bisicles_instance( int argc, char *argv[], const char *a_inputfile, Bi
   number_procs=1;
 #endif
   
-
+  #define NARGS 2
+  int argc = NARGS;
+  char *argv[NARGS];
+  char argv0[] = "cwrapper";
+  argv[0] = argv0;
+  char argv1[] = "drivel";
+  argv[1] = argv1;
+  
   if(argc < 2) 
     { std::cerr << " usage: " << argv[0] << " <input_file>\n"; exit(0); }
   
-  ParmParse pp(argc-2,argv+2,NULL,a_inputfile);
+  ParmParse pp(argc-2,argv+2,NULL,a_wrapper.m_input_fname.c_str());
   ParmParse pp2("main");
 
   //\todo Check how pout will work with multiple instances
@@ -1133,12 +1228,7 @@ void bisicles_new_instance(int *instance_id, const char *input_fname, int mpi_co
   int rank, number_procs;
   MPI_Comm_rank(Chombo_MPI::comm, &rank);
   MPI_Comm_size(Chombo_MPI::comm, &number_procs);
-
-  // std::cout << "bisicles_new_instance before first barrier";
-  // std::cout << "rank " << rank << std::endl;
   MPI_Barrier(Chombo_MPI::comm);
-  // std::cout << "and after ";std::cout << "rank " << rank << std::endl
-			      ;
 #endif
 
   ptr->m_input_fname = input_fname;
@@ -1169,14 +1259,7 @@ void bisicles_init_instance(int *instance_id)
 	{
 	  if (i->second != NULL)
 	    {
-#define NARGS 2
-	      int argc = NARGS;
-	      char *argv[NARGS];
-	      char argv0[] = "cwrapper";
-	      argv[0] = argv0;
-	      char argv1[] = "drivel";
-	      argv[1] = argv1;
-	      init_bisicles_instance( argc, argv, i->second->m_input_fname.c_str(), *(i->second));
+	      init_bisicles_instance( *(i->second) );
 	    }
 	}
     } 
@@ -1262,7 +1345,7 @@ void bisicles_get_2d_data(int *instance_id,  double *data_ptr, const int *field,
 }
 
 ///write a checkpoint file 
-void bisicles_write_checkpoint(int *instance_id, const char *checkpoint_fname)
+void bisicles_write_checkpoint(int *instance_id)
 {
   if (instance_id) //\todo : check all pointers
     {
@@ -1270,11 +1353,10 @@ void bisicles_write_checkpoint(int *instance_id, const char *checkpoint_fname)
 	= bisicles_c_wrapper::instances.find(*instance_id) ;
       if (i != bisicles_c_wrapper::instances.end())
 	{
-	  if (i->second != NULL && checkpoint_fname != NULL)
+	  if (i->second != NULL)
 	    {
 	      AmrIce& amrIce = i->second->m_amrIce;
-	      std::string s = checkpoint_fname;
-	      amrIce.writeCheckpointFile(std::string(s));
+	      amrIce.writeCheckpointFile();
 	    }
 	}
     }
@@ -1297,4 +1379,89 @@ void bisicles_read_checkpoint(int *instance_id, const char *checkpoint_fname)
 	    }
 	}
     }
+}
+
+///set header data
+template<typename T>
+void bisicles_set_header(int *instance_id, const char *key, const T *val)
+{
+  if (instance_id) //\todo : check all pointers
+    {
+      std::map<int, BisiclesWrapper*>::iterator i 
+	= bisicles_c_wrapper::instances.find(*instance_id) ;
+      if (i != bisicles_c_wrapper::instances.end())
+	{
+	  if (i->second != NULL && key != NULL && val != NULL)
+	    {
+	      AmrIce& amrIce = i->second->m_amrIce;
+	      std::string s(key);
+	      amrIce.setHeader(key, *val);
+	    }
+	}
+    }
+}
+
+///get header data
+template<typename T>
+void bisicles_get_header(int *instance_id, const char *key, T *val)
+{
+  if (instance_id) //\todo : check all pointers
+    {
+      std::map<int, BisiclesWrapper*>::iterator i 
+	= bisicles_c_wrapper::instances.find(*instance_id) ;
+      if (i != bisicles_c_wrapper::instances.end())
+	{
+	  if (i->second != NULL && key != NULL && val != NULL)
+	    {
+	      AmrIce& amrIce = i->second->m_amrIce;
+	      amrIce.getHeader(key, *val);
+	    }
+	}
+    }
+}
+ 
+void bisicles_get_header(int *instance_id, const char *key, char *val)
+{
+  if (instance_id) //\todo : check all pointers
+    {
+      std::map<int, BisiclesWrapper*>::iterator i 
+	= bisicles_c_wrapper::instances.find(*instance_id) ;
+      if (i != bisicles_c_wrapper::instances.end())
+	{
+	  if (i->second != NULL && key != NULL && val != NULL)
+	    {
+	      AmrIce& amrIce = i->second->m_amrIce;
+	      std::string v(val);
+	      int l = v.size();
+	      amrIce.getHeader(key, v);
+	      strncpy(val,v.c_str(),l); //should pad val with 0 if l > v.size()
+	    }
+	}
+    }
+}
+
+
+ 
+void bisicles_set_header_dble(int *instance_id, const char* key, const double *val)
+{
+  bisicles_set_header(instance_id, key, val);
+}
+void bisicles_set_header_char(int *instance_id, const char* key, const char *val)
+{
+  bisicles_set_header(instance_id, key, val);
+}
+  
+void bisicles_get_header_int(int *instance_id, const char* key, int *val)
+{
+  bisicles_get_header(instance_id, key, val);
+}  
+
+void bisicles_get_header_dble(int *instance_id, const char* key, double *val)
+{
+  bisicles_get_header(instance_id, key, val);
+}
+
+void bisicles_get_header_char(int *instance_id, const char* key, char *val)
+{
+  bisicles_get_header(instance_id, key, val);
 }
