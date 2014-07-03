@@ -50,6 +50,8 @@ extern "C"
   
   ///write a checkpoint file 
   void bisicles_write_checkpoint(int *instance_id);
+  //write a plot file
+  void bisicles_write_plot(int *instance_id);
   ///read a checkpoint file 
   void bisicles_read_checkpoint(int *instance_id, const char *checkpoint_fname);
   
@@ -75,6 +77,7 @@ extern "C"
   void f_bisicles_init_instance_(int *instance_id);
   void f_bisicles_advance_(int *instance_id, double *max_time, int *max_step);
   void f_bisicles_write_checkpoint_(int *instance_id);
+  void f_bisicles_write_plot_(int *instance_id);
   void f_bisicles_read_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname);
   void f_bisicles_set_header_int_(int *instance_id, char* key, const int *len_key, const int *val);
   void f_bisicles_set_header_dble_(int *instance_id, char* key, const int *len_key, const double *val);
@@ -98,6 +101,7 @@ extern "C"
   void f_bisicles_init_instance(int *instance_id);
   void f_bisicles_advance(int *instance_id, double *max_time, int *max_step);
   void f_bisicles_write_checkpoint(int *instance_id);
+  void f_bisicles_write_plot(int *instance_id);
   void f_bisicles_read_checkpoint(int *instance_id, char *checkpoint_fname, const int *len_fname);
   void f_bisicles_set_header_int(int *instance_id, char* key, const int *len_key, const int *val);
   void f_bisicles_set_header_dble(int *instance_id, char* key, const int *len_key, const double *val);

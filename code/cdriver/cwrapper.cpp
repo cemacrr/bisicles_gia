@@ -130,6 +130,12 @@ void f_bisicles_write_checkpoint_(int *instance_id)
   bisicles_write_checkpoint(instance_id);
 }
 
+void f_bisicles_write_plot_(int *instance_id)
+{
+  bisicles_write_plot(instance_id);
+}
+
+
 void f_bisicles_read_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname)
 {
   checkpoint_fname[*len_fname - 1] = 0; // null terminate the string
@@ -224,6 +230,12 @@ void f_bisicles_advance(int *instance_id, double *max_time, int *max_step)
 void f_bisicles_write_checkpoint(int *instance_id)
 {
   bisicles_write_checkpoint(instance_id);
+}
+
+
+void f_bisicles_write_plot(int *instance_id)
+{
+  bisicles_write_plot(instance_id);
 }
 
 void f_bisicles_read_checkpoint(int *instance_id, char *checkpoint_fname, const int *len_fname)
@@ -1361,6 +1373,26 @@ void bisicles_write_checkpoint(int *instance_id)
 	}
     }
 }
+
+///write a plot file 
+void bisicles_write_plot(int *instance_id)
+{
+  if (instance_id) //\todo : check all pointers
+    {
+      std::map<int, BisiclesWrapper*>::iterator i 
+	= bisicles_c_wrapper::instances.find(*instance_id) ;
+      if (i != bisicles_c_wrapper::instances.end())
+	{
+	  if (i->second != NULL)
+	    {
+	      AmrIce& amrIce = i->second->m_amrIce;
+	      amrIce.writePlotFile();
+	    }
+	}
+    }
+}
+
+
 
 ///read a checkpoint file 
 void bisicles_read_checkpoint(int *instance_id, const char *checkpoint_fname)
