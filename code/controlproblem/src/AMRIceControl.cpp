@@ -50,6 +50,7 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
 			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >& a_referenceMuCoefOrigin,
 			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceVelObs,
 			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceVelCoef,
+			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceThkCoef,
 			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceDivUHObs,
 			   const Vector<RefCountedPtr<LevelData<FArrayBox > > >& a_referenceDivUHCoef)
 {
@@ -58,6 +59,7 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   m_referenceMuCoefOrigin =  a_referenceMuCoefOrigin;
   m_referenceVelObs = a_referenceVelObs;
   m_referenceVelCoef = a_referenceVelCoef;
+  m_referenceThkCoef = a_referenceThkCoef;
   m_referenceDivUHObs = a_referenceDivUHObs;
   m_referenceDivUHCoef =  a_referenceDivUHCoef;
   m_ibcPtr = a_ibcPtr;
@@ -411,6 +413,7 @@ void AMRIceControl::levelSetup(int a_lev)
   //observations
   fill(m_velObs, m_referenceVelObs, m_dataDx, a_lev, IntVect::Unit);
   fill(m_velCoef, m_referenceVelCoef, m_dataDx, a_lev, IntVect::Unit);
+  fill(m_thkCoef, m_referenceThkCoef, m_dataDx, a_lev, IntVect::Unit);
   fill(m_divUHObs, m_referenceDivUHObs, m_dataDx, a_lev, IntVect::Unit);
   fill(m_divUHCoef, m_referenceDivUHCoef, m_dataDx, a_lev, IntVect::Unit);
 
@@ -480,6 +483,9 @@ void AMRIceControl::solveControl()
   Real CGsecantTol = 1.0e-6;
   pp.query("CGsecantTol",CGsecantTol);
     
+  Real CGhang = 1.0e+10;
+  pp.query("CGhang",CGhang);
+
   m_velMisfitCoefficient = 1.0;
   pp.query("velMisfitCoefficient",m_velMisfitCoefficient);
 
@@ -570,8 +576,16 @@ void AMRIceControl::solveControl()
   pp.query("evolveOnRestart",m_evolveOnRestart);
   m_evolveDt = 0.01;
   pp.query("evolveDt",m_evolveDt);
+  m_evolveLimitDH = 500.0;
+  pp.query("evolveLimitDH",m_evolveLimitDH);
+  m_evolveCFL = 0.25;
+  pp.query("evolveCFL",m_evolveCFL);
   m_evolveTime = 1.0;
   pp.query("evolveTime",m_evolveTime);
+  m_evolveRegularizationCoefficient = 0.0;
+  pp.query("evolveRegularizationCoefficient",m_evolveRegularizationCoefficient);
+  m_evolveSteps = 0;
+  pp.query("evolveSteps",m_evolveSteps);
   m_evolveMeltRateLengthScale = 0.4e+4 ; //4 km smoothness scale
   pp.query("evolveMeltRateLengthScale",m_evolveMeltRateLengthScale);
 
@@ -590,14 +604,21 @@ void AMRIceControl::solveControl()
       m_innerCounter = 0;
     }
 
+  for (int i = 0; i <= m_evolveSteps; i++)
+    {
+      //ensure X sits within constraints
+      checkBounds(X);
+      
+      CGOptimize(*this ,  X , CGmaxIter , CGtol , CGhang,
+		 CGsecantParameter, CGsecantStepMaxGrow, 
+		 CGsecantMaxIter , CGsecantTol);
 
-  //ensure X sits within constraints
-  checkBounds(X);
-
-  CGOptimize(*this ,  X , CGmaxIter , CGtol , 
-	     CGsecantParameter, CGsecantStepMaxGrow, 
-	     CGsecantMaxIter , CGsecantTol);
-
+      if (i < m_evolveSteps)
+	{
+	  //update the geometry
+	  evolveGeometry(m_evolveDt, m_evolveTime);
+	}
+    }
   free(X);
   
 
@@ -614,6 +635,7 @@ AMRIceControl::~AMRIceControl()
   free(m_vels);
   free(m_velObs);
   free(m_velCoef);
+  free(m_thkCoef);
   free(m_divUHObs);
   free(m_divUHCoef);
   free(m_adjVel);
@@ -791,6 +813,9 @@ int AMRIceControl::nDoF(const Vector<LevelData<FArrayBox>* >& x)
 {
   return m_restartInterval;
 }
+
+
+
 void AMRIceControl::checkBounds(Vector<LevelData<FArrayBox>* >& a_X)
 {
   for (int lev =0; lev < a_X.size(); lev++)
@@ -884,7 +909,7 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 {
 
   
-  int nStep = int ( a_time/a_dt) ;
+  
 
   Vector<LevelData<FArrayBox>*> x(m_finestLevel+1);
   Vector<LevelData<FArrayBox>*> g(m_finestLevel+1);
@@ -892,13 +917,36 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
     {
       x[lev]  = new LevelData<FArrayBox>(m_grids[lev],3,IntVect::Zero);
       g[lev]  = new LevelData<FArrayBox>(m_grids[lev],3,IntVect::Zero);
+      
     }
-  writeState("preAdvect.2d.hdf5", m_innerCounter, x,g );
-
-
+  
+  //CFL calculation
+  for (int lev=0; lev <= m_finestLevel ; lev++)
+    {
+      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	{
+	  Real maxVel = 1.0 + (*m_vels[lev])[dit].norm(m_grids[lev][dit], 0, 0, SpaceDim);
+	  a_dt = min(a_dt  , m_evolveCFL * m_dx[lev][0] / maxVel) ;
+	}
+    }
+  
+#ifdef CH_MPI
+  Real tmp = 1.;
+  int result = MPI_Allreduce(&a_dt, &tmp, 1, MPI_CH_REAL,
+			     MPI_MIN, Chombo_MPI::comm);
+  if (result != MPI_SUCCESS)
+    {
+      MayDay::Error("communication error on MPI_Allreduce");
+    }
+  a_dt = tmp;
+#endif
+   
+  
+  int nStep = int ( a_time/a_dt) ;
+  pout() << "AMRIceControl::evolveGeometry dt =  " << a_dt << std::endl;
   for (int step = 0; step < nStep ; step++)
     {
-      pout() << "AMRIceControl::restart timestep " << step << std::endl;
+      pout() << "AMRIceControl::evolveGeometry timestep " << step << std::endl;
       //compute the surface velocity and face-centered fluxes.
       LevelData<FArrayBox>* cellDiffusivity = NULL;
       
@@ -1025,13 +1073,31 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 	      //the mask does not change and subject to that
 	      //condition the surface does not change
 	      FArrayBox& H = m_coordSys[lev]->getH()[dit];
+	      const FArrayBox& Ho = (*m_thicknessOrigin[lev])[dit];
 	      const BaseFab<int>& mask = m_coordSys[lev]->getFloatingMask()[dit];
 	      const Box& box = m_grids[lev][dit];
 	      FArrayBox dH(box,1);
 	      const FArrayBox& div = (*m_divUH[lev])[dit];
 	      const FArrayBox& divo = (*m_divUHObs[lev])[dit];
 	      dH.setVal(0.0);
-	      dH -= div; dH += divo; dH *= a_dt;
+	      //regularization
+	      if (m_evolveRegularizationCoefficient > 0.0)
+		{
+		  dH += Ho;
+		  dH -= H;
+		  dH *= m_evolveRegularizationCoefficient; 
+		  dH *= (*m_thkCoef[lev])[dit];
+		  
+		  Real t = dH.norm(); pout() << "SPAMSPAMSPAM " <<  t << endl;
+		}
+	      // flux divergence
+	      dH -= div; 
+	      //melt rate / accumulation
+	      dH += divo; 
+	     
+	      
+	      //scale to time step
+	      dH *= a_dt;
 	      
 	      for (BoxIterator bit(box);bit.ok();++bit)
 		{
@@ -1044,11 +1110,13 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 	      Real r = m_coordSys[lev]->iceDensity() / m_coordSys[lev]->waterDensity();
 
 	      FORT_UPDATEHCTRLB(CHF_FRA1(H,0),
-			       CHF_FRA1(m_coordSys[lev]->getTopography()[dit],0),
-			       CHF_FRA1(dH,0),
-			       CHF_FIA1(mask,0),
-			       CHF_CONST_REAL(r),
-			       CHF_BOX(box));
+				CHF_FRA1(m_coordSys[lev]->getTopography()[dit],0),
+				CHF_FRA1(dH,0),
+				CHF_CONST_FIA1(mask,0),
+				CHF_CONST_FRA1(Ho,0),
+				CHF_CONST_REAL(r),
+				CHF_CONST_REAL(m_evolveLimitDH),
+				CHF_BOX(box));
 
 	    }
 	  m_coordSys[lev]->getTopography().exchange();
@@ -1068,7 +1136,7 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
     } // end time loop
 
  
-  writeState("postAdvect.2d.hdf5", m_innerCounter, x,g );
+  //writeState("postAdvect.2d.hdf5", m_innerCounter, x,g );
   for (int lev = 0; lev <= m_finestLevel;lev++)
     {
       delete x[lev] ;
@@ -1992,6 +2060,7 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
   names.push_back("gradJMuCoef");
   names.push_back("gradJH");
   names.push_back("velc");
+  names.push_back("thkc");
   names.push_back("divuhc");
   names.push_back("topg");
   names.push_back("thck");
@@ -2021,6 +2090,7 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
       a_g[lev]->copyTo(Interval(1,1),data,Interval(j,j));j++;
       a_g[lev]->copyTo(Interval(2,2),data,Interval(j,j));j++;
       m_velCoef[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
+      m_thkCoef[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
       m_divUHCoef[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
       m_coordSys[lev]->getTopography().copyTo(Interval(0,0),data,Interval(j,j));j++;
       m_coordSys[lev]->getH().copyTo(Interval(0,0),data,Interval(j,j));j++;

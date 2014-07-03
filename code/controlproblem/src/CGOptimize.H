@@ -32,6 +32,7 @@ template <class O, class X>
 void CGOptimize(O& a_F, X& a_x, 
 		int  a_maxIter, 
 		Real a_tol,
+		Real a_hang,
 		Real a_secantParameter,
 	        Real a_secantStepMaxGrow,
 	        int  a_maxSecantIter,
@@ -52,7 +53,7 @@ void CGOptimize(O& a_F, X& a_x,
   a_F.create(y,x);
   a_F.create(p,x);
 
-  Real fm,fp; // these are just for retreiving the the misfit norm and penalty norm, 
+  Real fm,fp, fmOld, fpOld; // these are just for retreiving the the misfit norm and penalty norm, 
               // and play no part in the method
   a_F.computeObjectiveAndGradient(fm,fp,r,x,false);
   a_F.scale(r,-1.0);
@@ -61,13 +62,24 @@ void CGOptimize(O& a_F, X& a_x,
   Real deltaNew = a_F.dotProduct(r,s);
   Real deltaZero = deltaNew;
   int iter = 0; int k = 0;
-  while (iter < a_maxIter && deltaNew > sqr(a_tol) * deltaZero)
+  while (   (iter < a_maxIter) 
+	    && (deltaNew > sqr(a_tol) * deltaZero) 
+	    && (fm > 1.0e-16) 
+	    && ( (iter < 1) || (fm/fmOld < a_hang) ) )
     {
       
       pout() << "CGOptimize iteration " << iter 
 	     << " ||f'(x)||^2 = " << deltaNew 
 	     << " ||fm(x)||^2 = " << fm 
-	     << " ||fp(x)||^2 = " << fp << std::endl;
+	     << " ||fp(x)||^2 = " << fp; 
+      if (iter > 0)
+	{
+	  pout() << " ||fm(x)||^2/||fm_old(x)||^2 = " << fm/fmOld;
+	}
+      pout() << std::endl;
+
+      fmOld = fm;
+      fpOld = fp;
 
       //secant line search
       Real deltaD = a_F.dotProduct(r,d);
@@ -137,7 +149,7 @@ void CGOptimize(O& a_F, X& a_x,
       } while (j < a_maxSecantIter 
 	       && sqr(alpha) * deltaD > sqr(a_secantTol));
       
-      
+     
       a_F.computeObjectiveAndGradient(fm,fp,r,x,false);
       a_F.scale(r,-1.0);
       Real deltaOld = deltaNew;
@@ -146,10 +158,11 @@ void CGOptimize(O& a_F, X& a_x,
       deltaNew = a_F.dotProduct(r,s);
       Real beta = (deltaNew - deltaMid)/deltaOld;
       k++;
-      if (k == a_F.nDoF(x) || beta <= 0.0)
+      if (k == a_F.nDoF(x) || beta <= 0.0 )
 	{
 	  pout() << "CGOptimize restart k = " << k 
 		 << " beta = " << beta << std::endl;
+	  
 	  a_F.assign(d,s);
 	  a_F.restart();
 	  k = 0;

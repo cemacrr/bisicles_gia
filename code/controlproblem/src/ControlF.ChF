@@ -314,11 +314,13 @@ c d = min(-dh, -(h+dh)*r - topg) in shelf
 c ie modify topg so that the mask does not change
 c for floating ice and the surface does not change for grounded ice
 c So, the grounding line can retreat but not re-advance
+c also limit |h - ho| <= dhmax 
 c----------------------------------------------------
 
       subroutine updatehctrlb(CHF_FRA1[h],
      &     CHF_FRA1[topg], CHF_FRA1[dh],
-     &     CHF_CONST_FIA1[mask], CHF_CONST_REAL[r],
+     &     CHF_CONST_FIA1[mask],  CHF_CONST_FRA1[ho],
+     &     CHF_CONST_REAL[r],CHF_CONST_REAL[dhmax],
      &     CHF_BOX[box])
 
       
@@ -332,11 +334,19 @@ c----------------------------------------------------
          dh(CHF_AUTOIX[i]) = zero
       end if
 
+      t = h(CHF_AUTOIX[i])
       h(CHF_AUTOIX[i]) = h(CHF_AUTOIX[i]) + dh(CHF_AUTOIX[i])
-      t = -h(CHF_AUTOIX[i])*r - topg(CHF_AUTOIX[i])
+      if ( h(CHF_AUTOIX[i]) .gt. ho(CHF_AUTOIX[i]) +  dhmax) then
+         h(CHF_AUTOIX[i]) = ho(CHF_AUTOIX[i]) +  dhmax
+      else if (h(CHF_AUTOIX[i]) .lt. ho(CHF_AUTOIX[i]) - dhmax) then
+         h(CHF_AUTOIX[i]) = ho(CHF_AUTOIX[i]) -  dhmax
+      end if
+      dh(CHF_AUTOIX[i]) = h(CHF_AUTOIX[i]) - t 
+!     h(CHF_AUTOIX[i]) = h(CHF_AUTOIX[i]) + dh(CHF_AUTOIX[i])
+!t = -h(CHF_AUTOIX[i])*r - topg(CHF_AUTOIX[i])
       
       if (mask (CHF_AUTOIX[i]) .eq. FLOATINGMASKVAL) then
-         d = min(-dh(CHF_AUTOIX[i]), t) 
+         d = min(-dh(CHF_AUTOIX[i]), zero) ! don't allow sub-shelf cavity to shrink 
       else if (mask (CHF_AUTOIX[i]) .eq. GROUNDEDMASKVAL) then
          d = -dh(CHF_AUTOIX[i])
       else

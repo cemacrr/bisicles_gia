@@ -134,6 +134,7 @@ public:
     return x.n();
   }
 
+ 
 };
 
 
@@ -166,7 +167,7 @@ int main(int argc, char* argv[])
 
   pout() << "initial F(x) = " << F(x) << std::endl;
 
-  CGOptimize(F,x,100,1.0e-10,1.0e-3,-1.0,100,1.0e-10);
+  CGOptimize(F,x,100,1.0e-10,0.999,1.0e-3,-1.0,100,1.0e-10);
 
   pout() << "final F(x) = " << F(x) << std::endl;
 

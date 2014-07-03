@@ -83,6 +83,7 @@ int main(int argc, char* argv[]) {
       Vector<RefCountedPtr<LevelData<FArrayBox> > > yVelObs;
       Vector<RefCountedPtr<LevelData<FArrayBox> > > velObs;
       Vector<RefCountedPtr<LevelData<FArrayBox> > > velCoef;
+      Vector<RefCountedPtr<LevelData<FArrayBox> > > thkCoef;
       Vector<RefCountedPtr<LevelData<FArrayBox> > > originC;
       Vector<RefCountedPtr<LevelData<FArrayBox> > > originMuCoef;
       Vector<RefCountedPtr<LevelData<FArrayBox> > > divUHObs;
@@ -130,6 +131,14 @@ int main(int argc, char* argv[]) {
 	  ildPP.query("velcoefName",velcoefName);
 	  names.push_back(velcoefName);
 	  
+	  std::string thkcoefName = "";
+	  ildPP.query("thkcoefName",thkcoefName);
+	  if (thkcoefName != "")
+	    {
+	      //loading thkcoef is optional
+	      names.push_back(thkcoefName);
+	    }
+
 	  std::string divuhName = "";
 	  ildPP.query("divuhName",divuhName);
 	  if (divuhName != "")
@@ -189,6 +198,23 @@ int main(int argc, char* argv[]) {
 		}
 	      
 	      velCoef.push_back( vectData[j++][lev]);
+	      
+	      if (thkcoefName != "")
+		{
+		  thkCoef.push_back( vectData[j++][lev]);
+		}
+	      else
+		{
+		  //thkCoef = 1 by default
+		  thkCoef.push_back
+		    (RefCountedPtr<LevelData<FArrayBox> >
+		     (new  LevelData<FArrayBox>
+		      (originC[lev]->disjointBoxLayout(),1,originC[lev]->ghostVect())));
+		  for (DataIterator dit(thkCoef[lev]->disjointBoxLayout());dit.ok();++dit)
+		    {
+		      (*thkCoef[lev])[dit].setVal(1.0);
+		    }
+		}
 	      
 	      if (divuhName != "")
 		{
@@ -400,7 +426,7 @@ int main(int argc, char* argv[]) {
     
       amrIceControl.define(thicknessIBC, temperatureIBC,  rateFactorPtr, constRelPtr , 
 			   basalFrictionRelationPtr,dataDx,originC,originMuCoef,velObs,
-			   velCoef,divUHObs,divUHCoef);
+			   velCoef,thkCoef, divUHObs,divUHCoef);
 
     }
 

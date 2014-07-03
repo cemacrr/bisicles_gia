@@ -124,6 +124,10 @@ class AMRIceControl
   Vector<LevelData<FArrayBox>*> m_velCoef; 
   Vector<RefCountedPtr<LevelData<FArrayBox> > > m_referenceVelCoef; 
 
+  //coefficient of thickness data in objective fucntion (ie 1/sigma^2)
+  Vector<LevelData<FArrayBox>*> m_thkCoef; 
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > m_referenceThkCoef; 
+
   //observations of div(uH) 
   Vector<LevelData<FArrayBox>*> m_divUHObs;
   Vector<RefCountedPtr<LevelData<FArrayBox> > > m_referenceDivUHObs;
@@ -184,6 +188,7 @@ class AMRIceControl
 
   int m_restartInterval;
 
+
   //options for writing data
   bool m_writeInnerSteps;
   std::string m_innerStepFileNameBase;
@@ -205,6 +210,7 @@ public:
 	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >& a_referenceMuCoefOrigin,
 	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceVelObs,
 	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceVelCoef,
+	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceThkCoef,
 	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >&a_referenceDivUHObs,
 	      const Vector<RefCountedPtr<LevelData<FArrayBox > > >& a_referenceDivUHCoef);
 
@@ -269,11 +275,9 @@ public:
   Real dotProduct(Vector<LevelData<FArrayBox>* >& a_y, 
 		  const Vector<LevelData<FArrayBox>* >& a_x);
 
-  // maximum number of CG iterations before restart?
+  // no of degrees of freedom
   int nDoF(const Vector<LevelData<FArrayBox>* >& x);
 
-
- 
 private:
 
   template <class T>
@@ -341,10 +345,14 @@ private:
   /// next call to computeObjectiveAndGradient
   bool m_evolve;
   /// time step parameters for evolution
-  Real m_evolveDt;
-  Real m_evolveTime;
+  int m_evolveSteps; // no of outer iterations (CG then evolve)
+  Real m_evolveDt; // timestep unless exceeds CFL
+  Real m_evolveCFL; // CFL number : dt < n_CFL * dx / max|u|
+  Real m_evolveTime; // time to evolve on each iteration
+  Real m_evolveRegularizationCoefficient;
+  Real m_evolveLimitDH; // maximum change in thickness
   Real m_evolveMeltRateLengthScale;
-  /// evolve the geoemtry on restart ?
+  /// evolve the geoemtry on CG restarts ?
   bool m_evolveOnRestart;
   /// evolve geoemtry according to the thickness transport equation
   void evolveGeometry(Real a_dt, Real a_time);
