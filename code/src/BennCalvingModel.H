@@ -54,7 +54,7 @@ public:
 		    bool a_setZeroThck,
 		    bool a_oldMeltRate,
 		    const Real& a_NoiseScale,
-		    const Real& a_CalvingFreq,
+		    const Real& a_calvingFreq,
 		    const Real& a_decay,
 		    const Real& a_timescale)
     : m_waterDepth(a_waterDepth),
@@ -64,7 +64,7 @@ public:
       m_setZeroThck(a_setZeroThck),
       m_oldMeltRate(a_oldMeltRate),
       m_NoiseScale(a_NoiseScale),
-      m_CalvingFreq(a_CalvingFreq),
+      m_calvingFreq(a_calvingFreq),
       m_decay(a_decay),
       m_timescale(a_timescale),
       m_domainEdgeCalvingModel(a_frontLo,a_frontHi, 
@@ -83,7 +83,7 @@ private:
   bool m_setZeroThck;
   bool m_oldMeltRate;
   Real m_NoiseScale;
-  Real m_CalvingFreq;
+  Real m_calvingFreq;
   Real m_decay;
   Real m_timescale;
   DomainEdgeCalvingModel(m_domainEdgeCalvingModel);

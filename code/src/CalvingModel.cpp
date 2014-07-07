@@ -310,8 +310,8 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
       pp.query("oldMeltRate",oldMeltRate);
       Real NoiseScale = 0.0;
       pp.query("NoiseScale",NoiseScale);
-      Real CalvingFreq = 1.0;
-      pp.query("CalvingFreq",CalvingFreq);
+      Real calvingFreq = 1.0;
+      pp.query("calvingFreq",calvingFreq);
       Real decay = 3.0e-1;
       pp.query("decay",decay);
       Real timescale = 0.25;
@@ -319,7 +319,7 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
       ptr = new BennCalvingModel(waterDepth, frontLo, frontHi, preserveSea,
 				 preserveLand, inclBasalCrev, oneDimCrev, 
 				 RedFreqCalv, setZeroThck,
-				 oldMeltRate, NoiseScale, CalvingFreq,
+				 oldMeltRate, NoiseScale, calvingFreq,
 				 decay, timescale);
     }
 //   else
