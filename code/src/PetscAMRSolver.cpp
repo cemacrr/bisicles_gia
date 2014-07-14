@@ -74,7 +74,11 @@ PetscAMRSolver::solve_mfree( Vector<LevelData<FArrayBox>*>& a_phi,
   ierr = MatGetVecs(A,&x,&b); CHKERRQ(ierr);
   ierr = m_petscCompMat.putChomboInPetsc(a_rhs,b);CHKERRQ(ierr);
   ierr = KSPCreate(wcomm, &ksp); CHKERRQ(ierr);
+#if PETSC_VERSION_LT(3,5,0)
   ierr = KSPSetOperators(ksp, L, A, SAME_NONZERO_PATTERN);CHKERRQ(ierr);
+#else
+  ierr = KSPSetOperators(ksp, L, A);CHKERRQ(ierr);
+#endif
   ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
 
   PetscBool ism = PETSC_FALSE;
@@ -136,7 +140,11 @@ PetscAMRSolver::solve( Vector<LevelData<FArrayBox>*>& a_phi,
   ierr = MatGetVecs(A,&x,&b); CHKERRQ(ierr);
   ierr = m_petscCompMat.putChomboInPetsc(a_rhs,b); CHKERRQ(ierr);
   ierr = KSPCreate(wcomm, &ksp); CHKERRQ(ierr);
+#if PETSC_VERSION_LT(3,5,0)
   ierr = KSPSetOperators(ksp, A, A, SAME_NONZERO_PATTERN); CHKERRQ(ierr);
+#else
+  ierr = KSPSetOperators(ksp, A, A); CHKERRQ(ierr);
+#endif
   ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
 
   PetscBool ism = PETSC_FALSE;
