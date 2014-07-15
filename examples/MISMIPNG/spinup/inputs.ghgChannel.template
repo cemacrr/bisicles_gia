@@ -63,7 +63,13 @@ JFNKSolver.minPicardIterations = 2
 JFNKSolver.maxIter = 15
 JFNKSolver.absTol = 1.0e+0
 JFNKSolver.relTol = 2.0e-3
-JFNKSolver.solverType = 0 #Relax solver
+
+#ChomboJFNKSolver.solverType = 0 #Relax solver
+#ChomboJFNKSolver.bottom_solver_type = 2 #Relax solver (since BiCGstab seems to have died in Chombo 3.2)
+
+#PETScJFNKSolver.solverType = 0 #Real  solver, since PETSC solver is not working well
+#PETScJFNKSolver.bottom_solver_type = 1  # petsc botton solver
+
 JFNKSolver.RelaxRelTol = 2.0e-4
 JFNKSolver.RelaxHang = 0.975
 JFNKSolver.maxRelaxIter = 20
