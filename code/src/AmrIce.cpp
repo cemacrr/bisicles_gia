@@ -6180,7 +6180,7 @@ AmrIce::writePlotFile()
   if (m_write_layer_velocities){
     for (int l = 0; l < m_nLayers + 1; ++l)
       {
-	char idx[4]; sprintf(idx, "%04d", l);
+	char idx[5]; sprintf(idx, "%04d", l);
 	vectName[comp] = xlayerVelName + string(idx);
 	comp++;
 	vectName[comp] = ylayerVelName + string(idx);
@@ -6544,12 +6544,12 @@ AmrIce::writePlotFile()
     } // end loop over levels for computing plot data
   
   // generate plotfile name
-  char iter_str[100];
-  sprintf(iter_str, "%s%06d.", m_plot_prefix.c_str(), 
-          m_cur_step );
-  
+  std::string fs("%s%06d.");
+  char* iter_str = new char[m_plot_prefix.size() + fs.size()];
+  sprintf(iter_str, fs.c_str(), m_plot_prefix.c_str(), m_cur_step );
   string filename(iter_str);
-  
+  delete iter_str;
+ 
   // need to pull out SigmaCS pointers:
   Vector<const LevelSigmaCS* > vectCS(m_vect_coordSys.size(), NULL);
   for (int lev=0; lev<numLevels; lev++)
@@ -6663,7 +6663,7 @@ AmrIce::writeCheckpointFile(const string& a_file)
   Vector<string> vectName(1);
   for (int comp=0; comp<1; comp++)
     {
-      char idx[4]; sprintf(idx, "%d", comp);
+      char idx[5]; sprintf(idx, "%d", comp);
       vectName[comp] = thicknessName+string(idx);
     } 
   Box domain = m_amrDomains[0].domainBox();
