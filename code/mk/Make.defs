@@ -40,8 +40,9 @@ ifeq ($(UNAMEN),porthos.ggy.bris.ac.uk)
 PYTHON_VERSION=2.4
 endif
 ifeq ($(UNAMEN),dartagnan.ggy.bris.ac.uk)
-PYTHON_INC=/data/ggslc/opt/python27/include/python2.7/
-PYTHON_LIBS=-L/data/ggslc/opt/python27/lib/ -lpython2.7 -lpthread -ldl -lutil -lm
+#PYTHON_INC=/data/ggslc/opt/python27/include/python2.7/
+#PYTHON_LIBS=-L/data/ggslc/opt/python27/lib/ -lpython2.7 -lpthread -ldl -lutil -lm
+PYTHON_VERSION=2.4
 endif
 
 
