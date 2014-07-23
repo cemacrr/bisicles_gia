@@ -283,6 +283,11 @@ public:
 			FASMGAMR = 4,
                         NUM_SOLVER_TYPES};
 
+  void setTime(Real a_time)
+  {
+    m_time = a_time - m_offsetTime;
+  }
+
   /// read only access members
   Real time() const
   {

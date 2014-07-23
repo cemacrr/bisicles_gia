@@ -46,7 +46,7 @@ extern "C"
   /// initialize bisicles 
   void bisicles_init_instance(int *instance_id);
   ///step BISICLES forward in time by up to max_time or max_steps (whichever is sooner)
-  void bisicles_advance(int *instance_id, double *max_time, int *max_step);
+  void bisicles_advance(int *instance_id, double *start_time, double *max_time, int *max_step);
   
   ///write a checkpoint file 
   void bisicles_write_checkpoint(int *instance_id);
@@ -75,7 +75,7 @@ extern "C"
 			    const double *dx, const int *dims, 
 			     const int *boxlo, const int *boxhi);
   void f_bisicles_init_instance_(int *instance_id);
-  void f_bisicles_advance_(int *instance_id, double *max_time, int *max_step);
+  void f_bisicles_advance_(int *instance_id, double *start_time, double *max_time, int *max_step);
   void f_bisicles_write_checkpoint_(int *instance_id);
   void f_bisicles_write_plot_(int *instance_id);
   void f_bisicles_read_checkpoint_(int *instance_id, char *checkpoint_fname, const int *len_fname);
@@ -99,7 +99,7 @@ extern "C"
 			    const double *dx, const int *dims, 
 			     const int *boxlo, const int *boxhi);
   void f_bisicles_init_instance(int *instance_id);
-  void f_bisicles_advance(int *instance_id, double *max_time, int *max_step);
+  void f_bisicles_advance(int *instance_id, double *start_time, double *max_time, int *max_step);
   void f_bisicles_write_checkpoint(int *instance_id);
   void f_bisicles_write_plot(int *instance_id);
   void f_bisicles_read_checkpoint(int *instance_id, char *checkpoint_fname, const int *len_fname);

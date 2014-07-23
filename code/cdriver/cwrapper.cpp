@@ -172,9 +172,9 @@ void f_bisicles_init_instance_(int *instance_id)
     bisicles_init_instance(instance_id);
   }
 
-void f_bisicles_advance_(int *instance_id, double *max_time, int *max_step)
+void f_bisicles_advance_(int *instance_id, double *start_time, double *max_time, int *max_step)
   {
-    bisicles_advance(instance_id, max_time, max_step);
+    bisicles_advance(instance_id, start_time, max_time, max_step);
   }
 
 
@@ -221,9 +221,9 @@ void f_bisicles_init_instance(int *instance_id)
     bisicles_init_instance(instance_id);
   }
 
-void f_bisicles_advance(int *instance_id, double *max_time, int *max_step)
+void f_bisicles_advance(int *instance_id, double *start_time, double *max_time, int *max_step)
   {
-    bisicles_advance(instance_id, max_time, max_step);
+    bisicles_advance(instance_id, start_time, max_time, max_step);
   }
 
 
@@ -958,10 +958,11 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
 
 
 }  
-void advance_bisicles_instance(BisiclesWrapper* wrapper_ptr, double max_time, int max_step  )
+void advance_bisicles_instance(BisiclesWrapper* wrapper_ptr,  double start_time, double max_time, int max_step  )
 {
   if (wrapper_ptr != NULL)
     {
+      wrapper_ptr->m_amrIce.setTime(start_time);
       wrapper_ptr->m_amrIce.run(max_time,max_step);
     }
 }
@@ -1297,15 +1298,15 @@ void bisicles_free_instance(int *instance_id)
 }
 
 
-void bisicles_advance(int *instance_id, double *max_time, int *max_step)
+void bisicles_advance(int *instance_id, double *start_time,  double *max_time, int *max_step)
 {
-  if (instance_id && max_time && max_step)
+  if (instance_id && max_time && max_step && start_time)
     {
       std::map<int, BisiclesWrapper*>::iterator i 
 	= bisicles_c_wrapper::instances.find(*instance_id) ;
       if (i != bisicles_c_wrapper::instances.end())
 	{
-	  advance_bisicles_instance(i->second, *max_time, *max_step);
+	  advance_bisicles_instance(i->second,  *start_time, *max_time, *max_step);
 	}
     }
 }
