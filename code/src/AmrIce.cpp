@@ -6579,12 +6579,17 @@ AmrIce::writePlotFile()
         }
 
       HDF5Handle handle(filename.c_str(), HDF5Handle::CREATE);
-
+     
       //Chombo AMR data (VisIt compatible)
       WriteAMRHierarchyHDF5(handle, m_amrGrids, plotData, vectName, 
 			    domain, m_amrDx[0], dt, time(), m_refinement_ratios, 
 			    numLevels);
       //Additional data (BISICLES specific)
+      m_headerData.m_int["max_level"] = m_max_level;
+      m_headerData.m_int["finest_level"] = m_finest_level;
+      m_headerData.m_int["current_step"] = m_cur_step;
+      m_headerData.m_real["time"] = m_time;
+      m_headerData.m_real["dt"] = m_dt;
       m_headerData.writeToFile(handle);
       handle.close();
     }
