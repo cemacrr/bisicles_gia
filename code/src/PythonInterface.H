@@ -17,6 +17,7 @@
 #include "SurfaceFlux.H"
 #include "BasalFriction.H"
 #include "MuCoefficient.H"
+#include "VelocityBC.H"
 #include "NamespaceHeader.H"
 //
 // PythonInterface.H
@@ -59,6 +60,26 @@ namespace PythonInterface
     PyObject*  m_pFuncTopg;
     PyObject*  m_pFuncRhs;
     PyObject*  m_pFuncFaceVel;
+    
+    enum BCType {IceDivide, NoSlip, MaxBCType};
+    
+    RefCountedPtr<BCFunction> BCFactory(BCType a_type, 
+					int a_dir, 
+					Side::LoHiSide a_side)
+    {
+      if (a_type == IceDivide)
+	{
+	  return RefCountedPtr<BCFunction>(new IceDivideBCFunction(a_dir, a_side));
+	}
+      else if (a_type == NoSlip)
+	{
+	  return RefCountedPtr<BCFunction>(new NoSlipBCFunction(a_dir, a_side));
+	}
+      
+      CH_assert(a_type < MaxBCType && a_type > 0);
+
+    }
+
   public:
     
     PythonIBC(const std::string& a_pyModuleName , 
@@ -180,6 +201,7 @@ namespace PythonInterface
 
     RealVect m_dx;
     BCFunc m_velBCs;
+    RefCountedPtr<BCFunction> m_velBC;
     bool m_isBCsetUp;
     bool m_verbose;
     void setupBCs();

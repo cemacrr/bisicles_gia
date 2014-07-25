@@ -86,14 +86,18 @@ be changed to periodic boundary conditions in the usual way, e.g
 <pre>
 amr.is_periodic = 0 1 0
 </pre>
-selects reflection boundaries at the x-faces of the domain, but periodic boundaries at the y-faces.
+selects reflection boundaries at the x-faces of the domain, but periodic boundaries at the y-faces. Alternatively , a  mixture of Reflection (Ice Divide) and No Slip conditions can be imposed through the PythonIBC.bc_lo and PythonIBC.bc_hi options. Choose 0 for reflection , and 1 for no-slip. For example
+<pre>
+PythonIBC.bc_lo = 0 1 # ice divide at x = 0 , no slip at y = 0
+PythonIBC.bc_hi = 1 1 # no-slip at x = L , no slip at y = W
+</pre>
 To set a marine boundary condition, use DomainEdgeCalvingModel, e.g
 <pre>
 CalvingModel.type = DomainEdgeCalvingModel
 CalvingModel.front_hi = 1 0    #impose a marine boundary at the high x-face 
 CalvingModel.front_lo = 0 0
 </pre>
-Alternatively, it is possible to maintain a calving front inside the domain by set a large negative accumulation:
+Alternatively, it is possible to maintain a calving front inside the domain by setting a large negative accumulation:
 Adding a function
 <pre>
 #file foo.py

@@ -19,7 +19,9 @@
 #include "CoarseAverage.H"
 #include "IceConstants.H"
 #include "AmrIce.H"
+#include "ParmParse.H"
 #include "signal.h"
+#include "VelocityBC.H"
 #include "NamespaceHeader.H"
 
 void PythonInterface::PythonEval(PyObject* a_pFunc, 
@@ -263,7 +265,9 @@ BCHolder PythonInterface::PythonIBC::velocitySolveBC()
       setupBCs();
     }
   
-  return m_velBCs; 
+  //return m_velBCs; 
+
+  return m_velBC;
 }
 
 void  iceDivideBC_PyBC(FArrayBox& a_vel,
@@ -305,7 +309,32 @@ void  iceDivideBC_PyBC(FArrayBox& a_vel,
 void  PythonInterface::PythonIBC::setupBCs()
 {
   m_velBCs = iceDivideBC_PyBC;
+  Vector<RefCountedPtr<BCFunction> > loBC;
+  Vector<RefCountedPtr<BCFunction> > hiBC;
+
+  loBC.resize(SpaceDim);
+  hiBC.resize(SpaceDim);
+
+  ParmParse pp("PythonIBC");
+  Vector<int> loBCType(SpaceDim),hiBCType(SpaceDim) ;
+
+  //default to refelection BC's on all boundaries
+  for (int dir = 0; dir < SpaceDim; dir++)
+    {
+      loBCType[dir] = IceDivide;
+      hiBCType[dir] = IceDivide;
+    }
+  pp.queryarr("bc_lo",loBCType,0,SpaceDim);
+  pp.queryarr("bc_hi",hiBCType,0,SpaceDim);
+
+  for (int dir = 0; dir < SpaceDim; dir++)
+    {
+      loBC[dir] = BCFactory(BCType(loBCType[dir]),dir,Side::Lo);
+      hiBC[dir] = BCFactory(BCType(hiBCType[dir]),dir,Side::Hi);
+    }
+  m_velBC = RefCountedPtr<BCFunction>(new PerBoundaryBCFunction(loBC, hiBC));
   m_isBCsetUp = true;
+
 }
 
 /// set non-periodic ghost cells for surface height z_s. 
