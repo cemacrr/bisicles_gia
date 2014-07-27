@@ -6545,7 +6545,7 @@ AmrIce::writePlotFile()
   
   // generate plotfile name
   std::string fs("%s%06d.");
-  char* iter_str = new char[m_plot_prefix.size() + fs.size()];
+  char* iter_str = new char[m_plot_prefix.size() + fs.size() + 1];
   sprintf(iter_str, fs.c_str(), m_plot_prefix.c_str(), m_cur_step );
   string filename(iter_str);
   delete iter_str;
