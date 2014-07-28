@@ -99,8 +99,6 @@ class AMRIceControl
   //thickness
   //thickness = exp(X[2]) * m_thicknessOrigin;
   Vector<LevelData<FArrayBox>*> m_thicknessOrigin;
-  Vector<LevelData<FArrayBox>*> m_lapThickness;
-  Vector<LevelData<FArrayBox>*> m_gradThicknessSq;
   //right-hand side of the velocity equation
   Vector<LevelData<FArrayBox>*> m_rhs;
   //right-hand side of the adjoint velocity equation
@@ -167,18 +165,15 @@ class AMRIceControl
   //control problem parameters
   Real m_boundArgX0, 
     m_boundArgX1, 
-    m_boundArgX2,
     m_velMisfitCoefficient, 
     m_massImbalanceCoefficient,
     m_gradCsqRegularization,
     m_gradMuCoefsqRegularization, 
-    m_gradHsqRegularization, 
     m_X0Regularization, 
-    m_X1Regularization, 
-    m_X2Regularization ;
+    m_X1Regularization;
  
 
-  Real m_lowerX0, m_upperX0, m_lowerX1, m_upperX1, m_lowerX2, m_upperX2;
+  Real m_lowerX0, m_upperX0, m_lowerX1, m_upperX1;
 
   enum BoundMethod {None, Projection, MAX_BOUND_METHOD};
   BoundMethod m_boundMethod;

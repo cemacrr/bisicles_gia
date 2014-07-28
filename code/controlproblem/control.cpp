@@ -338,9 +338,6 @@ int main(int argc, char* argv[]) {
 	  MayDay::Error("undefined basalFrictionRelation in inputs");
 	}
    
-    
-
-     
       ParmParse geomPP("geometry");
       std::string geomType("LevelData");
       geomPP.query("type",geomType);
@@ -387,10 +384,6 @@ int main(int argc, char* argv[]) {
 		(vectData[0],vectData[1],crseDx,refRatio);
 	      thicknessIBC  = static_cast<IceThicknessIBC*>(ptr);
 	    }
-	  
-
-
-
 	}
       else 
 	{

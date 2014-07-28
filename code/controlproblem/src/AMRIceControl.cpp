@@ -243,17 +243,7 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
 
   //copy of the original thickness
   create(m_thicknessOrigin, 1, IntVect::Unit);
-  create(m_lapThickness,1,IntVect::Zero);
-  create(m_gradThicknessSq,1,IntVect::Zero);
-  for (int lev = 0; lev <= m_finestLevel; ++lev)
-    {
-      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
-	{
-	  const FArrayBox& thck = m_coordSys[lev]->getH()[dit];
-	  (*m_thicknessOrigin[lev])[dit].copy(thck);
-	}
-    }
-
+ 
   create(m_divUH,1,IntVect::Unit);
   create(m_faceThckFlux,1,IntVect::Unit);
   
@@ -272,29 +262,6 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
       CellToEdge(*m_A[lev], *m_faceA[lev]);
     }
   
-#if 0
-  {
-    Vector<std::string> names;
-    for (int i =0; i < m_A[0]->nComp(); i++)
-      {
-	char s[64]; sprintf(s,"T%i",i);
-	names.push_back(s);
-      }
-    WriteAMRHierarchyHDF5("T.2d.hdf5",m_grids,m_temperature,names, m_domain[0].domainBox(),
-			  m_dx[0][0], 0.0, 0.0 , m_refRatio, m_A.size());
-  }
-
-  {
-    Vector<std::string> names;
-    for (int i =0; i < m_A[0]->nComp(); i++)
-      {
-	char s[64]; sprintf(s,"A%i",i);
-	names.push_back(s);
-      }
-    WriteAMRHierarchyHDF5("A.2d.hdf5",m_grids,m_A,names, m_domain[0].domainBox(),
-			  m_dx[0][0], 0.0, 0.0 , m_refRatio, m_A.size());
-  }
-#endif
 
   Real Amin = computeMin(m_A,  m_refRatio, Interval(0,m_A[0]->nComp()-1));
   Real Amax = computeMax(m_A,  m_refRatio, Interval(0,m_A[0]->nComp()-1));
@@ -307,17 +274,7 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   create(m_TikhonovPenalty,2,IntVect::Unit);
   create(m_barrierPenalty,2,IntVect::Unit);
 
-
   m_velocityInitialised = false;
-
-  // m_referenceCOrigin = NULL;
-  // m_referenceMuCoefOrigin = NULL; 
-  // m_referenceVelObs = NULL;
-  // m_referenceVelCoef = NULL;
-  // m_referenceDivUHObs =NULL;
-  // m_referenceDivUHCoef =  NULL;
-
-
 
   pout() << " AMIceControl::define completed" << std::endl;
   
@@ -363,14 +320,6 @@ void AMRIceControl::levelTag(int a_lev, IntVectSet& a_tagset)
     }
 
   a_tagset.grow(m_tagsGrow);
-  
-  // if ( a_lev == 0)
-  //   {
-  //     Box box(m_domain[0].domainBox());
-  //     box.grow(-m_blockFactor);
-  //     a_tagset &= box;
-  //   }
-
 
 }
 
@@ -498,25 +447,17 @@ void AMRIceControl::solveControl()
   m_gradMuCoefsqRegularization = m_gradCsqRegularization;
   pp.query("gradMuCoefsqRegularization",m_gradMuCoefsqRegularization);
 
-  m_gradHsqRegularization =  m_gradCsqRegularization;
-  pp.query("gradHsqRegularization",m_gradHsqRegularization);
-
   m_X0Regularization = 0.0;
   pp.query("X0Regularization",m_X0Regularization);
 
   m_X1Regularization = 0.0;
   pp.query("X1Regularization",m_X1Regularization);
 
-  m_X2Regularization = 0.0;
-  pp.query("X2Regularization",m_X2Regularization);
-
 
   m_boundArgX0 = 3.0;
   m_boundArgX1 = 2.0;
-  m_boundArgX2 = 0.0;
   pp.query("boundArgX0",m_boundArgX0);
   pp.query("boundArgX1",m_boundArgX1);
-  pp.query("boundArgX2",m_boundArgX2);
 
   m_lowerX0 = - m_boundArgX0;
   m_upperX0 = + m_boundArgX0;
@@ -527,12 +468,6 @@ void AMRIceControl::solveControl()
   m_upperX1 = + m_boundArgX1;
   pp.query("lowerX1",m_lowerX1);
   pp.query("upperX1",m_upperX1);
-
-  m_lowerX2 = - m_boundArgX2;
-  m_upperX2 = + m_boundArgX2;
-  pp.query("lowerX2",m_lowerX2);
-  pp.query("upperX2",m_upperX2);
-
 
   {
     std::string s = "None";
@@ -553,7 +488,7 @@ void AMRIceControl::solveControl()
 
 
   Vector<LevelData<FArrayBox>* > X;
-  create(X,3,IntVect::Zero);
+  create(X,2,IntVect::Zero);
   setToZero(X);
 
   m_writeInnerSteps = false;
@@ -652,8 +587,6 @@ AMRIceControl::~AMRIceControl()
   free(m_faceMuCoef);
   free(m_divUH);
   free(m_thicknessOrigin);
-  free(m_lapThickness);
-  free(m_gradThicknessSq);
   free(m_faceThckFlux);
   free(m_temperature);
   free(m_sTemperature);
@@ -830,10 +763,6 @@ void AMRIceControl::checkBounds(Vector<LevelData<FArrayBox>* >& a_X)
 	  FORT_BOUNDCTRL(CHF_FRA1(x,1),
 	  		 CHF_CONST_REAL(m_lowerX1),
 			 CHF_CONST_REAL(m_upperX1),
-	  		 CHF_BOX(x.box()));
-	  FORT_BOUNDCTRL(CHF_FRA1(x,2),
-	  		 CHF_CONST_REAL(m_lowerX2),
-			 CHF_CONST_REAL(m_upperX2),
 	  		 CHF_BOX(x.box()));
 
 	}
@@ -1099,14 +1028,14 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 	      //scale to time step
 	      dH *= a_dt;
 	      
-	      for (BoxIterator bit(box);bit.ok();++bit)
-		{
-		  const IntVect& iv = bit();
-		  //dH(iv) = max(dH(iv),-H(iv));
-		  if (H(iv) < 10.0)
-		    H(iv) = 0.0;
-		}
-	      
+	      // for (BoxIterator bit(box);bit.ok();++bit)
+	      // 	{
+	      // 	  const IntVect& iv = bit();
+	      // 	  //dH(iv) = max(dH(iv),-H(iv));
+	      // 	  if (H(iv) < 10.0)
+	      // 	    H(iv) = 0.0;
+	      // 	}
+	      Real hmin = 10.0;
 	      Real r = m_coordSys[lev]->iceDensity() / m_coordSys[lev]->waterDensity();
 
 	      FORT_UPDATEHCTRLB(CHF_FRA1(H,0),
@@ -1116,6 +1045,7 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 				CHF_CONST_FRA1(Ho,0),
 				CHF_CONST_REAL(r),
 				CHF_CONST_REAL(m_evolveLimitDH),
+				CHF_CONST_REAL(hmin),
 				CHF_BOX(box));
 
 	    }
@@ -1171,7 +1101,7 @@ void AMRIceControl::computeObjectiveAndGradient
 
 #define CCOMP 0
 #define MUCOMP 1
-#define HCOMP 2
+  //#define HCOMP 2
 
   setToZero(a_g);
 
@@ -1201,7 +1131,6 @@ void AMRIceControl::computeObjectiveAndGradient
       LevelData<FArrayBox>& levelCOrigin =  *m_COrigin[lev];
       LevelData<FArrayBox>& levelMuCoef =  *m_muCoef[lev];
       LevelData<FArrayBox>& levelMuCoefOrigin =  *m_muCoefOrigin[lev];
-      LevelData<FArrayBox>& levelHOrigin =  *m_thicknessOrigin[lev];
       const DisjointBoxLayout levelGrids =  m_grids[lev];
       
       for (DataIterator dit(levelGrids);dit.ok();++dit)
@@ -1227,26 +1156,6 @@ void AMRIceControl::computeObjectiveAndGradient
 	  		    CHF_CONST_REAL(m_lowerX1),
 			    CHF_CONST_REAL(m_upperX1),
 	  		    CHF_BOX(box));
-#ifdef USEX2
-	  //modify the thickness *and* topography so that 
-          //the surface elevation is not altered
-	  const FArrayBox& H0 = levelHOrigin[dit];
-	  FArrayBox& H = levelCS.getH()[dit];
-	  FArrayBox dH(H.box(),1); dH.copy(H);
-
-	  H.copy(levelX[dit],HCOMP,0);
-
-	  FORT_BOUNDCTRL(CHF_FRA1(H,0),
-			 CHF_CONST_REAL(m_lowerX2),
-			 CHF_CONST_REAL(m_upperX2),
-			 CHF_BOX(box));
-
-	  H *= 100.0 ;// \make this scale a ParmParse option
-
-	  H += H0;
-	  dH -= H; 
-	  levelCS.getTopography()[dit] += dH;
-#endif
 	}
 
       //boundary values for C, muCoef, topography, thickness: extrapolation or reflection should be sufficient
@@ -1328,10 +1237,7 @@ void AMRIceControl::computeObjectiveAndGradient
       IceUtility::applyHelmOp(*m_lapMuCoef[lev], levelMuCoef, 0.0, 1.0,
 			       m_grids[lev], m_dx[lev]);
       IceUtility::applyGradSq(*m_gradMuCoefSq[lev], levelMuCoef,  m_grids[lev], m_dx[lev]);
-      
-      IceUtility::applyHelmOp(*m_lapThickness[lev], levelCS.getH(), 0.0, 1.0,
-			       m_grids[lev], m_dx[lev]);
-      IceUtility::applyGradSq(*m_gradThicknessSq[lev], levelCS.getH(),  m_grids[lev], m_dx[lev]);
+
 
     }
 
@@ -1549,83 +1455,23 @@ void AMRIceControl::computeObjectiveAndGradient
 	  misfit *= m_velMisfitCoefficient;
 	  
 	}
-
-      const LevelData<FArrayBox>& levelDivUHObs =  *m_divUHObs[lev];
-      LevelData<FArrayBox>& levelDivUHCoef =  *m_divUHCoef[lev];
-      const LevelData<FArrayBox>& levelDivUH =  *m_divUH[lev];
-      const LevelSigmaCS& levelCS =  *m_coordSys[lev];
-
-
-      //contribution due to mass imbalance
-      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
-	{
-	  
-	  //FArrayBox& adjRhs = levelAdjRhs[dit];
-	  const FArrayBox& divuhm = levelDivUH[dit];
-	  const FArrayBox& divuho = levelDivUHObs[dit];
-	  const Box& box = m_grids[lev][dit];
-	  //Box gbox(box);
-	  //gbox.grow(1);
-	  FArrayBox& misfit = (*m_massBalanceMisfit[lev])[dit];
-	  misfit.copy(divuhm);misfit.minus(divuho);
-	  Real dx = m_dx[0][0];
-	  
-	  FArrayBox tmp(box,SpaceDim);
-	  Box sbox(box);
-	  Box sdom(m_domain[lev].domainBox());
-	  sdom.grow(-1);
-	  sbox &= sdom;
-	  tmp.setVal(0.0);
-	  FORT_ADJRHSMASSCTRL(CHF_FRA(tmp),
-			      CHF_CONST_FRA1(misfit,0),
-			      CHF_CONST_FRA1(levelCS.getH()[dit],0),
-			      CHF_CONST_REAL(dx),
-			      CHF_BOX(sbox)); 
-	  
-	  for (BoxIterator bit(levelVelCoef[dit].box());bit.ok();++bit)
-	    {
-	      const IntVect& iv = bit();
-	      if (levelDivUHCoef[dit](iv) < 0.975)
-		levelDivUHCoef[dit](iv) = 0.0;
-	    }
-	  misfit *= misfit;
-	  misfit.mult(levelDivUHCoef[dit]);
-	  for (int dir = 0; dir < SpaceDim; dir++)
-	    {
-	      tmp.mult(levelDivUHCoef[dit],0,dir);
-	    }
-
-	  misfit *= m_massImbalanceCoefficient;
-	  // if (m_outerCounter > 10)
-	  //   {
-	  //     tmp *= m_massImbalanceCoefficient;   
-	  //     adjRhs += tmp;
-	  //   }
-	}
-
     }
   
   //compute the objective function 
   Real vobj = computeSum(m_velocityMisfit, m_refRatio, m_dx[0][0]);
-  Real mobj = computeSum(m_massBalanceMisfit, m_refRatio, m_dx[0][0]);
 
   Real sumGradCSq = computeSum(m_gradCSq,m_refRatio, m_dx[0][0]);
   Real sumGradMuSq = computeSum(m_gradMuCoefSq,m_refRatio, m_dx[0][0]);
-  Real sumGradHSq = computeSum(m_gradThicknessSq,m_refRatio, m_dx[0][0]);
 
   Real normX0 = computeNorm(a_x,m_refRatio, m_dx[0][0], Interval(0,0));
   Real normX1 = computeNorm(a_x,m_refRatio, m_dx[0][0], Interval(1,1));
-  Real normX2 = computeNorm(a_x,m_refRatio, m_dx[0][0], Interval(2,2));
 
-  a_fm = vobj + mobj ;
+  a_fm = vobj  ;
   a_fp =  m_gradCsqRegularization * sumGradCSq
     + m_gradMuCoefsqRegularization * sumGradMuSq
-    + m_gradHsqRegularization * sumGradHSq
     + m_X0Regularization * normX0*normX0
-    + m_X1Regularization * normX1*normX1
-    + m_X2Regularization * normX2*normX2;
+    + m_X1Regularization * normX1*normX1;
   pout() << " ||velocity misfit||^2 = " << vobj
-	 << " ||mass balance misfit||^2 = " << mobj
 	 << std::endl;
   //solve the adjoint problem
   solveForwardProblem(m_adjVel,true,m_adjRhs,m_C,m_C0,m_A,m_faceMuCoef);
@@ -1648,15 +1494,12 @@ void AMRIceControl::computeObjectiveAndGradient
       const LevelData<FArrayBox>& levelMuCoef  =  *m_muCoef[lev];
       const LevelData<FArrayBox>& levelLapC  =  *m_lapC[lev];
       const LevelData<FArrayBox>& levelLapMuCoef  =  *m_lapMuCoef[lev];
-      const LevelData<FArrayBox>& levelThickness  =  m_coordSys[lev]->getH();
-      const LevelData<FArrayBox>& levelLapThickness  =  *m_lapThickness[lev];
       for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
 	{
 	  FArrayBox& thisG =  levelG[dit];
 	  const FArrayBox& thisX =  levelX[dit];
 	  thisG.setVal(0.0,CCOMP);
 	  thisG.setVal(0.0,MUCOMP);
-	  thisG.setVal(0.0,HCOMP);
 
 	  FArrayBox t(thisG.box(),1);
 	  
@@ -1674,15 +1517,7 @@ void AMRIceControl::computeObjectiveAndGradient
 	  t.copy(thisX,MUCOMP,0);
 	  t *= m_X1Regularization;
 	  thisG.plus(t,0,MUCOMP);
-	
-	  
-	  // H = H0 + X2, so need for factor of H
-	  t.copy(levelLapThickness[dit]); t*= -m_gradHsqRegularization;
-	  thisG.plus(t,0,HCOMP);
-	  t.copy(thisX,HCOMP,0);
-	  t *= m_X2Regularization;
-	  thisG.plus(t,0,HCOMP);
-	  
+		  
 	}
 
 	
@@ -1817,119 +1652,6 @@ void AMRIceControl::computeObjectiveAndGradient
 
   }
 
-  
-  //compute unregularized part of gradient with respect to a_x component 2 (thickness)
-  // = - H * (grad lambda : vtop(mu, U, C = 0) + rho * g * lambda . grad(s)) - divuhc * 2u.grad(divuh - divuhobs)
-  for (int lev = 0; lev <= m_finestLevel; lev++)
-    {
-      const LevelData<FArrayBox>& levelLambda =  *m_adjVel[lev];
-      const LevelSigmaCS& levelCS = *m_coordSys[lev];
-    
-      // At this point we have stored
-      // H * mu * (grad(U)...) in m_vtFace (with muCoef = 1)
-      const LevelData<FluxBox>& levelVT =  *m_vtFace[lev];
-      const LevelData<FArrayBox>& levelMuCoef  =  *m_muCoef[lev];
-     
-      LevelData<FArrayBox>& levelG =  *a_g[lev];
-      const LevelData<FArrayBox>& levelU =  *m_velb[lev];
-      Box shrinkDomain = m_domain[lev].domainBox();
-      shrinkDomain.grow(-1);
-      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
-	{
-	  const FArrayBox& muCoef = levelMuCoef[dit];
-	  const FArrayBox& lambda = levelLambda[dit];
-	  const FluxBox& vt = levelVT[dit];
-	  
-	  Box box = m_grids[lev][dit];
-	  // exclude the domain boundary
-	  // \todo consider the domain boundary in g 
-	  box &= shrinkDomain;
-	  
-	  FArrayBox t(box,1);
-	  t.setVal(0.0);
-	  for (int facedir = 0; facedir < SpaceDim; facedir++)
-	    {
-	      const IntVect e = BASISV(facedir);
-	      for (BoxIterator bit(box);bit.ok();++bit)
-		{
-		  for (int dir = 0; dir < SpaceDim; dir++)
-		    {
-		      const IntVect& iv = bit();
-		      
-		      // t(iv) += (lambda(iv+e,dir)-lambda(iv,dir))* vt[facedir](iv+e,dir)
-		      // 	+ (lambda(iv,dir)-lambda(iv-e,dir))* vt[facedir](iv,dir) ;
-
-		    }
-		}
-	    }
-	  RealVect oneOnTwoDx = 1.0/ (2.0 * m_dx[lev]);
-	  t.mult(-oneOnTwoDx[0]);
-	  t.mult(muCoef); // todo : correct this so face-centered muCoef appears above
-	  RealVect oneOnDx = 1.0/ (m_dx[lev]);
-     
-	  const FArrayBox& grads = levelCS.getGradSurface()[dit];
-	  const FArrayBox& H = levelCS.getH()[dit];
-	  const FArrayBox& divuh = (*m_divUH[lev])[dit];
-	  const FArrayBox& divuhc = (*m_divUHCoef[lev])[dit];
-	  const FArrayBox& divuho = (*m_divUHObs[lev])[dit];
-	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
-	  const FArrayBox& u = levelU[dit];
-	  Real rhog = levelCS.gravity()*levelCS.iceDensity();
-	  for (int dir = 0; dir < SpaceDim; dir++)
-	    {
-	      const IntVect e = BASISV(dir);
-	      for (BoxIterator bit(box);bit.ok();++bit)
-		{
-		  const IntVect& iv = bit();
-		  // t(iv) -= rhog * H(iv) * grads(iv,dir) 
-		  //   * oneOnTwoDx[dir] * (lambda(iv+e,dir)-lambda(iv-e,dir)); 
-
-		  // a diffusion like term. 
-		  // if (m_outerCounter > 10)
-		  {
-		    t(iv) -= m_massImbalanceCoefficient * u(iv,dir) 
-		      * oneOnTwoDx[dir] *  divuhc(iv)*
-		      (divuh(iv+e) - divuho(iv+e) - divuh(iv-e) + divuho(iv-e));
-		  }
-	
-		  // thickness advection... need to work out the objective function, but...
-		  //    t(iv) += m_massImbalanceCoefficient  
-		  //	* divuhc(iv)* (divuh(iv) - divuho(iv));
-		    
-	
-
-
-		  if (mask(iv) != GROUNDEDMASKVAL)
-		    {
-		      //t(iv) = 0.0; // don't consider variation in H in the ice shelf
-		    }
-
-		}
-	    }
-	  
-	  
-	  
-
-
-	  if (m_boundMethod == Projection)
-	    {
-		const LevelData<FArrayBox>& levelX =  *a_x[lev];
-		const FArrayBox& thisX =  levelX[dit];
-		//FORT_MULTHATCTRL
-		
-		FORT_HARDPOINTINCTRL(CHF_FRA1(t,0),
-				     CHF_CONST_FRA1(thisX,HCOMP),
-				     CHF_CONST_REAL(m_lowerX2),
-				     CHF_CONST_REAL(m_upperX2),
-				     CHF_BOX(t.box()));
-	    }
-	  
-	  
-	  FArrayBox& thisG =  levelG[dit];
-	  thisG.plus(t,0,HCOMP);
-	  
-	}
-    }
 
   //dump data
   if (a_inner)
@@ -2040,7 +1762,6 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
   names.resize(0);
   names.push_back("X0");
   names.push_back("X1");
-  names.push_back("X2");
   names.push_back("C");
   names.push_back("Cwshelf");
   names.push_back("muCoef");
@@ -2058,7 +1779,6 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
   names.push_back("yAdjRhs");
   names.push_back("gradJC");
   names.push_back("gradJMuCoef");
-  names.push_back("gradJH");
   names.push_back("velc");
   names.push_back("thkc");
   names.push_back("divuhc");
@@ -2074,7 +1794,6 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
       int j = 0;
       a_x[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
       a_x[lev]->copyTo(Interval(1,1),data,Interval(j,j));j++;
-      a_x[lev]->copyTo(Interval(2,2),data,Interval(j,j));j++;
       //use m_Ccopy rather than m_C because m_C is set to zero in shelves etc
       m_Ccopy[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
       m_C[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;  
@@ -2088,7 +1807,6 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
       m_adjRhs[lev]->copyTo(Interval(0,1),data,Interval(j,j+1));j+=2;
       a_g[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
       a_g[lev]->copyTo(Interval(1,1),data,Interval(j,j));j++;
-      a_g[lev]->copyTo(Interval(2,2),data,Interval(j,j));j++;
       m_velCoef[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
       m_thkCoef[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;
       m_divUHCoef[lev]->copyTo(Interval(0,0),data,Interval(j,j));j++;

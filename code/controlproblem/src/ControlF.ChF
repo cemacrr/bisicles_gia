@@ -318,9 +318,13 @@ c also limit |h - ho| <= dhmax
 c----------------------------------------------------
 
       subroutine updatehctrlb(CHF_FRA1[h],
-     &     CHF_FRA1[topg], CHF_FRA1[dh],
-     &     CHF_CONST_FIA1[mask],  CHF_CONST_FRA1[ho],
-     &     CHF_CONST_REAL[r],CHF_CONST_REAL[dhmax],
+     &     CHF_FRA1[topg], 
+     &     CHF_FRA1[dh],
+     &     CHF_CONST_FIA1[mask],  
+     &     CHF_CONST_FRA1[ho],
+     &     CHF_CONST_REAL[r],
+     &     CHF_CONST_REAL[dhmax],
+     &     CHF_CONST_REAL[hmin],
      &     CHF_BOX[box])
 
       
@@ -336,11 +340,19 @@ c----------------------------------------------------
 
       t = h(CHF_AUTOIX[i])
       h(CHF_AUTOIX[i]) = h(CHF_AUTOIX[i]) + dh(CHF_AUTOIX[i])
+
+      if ( h(CHF_AUTOIX[i]) .lt. hmin) then
+         h(CHF_AUTOIX[i]) = zero
+      end if
+
       if ( h(CHF_AUTOIX[i]) .gt. ho(CHF_AUTOIX[i]) +  dhmax) then
          h(CHF_AUTOIX[i]) = ho(CHF_AUTOIX[i]) +  dhmax
-      else if (h(CHF_AUTOIX[i]) .lt. ho(CHF_AUTOIX[i]) - dhmax) then
-         h(CHF_AUTOIX[i]) = ho(CHF_AUTOIX[i]) -  dhmax
+      !else if (h(CHF_AUTOIX[i]) .lt. ho(CHF_AUTOIX[i]) - dhmax) then
+      !  h(CHF_AUTOIX[i]) = ho(CHF_AUTOIX[i]) -  dhmax
       end if
+
+      
+
       dh(CHF_AUTOIX[i]) = h(CHF_AUTOIX[i]) - t 
 !     h(CHF_AUTOIX[i]) = h(CHF_AUTOIX[i]) + dh(CHF_AUTOIX[i])
 !t = -h(CHF_AUTOIX[i])*r - topg(CHF_AUTOIX[i])
@@ -353,6 +365,10 @@ c----------------------------------------------------
          d = zero
       end if
       topg(CHF_AUTOIX[i]) = topg(CHF_AUTOIX[i]) + d
+
+     
+
+
       CHF_ENDDO
 
       return
