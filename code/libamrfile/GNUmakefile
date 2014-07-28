@@ -28,7 +28,7 @@ include $(CHOMBO_HOME)/mk/Make.example
 
 
 libamrfile.so: $(objects) testlibamrfile
-	$(CXX) -o libamrfile$(config).so -shared  $(objects)  $(CHOMBO_HOME)/libboxtools$(config).a $(CHOMBO_HOME)/libbasetools$(config).a $(HDFLIBFLAGS)
+	$(CXX) -o libamrfile.so -shared  $(objects)  $(CHOMBO_HOME)/libamrtools$(config).a $(CHOMBO_HOME)/libboxtools$(config).a $(CHOMBO_HOME)/libbasetools$(config).a $(HDFLIBFLAGS)
 
 doxygen:
 	mkdir -p doc/doxygen

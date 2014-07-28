@@ -15,7 +15,6 @@
 #include <iostream>
 #include <cstdlib>
 #include "libamrfile.H"
-#include "NamespaceHeader.H"
 
 int main(int argc, char* argv[]) {
 
@@ -59,7 +58,7 @@ int main(int argc, char* argv[]) {
       for (int i = 0; i < n_fab; i++)
 	{
 	  int nx, ny, ncomp;
-	  amr_query_fab_dimensions(&status, &nx, &ny, &ncomp, &amr_id, &lev, &i);
+	  amr_query_fab_dimensions_2d(&status, &nx, &ny, &ncomp, &amr_id, &lev, &i);
 
 	  if (status != 0)
 	    {
@@ -75,7 +74,7 @@ int main(int argc, char* argv[]) {
 	  double *y_data = new double[nyg];
 	  int comp = 0;
 	  
-	  amr_read_fab_data(&status, fab_data , x_data, y_data, &amr_id, &lev, &i, &comp, &nghost);
+	  amr_read_fab_data_2d(&status, fab_data , x_data, y_data, &amr_id, &lev, &i, &comp, &nghost);
 
 
 	  std::cout << " level = " << lev << " fab = " <<  i 
@@ -83,7 +82,8 @@ int main(int argc, char* argv[]) {
 	            << " " << x_data[0] << " <= x <= " << x_data[nx-1] 
 		    << " "  << y_data[0] << " <= y <= " << y_data[ny-1] 
 		    << std::endl;
-
+	  
+	
 	  if (status != 0)
 	    {
 	      exit(status);
@@ -98,11 +98,28 @@ int main(int argc, char* argv[]) {
 	    }
 
 	  
-	  amr_write_fab_data(&status, fab_data,  &nx, &ny , &amr_id, &lev, &i, &comp, &nghost);
+	  amr_write_fab_data_2d(&status, fab_data,  &nx, &ny , &amr_id, &lev, &i, &comp, &nghost);
 
 	  delete[] fab_data; 
 	  delete[] x_data;
 	  delete[] y_data;
+
+
+	  {
+	    int lo[2]; lo[0] = 0; lo[1] = 0;
+	    int hi[2]; hi[0] = 99; hi[1] = 99;
+	    fab_data = new double[100*100];
+	    x_data = new double[100];
+	    y_data = new double[100];
+	    lev = 1;
+	    comp = 0;
+	    amr_read_box_data_2d(&status, fab_data , x_data, y_data, &amr_id, &lev, lo, hi, &comp);
+
+	    delete[] fab_data; 
+	    delete[] x_data;
+	    delete[] y_data;
+	    
+	  }
 
 	}
     }
@@ -121,4 +138,3 @@ int main(int argc, char* argv[]) {
   return 0;
 }
 
-#include "NamespaceFooter.H"

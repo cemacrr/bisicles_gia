@@ -115,7 +115,7 @@ CXX           = g++
 FC            = gfortran
 #MPI           = TRUE
 ## Note: don't set the MPICXX variable if you don't have MPI installed
-#MPICXX        = mpic++
+MPICXX        = mpic++
 #OBJMODEL      =
 #XTRACONFIG    =
 ## Optional features
@@ -125,7 +125,7 @@ USE_64        = TRUE
 #USE_CCSE      =
 USE_HDF       = TRUE
 #make sure BISICLES_HOME is correct
-BISICLES_HOME=/local/BISICLES
+BISICLES_HOME=/data/ggslc/opt/BISICLES
 #note that HDFINCFLAGS and HDFLIBFLAGS must also currently be defined 
 # for parallel builds (due to a Chombo build-system ideosyncracy which 
 # will be fixed in an upcoming Chombo release). If no serial hdf5 build 
@@ -135,7 +135,7 @@ HDFINCFLAGS   = -I$(BISICLES_HOME)/hdf5/serial/include -DH5_USE_16_API
 HDFLIBFLAGS   = -L$(BISICLES_HOME)/hdf5/serial/lib -lhdf5 -lz
 ## Note: don't set the HDFMPI* variables if you don't have parallel HDF installed
 HDFMPIINCFLAGS= -I$(BISICLES_HOME)/hdf5/parallel/include -DH5_USE_16_API
-HDFMPILIBFLAGS= -L$(BISICLES_HOME)/hdf5/parallel/lib -lhdf5 -lz
+HDFMPILIBFLAGS= -L$(BISICLES_HOME)/hdf5/parallel/lib -lhdf5  -lz
 #USE_MF        =
 #USE_MT        =
 #USE_SETVAL    =
@@ -147,13 +147,13 @@ HDFMPILIBFLAGS= -L$(BISICLES_HOME)/hdf5/parallel/lib -lhdf5 -lz
 #RANLIB        =
 #cppdbgflags   =
 #cppoptflags   =
-cxxcppflags   = -fPIC
-#cxxdbgflags   =
-#cxxoptflags   =
+#cxxcppflags   = -fPIC
+cxxdbgflags    = -g -fPIC
+cxxoptflags    = -fPIC -O2
 #cxxprofflags  =
-#fcppflags     =
-fdbgflags     = -fbounds-check
-foptflags     = -O3
+#fcppflags     = -fPIC
+fdbgflags     =  -g -fPIC -fbounds-check
+foptflags     = -fPIC -O3 -ffast-math -funroll-loops 
 #fprofflags    =
 #flibflags     =
 #lddbgflags    =
@@ -163,4 +163,3 @@ syslibflags   = -lgfortran
 
 unexport BISICLES_HOME
 #end  -- dont change this line
-

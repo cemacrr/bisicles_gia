@@ -1,5 +1,3 @@
-#dyn.load("libamrfile2d.Linux.64.g++.gfortran.DEBUG.so")
-
 
 amr.load <- function(f)
   {
@@ -174,14 +172,14 @@ amr.query.nfab <- function(amrID, level)
 
 amr.read.fab <- function(amrID, level, fab, comp, ng=0)
   {
-    r <- .C("amr_query_fab_dimensions",
+    r <- .C("amr_query_fab_dimensions_2d",
            status=integer(1),nx=integer(1),ny=integer(1),
            ncomp=integer(1),amrID=as.integer(amrID),
            level=as.integer(level),fab=as.integer(fab))
 
     if (r$status == 0) {
   
-      s <- .C("amr_read_fab_data",
+      s <- .C("amr_read_fab_data_2d",
               status=integer(1),
               v=matrix(0,r$nx+2*ng,r$ny+2*ng),
               x=numeric(r$nx+2*ng),
@@ -201,9 +199,35 @@ amr.read.fab <- function(amrID, level, fab, comp, ng=0)
     }
   }
 
+
+amr.read.box <- function(amrID, level, lo, hi, comp)
+  {
+  
+    nx <- as.integer(hi[1]-lo[1]+1)
+    ny <- as.integer(hi[2]-lo[2]+1)
+    
+    s <- .C("amr_read_box_data_2d",
+            status=integer(1),
+            v=matrix(0,nx,ny),
+            x=numeric(nx),
+            y=numeric(ny),
+            amrID=as.integer(amrID),
+            level=as.integer(level),
+            lo=as.integer(lo),
+            hi=as.integer(hi),
+            comp=as.integer(comp))
+    if (s$status == 0){
+      s
+    } else {
+      -1
+    }
+  }
+
+
+
 amr.write.fab <- function(amrID, level, fab, fabdata, comp, ng=0)
   {
-    s <- .C("amr_write_fab_data",
+    s <- .C("amr_write_fab_data_2d",
             status=integer(1),
             v=as.double(fabdata),
             nx=as.integer(dim(fabdata)[1]-2*ng),

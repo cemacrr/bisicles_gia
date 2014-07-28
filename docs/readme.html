@@ -129,9 +129,9 @@ CC=gcc CFLAGS=-fPIC ./configure --prefix=$BISICLES_HOME/hdf5/serial/ --enable-sh
 </pre>
 note the --enable-shared=no. This isn't strictly necessary - you could use shared libraries -
 but we find they are more trouble than they are worth, especially when running on clusters.
-The -fPIC flag will be useful later if you want to build the experimental libamrfile.so 
+The -fPIC flag will be useful later if you want to build the experimental <a href='libamrfile.html'>libamrfile</a>
 shared library that can be used to manipulate Chombo (and BISICLES) output with languages 
-that support a plain C function calling convention, like FORTRAN 90 and GNU R (and hopefully MATLAB). 
+that support a plain C function calling convention, like FORTRAN 90, GNU R, Python and MATLAB. 
 Configure will spit out a long list of tests, and hopefully pass the all to produce a report
 that reads as follows:
 <pre>
@@ -282,17 +282,27 @@ cd petsc
 --prefix=/usr/local/petsc/petsc-maint-mpi --with-c2html=0
 </pre> 
 
+<strong>The current (3.5.0 in July 2014) PETSc needs --download-fblaslapack=yes rather than --download-f-blas-lapack=yes. 
+Chombo 3.2 will not compile against 3.5.0+ without some modifications (pending)</strong>
+
+
 The petsc install system is pretty helpful and will tell you what to do
 if it runs into problems (unlike, say, Chombo)
 
 <li> Follow the instructions to make and install the library
 
-<li> Finally, set the PETSC_DIR and PETSC_ARCH environment variables, which Chombo will use in order to find your PETSc installation.. For my installation (I'm using tcsh) 
+<li> Finally, set the PETSC_DIR and PETSC_ARCH environment variables, which Chombo will use in order to find your PETSc installation. For my installation (I'm using tcsh) 
 <pre>
 setenv PETSC_DIR /usr/local/petsc/petsc-maint-mpi
 setenv PETSC_ARCH arch-linux2-c-debug
 </pre>
+if using bash 
+<pre>
+export PETSC_DIR=/usr/local/petsc/petsc-maint-mpi
+export PETSC_ARCH=arch-linux2-c-debug
+</pre>
 
+<strong>The current (3.5.0 in July 2014) PETSc no longer needs PETSC_ARCH</strong>
 </ol>
 
 

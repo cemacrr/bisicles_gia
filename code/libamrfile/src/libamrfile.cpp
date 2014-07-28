@@ -14,8 +14,10 @@
  and write them 
 ==========================================================================*/
 #include "libamrfile.H"
+#include "FineInterp.H"
+#include "CoarseAverage.H"
 #include "AMRIO.H"
-#include "NamespaceHeader.H"
+
 
 class AMRHierarchy
 {
@@ -57,10 +59,10 @@ public:
   }
 
   //construct single level amr hierarchy
-  AMRHierarchy(D_DECL( int nx, int ny, int nz), double dx, int n_comp, int n_ghost)
+  AMRHierarchy(int nx, int ny, double dx, int n_comp, int n_ghost)
   {
     //one box for now
-    IntVect lim; D_TERM(lim[0] = nx - 1, ; lim[1] = ny -1 , ; lim[2] = nz -1);
+    IntVect lim; lim[0] = nx - 1 ; lim[1] = ny -1 ;
     
     m_crseBox = Box(IntVect::Zero,lim);
     DisjointBoxLayout dbl(Vector<Box>(1,m_crseBox),Vector<int>(1,0));
@@ -88,6 +90,7 @@ public:
   const Vector<DisjointBoxLayout>& grids() const {return m_grids;}
   const Vector<Real>& dx() const  {return m_dx;}
   const Vector<std::string>& names() const  {return m_names;}
+  const Vector<int>& ratio() const {return m_ratio;}
   int nLevel() const  {return m_nLevel;}
 
 
@@ -161,8 +164,8 @@ void amr_read_file_R(int *status, int *amr_id, char **file)
   amr_read_file(status,amr_id,*file);
 }
 
-void amr_create_coarse(int *status, int *amr_id, 
-		       D_DECL(const int *nx, const int *ny, const  int *nz), 
+void amr_create_coarse_2d(int *status, int *amr_id, 
+		       const int *nx, const int *ny,  
 		       const double* dx, const int* n_comp, const int* n_ghost)
 {
 
@@ -181,7 +184,7 @@ void amr_create_coarse(int *status, int *amr_id,
       return;
     }
 
-  AMRHierarchy* h = new AMRHierarchy(D_DECL(*nx, *ny, *nz), *dx, *n_comp, *n_ghost);
+  AMRHierarchy* h = new AMRHierarchy(*nx, *ny, *dx, *n_comp, *n_ghost);
  
   if (h->ok())
     {
@@ -467,12 +470,10 @@ void amr_query_n_fab(int *status, int *n_fab, const int *amr_id, const int *leve
       *status = LIBAMRFILE_ERR_NULL_POINTER;
     }
 
-
-
 }
 
-void amr_query_fab_dimensions(int *status, 
-			      D_DECL(int *nx, int *ny, int *nz),
+void amr_query_fab_dimensions_2d(int *status, 
+			      int *nx, int *ny,
 			      int *ncomp, 
 			      const int *amr_id, 
 			      const int *level_id, 
@@ -488,20 +489,11 @@ void amr_query_fab_dimensions(int *status,
       return;
     }
 
-#if CH_SPACEDIM > 1
   if (!ny)
     {
       *status = LIBAMRFILE_ERR_NULL_POINTER ;
       return;
     }
-#if CH_SPACEDIM > 2
-  if (!nz)
-    {
-      *status = LIBAMRFILE_ERR_NULL_POINTER ;
-      return;
-    }
-#endif
-#endif
 
 
   if (ncomp && amr_id && level_id && fab_id)
@@ -523,12 +515,7 @@ void amr_query_fab_dimensions(int *status,
 		  {
 		    const Box& b = i->second->grids()[*level_id][dit];
 		    *nx = b.bigEnd()[0] - b.smallEnd()[0] + 1;
-#if CH_SPACEDIM > 1
 		    *ny = b.bigEnd()[1] - b.smallEnd()[1] + 1;
-#if CH_SPACEDIM > 2
-		    *nz = b.bigEnd()[2] - b.smallEnd()[2] + 1;
-#endif
-#endif
 		    *ncomp = ldf.nComp();
 		    *status = 0;
 		  }
@@ -553,9 +540,10 @@ void amr_query_fab_dimensions(int *status,
     }
 }
 
-void amr_read_fab_data(int *status, 
+void amr_read_fab_data_2d(int *status, 
 		       double *fab_data, 
-		       D_DECL(double *x_data, double *y_data, double *z_data),
+		       double *x_data, 
+		       double *y_data,
 		       const int *amr_id, 
 		       const int *level_id, 
 		       const int* fab_id,
@@ -573,20 +561,12 @@ void amr_read_fab_data(int *status,
       return;
     }
 
-#if CH_SPACEDIM > 1
   if (!y_data)
     {
       *status =  LIBAMRFILE_ERR_NULL_POINTER;
       return;
     }
-#if CH_SPACEDIM > 2
-  if (!z_data)
-    {
-      *status =  LIBAMRFILE_ERR_NULL_POINTER;
-      return;
-    }
-#endif
-#endif
+
   
   if (fab_data  && amr_id && level_id && fab_id && comp_id && nghost)
     {
@@ -636,21 +616,12 @@ void amr_read_fab_data(int *status,
 		      {
 			*xptr++ = (double(ix)+0.5)*dx;
 		      }
-#if CH_SPACEDIM > 1
+
 		    double *yptr = y_data;
 		    for (int ix = b.smallEnd()[1] ; ix <= b.bigEnd()[1]; ix++)
 		      {
 			*yptr++ = (double(ix)+0.5)*dx;
 		      }
-#if CH_SPACEDIM > 2
-		    double *zptr = y_data;
-		    for (int ix = b.smallEnd()[2] ; ix <= b.bigEnd()[2]; ix++)
-		      {
-			*zptr++ = (double(ix)+0.5)*dx;
-		      }
-#endif
-#endif 
-
 
 		    *status = 0;
 		  }
@@ -675,14 +646,163 @@ void amr_read_fab_data(int *status,
     }
 }
 
-void amr_write_fab_data(int *status, 
-			double *fab_data, 
-			D_DECL(int *nx, int *ny, int *nz),
-			const int *amr_id, 
-			const int *level_id, 
-			const int* fab_id,
-			const int* comp_id,
-			const int* nghost)
+/**fill a_destData with piecewise constant data from a_srcData, 
+   when a_srcData is lower resolution, and the refinement ratio is a_nRef. 
+ */
+int upFill(LevelData<FArrayBox>& a_destData, const LevelData<FArrayBox>&  a_srcData, int a_nRef)
+{
+  int err = 0;
+  const DisjointBoxLayout& srcGrids = a_srcData.disjointBoxLayout();
+  const DisjointBoxLayout& destGrids = a_destData.disjointBoxLayout();
+  bool coarsenable = destGrids.coarsenable(a_nRef);
+  if ( coarsenable) 
+    {
+      const ProblemDomain& fineDomain = destGrids.physDomain();
+      FineInterp interpolator(destGrids, a_destData.nComp(), a_nRef, fineDomain);
+      interpolator.pwcinterpToFine(a_destData, a_srcData, false);
+    }
+  else if (a_nRef%2 == 0)
+    {
+      //interpolate coarse data recursively, refining the coarser level by a factor of 2 on each recursion.
+      DisjointBoxLayout stepGrids;
+      refine(stepGrids,srcGrids,2);
+      LevelData<FArrayBox> stepData(stepGrids,a_srcData.nComp(), a_srcData.ghostVect());
+      int err = upFill(stepData,  a_srcData,  2 );
+      if (err == 0)
+	err = upFill(a_destData, stepData, a_nRef/2);
+    }
+  else
+    {
+      err =  LIBAMRFILE_ERR_BAD_REFINEMENT_RATIO;
+    }
+}
+
+
+void amr_read_box_data_2d(int *status, 
+			      double *comp_data, 
+			      double *x_data, 
+			      double *y_data,
+			      const int *amr_id, 
+			      const int *level_id, 
+			      const int *lo,
+			      const int *hi,
+			      const int* comp_id)
+{
+
+  
+  if (!status)
+    return;
+
+  if (!x_data)
+    {
+      *status =  LIBAMRFILE_ERR_NULL_POINTER  ;
+      return;
+    }
+
+  if (!y_data)
+    {
+      *status =  LIBAMRFILE_ERR_NULL_POINTER;
+      return;
+    }
+
+  if (comp_data && x_data && y_data && amr_id && level_id && lo && hi && comp_id)
+    {
+
+      
+      std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
+      if (i != libamrfile::g_store.end())
+	{
+	  int nLevel =  i->second->nLevel();
+	  
+	  if (*level_id < nLevel)
+	    {
+	      const LevelData<FArrayBox>& ldf = *i->second->data()[*level_id];
+	      
+	      if (*comp_id < 0 || *comp_id >= ldf.nComp())
+		{
+		  *status = LIBAMRFILE_ERR_NO_SUCH_COMP;
+		  return;
+		}
+
+	      Real dx = i->second->dx()[*level_id];
+	      
+	      for (int dir = 0; dir < SpaceDim; dir++)
+		{
+		  if (hi[dir] < lo[dir])
+		    {
+		      *status = LIBAMRFILE_ERR_BAD_BOX;
+		      return;
+		    }
+		}
+	      Box box(IntVect(lo[0],lo[1]),IntVect(hi[0],hi[1]));
+	      if (!box.intersects(ldf.disjointBoxLayout().physDomain().domainBox()))
+		{
+		  *status = LIBAMRFILE_ERR_BAD_BOX;
+		  return;
+		}
+
+	      double *xptr = x_data;
+	      for (int ix = box.smallEnd()[0] ; ix <= box.bigEnd()[0]; ix++)
+		{
+		  *xptr++ = (double(ix)+0.5)*dx;
+		}
+
+	      double *yptr = y_data;
+	      for (int ix = box.smallEnd()[1] ; ix <= box.bigEnd()[1]; ix++)
+		{
+		  *yptr++ = (double(ix)+0.5)*dx;
+		}
+	      
+	      LevelData<FArrayBox> destData(DisjointBoxLayout(Vector<Box>(1,box),Vector<int>(1,0),
+							      ldf.disjointBoxLayout().physDomain())
+					    ,1,IntVect::Zero);
+	      *status = 0;
+	      for (int lev = 0; lev < *level_id; lev++)
+		{
+		  //coarse-to fine interpolation 
+		  LevelData<FArrayBox> alias; 
+		  aliasLevelData(alias, i->second->data()[lev] ,Interval(*comp_id,*comp_id));
+		  *status = upFill(destData, alias  , i->second->ratio()[lev]);
+		}
+	      if (*status == 0)
+		{
+		  //same level copy
+		  ldf.copyTo(Interval(*comp_id,*comp_id), destData, Interval(0,0));
+		  
+		  //fine-to-coarse averaging not needed? Assumes it has been done to ldf already
+		  
+		  //copy to argument buffer (hopefully allocated correctly)
+		  DataIterator dit(destData.disjointBoxLayout());
+		  dit.reset();
+		  destData[dit].linearOut((void*)comp_data,box,Interval(0,0));
+		}	 
+	    }
+	  else
+	    {
+	      *status =   LIBAMRFILE_ERR_NO_SUCH_LEVEL;
+	    }
+	}
+      else
+	{
+	  *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
+	}
+    }
+  else
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER;
+    }
+}
+
+
+
+void amr_write_fab_data_2d(int *status, 
+			   double *fab_data, 
+			   int *nx, int *ny,
+			   const int *amr_id, 
+			   const int *level_id, 
+			   const int* fab_id,
+			   const int* comp_id,
+			   const int* nghost)
 {
   if (!status)
     return;
@@ -693,20 +813,13 @@ void amr_write_fab_data(int *status,
       return;
     }
 
-#if CH_SPACEDIM > 1
    if (!ny)
      {
        *status = LIBAMRFILE_ERR_NULL_POINTER ;
        return;
      }
-#if CH_SPACEDIM > 2
-   if (!nz)
-     {
-       *status = LIBAMRFILE_ERR_NULL_POINTER ;
-       return;
-     }
-#endif
-#endif
+
+
 
    if ( !(fab_data && amr_id && level_id && fab_id && comp_id && nghost))
      {
@@ -772,4 +885,3 @@ void amr_write_fab_data(int *status,
 }
 
 
-#include "NamespaceFooter.H"

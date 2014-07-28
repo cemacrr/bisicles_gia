@@ -10,7 +10,7 @@ li:before { content: counters(item, ".") " "; counter-increment: item }
 <body>
 <a href='index.html'>User documentation index<a/>
 <h1>BISICLES driver executable</h1>
-</body>
+
 
 BISICLES' driver executable is used to run time-dependent ice sheet simulations.
 At the start of a  simulation, it carries out the following operations
@@ -19,7 +19,7 @@ At the start of a  simulation, it carries out the following operations
     Compute initial thickness, topography, temperature, damage and basal friction coeffcient 
     data over the whole domain on the base level (L = 0) mesh. This data might be loaded from a file through the
     <a href='leveldatainterface.html'>LevelData interface</a>, or retrieved from the
-    <a href='cisminterface.html'>CISM interface</a>, or computed through the 
+    <a href='cdriver.html'>cdriver interface</a> or <a href='cisminterface.html'>CISM interface</a>, or computed through the 
     <a href='pythoninterface.html'>Python interface</a>
   </li>
   <li>
@@ -59,4 +59,5 @@ It then runs the following operations until the simulation has completed
 </ol> 
 
 
-<head>
+</body>
+</html>

@@ -14,12 +14,11 @@
  C-interface functions to read Chombo's amr files and access their data
 ==========================================================================*/
 
-#include "SPACE.H"
-#include "NamespaceHeader.H"
 
-
+#ifdef __cplusplus
 extern "C"
   {
+#endif
 
 #define LIBAMRFILE_ERR_UNSPECIFIED   1
 #define LIBAMRFILE_ERR_READ_FAILED   2
@@ -33,7 +32,8 @@ extern "C"
 #define LIBAMRFILE_ERR_NO_SUCH_COMP 10
 #define LIBAMRFILE_ERR_CREATE_FAILED 11
 #define LIBAMRFILE_ERR_TOO_MANY_AMR_HIERARCHIES  12
-
+#define LIBAMRFILE_ERR_BAD_BOX 13
+#define LIBAMRFILE_ERR_BAD_REFINEMENT_RATIO 14
 
 #define LIBAMRFILE_MAX_AMR_HIERARCHIES 3
 
@@ -43,8 +43,8 @@ extern "C"
     void amr_read_file_R(int *status, int *amr_id, char **file);
 
     /// create a new amr structure with a coarse level only and n_components
-    void amr_create_coarse(int *status, int *amr_id, 
-			   D_DECL(const int *nx, const int *ny, const  int *nz), 
+    void amr_create_coarse_2d(int *status, int *amr_id, 
+			   const int *nx, const int *ny, 
 			   const double* dx, const int* n_comp, const int* n_ghost);
 
     /// write an amr file with data already in memory, lookup up via an integer id (amr_id).
@@ -72,38 +72,46 @@ extern "C"
 
     void amr_set_comp_name_R(int *status, const char **name, const int* amr_id, const int* comp);
 
-
-
     /// how many fabs are there in data amr_id level level_id ?
     void amr_query_n_fab(int *status, int *n_fab, const int *amr_id, const int *level_id);
 
     /// find dimensions and number of components given (amr_id, level_id, fab_id) 
-    void amr_query_fab_dimensions(int *status,D_DECL(int *nx, int *ny, int *nz),
-				  int *ncomp, 
-				  const int *amr_id, 
-				  const int *level_id, 
-				  const int* fab_id);
+    void amr_query_fab_dimensions_2d(int *status, int *nx, int *ny,  int *ncomp, 
+				     const int *amr_id, 
+				     const int *level_id, 
+				     const int* fab_id);
     /// read x,y,z and components data given (amr_id, level_id, fab_id, comp_id)?
-    void amr_read_fab_data(int *status, 
-			   double *fab_data, 
-			   D_DECL(double *x_data, double *y_data, double *z_data),
-			   const int *amr_id, 
-			   const int *level_id, 
-			   const int* fab_id,
-			   const int* comp_id,
-			   const int* nghost);
+    void amr_read_fab_data_2d(int *status, 
+			      double *fab_data, 
+			      double *x_data, 
+			      double *y_data,
+			      const int *amr_id, 
+			      const int *level_id, 
+			      const int* fab_id,
+			      const int* comp_id,
+			      const int* nghost);
+    /// read x,y and components data over a level lev box bounded by lo and hi, averaging and interpolating as needed
+    void amr_read_box_data_2d(int *status, 
+			      double *comp_data, 
+			      double *x_data, 
+			      double *y_data,
+			      const int *amr_id, 
+			      const int *level_id, 
+			      const int *lo,
+			      const int *hi,
+			      const int* comp_id);
 
     /// write component data given (amr_id, level_id, fab_id, comp_id)?
-    void amr_write_fab_data(int *status, 
-			    double *fab_data, 
-			    D_DECL(int *nx, int *ny, int *nz),
-			    const int *amr_id, 
-			    const int *level_id, 
-			    const int* fab_id,
-			    const int* comp_id,
-			    const int* nghost);
+    void amr_write_fab_data_2d(int *status, 
+			       double *fab_data, 
+			       int *nx, int *ny,
+			       const int *amr_id, 
+			       const int *level_id, 
+			       const int* fab_id,
+			       const int* comp_id,
+			       const int* nghost);
 
- 
+#ifdef __cplusplus
   }
+#endif
 
-#include "NamespaceFooter.H"

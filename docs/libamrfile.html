@@ -1,0 +1,107 @@
+<html>
+<head>
+  <title>BISICLES libamrfile</title>
+</head>
+<body>
+<a href='index.html'>User documentation index<a/>
+
+<h1>libamrfile : analyzing data with R, MATLAB, Python, etc</h1>
+
+
+  <p>
+    While <a href='https://wci.llnl.gov/codes/visit/home.html'>VisIt</a></li> is useful for plotting BISICLES output,
+it it often preferable to use popular tools such <a href='#gnur'>GNU R</a>, 
+<a href='#python'>Python</a>, or  <a href='#matlab'>MATLAB</a> to analyze BISICLES output.
+libamrfile is distributed with BISICLES and provides a C-compatible interface to Chombo AMR data that can
+be accessed through these common tools, and through various FORTRAN versions and of course C. Note that if
+you want to control BISICLES rather than analyze output, e.g to interface with an atmosphere model, 
+then the <a href='cdriver.html'>cdriver interface</a> is more suitable
+</p>
+
+<h2><a name="gnur">GNU R</h2>
+
+<h3>Installation</h3>
+libamrfile provide an R package: assuming that you can build
+Chombo and BISICLES, you can use the R package installer
+<pre>
+>cd $BISICLES_HOME/BISICLES/code
+>R CMD INSTALL libamrfile
+</pre> 
+This has not been widely tested, it works best if R has been compiled with the same compiler
+as BISICLES/Chombo, it can easily fall foul of static/shared library paths and so on. On the
+other hand, it will generally be installed on a system you have plenty of control over (ie
+a personal computer of some sort rather than a cluster), so issues should be soluble.
+
+If the installation is succesful, libamrfile can be imported into R in the usual way, ie
+<pre>
+require libamrfile
+</pre>
+
+<h3>amr.load, amr.free, amr.free.all</h3>
+
+The amr.load, amr.free and amr.free.all functions are used to load data from
+Chombo hdf5 files into memory, and to free that memory when it is no longer needed.
+While the Chombo data is in memory, the other R functions can access it via
+an integer ID.  So, R program will look something like:
+<pre>
+amrID1 <- amr.load("plot1.2d.hdf5") #load plot1 data
+amrID2 <- amr.load("plot2.2d.hdf5") #load plot2 data
+foo(amrID1,amrID2) #some function that acesses data from plot1 and plot2
+amr.free(amrID1) #free plot1 data from memory 
+baz(amrID1) # would fail, since this memory was freed
+bar(amrID2) # ought to succeed, since plot2 is still in memory
+amr.free.all() #any remaining memory is freed
+</pre>
+
+<h3>amr.read.box</h3>
+
+The easiset way to plot maps and integrate quantities of interest is through the
+the amr.read.box function. It allows the user to specify a rectangular box, defined as a grid on 
+one of the AMR levels, which will be filled with uniform resolution data derived from 
+AMR data. Some data might be piecewise interpolated from a coarser resolution part of the mesh, 
+other data could be averaged from finer resolution regions.  
+
+The example code below assumes a file named plot.amundsen.2d.hdf5 is in the current working directory
+<pre>
+require(libamrfile)
+amrID <- amr.load("plot.amundsen.2d.hdf5")
+
+THKID <- 0 #ice thickness ID : this determines which of the AMR data fields will be read
+
+#read a box of thickness data from level 0
+b0 <- amr.read.box(amrID,lev=0,lo=c(0,0),hi=c(128,128),comp=THKID)
+
+#read a box of thickness data from level 0. some of this data
+#will be copied from level 0, other data will be from finer levels
+b1 <- amr.read.box(amrID,lev=1,lo=c(50,50),hi=c(150,150),comp=THKID)
+
+#free up memory storing the the amr data
+amr.free(amrID)
+
+
+#plot box data 
+par(mfrow=c(1,1))
+thkzl <- c(1,4000.0) #suitable range for thickness data
+thkcol <- topo.colors(128)
+
+#low res data
+image(b0$x,b0$y,b0$v,zlim=thkzl,col=thkcol,xlab="x (m)", ylab="y (m)")
+contour(b0$x,b0$y,b0$v,add=TRUE,lev=c(0,500,1000,1500,2000))
+
+#paste the higher res data on top
+image(b1$x,b1$y,b1$v,add=TRUE,zlim=thkzl,col=thkcol)
+contour(b1$x,b1$y,b1$v,add=TRUE,lev=c(0,500,1000,1500,2000))
+#draw a border round the high res box
+dx = b1$x[2] - b1$x[1]
+rect(min(b1$x)-dx/2, min(b1$y)-dx/2,max(b1$x)+dx/2, max(b1$y)+ dx/2,border="pink")
+
+amr.free.all()
+</pre>
+
+<h2><a name="python">Python</h2>
+
+
+<h2><a name="matlab">MATLAB</h2>
+
+</body>
+</html>
