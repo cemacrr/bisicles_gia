@@ -649,7 +649,7 @@ void amr_read_fab_data_2d(int *status,
 /**fill a_destData with piecewise constant data from a_srcData, 
    when a_srcData is lower resolution, and the refinement ratio is a_nRef. 
  */
-int upFill(LevelData<FArrayBox>& a_destData, const LevelData<FArrayBox>&  a_srcData, int a_nRef)
+int upFill(LevelData<FArrayBox>& a_destData, const LevelData<FArrayBox>&  a_srcData, int a_nRef, int a_order)
 {
   int err = 0;
   const DisjointBoxLayout& srcGrids = a_srcData.disjointBoxLayout();
@@ -659,7 +659,14 @@ int upFill(LevelData<FArrayBox>& a_destData, const LevelData<FArrayBox>&  a_srcD
     {
       const ProblemDomain& fineDomain = destGrids.physDomain();
       FineInterp interpolator(destGrids, a_destData.nComp(), a_nRef, fineDomain);
-      interpolator.pwcinterpToFine(a_destData, a_srcData, false);
+      if (a_order == 0)
+	{
+	  interpolator.pwcinterpToFine(a_destData, a_srcData, false);
+	}
+      else if (a_order == 1)
+	{
+	  interpolator.interpToFine(a_destData, a_srcData, false);
+	}
     }
   else if (a_nRef%2 == 0)
     {
@@ -667,9 +674,9 @@ int upFill(LevelData<FArrayBox>& a_destData, const LevelData<FArrayBox>&  a_srcD
       DisjointBoxLayout stepGrids;
       refine(stepGrids,srcGrids,2);
       LevelData<FArrayBox> stepData(stepGrids,a_srcData.nComp(), a_srcData.ghostVect());
-      int err = upFill(stepData,  a_srcData,  2 );
+      int err = upFill(stepData,  a_srcData,  2, a_order );
       if (err == 0)
-	err = upFill(a_destData, stepData, a_nRef/2);
+	err = upFill(a_destData, stepData, a_nRef/2, a_order);
     }
   else
     {
@@ -686,7 +693,8 @@ void amr_read_box_data_2d(int *status,
 			      const int *level_id, 
 			      const int *lo,
 			      const int *hi,
-			      const int* comp_id)
+			      const int* comp_id,
+			      const int* interp_order)
 {
 
   
@@ -705,7 +713,24 @@ void amr_read_box_data_2d(int *status,
       return;
     }
 
-  if (comp_data && x_data && y_data && amr_id && level_id && lo && hi && comp_id)
+  if (!interp_order)
+    {
+      *status =  LIBAMRFILE_ERR_BAD_INTERPOLATION_ORDER;
+      return;
+    }
+  //interpolation order must be 0 or 1
+  if (*interp_order < 0)
+    {
+      *status =  LIBAMRFILE_ERR_BAD_INTERPOLATION_ORDER;
+      return;
+    }
+  if (*interp_order > 1)
+    {
+      *status =  LIBAMRFILE_ERR_BAD_INTERPOLATION_ORDER;
+      return;
+    }
+
+  if (comp_data && x_data && y_data && amr_id && level_id && lo && hi && comp_id )
     {
 
       
@@ -762,7 +787,7 @@ void amr_read_box_data_2d(int *status,
 		  //coarse-to fine interpolation 
 		  LevelData<FArrayBox> alias; 
 		  aliasLevelData(alias, i->second->data()[lev] ,Interval(*comp_id,*comp_id));
-		  *status = upFill(destData, alias  , i->second->ratio()[lev]);
+		  *status = upFill(destData, alias  , i->second->ratio()[lev], *interp_order);
 		}
 	      if (*status == 0)
 		{

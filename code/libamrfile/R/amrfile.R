@@ -99,6 +99,11 @@ amr.query.ncomp <- function(amrID, level)
 
 }
 
+amr.query.compid <- function(amrID, name)
+{
+  names <- amr.query.compnames(amrID)
+  which(names == name) - 1 # components start at zero...
+}
 
 amr.query.compnames <- function(amrID)
 {
@@ -172,6 +177,13 @@ amr.query.nfab <- function(amrID, level)
 
 amr.read.fab <- function(amrID, level, fab, comp, ng=0)
   {
+
+    if (is.character(comp))
+      {
+        #look up the ID
+        comp <- amr.query.compid(amrID,comp)
+      }
+    
     r <- .C("amr_query_fab_dimensions_2d",
            status=integer(1),nx=integer(1),ny=integer(1),
            ncomp=integer(1),amrID=as.integer(amrID),
@@ -200,9 +212,16 @@ amr.read.fab <- function(amrID, level, fab, comp, ng=0)
   }
 
 
-amr.read.box <- function(amrID, level, lo, hi, comp)
+amr.read.box <- function(amrID, level, lo, hi, comp, interpolation_order = 0)
   {
-  
+    compID <- comp
+    if (is.character(comp))
+      {
+        #look up the ID
+        compID <- amr.query.compid(amrID,comp)
+      }
+    
+
     nx <- as.integer(hi[1]-lo[1]+1)
     ny <- as.integer(hi[2]-lo[2]+1)
     
@@ -215,7 +234,8 @@ amr.read.box <- function(amrID, level, lo, hi, comp)
             level=as.integer(level),
             lo=as.integer(lo),
             hi=as.integer(hi),
-            comp=as.integer(comp))
+            comp=as.integer(compID),
+            interpolation_order=as.integer(interpolation_order))
     if (s$status == 0){
       s
     } else {
@@ -223,10 +243,30 @@ amr.read.box <- function(amrID, level, lo, hi, comp)
     }
   }
 
-
+amr.readgrad.box <- function(amrID, level, lo, hi, comp)
+  {
+    r <- amr.read.box(amrID, level, lo, hi, comp, interpolation_order = 1)
+    nx <- length(r$x)
+    ny <- length(r$y)
+    dx <- r$x[2] - r$x[1]
+    dy <- r$y[2] - r$y[1]
+    list(x = r$x,
+         y = r$y,
+         xf = 0.5*(r$x[-1]+r$x[-nx]),
+         yf = 0.5*(r$y[-1]+r$x[-ny]),
+         dvdx = (r$v[-1,] - r$v[-nx,])/dx,
+         dvdy = (r$v[,-1] - r$v[,-ny])/dy) 
+  }
 
 amr.write.fab <- function(amrID, level, fab, fabdata, comp, ng=0)
   {
+    
+    if (is.character(comp))
+      {
+        #look up the ID
+        comp <- amr.query.compid(amrID,comp)
+      }
+    
     s <- .C("amr_write_fab_data_2d",
             status=integer(1),
             v=as.double(fabdata),

@@ -113,7 +113,8 @@ int main(int argc, char* argv[]) {
 	    y_data = new double[100];
 	    lev = 1;
 	    comp = 0;
-	    amr_read_box_data_2d(&status, fab_data , x_data, y_data, &amr_id, &lev, lo, hi, &comp);
+	    int order = 0;
+	    amr_read_box_data_2d(&status, fab_data , x_data, y_data, &amr_id, &lev, lo, hi, &comp, &order);
 
 	    delete[] fab_data; 
 	    delete[] x_data;

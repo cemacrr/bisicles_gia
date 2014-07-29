@@ -84,7 +84,7 @@ amr.free.all() #any remaining memory is freed
 The easiset way to plot maps and integrate quantities of interest is through the
 the amr.read.box function. It allows the user to specify a rectangular box, defined as a grid on 
 one of the AMR levels, which will be filled with uniform resolution data derived from 
-AMR data. Some data might be piecewise interpolated from a coarser resolution part of the mesh, 
+AMR data. Some data might be piecewise or linearly interpolated from a coarser resolution part of the mesh, 
 other data could be averaged from finer resolution regions.  
 
 The example code below assumes a file named plot.amundsen.2d.hdf5 is in the current working directory
@@ -92,14 +92,18 @@ The example code below assumes a file named plot.amundsen.2d.hdf5 is in the curr
 require(libamrfile)
 amrID <- amr.load("plot.amundsen.2d.hdf5")
 
-THKID <- 0 #ice thickness ID : this determines which of the AMR data fields will be read
 
 #read a box of thickness data from level 0
-b0 <- amr.read.box(amrID,lev=0,lo=c(0,0),hi=c(128,192),comp=THKID)
+
+b0 <- amr.read.box(amrID,lev=0,lo=c(0,0),hi=c(128,128),comp="thickness")
+
 
 #read a box of thickness data from level 0. some of this data
 #will be copied from level 0, other data will be from finer levels
-b1 <- amr.read.box(amrID,lev=1,lo=c(50,50),hi=c(120,120),comp=THKID)
+
+#here we use piecewise interpolation, use interpolation_order=1 for linear
+b1 <- amr.read.box(amrID,lev=1,lo=c(50,50),hi=c(150,150),comp="thickness",interpolation_order=0)
+
 
 #free up memory storing the the amr data
 amr.free(amrID)

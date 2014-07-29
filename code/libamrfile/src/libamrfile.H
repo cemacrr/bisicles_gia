@@ -34,7 +34,7 @@ extern "C"
 #define LIBAMRFILE_ERR_TOO_MANY_AMR_HIERARCHIES  12
 #define LIBAMRFILE_ERR_BAD_BOX 13
 #define LIBAMRFILE_ERR_BAD_REFINEMENT_RATIO 14
-
+#define LIBAMRFILE_ERR_BAD_INTERPOLATION_ORDER 15
 #define LIBAMRFILE_MAX_AMR_HIERARCHIES 3
 
     /// read in amr file into memory, provide an integer id (amr_id). Although
@@ -99,7 +99,8 @@ extern "C"
 			      const int *level_id, 
 			      const int *lo,
 			      const int *hi,
-			      const int* comp_id);
+			      const int* comp_id,
+			      const int* interp_order);
 
     /// write component data given (amr_id, level_id, fab_id, comp_id)?
     void amr_write_fab_data_2d(int *status, 
