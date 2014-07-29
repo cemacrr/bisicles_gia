@@ -18,6 +18,32 @@ you want to control BISICLES rather than analyze output, e.g to interface with a
 then the <a href='cdriver.html'>cdriver interface</a> is more suitable
 </p>
 
+<p>
+We will need to build a shared library (libamrfile.so) as part of the installation process. On some common
+platforms (such as the ubiquitous X86_64 with GNU compilers), the -fPIC compiler flags is needed for
+both C++ and Chombo Fortran (ChF) components. Make sure the -fPIC flag is set in your Make.defs.local file, e.g
+</p>
+<pre>
+cxxdbgflags   = -fPIC
+cxxoptflags   = -fPIC
+fdbgflags     = -fPIC -fbounds-check
+foptflags     = -fPIC -O3
+</pre>
+These flags are already set in the current version of Make.defs.local in $BISICLES_HOME/BISICLES/docs, but were not
+set in older versions. If you see an error like
+<pre>
+/usr/bin/ld: $BISICLES_HOME/Chombo/lib/libamrtools2d.Linux.64.g++.gfortran.DEBUG.a(AverageF.o): relocation R_X86_64_32 against `.rodata' can not be used when making a shared object; recompile with -fPIC
+$BISICLES_HOME/Chombo/lib/libamrtools2d.Linux.64.g++.gfortran.DEBUG.a: error adding symbols: Bad value
+collect2: error: ld returned 1 exit status
+make[1]: *** [libamrfile.so] Error 1
+</pre>
+Then you need to set these flags, and remove older object files
+<pre>
+> cd $BISICLES_HOME/Chombo/lib
+> make clean
+</pre>
+
+
 <h2><a name="gnur">GNU R</h2>
 
 <h3>Installation</h3>
@@ -69,11 +95,11 @@ amrID <- amr.load("plot.amundsen.2d.hdf5")
 THKID <- 0 #ice thickness ID : this determines which of the AMR data fields will be read
 
 #read a box of thickness data from level 0
-b0 <- amr.read.box(amrID,lev=0,lo=c(0,0),hi=c(128,128),comp=THKID)
+b0 <- amr.read.box(amrID,lev=0,lo=c(0,0),hi=c(128,192),comp=THKID)
 
 #read a box of thickness data from level 0. some of this data
 #will be copied from level 0, other data will be from finer levels
-b1 <- amr.read.box(amrID,lev=1,lo=c(50,50),hi=c(150,150),comp=THKID)
+b1 <- amr.read.box(amrID,lev=1,lo=c(50,50),hi=c(120,120),comp=THKID)
 
 #free up memory storing the the amr data
 amr.free(amrID)
@@ -97,6 +123,11 @@ rect(min(b1$x)-dx/2, min(b1$y)-dx/2,max(b1$x)+dx/2, max(b1$y)+ dx/2,border="pink
 
 amr.free.all()
 </pre>
+<p>
+The resulting figure should show a color-map and contour plot of ice thickness, with
+a high resolution box
+</p>
+<img src='libamrfile_amr_read_box.png'/ alt=' color-map and contour plot of ice thickness produced in R amr.read.box()'>
 
 <h2><a name="python">Python</h2>
 
