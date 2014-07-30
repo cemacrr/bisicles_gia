@@ -36,4 +36,4 @@ libamrfile.amr_read_box_data_2d(pointer(c_int(status)),
 libamrfile.amr_free(pointer(c_int(status)), pointer(c_int(amrID))) 
 xx, yy = np.meshgrid(x, y)
 plt.pcolormesh(thk.transpose())
-plt.show()
+plt.savefig("test.png")
