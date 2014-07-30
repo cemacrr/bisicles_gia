@@ -31,8 +31,18 @@ class AMRHierarchy
   int m_nLevel;
   bool m_ok;
   Box m_crseBox;
+  std::map<std::string,int> m_nameCompMap;
 
   AMRHierarchy();
+
+  void updateNameCompMap()
+  {
+    m_nameCompMap.clear();
+    for (int i = 0; i < m_names.size(); i++)
+      {
+	m_nameCompMap[m_names[i]] = i;
+      }
+  }
 
 public:
 
@@ -55,6 +65,7 @@ public:
       {
 	m_data[lev]->exchange();
       }
+    updateNameCompMap();
     m_ok = status == 0;
   }
 
@@ -80,6 +91,7 @@ public:
 	sprintf(name,"component%i",i);
 	m_names[i] = name; 
       }
+    updateNameCompMap();
     m_ok = true;
   }
   
@@ -91,13 +103,17 @@ public:
   const Vector<Real>& dx() const  {return m_dx;}
   const Vector<std::string>& names() const  {return m_names;}
   const Vector<int>& ratio() const {return m_ratio;}
+  const std::map<std::string,int>& nameCompMap() const {return m_nameCompMap;}
   int nLevel() const  {return m_nLevel;}
 
 
   void setName(int comp, const std::string& name)
   {
     if (comp >= 0 && m_names.size() > comp )
-      m_names[comp] = name;
+      {
+	m_names[comp] = name;
+	updateNameCompMap();
+      }
   }
 
   int write(const std::string& file)
@@ -287,13 +303,13 @@ void amr_free(int *status, int *amr_id)
 
 }
 
-void amr_query_comp_name(int *status, char *file, const int* amr_id, const int* comp, const int* buflen)
+void amr_query_comp_name(int *status, char *name, const int* amr_id, const int* comp, const int* namelen)
 {
 
   if (!status)
     return;
 
-  if (amr_id && comp && buflen && file)
+  if (amr_id && comp && namelen && name)
     {
       std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
       if (i != libamrfile::g_store.end())
@@ -304,8 +320,13 @@ void amr_query_comp_name(int *status, char *file, const int* amr_id, const int* 
 	      if (*comp < h.names().size())
 		{
 		  int c = *comp;
-		  int l = *buflen;
-		  strncpy( file, h.names()[c].c_str(), l); 
+		  int l = *namelen;
+		  strncpy( name, h.names()[c].c_str(), l);
+		  *status = 0;
+		}
+	      else
+		{
+		  *status = LIBAMRFILE_ERR_NO_SUCH_COMP;
 		}
 	    }
 	  else
@@ -325,11 +346,61 @@ void amr_query_comp_name(int *status, char *file, const int* amr_id, const int* 
 
 }
 
-void amr_query_comp_name_R(int *status, char **file, const int* amr_id, const int* comp, const int* buflen)
+void amr_query_comp_id(int *status, int *comp, 
+		       const int* amr_id, const char* name , const int* namelen)
 {
-  amr_query_comp_name(status, *file, amr_id, comp, buflen);
+
+  if (!status)
+    return;
+
+  if (amr_id && comp && namelen && name && namelen)
+    {
+      std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
+      if (i != libamrfile::g_store.end())
+	{
+	  if (i->second)
+	    {
+	      const AMRHierarchy& h = *i->second;
+	      std::map<std::string,int>::const_iterator j = h.nameCompMap().find(std::string(name, *namelen));
+	      if (j == h.nameCompMap().end())
+		{
+		  *comp = -1;
+		  *status = LIBAMRFILE_ERR_NO_SUCH_COMP;
+		}
+	      else
+		{
+		  *comp = j->second;
+		  *status = 0;
+		}
+	      
+	    }
+	  else
+	    {
+	      *status = LIBAMRFILE_ERR_NULL_POINTER;
+	    }
+	}
+      else
+	{
+	  *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
+	}
+    }
+  else
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER;
+    }
+
 }
 
+
+void amr_query_comp_name_R(int *status, char **name, const int* amr_id, const int* comp, const int* namelen)
+{
+  amr_query_comp_name(status, *name, amr_id, comp, namelen);
+}
+
+void amr_query_comp_id_R(int *status, int *comp, const int* amr_id, const char** name, const int* namelen)
+{
+  amr_query_comp_id(status, comp, amr_id, *name, namelen);
+}
 
 void amr_set_comp_name(int *status, const char *name, const int* amr_id, const int* comp)
 {

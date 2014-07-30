@@ -26,7 +26,24 @@ def freeAll(amrID):
     libamrfile.amr_free_all(pointer(c_int(status)))
     __error__(status)
 
+def queryCompID(amrID, name):
+    #look up component ID by name
+    status = c_int(-1)
+    comp = c_int(-1)
+    namelen = c_int(len(name))
+    libamrfile.amr_query_comp_id(pointer(status), pointer(comp), pointer(amrID), name, pointer(namelen))
+    __error__(status)
+    return comp.value
+
 def readBox2D(amrID, level, lo, hi, component, interpolationOrder = 0):
+
+    compid = c_int(-1)
+    if (isinstance(component,str)):
+        compid = c_int(queryCompID(amrID, component))
+    elif (isinstance(component,int)):
+        compid = c_int(component)               
+    
+
     status = c_int(-1)
     nx = hi[0] - lo[0]+1
     ny = hi[1] - lo[1]+1
@@ -44,7 +61,7 @@ def readBox2D(amrID, level, lo, hi, component, interpolationOrder = 0):
                                     pointer(c_int(level)), 
                                     nplo.ctypes.data_as(POINTER(c_int)), 
                                     nphi.ctypes.data_as(POINTER(c_int)), 
-                                    pointer(c_int(component)), 
+                                    pointer(compid), 
                                     pointer(c_int(interpolationOrder)))
 
     __error__(status)

@@ -64,8 +64,12 @@ extern "C"
     void amr_query_n_comp(int *status, int* n_comp, const int* amr_id);
 
     /// retrieve the first buflen characters of the name of component comp?
-    void amr_query_comp_name(int *status, char *file, const int* amr_id, const int* comp, const int* buflen);
-    void amr_query_comp_name_R(int *status, char **file, const int* amr_id, const int* comp, const int* buflen);
+    void amr_query_comp_name(int *status, char *name, const int* amr_id, const int* comp, const int* buflen);
+    void amr_query_comp_name_R(int *status, char **name, const int* amr_id, const int* comp, const int* buflen);
+
+    /// look up component number (int) given a name (char*)
+    void amr_query_comp_id(int *status, int *comp, const int* amr_id, const char* name , const int* namelen);
+    void amr_query_comp_id_R(int *status, int *comp, const int* amr_id, const char** name, const int* namelen);
 
     /// set the name of component comp
     void amr_set_comp_name(int *status, const char *name, const int* amr_id, const int* comp);
