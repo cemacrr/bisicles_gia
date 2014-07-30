@@ -1,39 +1,54 @@
-from ctypes import *;
+from amrfile import io as amrio
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as col
+import matplotlib.patches as pat
 
-libamrfile = CDLL("libamrfile.so")
+amrID = amrio.load("plot.amundsen.2d.hdf5")
+
+thkcomp = 0
+thklim = col.Normalize(0.0,4000.0) # limits for thickness colormap
+thkc = [0,1000,1500,2000]
+#read a box of thickness data at the lowest resolution
+lo = [0,0]
+hi = [127,191]
+order = 0 # interpolation order, 0 for piecewise constant, 1 for linear
+level = 0
+x0,y0,thk0 = amrio.readBox2D(amrID, level, lo, hi, thkcomp, order)
+
+#set up figure axes
+asp = (max(y0)-min(y0))/(max(x0)-min(x0))
+fig = plt.figure(1,figsize=(3, 3*asp))
+plt.xlim (min(x0),max(x0))
+plt.ylim (min(y0),max(y0))
+plt.xticks([0,250e+3,500e+3])
+plt.yticks([0,250e+3,500e+3],rotation=90)
+
+#color and contour plot
+fig = plt.pcolormesh(x0,y0,thk0,norm=thklim,figure=fig)
+cs = plt.contour(x0,y0,thk0,thkc,figure=fig,norm=thklim,colors='black')
+
+plt.clabel(cs, inline=1, fontsize=10)
+#read thickness data at level 1 resolution
+lo = [50,50]
+hi = [150,150]
+level = 1
+x1,y1,thk1 = amrio.readBox2D(amrID, level, lo, hi, thkcomp, order)
+plt.pcolormesh(x1,y1,thk1,figure=fig,norm=thklim)
+plt.contour(x1,y1,thk1,thkc,figure=fig,norm=thklim,colors='black')
+
+#rectangle around the highres area
+dx = x1[1] - x1[0]
+c=[min(x1)-dx/2.0,min(y1)-dx/2.0]
+w = max(x1)-min(x1) + dx/2.0
+h = max(y1)-min(y1) + dx/2.0
+plt.gca().add_patch(pat.Rectangle((min(x1)-dx/2.0,min(y1)-dx/2.0) , w, h, edgecolor = 'pink', fill=False))
 
 
-filename="plot.amundsen.2d.hdf5"
-status=0
-amrID=0
-libamrfile.amr_read_file(pointer(c_int(status)), pointer(c_int(amrID)), filename) 
-ox = 0
-oy = 0
-nx = 127
-ny = 127
-x = np.zeros(nx)
-y = np.zeros(ny)
-thk = np.asfortranarray(np.zeros((nx,ny)))
-lo = np.intc([ox+0,oy+0])
-hi = np.intc([ox+nx-1,oy+ny-1])
-interp = 0
-lev=0
-comp=0
 
-libamrfile.amr_read_box_data_2d(pointer(c_int(status)), 
-                                thk.ctypes.data_as(POINTER(c_double)), 
-                                x.ctypes.data_as(POINTER(c_double)),
-                                y.ctypes.data_as(POINTER(c_double)), 
-                                pointer(c_int(amrID)), 
-                                pointer(c_int(lev)), 
-                                lo.ctypes.data_as(POINTER(c_int)), 
-                                hi.ctypes.data_as(POINTER(c_int)), 
-                                pointer(c_int(comp)), 
-                                pointer(c_int(interp)))
 
-libamrfile.amr_free(pointer(c_int(status)), pointer(c_int(amrID))) 
-xx, yy = np.meshgrid(x, y)
-plt.pcolormesh(thk.transpose())
-plt.savefig("test.png")
+plt.savefig("libamrfile_python.png")
+
+
+
+amrio.free(amrID)
