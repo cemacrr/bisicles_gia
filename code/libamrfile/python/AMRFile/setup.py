@@ -7,7 +7,6 @@ setup(
     author='Stephen l Cornford',
     author_email='ggslc@bristol.ac.uk',
     packages=['amrfile'],
-    scripts=[],
     url='http://bisicles.lbl.gov',
     license='LICENSE.txt',
     description='Access to Chombo AMR data stored in hdf5 files',
