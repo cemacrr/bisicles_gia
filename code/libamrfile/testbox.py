@@ -18,7 +18,7 @@ x0,y0,thk0 = amrio.readBox2D(amrID, level, lo, hi, thkcomp, order)
 
 #set up figure axes
 asp = (max(y0)-min(y0))/(max(x0)-min(x0))
-fig = plt.figure(1,figsize=(3, 3*asp))
+fig = plt.figure(1,figsize=(6, 6*asp))
 plt.xlim (min(x0),max(x0))
 plt.ylim (min(y0),max(y0))
 plt.xticks([0,250e+3,500e+3])
