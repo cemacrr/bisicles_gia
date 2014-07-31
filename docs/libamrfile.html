@@ -176,7 +176,7 @@ an c_int ID.  So, Python programs will look something like:
 >>> amrio.free(amrID1)
 >>> #operations should no longer able to access plot1 data through amrID1
 >>> amrio.freeAll()
->>> #operations should no longer able to access any through amrID1
+>>> #operations should no longer able to access any data
 </pre>
 
 
@@ -248,8 +248,158 @@ a high resolution box
 
 
 <h2><a name="matlab">MATLAB</h2>
+<p>
+MATLAB access is through a collection of functions that 
+interface with the shared library (libamrfile.so).
+First, the libary needs to be built 
+</p>
+<pre>
+> cd $BISICLES_HOME/BISICLES/code/libamrfile
+> make libamrfile.so 
+</pre>
+<p>
+Then, add $BISICLES_HOME/BISICLES/code/libamrfile/matlab to the MATLAB search path.
+There are a number of issues associated with MATLAB's tendency to carry
+around (potentially conflicting) versions of shared libraries around, those we
+have seen are described <a href='#matlablibs'>below</a>
+</p>
 
-<p>To come once we figure out how to make MATLAB load the correct libstdc++</p>
+
+<h3>amr_load, amr_free, amr_free_alll</h3>
+
+The amr_load, amr_free, and amr_free_all functions are used to load data from
+Chombo hdf5 files into memory, and to free that memory when it is no longer needed.
+While the Chombo data is in memory, the other MATLAB functions can access it via
+an pointer to an integer ID.  So, MATLAB programs will look something like:
+<pre>
+>> amrID1 = amr_load('plot1.2d.hdf5');
+>> amrID2 = amr_load('plot2.2d.hdf5');
+>> %operations should be able to access plot1 and plot2 data through amrID1 and amrDI2
+>> amr_free(amrID1)
+>> %operations should no longer able to access plot1 data through amrID1
+>> amr_free_all()
+>> %operations should no longer able to access any data
+</pre>
+
+<h3>amr_read_box_2d</h3>
+<p>
+The easiest way to plot maps and integrate quantities of interest is through the
+the amr_read_box_2d function. It allows the user to specify a rectangular box, defined as a grid on 
+one of the AMR levels, which will be filled with uniform resolution data derived from 
+AMR data. Some data might be piecewise or linearly interpolated from a coarser resolution part of the mesh, 
+other data could be averaged from finer resolution regions.  
+</p>
+<p>
+The example code below assumes a file named plot.amundsen.2d.hdf5 is in the current working directory
+</p>
+<pre>
+amrID = amr_load('plot.amundsen.2d.hdf5');
+thkname = 'thickness'; % name of the ice thickness data
+thkrange = [0,4000.0]; %sensible range for thickness data
+%read data at the coarsest (level 0 resolution)
+level = 0;
+lo = [0,0]; hi = [127,191]; %box corners
+interp_order = 0; %0 for piecewise constant interpolation, 1 for linear
+[ x0,y0,thk0 ] = amr_read_box_2d( amrID, level, lo, hi, thkname, interp_order  );
+
+hold off;
+imagesc(x0,y0,thk0,thkrange); colorbar();
+axis image % make the pixel aspect ratio 1:1
+set(gca,'ydir','normal'); %put thk(1,1) at the bottom left
+hold on; 
+
+thkc = [500.0,1000.0,1500.0,2000.0];
+
+%read data at a finer (level 1 resolution)
+level = 1;
+lo = [50,50]; hi = [150,150]; %box corners
+interp_order = 0; %0 for piecewise constant interpolation, 1 for linear
+[ x1,y1,thk1 ] = amr_read_box_2d( amrID, level, lo, hi, thkname, interp_order  );
+%imagesc(x1,y1,thk1,thkrange);
+%draw a rectange around the high res data
+dx = x1(2)- x1(1);
+w = max(x1)-min(x1)+dx;
+h = max(y1)-min(y1)+dx;
+rectangle('Position',[min(x1)-dx/2.0,min(y1)-dx/2.0,w,h]);
+
+amr_free(amrID);
+</pre>
+<p>
+The resulting figure should show a color-map  of ice thickness, with
+a high resolution box
+</p>
+<img src='libamrfile_matlab.png'/ alt=' color-map of ice thickness produced in MATLAB 
+with amr_read_box_2d()'>
+
+<h3><a name='matlablibs'>MATLAB issues</a></h3>
+<p>
+MATLAB carries around some system libraries in case
+the installed operating system lacks them. You may find that when you attampt to load the shared library, you see an error along the lines of
+</p>
+<pre>
+>> loadlibrary('libamrfile.so','src/libamrfile.H')
+Error using loadlibrary (line 419)
+There was an error loading the library
+"$BISICLES_HOME/BISICLES/code/libamrfile/libamrfile.so"
+/opt/matlab-R2013a/bin/glnxa64/../../sys/os/glnxa64/libstdc++.so.6: version
+`GLIBCXX_3.4.15' not found (required by
+$BISICLES_HOME/BISICLES/code/libamrfile/libamrfile.so)
+</pre>
+<p>
+There is a note included with MATLAB, e.g
+</p> 
+<pre>
+> cat /opt/matlab-R2013a/sys/os/glnxa64/README.libstdc++ 
+
+The GCC runtime libraries included here:
+
+    libstdc++.so.6.0.13 libgcc_s.so.1 libgfortran.so.3.0.0 
+
+and associated symlinks are part of gcc-4.4.6,
+available from ftp.gnu.org.  They are included with MATLAB
+in the event that your distribution does not provide them.
+</pre>
+<p>
+Even when a directory containing a newer version of libstdc++
+is named in LD_LIBRARY_PATH, MATLAB loads its own.
+</p>
+</p>
+One way to be compatible with MATLAB might be to compile 
+Chombo and BISICLES and libamrfile with the same tool chain 
+(gcc-4.4.6 in this case, and hdf5 v 1.8.6). That might not be realistic, for example at
+UoB we have gcc-4.7.2 and no desire to switch back to gcc-4.4.6. 
+Forcing MATLAB to load the newer libstdc++ by unlinking the symlinks
+in /&lt;path-to-MATLAB&gt;/sys/os/glnxa64/ seems to work 
+</p>
+<pre>
+> cd /&lt;path-to-MATLAB&gt;/sys/os/glnxa64/
+> unlink libstdc++.so.6
+> unlink libgfortran.so.3
+</pre>
+Obviously, write access to the MATLAB directories is needed.
+You might also need to unlink and replace MATLAB's own copies of 
+libhdf5_hl.so and libhdf5.so: they are typically older versions
+and will cause a fatal error
+<pre>
+> cd /&lt;path-to-MATLAB&gt;/bin/glnxa64/
+> unlink libhdf5.so.6
+> unlink libhdf5_hl.so.6
+> ln -s /&lt;path to a compatible libhdf5.so&gt; libhdf5.so.6
+> ln -s /&lt;path to a compatible libhdf5_hl.so&gt; libhdf5_hl.so.6
+</pre>
+<p>
+If you need to build these libararies, then something like
+</p>
+<pre>
+> wget http://www.hdfgroup.org/ftp/HDF5/prev-releases/hdf5-1.8.9/src/hdf5-1.8.9.tar.bz2
+> tar -jxf  hdf5-1.8.9.tar.bz2 
+> cd hdf5-1.8.9
+> CC=gcc CFLAGS=-fPIC ./configure --prefix=&lt;somewhere sane&gt; --enable-shared=yes
+</pre>
+<p>
+should provide libhdf5.so.7 and libhdf5_hl.so.7. Alternatively, work out which version
+of hdf5 MATLAB has included, and compile Chombo and BISICLES against that version
+</p>
 
 </body>
 </html>
