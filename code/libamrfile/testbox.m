@@ -3,7 +3,10 @@ thkname = 'thickness'; % name of the ice thickness data
 thkrange = [0,4000.0]; %sensible range for thickness data
 %read data at the coarsest (level 0 resolution)
 level = 0;
-lo = [0,0]; hi = [127,191]; %box corners
+
+%work out the domain corners for  level 0
+[ lo,hi ] = amr_query_domain_corners(amrID, level);
+
 interp_order = 0; %0 for piecewise constant interpolation, 1 for linear
 [ x0,y0,thk0 ] = amr_read_box_2d( amrID, level, lo, hi, thkname, interp_order  );
 

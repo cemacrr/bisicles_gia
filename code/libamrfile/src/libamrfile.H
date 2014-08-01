@@ -22,7 +22,7 @@ extern "C"
 
 #define LIBAMRFILE_ERR_UNSPECIFIED   1
 #define LIBAMRFILE_ERR_READ_FAILED   2
-#define LIBAMRFILE_ERR_NULL_POINTER      3
+#define LIBAMRFILE_ERR_NULL_POINTER   3
 #define LIBAMRFILE_ERR_NO_SUCH_AMR_ID    4
 #define LIBAMRFILE_ERR_BAD_AMR_HIERARCHY 5
 #define LIBAMRFILE_ERR_NO_SUCH_LEVEL     6
@@ -62,6 +62,9 @@ extern "C"
 
     /// how many components are there in the amr data of amr_id ? 
     void amr_query_n_comp(int *status, int* n_comp, const int* amr_id);
+
+    /// return domain corners for a given level grid
+    void amr_query_domain_corners(int *status, int *lo, int* hi, const int *amr_id, const int *level);
 
     /// retrieve the first buflen characters of the name of component comp?
     void amr_query_comp_name(int *status, char *name, const int* amr_id, const int* comp, const int* buflen);

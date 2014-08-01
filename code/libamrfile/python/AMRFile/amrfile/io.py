@@ -35,6 +35,18 @@ def queryCompID(amrID, name):
     __error__(status)
     return comp.value
 
+def queryDomainCorners(amrID, level):
+   status = c_int(-1)
+   lo=np.intc([0,0])
+   hi=np.intc([0,0])
+   libamrfile.amr_query_domain_corners(pointer(status),
+                                       lo.ctypes.data_as(POINTER(c_int)),
+                                       hi.ctypes.data_as(POINTER(c_int)),
+                                       pointer(amrID),
+                                       pointer(c_int(level)))
+   __error__(status)
+   return lo,hi
+
 def readBox2D(amrID, level, lo, hi, component, interpolationOrder = 0):
 
     compid = c_int(-1)

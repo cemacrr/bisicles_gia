@@ -26,7 +26,7 @@ both C++ and Chombo Fortran (ChF) components. Make sure the -fPIC flag is set in
 <pre>
 cxxdbgflags   = -fPIC
 cxxoptflags   = -fPIC
-fdbgflags     = -fPIC -fbounds-check
+fdbgflags     = -fPIC 
 foptflags     = -fPIC -O3
 </pre>
 These flags are already set in the current version of Make.defs.local in $BISICLES_HOME/BISICLES/docs, but were not
@@ -94,8 +94,9 @@ amrID <- amr.load("plot.amundsen.2d.hdf5")
 
 
 #read a box of thickness data from level 0
-
-b0 <- amr.read.box(amrID,lev=0,lo=c(0,0),hi=c(128,128),comp="thickness")
+#first, determine the domain corners
+dom = amr.query.domaincorners(amrID,lev=0)
+b0 <- amr.read.box(amrID,lev=0,lo=dom$lo,hi=dom$hi,comp="thickness")
 
 
 #read a box of thickness data from level 0. some of this data
@@ -204,10 +205,10 @@ thkcomp = "thickness"
 thklim = col.Normalize(0.0,4000.0) # limits for thickness colormap
 thkc = [0,1000,1500,2000]
 #read a box of thickness data at the lowest resolution
-lo = [0,0]
-hi = [127,191]
-order = 0 # interpolation order, 0 for piecewise constant, 1 for linear
 level = 0
+#first, work out the domain corners
+lo,hi = amrio.queryDomainCorners(amrID, level)
+order = 0 # interpolation order, 0 for piecewise constant, 1 for linear
 x0,y0,thk0 = amrio.readBox2D(amrID, level, lo, hi, thkcomp, order)
 
 #set up figure axes
@@ -298,7 +299,8 @@ thkname = 'thickness'; % name of the ice thickness data
 thkrange = [0,4000.0]; %sensible range for thickness data
 %read data at the coarsest (level 0 resolution)
 level = 0;
-lo = [0,0]; hi = [127,191]; %box corners
+%work out the domain corners for  level 0
+[ lo,hi ] = amr_query_domain_corners(amrID, level);
 interp_order = 0; %0 for piecewise constant interpolation, 1 for linear
 [ x0,y0,thk0 ] = amr_read_box_2d( amrID, level, lo, hi, thkname, interp_order  );
 

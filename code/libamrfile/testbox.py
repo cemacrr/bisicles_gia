@@ -10,10 +10,10 @@ thkcomp = "thickness"
 thklim = col.Normalize(0.0,4000.0) # limits for thickness colormap
 thkc = [0,1000,1500,2000]
 #read a box of thickness data at the lowest resolution
-lo = [0,0]
-hi = [127,191]
-order = 0 # interpolation order, 0 for piecewise constant, 1 for linear
 level = 0
+#first, work out the domain corners
+lo,hi = amrio.queryDomainCorners(amrID, level)
+order = 0 # interpolation order, 0 for piecewise constant, 1 for linear
 x0,y0,thk0 = amrio.readBox2D(amrID, level, lo, hi, thkcomp, order)
 
 #set up figure axes

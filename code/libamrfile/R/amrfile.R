@@ -85,6 +85,24 @@ amr.query.nlevel <- function(amrID)
      }
   }
 
+amr.query.domaincorners <- function(amrID,level)
+  {
+    r <- .C("amr_query_domain_corners",
+            status=integer(1),
+            lo=integer(2),
+            hi=integer(2),
+            amrID=as.integer(amrID),
+            level=integer(1))
+
+     if (r$status == 0){
+       list(lo=r$lo,hi=r$hi)
+     } else {
+       -1
+     }
+    
+  }
+
+
 amr.query.ncomp <- function(amrID, level)
 {
   r <- .C("amr_query_n_comp",

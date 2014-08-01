@@ -470,6 +470,9 @@ void amr_set_comp_name_R(int *status, const char **name, const int* amr_id, cons
 void amr_query_n_level(int *status, int *n_level, const int *amr_id)
 {
   
+  if (!status)
+    return;
+
   if (amr_id)
     {
       std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
@@ -488,6 +491,52 @@ void amr_query_n_level(int *status, int *n_level, const int *amr_id)
       *status = LIBAMRFILE_ERR_NULL_POINTER;
     }
 }
+ 
+void amr_query_domain_corners(int *status, int *lo, int* hi, const int *amr_id, const int *level)
+{
+
+  if (!status)
+    return;
+
+  if (amr_id)
+    {
+      std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
+      if (i != libamrfile::g_store.end())
+	{
+	  if (lo && hi && level)
+	    {
+	      if ( (*level < 0) || (*level > i->second->nLevel()))
+		{
+		  *status = LIBAMRFILE_ERR_NO_SUCH_LEVEL ;
+		}
+	      else
+		{
+		  const Box& dombox = i->second->grids()[*level].physDomain().domainBox();
+		  for (int dir = 0; dir < SpaceDim; dir++)
+		    {
+		      lo[dir] = dombox.smallEnd()[dir];
+		      hi[dir] = dombox.bigEnd()[dir];
+		    }
+		  *status = 0;
+		}
+	    }
+	  else
+	    {
+	      *status = LIBAMRFILE_ERR_NULL_POINTER ;
+	    }
+	}
+      else
+	{
+	  *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
+	}
+    }
+  else
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER;
+    }
+}
+
+
 
 void amr_query_n_comp(int *status, int* n_comp, const int* amr_id)
 {
