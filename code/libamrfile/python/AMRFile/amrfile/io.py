@@ -6,7 +6,7 @@ libamrfile = CDLL("libamrfile.so")
 
 def __error__(status):
     if (status.value != 0):
-        print 'error code ',status.value
+        raise Exception('libamrfile error',status.value)
     
 
 def load(filename):

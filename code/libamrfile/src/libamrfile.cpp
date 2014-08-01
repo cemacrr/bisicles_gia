@@ -16,6 +16,7 @@
 #include "libamrfile.H"
 #include "FineInterp.H"
 #include "CoarseAverage.H"
+#include <fstream>
 #include "AMRIO.H"
 
 
@@ -51,21 +52,31 @@ public:
   
     Real crseDx;
 
-    int status = ReadAMRHierarchyHDF5(file, m_grids, m_data, m_names, 
-				      m_crseBox, crseDx, m_dt,
-				      m_time, m_ratio, m_nLevel);
-
-    m_dx.resize(m_nLevel,crseDx);
-    for (int lev = 1; lev < m_nLevel; lev++)
+    //check the file access first, because ReadAMRHierarchyHDF5 will 
+    //throw an exception otherwise
+    int status = LIBAMRFILE_ERR_READ_FAILED ;
+    std::ifstream ifs(file.c_str());
+    bool access = ifs.good();
+    ifs.close();
+   
+    if (access)
       {
-	m_dx[lev] = m_dx[lev-1]/Real(m_ratio[lev-1]);
-
-      } 
-    for (int lev = 0; lev < m_nLevel; lev++)
-      {
-	m_data[lev]->exchange();
+	 status = ReadAMRHierarchyHDF5(file, m_grids, m_data, m_names, 
+					  m_crseBox, crseDx, m_dt,
+					  m_time, m_ratio, m_nLevel);
+      
+	 m_dx.resize(m_nLevel,crseDx);
+	 for (int lev = 1; lev < m_nLevel; lev++)
+	   {
+	     m_dx[lev] = m_dx[lev-1]/Real(m_ratio[lev-1]);
+	     
+	   } 
+	 for (int lev = 0; lev < m_nLevel; lev++)
+	   {
+	     m_data[lev]->exchange();
+	   }
+	 updateNameCompMap();
       }
-    updateNameCompMap();
     m_ok = status == 0;
   }
 

@@ -1,7 +1,7 @@
 function amr_error( status )
 %print an error message depending on status
     if (status.value ~= 0)
-        status.value
+        error('amrfile:error','status = %i ',status.value);
     end
 end
 
