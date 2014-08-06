@@ -107,13 +107,13 @@ int main(int argc, char* argv[]) {
 
 	  {
 	    int lo[2]; lo[0] = 0; lo[1] = 0;
-	    int hi[2]; hi[0] = 99; hi[1] = 99;
-	    fab_data = new double[100*100];
-	    x_data = new double[100];
-	    y_data = new double[100];
-	    lev = 1;
+	    int hi[2]; hi[0] = 199; hi[1] = 199;
+	    fab_data = new double[200*200];
+	    x_data = new double[200];
+	    y_data = new double[200];
+	    lev = 2;
 	    comp = 0;
-	    int order = 0;
+	    int order = 1;
 	    amr_read_box_data_2d(&status, fab_data , x_data, y_data, &amr_id, &lev, lo, hi, &comp, &order);
 
 	    delete[] fab_data; 

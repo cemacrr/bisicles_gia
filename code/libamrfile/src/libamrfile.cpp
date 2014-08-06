@@ -792,11 +792,11 @@ int upFill(LevelData<FArrayBox>& a_destData, const LevelData<FArrayBox>&  a_srcD
       FineInterp interpolator(destGrids, a_destData.nComp(), a_nRef, fineDomain);
       if (a_order == 0)
 	{
-	  interpolator.pwcinterpToFine(a_destData, a_srcData, false);
+	  interpolator.pwcinterpToFine(a_destData, a_srcData, true);
 	}
       else if (a_order == 1)
 	{
-	  interpolator.interpToFine(a_destData, a_srcData, false);
+	  interpolator.interpToFine(a_destData, a_srcData, true);
 	}
     }
   else if (a_nRef%2 == 0)
@@ -913,12 +913,25 @@ void amr_read_box_data_2d(int *status,
 							      ldf.disjointBoxLayout().physDomain())
 					    ,1,IntVect::Zero);
 	      *status = 0;
+	      
 	      for (int lev = 0; lev < *level_id; lev++)
 		{
 		  //coarse-to fine interpolation 
+		  
+
+		  //work out the refinement ration from level lev to level *level_id
+		  int nRef = 1;
+		  for (int l = lev; l < *level_id; l++)
+		    {
+		      nRef *= i->second->ratio()[l];
+		    }
+
 		  LevelData<FArrayBox> alias; 
 		  aliasLevelData(alias, i->second->data()[lev] ,Interval(*comp_id,*comp_id));
-		  *status = upFill(destData, alias  , i->second->ratio()[lev], *interp_order);
+		  *status = upFill(destData, alias  , nRef , *interp_order);
+		  //const DisjointBoxLayout& fineGrids = destData.getBoxes();
+		  //FineInterp fi(fineGrids,1,nRef,fineGrids.physDomain());
+		  //fi.interpToFine(destData,alias, true);
 		}
 	      if (*status == 0)
 		{
