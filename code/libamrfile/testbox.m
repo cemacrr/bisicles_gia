@@ -30,4 +30,6 @@ w = max(x1)-min(x1)+dx;
 h = max(y1)-min(y1)+dx;
 rectangle('Position',[min(x1)-dx/2.0,min(y1)-dx/2.0,w,h]);
 
+time=amr_query_time(amrID);
+
 amr_free(amrID);

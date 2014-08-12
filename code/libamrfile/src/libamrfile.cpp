@@ -116,7 +116,7 @@ public:
   const Vector<int>& ratio() const {return m_ratio;}
   const std::map<std::string,int>& nameCompMap() const {return m_nameCompMap;}
   int nLevel() const  {return m_nLevel;}
-
+  Real time() const {return m_time;}
 
   void setName(int comp, const std::string& name)
   {
@@ -492,6 +492,33 @@ void amr_query_n_level(int *status, int *n_level, const int *amr_id)
     }
 }
  
+
+void amr_query_time(int *status, double *time, const int *amr_id)
+{
+  
+  if (!status)
+    return;
+
+  if (amr_id && time)
+    {
+      std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
+      if (i != libamrfile::g_store.end())
+	{
+	  *time = i->second->time();
+	  *status = 0;
+	}
+      else
+	{
+	  *status = LIBAMRFILE_ERR_NO_SUCH_AMR_ID;
+	}
+    }
+  else
+    {
+      *status = LIBAMRFILE_ERR_NULL_POINTER;
+    }
+}
+
+
 void amr_query_domain_corners(int *status, int *lo, int* hi, const int *amr_id, const int *level)
 {
 

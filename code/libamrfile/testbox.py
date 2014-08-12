@@ -49,6 +49,7 @@ plt.gca().add_patch(pat.Rectangle((min(x1)-dx/2.0,min(y1)-dx/2.0) , w, h, edgeco
 
 plt.savefig("libamrfile_python.png")
 
-
+time = amrio.queryTime(amrID)
+print "time = ", time
 
 amrio.free(amrID)

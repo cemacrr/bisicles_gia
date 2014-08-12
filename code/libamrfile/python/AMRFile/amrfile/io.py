@@ -47,6 +47,15 @@ def queryDomainCorners(amrID, level):
    __error__(status)
    return lo,hi
 
+def queryTime(amrID):
+    status = c_int(-1)
+    time = c_double(-1)
+    libamrfile.amr_query_time(pointer(status),
+                              pointer(time),
+                              pointer(amrID))
+    __error__(status)
+    return time.value
+
 def readBox2D(amrID, level, lo, hi, component, interpolationOrder = 0):
 
     compid = c_int(-1)

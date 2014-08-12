@@ -103,29 +103,48 @@ int main(int argc, char* argv[]) {
 	  delete[] fab_data; 
 	  delete[] x_data;
 	  delete[] y_data;
-
-
-	  {
-	    int lo[2]; lo[0] = 0; lo[1] = 0;
-	    int hi[2]; hi[0] = 199; hi[1] = 199;
-	    fab_data = new double[200*200];
-	    x_data = new double[200];
-	    y_data = new double[200];
-	    lev = 2;
-	    comp = 0;
-	    int order = 1;
-	    amr_read_box_data_2d(&status, fab_data , x_data, y_data, &amr_id, &lev, lo, hi, &comp, &order);
-
-	    delete[] fab_data; 
-	    delete[] x_data;
-	    delete[] y_data;
-	    
-	  }
-
 	}
     }
 
-
+  {
+    int lo[2]; 
+    int hi[2]; 
+    int lev = 0;
+    amr_query_domain_corners(&status, lo, hi, &amr_id, &lev);
+    std::cout << "level = " << lev 
+	      << "lo = ("  << lo[0] << "," << lo[1] << ")"
+	      << "hi = ("  << hi[0] << "," << hi[1] << ")"
+	      << std::endl;
+    lev++;
+    amr_query_domain_corners(&status, lo, hi, &amr_id, &lev);
+    std::cout << "level = " << lev 
+	      << "lo = ("  << lo[0] << "," << lo[1] << ")"
+	      << "hi = ("  << hi[0] << "," << hi[1] << ")"
+	      << std::endl;
+    
+    lev++;
+    amr_query_domain_corners(&status, lo, hi, &amr_id, &lev);
+    std::cout << "level = " << lev 
+	      << "lo = ("  << lo[0] << "," << lo[1] << ")"
+	      << "hi = ("  << hi[0] << "," << hi[1] << ")"
+	      << std::endl;
+    
+    int nx = hi[0] - lo[0] + 1;
+    int ny = hi[1] - lo[1] + 1;
+    double *fab_data = new double[nx*ny];
+    double *x_data = new double[nx];
+    double *y_data = new double[ny];
+    int comp = 0;
+    int order = 1;
+    amr_read_box_data_2d(&status, fab_data , x_data, y_data, &amr_id, &lev, lo, hi, &comp, &order);
+    
+    delete[] fab_data; 
+    delete[] x_data;
+    delete[] y_data;
+    
+  }
+  
+  
   amr_write_file(&status, &amr_id, outfile);
 
 

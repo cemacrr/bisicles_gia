@@ -84,6 +84,20 @@ amr.query.nlevel <- function(amrID)
        -1
      }
   }
+amr.query.time <- function(amrID)
+  {
+     r <- .C("amr_query_time",
+            status=integer(1),
+            time=numeric(1),
+            amrID=as.integer(amrID))
+     
+     if (r$status == 0){
+       r$time
+     } else {
+       -1
+     }
+  }
+
 
 amr.query.domaincorners <- function(amrID,level)
   {
@@ -92,7 +106,7 @@ amr.query.domaincorners <- function(amrID,level)
             lo=integer(2),
             hi=integer(2),
             amrID=as.integer(amrID),
-            level=integer(1))
+            level=as.integer(level))
 
      if (r$status == 0){
        list(lo=r$lo,hi=r$hi)

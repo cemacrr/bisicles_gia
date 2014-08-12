@@ -66,6 +66,9 @@ extern "C"
     /// return domain corners for a given level grid
     void amr_query_domain_corners(int *status, int *lo, int* hi, const int *amr_id, const int *level);
 
+    /// return current time
+    void amr_query_time(int *status, double *time, const int *amr_id);
+
     /// retrieve the first buflen characters of the name of component comp?
     void amr_query_comp_name(int *status, char *name, const int* amr_id, const int* comp, const int* buflen);
     void amr_query_comp_name_R(int *status, char **name, const int* amr_id, const int* comp, const int* buflen);
