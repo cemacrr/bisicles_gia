@@ -141,34 +141,6 @@ PetscErrorCode FormFunction( SNES snes, Vec x, Vec f, void *ctx )
 
 #if PETSC_VERSION_LT(3,5,0)
 PetscErrorCode FormJacobian( SNES snes,Vec x,Mat *jac,Mat *prejac,MatStructure *flag, void *ctx )
-{
-
- CH_TIME("PetscIceSolver::FormJacobian");
-  PetscErrorCode ierr;
-  PetscSolverViscousTensor<LevelData<FArrayBox> > *solver;
-  PetscIceSolver *tthis;
-  PetscInt *pilev; // not used
-
-  PetscFunctionBegin;
-  
-  ierr = SNESGetApplicationContext(snes,(void**)&pilev); CHKERRQ(ierr);
-  
-  solver = (PetscSolverViscousTensor<LevelData<FArrayBox> >*)ctx;
-  tthis = (PetscIceSolver*)solver->m_ctx;
-
-  // form Function was just called so do not need to update coefs
-  ierr = solver->formMatrix( *prejac ); CHKERRQ(ierr);
-
-  ierr = MatAssemblyBegin(*prejac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-  ierr = MatAssemblyEnd(*prejac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-  if (prejac!=jac)
-    {
-      ierr = MatAssemblyBegin(*jac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-      ierr = MatAssemblyEnd(*jac,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-    }
-  *flag = SAME_NONZERO_PATTERN;
-  PetscFunctionReturn(0);
-}
 #else
 PetscErrorCode FormJacobian( SNES snes,Vec x,Mat jac,Mat prejac, void *ctx )
 #endif
