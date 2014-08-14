@@ -197,6 +197,7 @@ PetscErrorCode FormJacobian( SNES snes,Vec x,Mat jac,Mat prejac, void *ctx )
     }
   PetscFunctionReturn(0);
 }
+#endif // petsc version
 #endif // petsc
 
 ////////////////////////////////////////////////////////////////////////
