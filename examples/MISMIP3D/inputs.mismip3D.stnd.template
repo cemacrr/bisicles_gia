@@ -129,5 +129,5 @@ JFNKSolver.numMGSmooth = 32
 JFNKSolver.numMGIter = 2
 JFNKSolver.h = 0.025
 JFNKSolver.switchRate = 5.0
-
+JFNKSolver.bottom_solver_type = 2 # relax solver
 
