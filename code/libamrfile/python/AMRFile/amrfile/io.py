@@ -21,9 +21,9 @@ def free(amrID):
     libamrfile.amr_free(pointer(status), pointer(amrID)) 
     __error__(status)
 
-def freeAll(amrID):
-    status = c_int(-1)
-    libamrfile.amr_free_all(pointer(c_int(status)))
+def freeAll():
+    status = c_int(0)
+    libamrfile.amr_free_all(pointer((status)))
     __error__(status)
 
 def queryCompID(amrID, name):
