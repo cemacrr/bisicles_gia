@@ -157,7 +157,13 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 	}
     }
 }
-
+//re-apply internal domainEdgeCalvingModel after a regrid
+void BennCalvingModel::regridModifyState(LevelData<FArrayBox>& a_thickness, 
+			       const AmrIce& a_amrIce,
+			       int a_level)
+{
+  m_domainEdgeCalvingModel.regridModifyState(a_thickness, a_amrIce, a_level);
+}
 
 void BennCalvingModel::initialModifyState
 (LevelData<FArrayBox>& a_thickness, 

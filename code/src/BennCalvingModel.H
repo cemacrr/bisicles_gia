@@ -37,6 +37,10 @@ public:
 				      const AmrIce& a_amrIce,
 				      int a_level);
 
+  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
+				 const AmrIce& a_amrIce,
+				 int a_level);
+  
 
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 					  const AmrIce& a_amrIce,

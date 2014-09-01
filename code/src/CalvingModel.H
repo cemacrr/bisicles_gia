@@ -34,6 +34,11 @@ public:
   virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
 				      const AmrIce& a_amrIce,
 				      int a_level) = 0;
+  
+//alter the thickness field after a regid
+  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
+				 const AmrIce& a_amrIce,
+				 int a_level) = 0;
 
   //modify a thickness flux
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
@@ -71,7 +76,12 @@ public:
 
   }
 
+  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
+				 const AmrIce& a_amrIce,
+				 int a_level) 
+  {
 
+  }
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 					  const AmrIce& a_amrIce,
 					  int a_level,
@@ -110,6 +120,15 @@ public:
   virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
 				      const AmrIce& a_amrIce,
 				      int a_level);
+
+  //alter the thickness field after a regrid
+  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
+				      const AmrIce& a_amrIce,
+				      int a_level)
+  {
+    //do nothing... for backward compatibility
+  }
+
 
   //modify a thickness flux
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
@@ -163,7 +182,13 @@ public:
 				      const AmrIce& a_amrIce,
 				      int a_level);
 
-
+  //alter the thickness field after a regrid
+  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
+				 const AmrIce& a_amrIce,
+				 int a_level)
+  {
+    endTimeStepModifyState(a_thickness, a_amrIce, a_level);
+  }
 
   //modify a thickness flux
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
@@ -220,7 +245,13 @@ public:
     endTimeStepModifyState( a_thickness,  a_amrIce, a_level);
   }
 
-
+  //alter the thickness field after a regrid
+  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
+				 const AmrIce& a_amrIce,
+				 int a_level)
+  {
+    //nothing
+  }
   
   virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
 				      const AmrIce& a_amrIce,

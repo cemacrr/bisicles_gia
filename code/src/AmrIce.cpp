@@ -3109,6 +3109,9 @@ AmrIce::regrid()
 		m_thicknessIBCPtr->setGeometryBCs(*m_vect_coordSys[lev],
 						    m_amrDomains[lev],levelDx, m_time, m_dt);
 
+		//need to re-apply the calving model?
+		m_calvingModelPtr->regridModifyState(thisLevelH, *this, lev);
+
 		// exchange is necessary to fill periodic ghost cells
                 // which aren't filled by the copyTo from oldLevelH
                 thisLevelH.exchange();

@@ -124,6 +124,54 @@ private:
 };
 
 
+/// Apply natural conditions along one boundary
+/**
+   Normal velocity component normal gradient = 0
+   Tangent velocity component normal gradient = 0
+*/
+class NaturalBCFunction : public BCFunction
+{
+
+public:
+
+  NaturalBCFunction(int a_dir, Side::LoHiSide a_side)
+  {
+    m_dir = a_dir;
+    m_side = a_side;
+  }
+
+  virtual void operator()(FArrayBox&           a_vel,
+                          const Box&           a_valid,
+                          const ProblemDomain& a_domain,
+                          Real                 a_dx,
+                          bool                 a_homogeneous)
+  {
+    const IntVect ghostVect = IntVect::Unit;
+    
+    if (!(a_domain.isPeriodic(m_dir)))
+      {
+	ReflectGhostCells(a_vel, a_domain,ghostVect, m_dir, m_side);
+      }
+  }
+
+private:
+  int m_dir;
+  Side::LoHiSide m_side;
+  NaturalBCFunction(){;}
+  NaturalBCFunction(const NaturalBCFunction&)
+  {
+    MayDay::Error(" NaturalBCFunction(const NaturalBCFunction&) not implemented");
+  }
+
+  NaturalBCFunction& operator=(const NaturalBCFunction&)
+  {
+    MayDay::Error(" NaturalBCFunction& operator= (const NaturalBCFunction&) not implemented");
+    return *this;
+  }
+};
+
+
+
 
 /// Apply a different BCFunction along each boundary 
 class PerBoundaryBCFunction : public BCFunction

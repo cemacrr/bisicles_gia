@@ -1,3 +1,4 @@
+
 #ifdef CH_LANG_CC
 /*
  *      _______              __
@@ -61,7 +62,7 @@ namespace PythonInterface
     PyObject*  m_pFuncRhs;
     PyObject*  m_pFuncFaceVel;
     
-    enum BCType {IceDivide, NoSlip, MaxBCType};
+    enum BCType {IceDivide, NoSlip, Natural, MaxBCType};
     
     RefCountedPtr<BCFunction> BCFactory(BCType a_type, 
 					int a_dir, 
@@ -75,7 +76,10 @@ namespace PythonInterface
 	{
 	  return RefCountedPtr<BCFunction>(new NoSlipBCFunction(a_dir, a_side));
 	}
-      
+      else if (a_type == Natural)
+	{
+	  return RefCountedPtr<BCFunction>(new NaturalBCFunction(a_dir, a_side));
+	}
       CH_assert(a_type < MaxBCType && a_type > 0);
 
     }

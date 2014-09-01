@@ -53,6 +53,16 @@ void FlotationCalvingModel::initialModifyState
   endTimeStepModifyState(a_thickness, a_amrIce,a_level);
 }
 
+void FlotationCalvingModel::regridModifyState
+(LevelData<FArrayBox>& a_thickness, 
+ const AmrIce& a_amrIce,
+ int a_level)
+{
+
+  m_domainEdgeCalvingModel.endTimeStepModifyState(a_thickness, a_amrIce, a_level);
+
+}
+
 void FlotationCalvingModel::endTimeStepModifyState
 (LevelData<FArrayBox>& a_thickness, 
  const AmrIce& a_amrIce,
