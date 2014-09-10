@@ -33,9 +33,13 @@ void KnownVelocitySolver::define(const ProblemDomain& a_coarseDomain,
 
   ParmParse pp("KnownVelocitySolver");
 
-  std::string functionType = "constant";
+  std::string functionType = "zero";
   pp.query("function_type",functionType);
-  if (functionType == "flowline")
+  if (functionType == "zero")
+    {
+      m_velFunctionPtr = new ConstantRealFunction<RealVect>(0.0);
+    }
+  else if (functionType == "flowline")
     {
       Real dx; 
       std::string file, set;
