@@ -191,7 +191,16 @@ int main(int argc, char* argv[]) {
 
     amrObject.setBasalFlux(basal_flux_ptr); 
 
-
+     // ---------------------------------------------
+    // set topography (bedrock) flux. 
+    // ---------------------------------------------
+    
+    SurfaceFlux* topg_flux_ptr = SurfaceFlux::parseSurfaceFlux("topographyFlux");
+    if (topg_flux_ptr == NULL)
+      {
+	topg_flux_ptr = new zeroFlux();
+      }
+    amrObject.setTopographyFlux(topg_flux_ptr); 
 
     // ---------------------------------------------
     // set mu coefficient
@@ -757,6 +766,12 @@ int main(int argc, char* argv[]) {
       {
         delete basal_flux_ptr;
         basal_flux_ptr = NULL;
+      }
+
+    if (topg_flux_ptr != NULL)
+      {
+        delete topg_flux_ptr;
+        topg_flux_ptr = NULL;
       }
 
     if (basalFrictionPtr != NULL)

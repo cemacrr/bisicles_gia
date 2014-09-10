@@ -438,6 +438,7 @@ AmrIce::AmrIce() : m_velSolver(NULL),
 		   m_basalFluxPtr(NULL),
 		   m_surfaceHeatBoundaryDataPtr(NULL),
 		   m_basalHeatBoundaryDataPtr(NULL),
+		   m_topographyFluxPtr(NULL),
                    m_basalFrictionPtr(NULL)
 		   
 {
@@ -865,7 +866,14 @@ AmrIce::~AmrIce()
         }
     }
 
-
+  for (int lev = 0; lev < m_deltaTopography.size(); lev++) 
+    {
+      if (m_deltaTopography[lev] != NULL) 
+        {
+          delete m_deltaTopography[lev];
+          m_deltaTopography[lev] = NULL;
+        }
+    }
 
   if (m_velSolver != NULL)
     {
@@ -1676,6 +1684,7 @@ AmrIce::initialize()
       m_calvedIceThickness.resize(m_max_level+1, NULL);
       m_balance.resize(m_max_level+1, NULL);
       m_temperature.resize(m_max_level+1, NULL);
+      m_deltaTopography.resize(m_max_level+1, NULL);
 #if BISICLES_Z == BISICLES_LAYERED
       m_layerXYFaceXYVel.resize(m_max_level+1, NULL);
       m_layerSFaceXYVel.resize(m_max_level+1, NULL);
@@ -1697,7 +1706,7 @@ AmrIce::initialize()
 	  m_velRHS[lev] = new LevelData<FArrayBox>;
 	  m_diffusivity[lev] = new LevelData<FluxBox>;
 	  m_temperature[lev] = new LevelData<FArrayBox>;
-
+	  m_deltaTopography[lev] = new LevelData<FArrayBox>;
 #if BISICLES_Z == BISICLES_LAYERED
 	  m_sTemperature[lev] = new LevelData<FArrayBox>;
 	  m_bTemperature[lev] = new LevelData<FArrayBox>;
@@ -1992,17 +2001,18 @@ AmrIce::defineSolver()
 //  return std::min( p - i, p - 1 - i);
 //}
 
-void AmrIce::zeroCalvedIceThickness()
+void AmrIce::setToZero(Vector<LevelData<FArrayBox>*>& a_data)
 {
-  for (int lev=0; lev<= m_finest_level; lev++)
+  for (int lev=0; lev < std::min(int(a_data.size()),finestLevel()+1); lev++)
     {
-      LevelData<FArrayBox>& calv = *m_calvedIceThickness[lev];
-       for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+      LevelData<FArrayBox>& data = *a_data[lev];
+      for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
 	{
-	  calv[dit].setVal(0.0);
+	  data[dit].setVal(0.0);
 	}
     }
 }
+
 
 void
 AmrIce::run(Real a_max_time, int a_max_step)
@@ -2014,7 +2024,7 @@ AmrIce::run(Real a_max_time, int a_max_step)
              << ", max_step = " << a_max_step << endl;
     }
 
-  zeroCalvedIceThickness();
+  setToZero(m_calvedIceThickness);
   Real dt;
   // only call computeInitialDt if we're not doing restart
   if (!m_do_restart)
@@ -2136,6 +2146,7 @@ AmrIce::timeStep(Real a_dt)
 
     }
         
+
 
   // assumption here is that we've already computed the current velocity 
   // field, most likely at initialization or at the end of the last timestep...
@@ -2342,9 +2353,9 @@ AmrIce::timeStep(Real a_dt)
 #endif
     }
   
-
-  // compute div(F) and update solution  
-  updateThickness(m_vect_coordSys, vectCoords_old, vectFluxes, a_dt);
+ 
+  // compute div(F) and update geometry
+  updateGeometry(m_vect_coordSys, vectCoords_old, vectFluxes, a_dt);
 
   //original location
   if (!m_isothermal)
@@ -2660,10 +2671,9 @@ AmrIce::computeThicknessFluxes(Vector<LevelData<FluxBox>* >& a_vectFluxes,
     }
   
 }
-
-// update ice thickness
+// update  ice thickness *and* bedrock elevation
 void
-AmrIce::updateThickness(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new, 
+AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new, 
                         Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoords_old, 
                         const Vector<LevelData<FluxBox>* >& a_vectFluxes, 
                         Real a_dt)
@@ -2752,12 +2762,12 @@ AmrIce::updateThickness(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_ne
               newH.minus((*m_basalThicknessSource[lev])[dit], gridBox,0,0,1);
             }
           
-          
+	 
           
 	  newH *= -1*a_dt;
           newH.plus(oldH, 0, 0, 1);
           
-        } // end loop over grids
+        } // end loop over grids 
     } // end loop over levels
   
   
@@ -2775,17 +2785,38 @@ AmrIce::updateThickness(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_ne
       implicitThicknessCorrection(a_dt, m_surfaceThicknessSource,  m_basalThicknessSource);
     }
   
+  //update the topography
+  if (m_topographyFluxPtr != NULL)
+    {
+      for (int lev=0; lev <= finestTimestepLevel() ; lev++)
+	{
+	  LevelSigmaCS& levelCoords = *(a_vect_coordSys_new[lev]);
+	  DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+	  LevelData<FArrayBox>& levelTopg = levelCoords.getTopography();
+	  LevelData<FArrayBox>& levelDeltaTopg = *m_deltaTopography[lev];
+	  LevelData<FArrayBox> levelSrc(levelGrids,1,IntVect::Zero);
+	  m_topographyFluxPtr->surfaceThicknessFlux(levelSrc, *this, lev, a_dt);
+	  for (DataIterator dit(levelGrids);dit.ok();++dit)
+	    {
+	      FArrayBox& src = levelSrc[dit];
+	      src *= a_dt;
+	      levelTopg[dit] += src;
+	      levelDeltaTopg[dit] += src;
+	    }
+	}
+    }
   
-  
-  // average down thickness to coarser levels and fill in ghost cells
+  // average down thickness and topography to coarser levels and fill in ghost cells
   // before calling recomputeGeometry. 
   int Hghost = 2;
   Vector<LevelData<FArrayBox>* > vectH(m_finest_level+1, NULL);
+  Vector<LevelData<FArrayBox>* > vectB(m_finest_level+1, NULL);
   for (int lev=0; lev<vectH.size(); lev++)
     {
       IntVect HghostVect = Hghost*IntVect::Unit;
       LevelSigmaCS& levelCoords = *(a_vect_coordSys_new[lev]);
       vectH[lev] = &levelCoords.getH();
+      vectB[lev] = &levelCoords.getTopography();
     }
   
   //average from the finest level down
@@ -2795,7 +2826,8 @@ AmrIce::updateThickness(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_ne
                              1, m_refinement_ratios[lev-1]);
       averager.averageToCoarse(*vectH[lev-1],
                                *vectH[lev]);
-      
+      averager.averageToCoarse(*vectB[lev-1],
+                               *vectB[lev]);
     }
   
   // //interpolate H to any levels above finestTimestepLevel()
@@ -2823,6 +2855,11 @@ AmrIce::updateThickness(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_ne
       filler.fillInterp(*vectH[lev],
                         *vectH[lev-1],
                         *vectH[lev-1],
+                        interp_coef,
+                        0, 0, 1);
+      filler.fillInterp(*vectB[lev],
+                        *vectB[lev-1],
+                        *vectB[lev-1],
                         interp_coef,
                         0, 0, 1);
     }
@@ -3020,7 +3057,7 @@ AmrIce::regrid()
 	      LevelData<FArrayBox>* old_velDataPtr = m_velocity[lev];
 	      LevelData<FArrayBox>* old_tempDataPtr = m_temperature[lev];
 	      LevelData<FArrayBox>* old_calvDataPtr = m_calvedIceThickness[lev];
-	      
+	      LevelData<FArrayBox>* old_deltaTopographyDataPtr = m_deltaTopography[lev];
 	     
 	      LevelData<FArrayBox>* new_oldDataPtr = 
 		new LevelData<FArrayBox>(newDBL, 1, m_old_thickness[0]->ghostVect());
@@ -3038,6 +3075,11 @@ AmrIce::regrid()
 		new LevelData<FArrayBox>(newDBL, m_calvedIceThickness[0]->nComp(), 
 					 m_calvedIceThickness[0]->ghostVect());
 	      
+	      LevelData<FArrayBox>* new_deltaTopographyDataPtr = 
+		new LevelData<FArrayBox>(newDBL, m_deltaTopography[0]->nComp(), 
+					 m_deltaTopography[0]->ghostVect());
+
+	      
 #if BISICLES_Z == BISICLES_LAYERED
 	      LevelData<FArrayBox>* old_sTempDataPtr = m_sTemperature[lev];
 	      LevelData<FArrayBox>* old_bTempDataPtr = m_bTemperature[lev];
@@ -3050,6 +3092,37 @@ AmrIce::regrid()
 	     
 #endif	      
 	      
+	      {
+		// first we need to regrid m_deltaTopography, it will be needed to 
+		// regrid the bedrock topography & hence LevelSigmaCS
+		// may eventually want to do post-regrid smoothing on this
+		FineInterp interpolator(newDBL,m_deltaTopography[0]->nComp(),
+					m_refinement_ratios[lev-1],
+					m_amrDomains[lev]);
+		interpolator.interpToFine(*new_deltaTopographyDataPtr, *m_deltaTopography[lev-1]);
+
+		
+		PiecewiseLinearFillPatch ghostFiller
+		  (m_amrGrids[lev],
+		   m_amrGrids[lev-1],
+		   m_deltaTopography[lev-1]->nComp(),
+		   m_amrDomains[lev-1],
+		   m_refinement_ratios[lev-1],
+		   m_deltaTopography[lev-1]->ghostVect()[0]);
+
+		ghostFiller.fillInterp(*new_deltaTopographyDataPtr,*m_deltaTopography[lev-1],
+				      *m_deltaTopography[lev-1],1.0,0,0,
+				      m_deltaTopography[lev-1]->nComp());
+
+		if (old_deltaTopographyDataPtr != NULL && oldDBL.isClosed())
+		  {
+		    old_deltaTopographyDataPtr->copyTo(*new_deltaTopographyDataPtr);
+		  }
+		delete old_deltaTopographyDataPtr;
+		
+	      }
+
+
 
 	      // also need to handle LevelSigmaCS 
 
@@ -3082,7 +3155,14 @@ AmrIce::regrid()
 							 m_domainSize, 
 							 m_time, 
 							 crsePtr,
-							 refRatio);   
+							 refRatio); 
+
+
+		    //re-apply accumulated bedrock differences. Could be optional?
+		    for (DataIterator dit(newDBL); dit.ok(); ++dit)
+		      {
+			m_vect_coordSys[lev]->getTopography()[dit] += (*new_deltaTopographyDataPtr)[dit];
+		      }
 		  }
 		
 		//interpolate thickness & (maybe) topography
@@ -3298,6 +3378,7 @@ AmrIce::regrid()
 	      m_velocity[lev] = new_velDataPtr;
 	      m_temperature[lev] = new_tempDataPtr;
 	      m_calvedIceThickness[lev] = new_calvDataPtr;
+	      m_deltaTopography[lev] = new_deltaTopographyDataPtr;
 #if BISICLES_Z == BISICLES_LAYERED
 	      m_sTemperature[lev] = new_sTempDataPtr;
 	      m_bTemperature[lev] = new_bTempDataPtr;
@@ -4317,13 +4398,11 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
   levelAllocate(&m_cellMuCoef[a_level],a_grids, 1, ghostVect);
   levelAllocate(&m_faceMuCoef[a_level],a_grids, 1, ghostVect);
   levelAllocate(&m_velRHS[a_level],a_grids, SpaceDim,  IntVect::Zero);
-  
   levelAllocate(&m_surfaceThicknessSource[a_level], a_grids,   1, IntVect::Unit) ;
   levelAllocate(&m_basalThicknessSource[a_level], a_grids,  1, IntVect::Unit) ;
-
   levelAllocate(&m_balance[a_level],a_grids,   1, IntVect::Zero) ;
   levelAllocate(&m_calvedIceThickness[a_level],a_grids, 1, IntVect::Unit);
-
+  levelAllocate(&m_deltaTopography[a_level],a_grids, 1, IntVect::Unit);
   // probably eventually want to do this differently
   RealVect dx = m_amrDx[a_level]*RealVect::Unit;
 
@@ -4414,7 +4493,8 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
   if ((m_eliminate_remote_ice_after_regrid) && !(m_eliminate_remote_ice))
     eliminateRemoteIce();
   
-  zeroCalvedIceThickness();
+  setToZero(m_calvedIceThickness);
+  setToZero(m_deltaTopography);
 
   // now call velocity solver to initialize velocity field
   solveVelocityField();
@@ -6695,8 +6775,11 @@ AmrIce::writeCheckpointFile(const string& a_file)
   header.m_real["time"] = m_time;
   header.m_real["dt"] = m_dt;
   header.m_int["num_comps"] = 2 +  m_velocity[0]->nComp() 
-    + m_temperature[0]->nComp();
+    + m_temperature[0]->nComp() + m_deltaTopography[0]->nComp();
 #if BISICLES_Z == BISICLES_LAYERED
+
+
+
   header.m_int["num_comps"] +=2; // surface and base temperatures
 #endif
   // at the moment, save cfl, but it can be changed by the inputs
@@ -6749,6 +6832,19 @@ AmrIce::writeCheckpointFile(const string& a_file)
       
     }
   nComp++;
+
+  string baseDeltaName("deltaBedHeight");
+  for (int comp=0; comp < 1; comp++)
+    {
+      // first generate component name
+      char idx[5]; sprintf(idx, "%04d", comp);
+      compName = baseDeltaName + string(idx);
+      sprintf(compStr, "component_%04d", comp + nComp);
+      header.m_string[compStr] = compName;
+      
+    }
+  nComp++;
+
 
   string velocityName("velocity");
   for (int comp=0; comp < m_velocity[0]->nComp() ; comp++) 
@@ -6823,29 +6919,17 @@ AmrIce::writeCheckpointFile(const string& a_file)
       if (lev <= m_finest_level)
         {
           write(handle, m_amrGrids[lev]);
-	 
-	 
 
-	  // LevelData<FArrayBox> tmp;
 	  const IntVect ghost = IntVect::Unit*2;
-	  // tmp.define(m_amrGrids[lev],1,ghost);
-	  
           const LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
-          // const LevelData<FArrayBox>& levelH = levelCS.getH();
-	  // for (DataIterator dit = tmp.dataIterator();
-	  //      dit.ok(); ++dit){
-	  //   tmp[dit].copy( levelH[dit]);
-	  // }
 
 	  write(handle, levelCS.getH() , "thicknessData", levelCS.getH().ghostVect());
 
-          // const LevelData<FArrayBox>& levelZb = levelCS.getTopography();
-	  // for (DataIterator dit = tmp.dataIterator();
-	  //      dit.ok(); ++dit){
-	  //   tmp[dit].copy( levelZb[dit]);
-	  // }
 	  write(handle, levelCS.getTopography() , "bedHeightData",
 		levelCS.getTopography().ghostVect()  );
+
+	  write(handle, *m_deltaTopography[lev] , "deltaBedHeightData",
+		m_deltaTopography[lev]->ghostVect()  );
 
 	  write(handle, *m_velocity[lev], "velocityData", 
 		m_velocity[lev]->ghostVect());
@@ -6956,6 +7040,8 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
     {
       MayDay::Error("checkpoint file does not contain num_comps");
     }
+  
+  int numComps = header.m_int["num_comps"];
 
   // read cfl
   if (header.m_real.find("cfl") == header.m_real.end())
@@ -7037,6 +7123,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   m_surfaceThicknessSource.resize(m_max_level+1,NULL);
   m_basalThicknessSource.resize(m_max_level+1,NULL);
   m_calvedIceThickness.resize(m_max_level+1, NULL);
+  m_deltaTopography.resize(m_max_level+1, NULL);
   m_balance.resize(m_max_level+1,NULL);
   m_velBasalC.resize(m_max_level+1,NULL);
   m_cellMuCoef.resize(m_max_level+1,NULL);
@@ -7110,6 +7197,8 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 
       m_amrDomains[lev] = ProblemDomain(domainBox, isPeriodic);
 
+      
+
 
       // the rest is only applicable if this level is defined
       if (lev <= m_finest_level)
@@ -7168,6 +7257,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	  m_surfaceThicknessSource[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_basalThicknessSource[lev] = new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_calvedIceThickness[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
+	  m_deltaTopography[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_balance[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Zero) ;
 	  m_diffusivity[lev] = new LevelData<FluxBox>(levelDBL, 1, IntVect::Zero);
 
@@ -7205,6 +7295,27 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
             {
               MayDay::Error("checkpoint file does not contain bed height data");
             }
+	  
+	  LevelData<FArrayBox> deltaBedHeight;
+	  int deltaBedHeightComp = 2 + m_velocity[0]->nComp() + m_temperature[0]->nComp();
+#if BISICLES_Z == BISICLES_LAYERED
+	  deltaBedHeightComp +=2;
+#endif
+	    if (numComps > deltaBedHeightComp)
+	      {
+	      //TODO, think of a better test
+	      deltaBedHeight.define(old_thickness);
+	      dataStatus = read<FArrayBox>(a_handle,
+					   deltaBedHeight,
+					   "deltaBedHeightData",
+					   levelDBL);
+	      if (dataStatus != 0)
+		{
+		  MayDay::Error("checkpoint file does not contain delta bed height data");
+		}
+	    }
+	  
+	  
 
 	  //having read thickness and base data, we can define
           //the co-ordinate system 
@@ -7227,7 +7338,13 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
               levelH[dit].copy((*m_old_thickness[lev])[dit]);
             }
           levelCS.setTopography(bedHeight);
-
+	  if (deltaBedHeight.isDefined())
+	    {
+	      for (dit.begin(); dit.ok(); ++dit)
+		{
+		  (*m_deltaTopography[lev])[dit].copy(deltaBedHeight[dit]);
+		} 
+	    }
 	  {
 	    LevelSigmaCS* crseCoords = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
 	    int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;

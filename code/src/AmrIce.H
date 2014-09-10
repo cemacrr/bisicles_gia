@@ -151,7 +151,17 @@ public:
       {
 	m_basalHeatBoundaryDataPtr = a_basalHeatBoundaryDataPtr->new_surfaceFlux(); }
   }
-
+  
+  /// set bedrock flux for ice sheet
+  void setTopographyFlux(SurfaceFlux* a_topographyFluxPtr)
+  {
+    if (m_topographyFluxPtr != NULL)
+      {
+	delete(m_topographyFluxPtr);
+	m_topographyFluxPtr = NULL;
+      }
+    m_topographyFluxPtr = a_topographyFluxPtr->new_surfaceFlux(); 
+  }
 
   /// set basal friction
   void setBasalFriction(const BasalFriction* a_basalFrictionPtr)
@@ -176,12 +186,14 @@ public:
                               const Vector<LevelData<FluxBox>* >& a_H_half,
                               const Vector<LevelData<FluxBox>* >& a_faceVelAdvection);
 
-// update ice thickness
-  void updateThickness(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new, 
+  // update ice thickness *and* bedrock elevation
+  void updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new, 
                        Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoords_old, 
                        const Vector<LevelData<FluxBox>* >& a_vectFluxes, 
                        Real a_dt);
-    
+  
+  
+
   /// do regridding
   void regrid();
 
@@ -312,7 +324,10 @@ public:
   {
     return m_amrGrids[a_level];
   }
-  
+  const Vector<DisjointBoxLayout>& grids() const
+  {
+    return m_amrGrids;
+  }
   const Vector<RefCountedPtr<LevelSigmaCS> >& amrGeometry() const
   {
     return m_vect_coordSys;
@@ -433,8 +448,8 @@ protected:
   /// compute timestep at initial time
   Real computeInitialDt();
 
-  //set the calved ice thickness to zero
-  void zeroCalvedIceThickness();
+  //set an entire amr hierarchy to zero
+  void setToZero(Vector<LevelData<FArrayBox>*>& a_data);
 
   /// implicit solve for diffusive fluxes
   void implicitThicknessCorrection(Real a_dt,
@@ -628,6 +643,12 @@ protected:
   /// sets basal heat flux or temperature for ice sheet
   SurfaceFlux* m_basalHeatBoundaryDataPtr;
   
+  /// sets topography flux (which raises/lowers bedrock)
+  SurfaceFlux* m_topographyFluxPtr;
+  /// stores the accumulated bedrock difference. This is needed because when 
+  /// m_interpolate_zb == false, the regrid() function re-reads the bedrock, which
+  /// in many cases is a DEM (e.g, bedmap2), so that the evolution of topography would be obliterated
+  Vector<LevelData<FArrayBox>*> m_deltaTopography;
 
   /// sets basal friction coefficient (beta^2)
   BasalFriction* m_basalFrictionPtr;
@@ -865,10 +886,7 @@ protected:
   /// current old-time data
   Vector<LevelData<FArrayBox>*> m_old_thickness;
 
-#if 0  // I think I can drop this one, to be honest...
-  /// new-time data
-  Vector<LevelData<FArrayBox>*> m_new_thickness;
-#endif
+ 
 
   /// horizontal velocity field (found by an IceVelocitySolver)
   Vector<LevelData<FArrayBox>*> m_velocity;
