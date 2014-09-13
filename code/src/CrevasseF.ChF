@@ -1,53 +1,3 @@
-c----------------------------------------------------------
-c compute integrated stress from the surface to the tip of 
-c a surface crevasse, using the formula in
-c Van der Veen (1998) , Cold Regions Sci. Tech. vol 27 p 31
-c
-c  k       : net stress concentration (Pa m^1/2)
-c  thck    : ice thickness (m)
-c  depth   : crevasse depth (m)
-c  dstress : deviatoric stress (vertical average) (Pa)
-c  rho     : ice density (kg/m^3)
-c  gravity : acceleration due gravity (m/s^2)  
-c----------------------------------------------------------
-
-      subroutine VDVSTRESSSOLD(
-     &     CHF_FRA1[k],
-     &     CHF_CONST_FRA1[thck],
-     &     CHF_CONST_FRA1[depthw], 
-     &     CHF_CONST_FRA1[depth],
-     &     CHF_CONST_FRA1[dstress], 
-     &     CHF_CONST_REAL[rho],
-     &     CHF_CONST_REAL[rhow],
-     &     CHF_CONST_REAL[gravity],
-     &     CHF_BOX[box])
-
-      integer CHF_AUTOIX[i]
-      REAL_T F, sqrtpid, pi, K1, K2, K3, tworg,vdvint
-
-      pi = 4.0 * atan(1.0) 
-      F = 1.12
-      tworg = two * rho * gravity
-
-      CHF_AUTOMULTIDO[box; i]
-      if (thck(CHF_AUTOIX[i]).gt.zero) then
-         sqrtpid = (depth(CHF_AUTOIX[i]) * pi)**half
-         K1 = sqrtpid * F * dstress(CHF_AUTOIX[i])
-         K2 = tworg / sqrtpid * 
-     *        vdvint(zero,depth(CHF_AUTOIX[i]),
-     *        depth(CHF_AUTOIX[i]),thck(CHF_AUTOIX[i])
-     *        ,zero,-one)
-         
-         K3 = 0.0d0 ! should be the water contribution
-
-         k(CHF_AUTOIX[i]) = K1 + K2 + K3
-      else
-         k(CHF_AUTOIX[i]) = zero
-      end if
-      CHF_ENDDO
-
-      return
-      end
 
 
 c----------------------------------------------------------
@@ -102,7 +52,7 @@ c
      &     CHF_BOX[box])
 
       integer CHF_AUTOIX[i]
-      REAL_T sqrtpid, pi, a, b, c, vdvint, ki, kw
+      REAL_T sqrtpid, pi, a, b, c, ires,ierr, ki, kw
       
       pi = 4.0 * atan(1.0) 
       CHF_AUTOMULTIDO[box; i]
@@ -110,24 +60,14 @@ c
 
          sqrtpid = (d(CHF_AUTOIX[i]) * pi)**half
 
-c$$$         a = rhow*gravity*hp(CHF_AUTOIX[i]) 
-c$$$     &        - rhoi*gravity*h(CHF_AUTOIX[i])
-c$$$     &        + rxx(CHF_AUTOIX[i])
-c$$$
-c$$$         b = (rhoi-rhow)*gravity 
-c$$$
-c$$$         k(CHF_AUTOIX[i]) = two / sqrtpid 
-c$$$     &        * vdvint(zero, d(CHF_AUTOIX[i]),
-c$$$     &        d(CHF_AUTOIX[i]),h(CHF_AUTOIX[i]),a,b)
-c$$$  
-
 !     ice-only stresses
          a = rxx(CHF_AUTOIX[i])-rhoi*gravity*h(CHF_AUTOIX[i])
          b = rhoi*gravity 
 
-         k(CHF_AUTOIX[i]) = two / sqrtpid 
-     &        * vdvint(zero, d(CHF_AUTOIX[i]),
+         call vdvint(ires,ierr,zero, d(CHF_AUTOIX[i]),
      &        d(CHF_AUTOIX[i]),h(CHF_AUTOIX[i]),a,b)
+
+         k(CHF_AUTOIX[i]) = two / sqrtpid * ires
          
 
 !     water stresses
@@ -136,9 +76,10 @@ c$$$
             a = rhow*gravity*hp(CHF_AUTOIX[i])
             b = -rhow*gravity 
             
-            kw = two / sqrtpid 
-     &           * vdvint(zero,c,
+            call vdvint(ires,ierr,zero,c,
      &           d(CHF_AUTOIX[i]),h(CHF_AUTOIX[i]),a,b)
+
+            kw = two / sqrtpid * ires
             
             k(CHF_AUTOIX[i]) = k(CHF_AUTOIX[i]) + kw
 
@@ -199,7 +140,7 @@ c----------------------------------------------------------
      &     CHF_BOX[box])
 
       integer CHF_AUTOIX[i]
-      REAL_T sqrtpid, pi, a, b, c, vdvint, ki,kw
+      REAL_T sqrtpid, pi, a, b, c, ires,ierr, ki,kw
       
       pi = 4.0 * atan(1.0) 
       CHF_AUTOMULTIDO[box; i]
@@ -211,9 +152,10 @@ c----------------------------------------------------------
          a = rxx(CHF_AUTOIX[i])
          b = -rhoi*gravity 
 
-         k(CHF_AUTOIX[i]) = two / sqrtpid 
-     &        * vdvint(zero, d(CHF_AUTOIX[i]),
+         call vdvint(ires,ierr,zero, d(CHF_AUTOIX[i]),
      &        d(CHF_AUTOIX[i]),h(CHF_AUTOIX[i]),a,b)
+
+         k(CHF_AUTOIX[i]) = two / sqrtpid * ires
   
 
 !     water stresses
@@ -222,9 +164,10 @@ c----------------------------------------------------------
             a = -rhoi*gravity*c 
             b = rhow*gravity 
             
-            kw = two / sqrtpid 
-     &           * vdvint(c,d(CHF_AUTOIX[i]),
+            call vdvint(ires,ierr,c,d(CHF_AUTOIX[i]),
      &           d(CHF_AUTOIX[i]),h(CHF_AUTOIX[i]),a,b)
+            
+            kw = two / sqrtpid * ires
             
             k(CHF_AUTOIX[i]) = k(CHF_AUTOIX[i]) + kw
          end if

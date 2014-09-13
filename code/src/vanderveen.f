@@ -17,46 +17,31 @@
       return 
       end
 
-      double precision function vdvgz(z)
+
+      double precision function vdvabzg(z)
 !     wrapper for integrands of the form
-!     z * G(lambda,gamma(z))
+!     (a+b*z)*G(lambda,gamma(z))
       implicit none
-      double precision z,G
-      double precision depth,thickness
-      common /vdvcom/ depth,thickness
+      double precision z
+      double precision depth,thickness,a,b
+      common /vdvcom/ depth,thickness,a,b
       double precision lambda,gamma,vdvgf
       lambda = depth/thickness
       gamma = z/depth
-      vdvgz = z * vdvgf(lambda,gamma)
+      vdvabzg = (a+b*z)*vdvgf(lambda,gamma)
       return 
       end
 
-      double precision function vdvg(z)
-!     wrapper for integrands of the form
-!     G(lambda,gamma(z))
-      implicit none
-      double precision z,G
-      double precision depth,thickness
-      common /vdvcom/ depth,thickness
-      double precision lambda,gamma,vdvgf
-      lambda = depth/thickness
-      gamma = z/depth
-      vdvg = vdvgf(lambda,gamma)
-      return 
-      end
-
-
-      double precision function vdvint(zmin,zmax,depth,thickness,a,b)
+      subroutine vdvint(result,error,zmin,zmax,depth,thickness,a,b)
 c     integrate (a + b*z)*Gb(x,depth,thickness) from z=zmin  to z=zmax
 c     assumes the only singular point in the integrand is z=depth
       implicit none
 c     args
-      double precision depth, thickness, zmin, zmax, a, b
+      double precision result,error,depth, thickness, zmin, zmax, a, b
       
 c     parameters needed by quadpack dqagp
       integer npts2,neval,ier,leniw,lenw,last,iwork
-      double precision points,abserr,epsabs,epsrel,work,
-     &     resz,res
+      double precision points,epsabs,epsrel,work
       integer pointsdim,iworkdim,workdim
       parameter (pointsdim=3,iworkdim=64,workdim=128)
       dimension work(workdim)
@@ -64,13 +49,15 @@ c     parameters needed by quadpack dqagp
       dimension iwork(iworkdim)
 
 c     declarations for integrand (gb)
-      external vdvgz,vdvg
-      double precision vdvgz,vdvg,d1mach
-      double precision gbdepth, gbthickness
-      common /vdvcom/ gbdepth,gbthickness
+      external vdvabzg
+      double precision vdvabzg,d1mach
+      double precision gdepth, gthickness,ga,gb
+      common /vdvcom/ gdepth,gthickness,ga,gb
 
-      gbdepth = depth
-      gbthickness = thickness
+      gdepth = depth
+      gthickness = thickness
+      ga = a
+      gb = b
       npts2 = 2
       points(1) = zmin
       points(npts2) = zmax
@@ -83,55 +70,17 @@ c     declarations for integrand (gb)
       epsabs = 1.0
       epsrel = 1.0d-6
      
-      work=0.0d0
-      res = 0.0d0
-      if (abs(a) .gt. d1mach(4)) then
-         call dqagp(vdvg,zmin,zmax,npts2,points,epsabs,epsrel,
-     &        res, abserr, neval,ier,leniw,lenw,last,iwork,work)
-         !write(*,*) 'err g',abserr/res,ier
-      end if
+      work = 0.0d0
+      result = 0.0d0
+      error = 0.0d0
+
+      call dqagp(vdvabzg,zmin,zmax,npts2,points,epsabs,epsrel,
+     &     result, error, neval,ier,leniw,lenw,last,iwork,work)
       
-      resz = 0.0d0
-      work=0.0d0
-      if (abs(b) .gt. d1mach(4)) then
-         call dqagp(vdvgz,zmin,zmax,npts2,points,epsabs,epsrel,
-     &        resz, abserr, neval,ier,leniw,lenw,last,iwork,work)
-         !write(*,*) 'err gz',abserr/resz,ier
-      end if
-      
-      vdvint = a*res + b*resz
-      !write(*,*) a,res,b,resz,vdvint
       return
       end
       
-      subroutine vdvstresssurfacecrevassept(netstress , 
-     &     crevassedepth,density,gravity,devstress,thickness)
-      implicit none
-      double precision crevassedepth,density,gravity,
-     &     devstress,thickness,netstress
       
-      double precision K2,K1
-      double precision F,pi
-      
-      double precision vdvint
-
-
-      F = 1.12d0
-      pi = 3.141593d0
-
-      K1 = dsqrt(pi * crevassedepth) * F * devstress
-
-      K2 = (2.0d0 * density * gravity / dsqrt(pi * crevassedepth))
-     &     * vdvint(crevassedepth,thickness,0.0d0,-1.0d0)
-      
-      netstress = K1 + K2
-
-      return
-      end
-
-
-      
-
 c eveything following this line is a copy of a quadpack routine
 
       subroutine dqagp(f,a,b,npts2,points,epsabs,epsrel,result,
