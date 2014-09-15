@@ -67,8 +67,7 @@ void VdVCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 	  m_stressIntensity[a_level] = NULL;
 	}
       //create one element of _stressIntensity 
-      m_stressIntensity[a_level] = new LevelData<FArrayBox> (levelCoords.grids(),20,IntVect::Unit);
-
+      m_stressIntensity[a_level] = new LevelData<FArrayBox> (levelCoords.grids(),2,IntVect::Unit);
 
       for (DataIterator dit (levelCoords.grids()); dit.ok(); ++dit)
 	{
@@ -111,25 +110,19 @@ void VdVCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 	      depth(iv) = std::min(usrf(iv),.999*thck(iv));
 	    }
 	    
-	    FArrayBox waterDepth(remnantBox,1);waterDepth.setVal(m_waterDepth);
-
-
-	    for (int l =0; l < 10; l++)
-	      {
-		layerdepth.copy(depth);
-		layerdepth*=Real(l+1)/10.0;
-		FORT_VDVSTRESSS( CHF_FRA1(vdvK,l),
-				 CHF_CONST_FRA1(thck,0),
-				 CHF_CONST_FRA1(waterDepth,0),
-				 CHF_CONST_FRA1(layerdepth,0),
-				 CHF_CONST_FRA1(s1,0),
-				 CHF_CONST_REAL(rhoi),
-				 CHF_CONST_REAL(rhoo),
-				 CHF_CONST_REAL(grav),
-				 CHF_BOX(remnantBox));
-	      }
-	   
-
+	    FArrayBox waterDepth(remnantBox,1);
+	    waterDepth.setVal(m_waterDepth);
+	    
+	    FORT_VDVSTRESSS( CHF_FRA1(vdvK,0),
+			     CHF_CONST_FRA1(thck,0),
+			     CHF_CONST_FRA1(waterDepth,0),
+			     CHF_CONST_FRA1(depth,0),
+			     CHF_CONST_FRA1(s1,0),
+			     CHF_CONST_REAL(rhoi),
+			     CHF_CONST_REAL(rhoo),
+			     CHF_CONST_REAL(grav),
+			     CHF_BOX(remnantBox));
+	    
 	    // Van Der Veen's net stress intensity for basal crevasses that 
 	    // reach sea level 
 
@@ -137,79 +130,52 @@ void VdVCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 	    for (BoxIterator bit(remnantBox); bit.ok(); ++bit)
 	    {
 	      const IntVect& iv = bit();
-	      thckp(iv) =  0.9*std::max(thck(iv)-usrf(iv),0.0);
+	      thckp(iv) =  0.85*std::max(thck(iv)-usrf(iv),0.0); // peizometric height
 	      depth(iv) = thck(iv)-depth(iv) ; //are there other possible relations?
 	    }
-
-	    for (int l =0; l < 10; l++)
-	      {
-		layerdepth.copy(depth);
-		layerdepth*=Real(l+1)/10.0;
 		
-		FORT_VDVSTRESSB( CHF_FRA1(vdvK,l+10),
-				 CHF_CONST_FRA1(thck,0),
-				 CHF_CONST_FRA1(thckp,0),
-				 CHF_CONST_FRA1(layerdepth,0),
-				 CHF_CONST_FRA1(s1,0),
-				 CHF_CONST_REAL(rhoi),
-				 CHF_CONST_REAL(rhoo),
-				 CHF_CONST_REAL(grav),
-				 CHF_BOX(remnantBox));
-	      }
+	    FORT_VDVSTRESSB( CHF_FRA1(vdvK,1),
+			     CHF_CONST_FRA1(thck,0),
+			     CHF_CONST_FRA1(thckp,0),
+			     CHF_CONST_FRA1(depth,0),
+			     CHF_CONST_FRA1(s1,0),
+			     CHF_CONST_REAL(rhoi),
+			     CHF_CONST_REAL(rhoo),
+			     CHF_CONST_REAL(grav),
+			     CHF_BOX(remnantBox));
+	      
 
 	  }
 			   
-	  //compute the total remnant size (surface + basal) [needs to go in a fortran kernel]
-	  FArrayBox remnant(remnantBox,1);
+	  //compute waterline stress
+	  FArrayBox Kw(remnantBox,1);
 	  FArrayBox& vdvK = (*m_stressIntensity[a_level])[dit];
 	  //set selected to zero everywhere
 	  selected.setVal(0);
 	  for (BoxIterator bit(remnantBox); bit.ok(); ++bit)
 	    {
 	      const IntVect& iv = bit();
-
-	      //surface crevasse depth
-	      Real Ds = std::max(s1(iv),0.0) / (grav*rhoi) + rhoi/rhoo * m_waterDepth;
-	      
-	      Real random1 = ((Real)(rand())+0.0001)/((Real)(RAND_MAX)+0.0001);
-	      Real random2 = ((Real)(rand())+0.0001)/((Real)(RAND_MAX)+0.0001);
-	      
-	      Real normalRandom = std::cos(8.*std::atan(1.)*random2)*std::sqrt(-2.*std::log(random1));
-	      
-	      Real noise = normalRandom * m_NoiseScale;
-
 	      if (m_inclBasalCrev == true)
 		{
-		  //explicit basal crevasse depth calculation
-		  //Real Db = (rhoi/(rhoo-rhoi)) * ((s1(iv)/(grav*rhoi)) - Hab(iv));
-		  //remnant(iv) = std::min(thck(iv),thck(iv) - (Db + Ds + noise));
-		   
-		   if ( vdvK(iv,0) + vdvK(iv,1) > 0.1e6)
-		     {
-		       remnant(iv) = 0.0;
-		     }
+		  //sum of stresses at waterline (or base) due to basal a 
+		  Kw(iv) = vdvK(iv,0) + vdvK(iv,1);
 		}
 	      else
 		{
-		  //assume basal crevasse reaches water level if surface crevasses do 
-		  //remnant(iv) = std::min(thck(iv),usrf(iv)-(Ds + noise));
-		  if ( vdvK(iv,0)  > 0.1e6)
-		     {
-		       remnant(iv) = 0.0;
-		     }
+		  //just surface crevasses
+		  Kw(iv) = vdvK(iv,0);
 		}
-	      remnant(iv) = std::max(-0.0, remnant(iv));
 	    }
-	  
+
 	  for (BoxIterator bit(b); bit.ok(); ++bit)
 	    {
 	      const IntVect& iv = bit();
 	      
 	      //compute a melt-rate which should be dominated by the contribution
 	      //of thick upwind cells: it will only be large if all upwind cells
-	      //are close to fractured and the current cell
+	      //are close to fractured as well as the current cell
 	 
-	      Real upwRemnant = remnant(iv)*thck(iv) ;
+	      Real upwKw = Kw(iv)*thck(iv) ;
 	      Real umod = std::sqrt(vel(iv,0)*vel(iv,0)+vel(iv,1)*vel(iv,1)) + 1.0e-10;
 	      Real upwThck = thck(iv) + 1.0e-10; 
 	      
@@ -224,25 +190,23 @@ void VdVCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 		      fu /= umod;
 		      
 		      upwThck += thck(ivu)*fu;
-		      upwRemnant += thck(ivu)*remnant(ivu)*fu;
+		      upwKw += thck(ivu)*Kw(ivu)*fu;
 		      
 		    }
 		}
+
+#define TOUGHNESS 0.4e6
+	      upwKw = (upwKw-upwThck*TOUGHNESS)/TOUGHNESS;
+
 	      // set mask to 1 to indicate calving event
-	      if ((m_setZeroThck == true) && (upwRemnant < 5.0))
+		if ((m_setZeroThck == true) && (upwKw > 0.0))
 		{
 		  selected(iv) = 1;
-		}
-	      else if (m_oldMeltRate == true) // use a_dt melt rate
-		{
-		  const Real decay = 3.0e+2;
-		  source(iv) -= 10.0 * thck(iv)/a_dt * std::min(upwThck,1.0) 
-		    * std::min(1.0, std::exp( - decay * upwRemnant/(upwThck)));
 		}
 	      else // use decay and ts melt rate
 		{
 		  source(iv) -=  thck(iv)/m_timescale * std::min(upwThck,1.0) 
-		    * std::min(1.0, std::exp( - m_decay * upwRemnant/(upwThck)));
+		    * std::min(1.0, std::exp(  m_decay * upwKw/(upwThck)));
 		  
 		}
 	    }  
@@ -253,16 +217,7 @@ void VdVCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
       std::string file("vdvK.2d.hdf5");
       Real dt = 0.0; 
       Real time = 0.0;
-      Vector<std::string> name(20);
-      for (int l =0; l < 10; l++)
-	{
-	  char str[4];
-	  sprintf(str,"ks%d",l);
-	  name[l] = str;
-	  sprintf(str,"kb%d",l);
-	  name[l+10] = str;
-	}
-
+      Vector<std::string> name(2);
       name[0] = "ks";name[1]="kb";
       WriteAMRHierarchyHDF5(file ,a_amrIce.grids(), m_stressIntensity ,name, 
 			    m_stressIntensity[0]->disjointBoxLayout().physDomain().domainBox(),
