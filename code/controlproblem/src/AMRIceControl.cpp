@@ -260,6 +260,13 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
 
       IceUtility::computeA(*m_A[lev],m_coordSys[lev]->getSigma(), *m_coordSys[lev], m_rateFactor, *m_temperature[lev]);
       CellToEdge(*m_A[lev], *m_faceA[lev]);
+
+      //copy intial thickness data
+      for (DataIterator dit(m_thicknessOrigin[lev]->disjointBoxLayout()); dit.ok(); ++dit)
+	{
+	  (*m_thicknessOrigin[lev])[dit].copy(m_coordSys[lev]->getH()[dit]);
+	}
+
     }
   
 
@@ -365,6 +372,7 @@ void AMRIceControl::levelSetup(int a_lev)
   fill(m_thkCoef, m_referenceThkCoef, m_dataDx, a_lev, IntVect::Unit);
   fill(m_divUHObs, m_referenceDivUHObs, m_dataDx, a_lev, IntVect::Unit);
   fill(m_divUHCoef, m_referenceDivUHCoef, m_dataDx, a_lev, IntVect::Unit);
+  
 
   //initial C
   fill(m_COrigin, m_referenceCOrigin, m_dataDx , a_lev, IntVect::Unit);
@@ -1016,8 +1024,6 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 		  dH -= H;
 		  dH *= m_evolveRegularizationCoefficient; 
 		  dH *= (*m_thkCoef[lev])[dit];
-		  
-		  Real t = dH.norm(); pout() << "SPAMSPAMSPAM " <<  t << endl;
 		}
 	      // flux divergence
 	      dH -= div; 
