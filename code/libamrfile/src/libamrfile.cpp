@@ -75,6 +75,15 @@ public:
 	   {
 	     m_data[lev]->exchange();
 	   }
+
+	 for (int lev = m_nLevel - 1; lev > 0; lev--)
+	   {
+	     //coarse average to lower levels
+	     CoarseAverage av(m_grids[lev],m_names.size(), m_ratio[lev-1]);
+	     av.averageToCoarse(*m_data[lev-1],*m_data[lev]);
+	   }
+
+
 	 updateNameCompMap();
       }
     m_ok = status == 0;
