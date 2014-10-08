@@ -349,7 +349,10 @@ public:
 
 
   const LevelData<FArrayBox>* groundingLineProximity(int a_level) const;
-  
+  Real groundingLineProximityScale() const
+  {
+    return m_groundingLineProximityScale;
+  }
   enum viscousTensorComponent{xx,xy,yx,yy,max};
 
   const LevelData<FArrayBox>* viscousTensor(int a_level) const;

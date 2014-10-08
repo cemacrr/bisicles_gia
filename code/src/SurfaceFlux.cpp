@@ -788,7 +788,20 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
     pp.get("module",module);
     std::string function;
     pp.get("function",function);
-    PythonInterface::PythonSurfaceFlux pythonFlux(module, function);
+
+    int nkwargs = 0;
+    pp.query("n_kwargs",nkwargs);
+    Vector<std::string> kwargName(nkwargs);
+    if (nkwargs > 0)
+      {
+	pp.queryarr("kwargs",kwargName,0,nkwargs);
+      }
+    std::map<std::string, Real> kwarg;
+    for (int i = 0; i < nkwargs; i++)
+      {
+	kwarg[kwargName[i]] = 0.0;
+      }
+    PythonInterface::PythonSurfaceFlux pythonFlux(module, function, kwarg);
     ptr = static_cast<SurfaceFlux*>(pythonFlux.new_surfaceFlux());
 
   }

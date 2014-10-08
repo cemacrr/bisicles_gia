@@ -19,6 +19,7 @@
 #include "BasalFriction.H"
 #include "MuCoefficient.H"
 #include "VelocityBC.H"
+#include <map>
 #include "NamespaceHeader.H"
 //
 // PythonInterface.H
@@ -46,10 +47,18 @@ namespace PythonInterface
   
   void InitializePythonFunction(PyObject **a_pFunc,
 				PyObject *a_pModule,
-				const std::string& a_pyFuncName);
-  
-  void PythonEval(PyObject* a_pyFunc, Vector<Real>& a_value, Vector<Real>& a_arg); 
+				const std::string& a_pyFuncName );
 
+  
+  /**
+     Map names to cell centered data given (a_amrIce,a_level,a_dit,a_iv)
+   */
+  void FillKwargs(std::map<std::string,Real>& a_kwarg,
+		  const AmrIce& a_amrIce, int a_level, 
+		  const DataIterator& a_dit, const IntVect& a_iv);
+  //Evalue python function with positional and (optional) keyword args
+  void PythonEval(PyObject* a_pyFunc, Vector<Real>& a_value, Vector<Real>& a_arg,  std::map<std::string, Real>* a_kwarg = NULL); 
+  
   /// PythonInterface::PythonIBC, a PhysIBC-derived class which allows the bedrock and topography to be set by  a user-defined python function f(x,y) . 
   /** Reflection boundary conditions are imposed on
       each edge. 
@@ -259,10 +268,12 @@ namespace PythonInterface
   {
     PyObject*  m_pModule;
     PyObject*  m_pFunc;
+    std::map<std::string,Real> m_kwarg;
  
   public:
     PythonSurfaceFlux(const std::string& a_pyModule,
-		      const std::string& a_pyFunc);
+		      const std::string& a_pyFunc, 
+		      std::map<std::string,Real>& a_kwarg);
 
     virtual ~PythonSurfaceFlux();
     
@@ -299,12 +310,13 @@ namespace PythonInterface
       MayDay::Error("invalid operator");
     }
 
-    PythonSurfaceFlux(PyObject*  a_pModule,  PyObject*  a_pFunc)
+    PythonSurfaceFlux(PyObject*  a_pModule,  PyObject*  a_pFunc, std::map<std::string,Real>& a_kwarg)
     {
       m_pModule = a_pModule;
       m_pFunc = a_pFunc;
       Py_XINCREF(m_pModule);
       Py_XINCREF(m_pFunc);
+      m_kwarg = a_kwarg; 
     }
   
 

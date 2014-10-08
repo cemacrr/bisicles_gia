@@ -42,7 +42,7 @@ To specify a <a href='surfaceflux.html'>surface flux</a> through a python functi
 a python function that takes five scalar arguments (x,y,t,thickness,topography).
 Let's say that you have created a file foo.py
 <pre>
-#file my.py
+#file foo.py
 def acab(x,y,t,thck,topg):
     return 1.0e-3 * (thck + topg)
 </pre>
@@ -52,8 +52,32 @@ surfaceFlux.type = pythonFlux
 surfaceFlux.module = foo
 surfaceFlux.function = acab
 </pre>
-in the input file.
+in the input file. It is possible to add a few keyword args (kwargs) to surfaceFlux.function, e.g,
+if you want to compute a melt rate that depends on distance from the grounding line, you could have 
+<pre>
+#file foo.py
+import math
+def melt(x,y,t,thck,topg,gl_proximity=0.0,gl_proximity_scale=1.0):
+    d = - math.log(gl_proximity + 1.0e-10) * gl_proximity_scale
+    return -  (d/1.0e+3)**2 * gl_proximity 
 
+</pre>
+with input file lines
+<pre>
+basalFlux.type = maskedFlux
+basalFlux.floating.type = pythonFlux
+baslaFlux.floating.module = foo
+basalFlux.floating.function = acab
+basalFlux.floating.n_kwargs = 2
+basalFlux.floating.kwargs = gl_proximity gl_proximity_scale
+</pre>
+<p>
+So far the supported list is short 
+<ol>
+<li>gl_proximity : solution to p + scale^2 * grad^2 = 1 (grounded) or 0 (floating) with natural BCs</li> 
+<li>gl_proximity_scale : scale in the above</li>
+</ol>
+</p>
 
 <h2><a name='ibc'>Initial Geometry and boundary conditions</a></h2>
 

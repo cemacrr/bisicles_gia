@@ -26,45 +26,72 @@
 
 void PythonInterface::PythonEval(PyObject* a_pFunc, 
 				 Vector<Real>& a_value, 
-				 Vector<Real>& a_args)
+				 Vector<Real>& a_arg, 
+				 std::map<std::string, Real>* a_kwarg)
 {
-  PyObject *pArgs, *pValue;
-  pArgs = PyTuple_New(a_args.size());
-  for (int j = 0; j < a_args.size(); ++j)
+  PyObject *args, *kwargs, *value;
+  args = PyTuple_New(a_arg.size());
+
+  //contruct positional args
+  for (int j = 0; j < a_arg.size(); ++j)
     {
-      pValue = PyFloat_FromDouble(a_args[j]);
-      if (!pValue)
+      value = PyFloat_FromDouble(a_arg[j]);
+      if (!value)
 	{
 	  pout() << "PythonInterface::PythonEval failed to construct Python args" << endl;
-	  CH_assert(pValue != NULL);
+	  CH_assert(value != NULL);
 	  MayDay::Error("PythonInterface::PythonEval failed to construct Python args");
 	}
-      PyTuple_SetItem(pArgs, j, pValue);
+      PyTuple_SetItem(args, j, value);
     }
-
-  pValue = PyObject_CallObject(a_pFunc, pArgs);
-  Py_DECREF(pArgs);
-  if (!pValue)
+  
+  //contruct keyword args
+  kwargs = NULL;
+  if (a_kwarg)
+    {
+      std::map<std::string,Real>& kwarg = *a_kwarg;
+      if (kwarg.size() > 0)
+	{
+	  kwargs = PyDict_New();
+	  for (std::map<std::string, Real>::const_iterator j = kwarg.begin(); j!= kwarg.end(); ++j)
+	    {
+	      value = PyFloat_FromDouble(j->second);
+	      if (!value)
+		{
+		  pout() << "PythonInterface::PythonEval failed to construct Python kwargs" << endl;
+		  CH_assert(value != NULL);
+		  MayDay::Error("PythonInterface::PythonEval failed to construct Python kwargs");
+		}
+	      PyDict_SetItemString(kwargs,j->first.c_str(),value);
+	    }
+	}
+    }
+  
+  value = PyObject_Call(a_pFunc, args, kwargs);
+  Py_DECREF(args);
+  if (kwargs)
+    {Py_DECREF(kwargs);}
+  if (!value)
     {
       pout() << "PythonInterface::PythonEval  python call failed" << endl;
       PyErr_Print();
-      CH_assert(pValue != NULL);
+      CH_assert(value != NULL);
       MayDay::Error("PythonInterface::PythonEval python call failed");
     }
   
-  if (PyFloat_CheckExact(pValue))
+  if (PyFloat_CheckExact(value))
     {
       a_value.resize(1,0.0);
-      a_value[0] =  PyFloat_AS_DOUBLE(pValue);
+      a_value[0] =  PyFloat_AS_DOUBLE(value);
     }
   else
     {
-      Py_DECREF(pValue);
-      CH_assert(PyFloat_CheckExact(pValue));
+      Py_DECREF(value);
+      CH_assert(PyFloat_CheckExact(value));
       MayDay::Error("PythonInterface::PythonEval python return value is not a float");
     }
 
-   Py_DECREF(pValue);
+   Py_DECREF(value);
 
 }
 
@@ -582,10 +609,12 @@ IceThicknessIBC*  PythonInterface::PythonIBC::new_thicknessIBC()
 
 
 PythonInterface::PythonSurfaceFlux::PythonSurfaceFlux(const std::string& a_pyModuleName,
-						      const std::string& a_pyFuncName)
+						      const std::string& a_pyFuncName, 
+						      std::map<std::string,Real>& a_kwarg)
 {
   InitializePythonModule(&m_pModule,  a_pyModuleName);
   InitializePythonFunction(&m_pFunc, m_pModule,  a_pyFuncName);
+  m_kwarg = a_kwarg;
 }
 
 PythonInterface::PythonSurfaceFlux::~PythonSurfaceFlux()
@@ -597,8 +626,38 @@ PythonInterface::PythonSurfaceFlux::~PythonSurfaceFlux()
 
 SurfaceFlux* PythonInterface::PythonSurfaceFlux::new_surfaceFlux()
 {
-  PythonSurfaceFlux* ptr = new PythonSurfaceFlux(m_pModule, m_pFunc);
+  PythonSurfaceFlux* ptr = new PythonSurfaceFlux(m_pModule, m_pFunc, m_kwarg);
   return static_cast<SurfaceFlux*>( ptr);
+}
+
+/**
+   Map names to cell centered data given (a_amrIce,a_level,a_dit,a_iv).
+   Silently sets a_value[i] to 0.0 if a_name[i] is not known
+*/
+void  PythonInterface::FillKwargs(std::map<std::string,Real>& a_kwarg,
+				       const AmrIce& a_amrIce, int a_level, 
+				       const DataIterator& a_dit, const IntVect& a_iv)
+{
+  //\todo : clumsy, since it does a series of string matches on a cell-by-cell basis, 
+  // Might want to carry this on a FAB-by-FAB basis,
+  // but on a grander scale a standard 'look-up-by-name' addition to AmrIce itself
+  // might be useful. For now, this function is not widely used
+  
+  for (std::map<std::string,Real>::iterator i = a_kwarg.begin(); i!= a_kwarg.end(); ++i)
+    {
+      if (i->first == "gl_proximity")
+	{
+	  i->second = (*a_amrIce.groundingLineProximity(a_level))[a_dit](a_iv);
+	} 
+      else if (i->first == "gl_proximity_scale")
+	{
+	  i->second = a_amrIce.groundingLineProximityScale();
+	} 
+      else
+	{
+	  i->second = 0.0;
+	}
+    }
 }
 
 
@@ -629,7 +688,8 @@ void PythonInterface::PythonSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBo
 	  args[i] = a_amrIce.time();i++;
 	  args[i] = levelCS->getH()[dit](iv);i++;
 	  args[i] = levelCS->getTopography()[dit](iv);i++;
-	  PythonEval(m_pFunc, rval,  args);
+	  FillKwargs(m_kwarg, a_amrIce, a_level,  dit, iv);
+	  PythonEval(m_pFunc, rval,  args, &m_kwarg);
 	  a_flux[dit](iv) =  rval[0];
 
 	}
