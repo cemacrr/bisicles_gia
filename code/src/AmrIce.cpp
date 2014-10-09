@@ -1415,6 +1415,10 @@ AmrIce::initialize()
       Real dsigma = 1.0 / Real(nLayers);
       for (unsigned int l = 0; l < faceSigma.size(); ++l)
 	faceSigma[l] = dsigma * (Real(l));
+      {
+	ParmParse ppGeo("geometry");
+	ppGeo.queryarr("sigma",faceSigma,0,faceSigma.size());
+      }
       ppAmr.queryarr("sigma",faceSigma,0,faceSigma.size());
       setLayers(faceSigma);
     }
