@@ -57,6 +57,33 @@ conditions: 1 paper or May 16, 2014
 subscribers: LBNL
 
 
+------------------------------------------------------------
+
+Gunter-devel:
+
+description: Branch for Gunter Leguy to use for development work
+
+initial date: March 6, 2014
+
+conditions: None -- at Gunter's discretion
+ 
+subscribers: LBNL
+
+------------------------------------------------------------
+
+KevinCarlson:
+
+description: Branch for Kevin Carlson to use for performance work
+
+initial date: October 18, 2014
+
+conditions: None -- at Kevin's discretion
+ 
+subscribers: LBNL
+
+
+
+
 
 
 
