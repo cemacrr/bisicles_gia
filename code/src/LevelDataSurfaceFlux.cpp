@@ -57,7 +57,7 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
 	}
 
       Vector<std::string> name(1,m_name);
-      
+     
       if (start->first != m_startTime)
 	{
 	  //load m_startFlux
@@ -71,14 +71,10 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
 	}
       if (end->first != m_endTime)
 	{
-	  if (start == end)
-	    {
-	      m_endFlux = m_startFlux;
-	    }
-	  else
+	  if ((start != end) & (m_linearInterp))
 	    {
 	      //load m_endFlux
-	      pout() << " LevelDataSurfaceFlux::surfaceThicknessFlux loading end time data " << end->second << std::endl;
+	      pout() << " LevelDataSurfaceFlux::surfaceThicknessFlux loading end time data for linear interpolation " << end->second << std::endl;
 	      Vector<RefCountedPtr<LevelData<FArrayBox> > > data(1,m_endFlux);
 	      Real dx;
 	      readLevelData(data, dx , end->second,name,1);
@@ -86,6 +82,11 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
 		CH_assert(m_dx[dir] = dx);
 	      m_endTime = end->first;
 	    }
+	  else
+	    {
+	      pout() << " LevelDataSurfaceFlux::surfaceThicknessFlux piecewise const " << endl;
+	    }
+	  
 	  m_endTime = end->first;
 	}
     }
@@ -96,26 +97,28 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
     }
 
   FillFromReference(a_flux, *m_startFlux, levelDx ,m_dx,m_verbose);
-  if (time > m_startTime && m_startTime < m_endTime)
+
+  if (m_linearInterp)
     {
-      
-      Real w = std::min(1.0 , (time - m_startTime) / (m_endTime - m_startTime)); 
-
-     
-
-      LevelData<FArrayBox> tmp; tmp.define(a_flux);
-      for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
+      // Linear interpolation of surface fluxes in time
+      if (time > m_startTime && m_startTime < m_endTime)
 	{
-	  tmp[dit].setVal(0.0);
-	}
+     	  
+	  Real w = std::min(1.0 , (time - m_startTime) / (m_endTime - m_startTime)); 
+	  LevelData<FArrayBox> tmp; tmp.define(a_flux);
+	  for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
+	    {
+	      tmp[dit].setVal(0.0);
+	    }
 
-      FillFromReference(tmp, *m_endFlux, levelDx ,m_dx,m_verbose);
-      for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
-  	{
-  	  tmp[dit] *=w;
-  	  a_flux[dit] *= (1.0-w);
-  	  a_flux[dit] += tmp[dit];
-  	}
+	  FillFromReference(tmp, *m_endFlux, levelDx ,m_dx,m_verbose);
+	  for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
+	    {
+	      tmp[dit] *=w;
+	      a_flux[dit] *= (1.0-w);
+	      a_flux[dit] += tmp[dit];
+	    }
+	}
     }
   
   const ProblemDomain& domain = a_flux.disjointBoxLayout().physDomain();
@@ -168,6 +171,14 @@ void MultiLevelDataSurfaceFlux::surfaceThicknessFlux
 	{
 	  //load m_startFlux
 	  pout() << " LevelDataSurfaceFlux::surfaceThicknessFlux loading start time data " << start->second << std::endl;
+	  if (m_linearInterp)
+	    {
+	      pout() << " LevelDataSurfaceFlux::surfaceThicknessFlux linearly interpolating between time data " << endl;
+	    }
+	  else
+	    {
+	      pout() << " LevelDataSurfaceFlux::surfaceThicknessFlux piecewise const " << endl;
+	    }
 	  Vector<Vector<RefCountedPtr<LevelData<FArrayBox> > > > data;
 	  Real dxCrse;
 	  readMultiLevelData(data,dxCrse,m_ratio,start->second,name,1);
@@ -225,8 +236,17 @@ void MultiLevelDataSurfaceFlux::surfaceThicknessFlux
   if (time > m_startTime && m_startTime < m_endTime)
     {
       
-      Real w = std::min(1.0 , (time - m_startTime) / (m_endTime - m_startTime)); 
-
+      Real w;
+      if (m_linearInterp)
+	{
+	  // Linear interpolation between surface fluxes
+	  w = std::min(1.0 , (time - m_startTime) / (m_endTime - m_startTime)); 
+	}
+      else
+	{
+	  // Piecewise constant
+	  w=0.0;
+	} 
      
 
       LevelData<FArrayBox> tmp; tmp.define(a_flux);

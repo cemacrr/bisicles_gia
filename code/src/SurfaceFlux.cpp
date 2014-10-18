@@ -601,7 +601,9 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       pp.query("timeStep", timeStep);
       std::string name = "flux";
       pp.query("name", name);
-      	
+      bool linearInterp = true;
+      pp.query("linearInterp", linearInterp);
+
       RefCountedPtr<std::map<Real,std::string> > tf
 	(new std::map<Real,std::string>);
       
@@ -613,7 +615,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
 	  delete file;
 	}
       
-      LevelDataSurfaceFlux* ldptr = new LevelDataSurfaceFlux(tf,name);
+      LevelDataSurfaceFlux* ldptr = new LevelDataSurfaceFlux(tf,name,linearInterp);
       ptr = static_cast<SurfaceFlux*>(ldptr);
     }
   else if (type == "fortran")

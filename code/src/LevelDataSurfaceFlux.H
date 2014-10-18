@@ -33,16 +33,18 @@ public:
    LevelDataSurfaceFlux(RefCountedPtr<LevelData<FArrayBox> > a_flux,
    		       const RealVect& a_dx)
      :m_timeFileMap(NULL), m_startTime(-1.2345678e+300), m_endTime(1.2345678e+300),
-      m_startFlux(a_flux), m_endFlux(a_flux),m_dx(a_dx),m_verbose(true),m_name("")
+      m_startFlux(a_flux), m_endFlux(a_flux),m_dx(a_dx),m_verbose(true),m_name(""),
+      m_linearInterp(true)
      
    {
    }
   
   LevelDataSurfaceFlux(RefCountedPtr<std::map<Real, std::string> >& a_timeFileMap, 
-		       const std::string& a_name)
+		       const std::string& a_name,
+		       const bool& a_linearInterp)
     :m_timeFileMap(a_timeFileMap), m_startTime(1.2345678e+300), m_endTime(-1.2345678e+300),
      m_startFlux(new LevelData<FArrayBox>()),m_endFlux(new LevelData<FArrayBox>()),
-     m_verbose(true),m_name(a_name)
+     m_verbose(true),m_name(a_name),m_linearInterp(a_linearInterp)
   {
   }
 
@@ -60,7 +62,7 @@ public:
     LevelDataSurfaceFlux* ptr;
     if (m_timeFileMap != NULL)
       {
-	ptr = new LevelDataSurfaceFlux(m_timeFileMap,m_name);
+	ptr = new LevelDataSurfaceFlux(m_timeFileMap,m_name,m_linearInterp);
       }
     else
       {
@@ -88,6 +90,7 @@ protected:
   RealVect m_dx;
   bool m_verbose;
   std::string m_name;
+  bool m_linearInterp;
 
 private:
   // Disallowed for all the usual reasons
@@ -111,9 +114,10 @@ public:
 
  
   MultiLevelDataSurfaceFlux(RefCountedPtr<std::map<Real, std::string> >& a_timeFileMap, 
-		       const std::string& a_name)
+			    const std::string& a_name,
+			    const bool& a_linearInterp)
     :m_timeFileMap(a_timeFileMap), m_startTime(1.2345678e+300), m_endTime(-1.2345678e+300),
-     m_verbose(true),m_name(a_name)
+     m_verbose(true),m_name(a_name), m_linearInterp(a_linearInterp)
   {
   }
 
@@ -131,7 +135,7 @@ public:
     MultiLevelDataSurfaceFlux* ptr;
     if (m_timeFileMap != NULL)
       {
-	ptr = new MultiLevelDataSurfaceFlux(m_timeFileMap,m_name);
+	ptr = new MultiLevelDataSurfaceFlux(m_timeFileMap,m_name,m_linearInterp);
       }
     // else
     //   {
@@ -160,6 +164,7 @@ protected:
   Vector<int> m_ratio;
   bool m_verbose;
   std::string m_name;
+  bool m_linearInterp;
 
 private:
   // Disallowed for all the usual reasons
