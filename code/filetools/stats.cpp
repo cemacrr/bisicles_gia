@@ -42,7 +42,8 @@ void createMaskedDEM( Vector<LevelData<FArrayBox>* >& topography,
 		      Vector<int>& ratio,
 		      Vector<Real>& dx,
 		      Real mcrseDx,
-		      int maskNo)
+		      int maskStart,
+                      int maskEnd)
 {
   CH_TIME("createMaskedDEM");
   int numLevels = data.size();
@@ -102,11 +103,13 @@ void createMaskedDEM( Vector<LevelData<FArrayBox>* >& topography,
 		{
 		  const IntVect& iv = bit();
 		    
-		  if ( std::abs ( levelMask[dit](iv) - maskNo) < 1.0e-6)
-		    {
-		      coef(iv) = 1.0;
-		    }
-		    
+                  for (int maskNo = maskStart; maskNo<= maskEnd; maskNo++)
+                    {
+                      if ( std::abs ( levelMask[dit](iv) - maskNo) < 1.0e-6)
+                        {
+                          coef(iv) = 1.0;
+                        }
+                    }
 		}
 	      levelData[dit].mult(coef,0,0,1);
 		
@@ -682,12 +685,28 @@ int main(int argc, char* argv[]) {
    
     for (int maskNo = maskNoStart; maskNo <= maskNoEnd; ++maskNo)
       {
-	createMaskedDEM(topography, thickness, mdata, name, data, ratio, dx, mcrseDx, maskNo);
+	createMaskedDEM(topography, thickness, mdata, name, data, ratio, dx, mcrseDx, maskNo, maskNo);
 	pout() << " time = " << time  ;
 	computeStats(topography, thickness, dx, ratio, iceDensity, waterDensity,gravity);
 	if (maskFile)
 	  {
 	    pout() << " sector = " << maskNo;
+	  }
+#ifdef STATS_COMPUTE_DISCHARGE
+	    computeDischarge(topography, thickness, dx, ratio, name, data, iceDensity, waterDensity,gravity);
+#endif
+	pout() << endl;
+      }
+
+    // now compute stats for all selected sectors combined
+    if (maskNoStart != maskNoEnd)
+      {
+	createMaskedDEM(topography, thickness, mdata, name, data, ratio, dx, mcrseDx, maskNoStart, maskNoEnd);
+	pout() << " time = " << time  ;
+	computeStats(topography, thickness, dx, ratio, iceDensity, waterDensity,gravity);
+	if (maskFile)
+	  {
+	    pout() << " all sectors ";
 	  }
 #ifdef STATS_COMPUTE_DISCHARGE
 	    computeDischarge(topography, thickness, dx, ratio, name, data, iceDensity, waterDensity,gravity);
