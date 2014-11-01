@@ -5894,7 +5894,7 @@ void AmrIce::eliminateRemoteIce()
   IceUtility::eliminateRemoteIce(m_vect_coordSys, m_amrGrids, m_amrDomains, 
 				 m_refinement_ratios, m_amrDx[0], 
 				 m_finest_level, m_eliminate_remote_ice_max_iter,
-				 m_eliminate_remote_ice_tol);
+				 m_eliminate_remote_ice_tol,s_verbosity);
 }
 
 
@@ -6632,7 +6632,7 @@ AmrIce::writePlotFile()
   
   // generate plotfile name
   std::string fs("%s%06d.");
-  char* iter_str = new char[m_plot_prefix.size() + fs.size() + 1];
+  char* iter_str = new char[m_plot_prefix.size() + fs.size() + 16];
   sprintf(iter_str, fs.c_str(), m_plot_prefix.c_str(), m_cur_step );
   string filename(iter_str);
   delete iter_str;
@@ -6715,19 +6715,26 @@ void
 AmrIce::writeCheckpointFile() 
 {
   // generate checkpointfile name
-  char (iter_str[100]);
-
+  char* iter_str;
   if (m_check_overwrite)
     {
       // overwrite the same checkpoint file, rather than re-writing them
+      std::string fs("%s.%dd.hdf5");
+      iter_str = new char[m_check_prefix.size() + fs.size() + 16];
       sprintf(iter_str, "%s.%dd.hdf5", m_check_prefix.c_str(), SpaceDim);
+      
     }
   else 
     {
       // or hang on to them, if you are a bit sentimental. It's better than keeping
       // every core dump you generate.
+      std::string fs("%s%06d.%dd.hdf5");
+      iter_str = new char[m_check_prefix.size() + fs.size() + 16];
       sprintf(iter_str, "%s%06d.%dd.hdf5", m_check_prefix.c_str(), m_cur_step, SpaceDim);
+     
     }
+
+  CH_assert(iter_str != NULL);
 
   if (s_verbosity > 3) 
     {
@@ -6735,7 +6742,7 @@ AmrIce::writeCheckpointFile()
     }
 
   writeCheckpointFile(std::string(iter_str));
-  
+  delete iter_str;
 }
 
 /// write checkpoint file out for later restarting
