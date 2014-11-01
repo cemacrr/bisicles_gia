@@ -116,6 +116,16 @@ namespace IceUtility
    const ConstitutiveRelation* a_constitutiveRelation,
    const bool a_additionalVelocity); 
 
+  ///Identify regions of fast ice  and eliminate them.
+  void eliminateFastIce
+  (Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+   Vector<LevelData<FArrayBox>* >& a_vel,
+   const Vector<DisjointBoxLayout>& a_grids,
+   const Vector<ProblemDomain>& a_domain,
+   const Vector<int>& a_refRatio, Real a_crseDx,
+   int a_finestLevel, int a_maxIter, Real a_thinIceTol, Real a_fastIceTol,
+   int a_verbosity = 0);
+
   ///Identify regions of floating ice that are remote
   ///from grounded ice and eliminate them.
   void eliminateRemoteIce
@@ -123,7 +133,8 @@ namespace IceUtility
    const Vector<DisjointBoxLayout>& a_grids,
    const Vector<ProblemDomain>& a_domain,
    const Vector<int>& a_refRatio, Real a_crseDx,
-   int a_finestLevel, int a_maxIter, Real a_tol);
+   int a_finestLevel, int a_maxIter, Real a_tol, 
+   int a_verbosity = 0);
   
 }
 

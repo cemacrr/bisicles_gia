@@ -535,6 +535,49 @@ void IceUtility::computeFaceVelocity
 
 }
 
+///Identify regions of fast ice  and eliminate them.
+/**
+   implies a call to IceUtility::eliminateRemoteIce 
+ */
+void IceUtility::eliminateFastIce
+(Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+ Vector<LevelData<FArrayBox>* >& a_vel,
+ const Vector<DisjointBoxLayout>& a_grids,
+ const Vector<ProblemDomain>& a_domain,
+ const Vector<int>& a_refRatio, Real a_crseDx,
+ int a_finestLevel, int a_maxIter, Real a_thinIceTol, Real a_fastIceTol, int a_verbosity)
+{
+  CH_TIME("IceUtility::eliminateFastIce");
+  if (a_verbosity > 0)
+    {
+      pout() << "IceUtility::eliminateFastIce" << endl;
+    }
+  Real fastIceTolSq = a_fastIceTol * a_fastIceTol;
+  for (int lev=0; lev <= a_finestLevel ; ++lev)
+    {
+      for (DataIterator dit(a_grids[lev]); dit.ok(); ++dit)
+	{
+	  FArrayBox& H = a_coordSys[lev]->getH()[dit];
+	  FArrayBox& u = (*a_vel[lev])[dit];
+	  
+	  for (BoxIterator bit(a_grids[lev][dit]);bit.ok();++bit)
+	    {
+	      const IntVect& iv = bit();
+	      Real usq = D_TERM(u(iv,0)*u(iv,0), + u(iv,1)*u(iv,1), u(iv,2)*u(iv,2));
+	      if (usq > fastIceTolSq)
+		{
+		  H(iv) = 0.0;
+		  D_DECL(u(iv,0) = 0 ,u(iv,1) = 0, u(iv,2) = 0);
+		}
+	    }
+	}
+    }
+  
+  // eliminateRemoteIce will recompute surface elevation etc
+  eliminateRemoteIce(a_coordSys,a_grids,a_domain,a_refRatio, a_crseDx,
+		     a_finestLevel,a_maxIter,a_thinIceTol,  a_verbosity);
+}
+
 ///Identify regions of floating ice that are remote
 ///from grounded ice and eliminate them.
 /**
@@ -550,11 +593,16 @@ void IceUtility::eliminateRemoteIce
  const Vector<DisjointBoxLayout>& a_grids,
  const Vector<ProblemDomain>& a_domain,
  const Vector<int>& a_refRatio, Real a_crseDx,
- int a_finestLevel, int a_maxIter, Real a_tol)
+ int a_finestLevel, int a_maxIter, Real a_tol, int a_verbosity)
 {
   CH_TIME("IceUtility::eliminateRemoteIce");
+  if (a_verbosity > 0)
+    {
+      pout() << "IceUtility::eliminateRemoteIce" << endl;
+    }
   //Define phi = 1 on grounded ice, 0 elsewhere
   Vector<LevelData<FArrayBox>* > phi(a_finestLevel + 1, NULL);
+  
   for (int lev=0; lev <= a_finestLevel ; ++lev)
     {
       const DisjointBoxLayout& levelGrids = a_grids[lev];
@@ -621,6 +669,13 @@ void IceUtility::eliminateRemoteIce
     
     
     sumPhi = computeSum(phi, a_refRatio, a_crseDx, Interval(0,0), 0);
+
+    if (a_verbosity > 0)
+      {
+	pout() << "IceUtility::eliminateRemoteIce iteration " << iter 
+	       << " connected cells = " << sumPhi << endl;
+      }
+    
     iter++;
   } while ( iter < a_maxIter && sumPhi > oldSumPhi );
 

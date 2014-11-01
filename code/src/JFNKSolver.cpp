@@ -22,6 +22,7 @@
 #include "BiCGStabSolver.H"
 #include "GMRESSolver.H"
 #include "CGSolver.H"
+#include "IceUtility.H"
 #include <sstream>
 #include "NamespaceHeader.H"
 
@@ -663,6 +664,12 @@ void JFNKSolver::setDefaultParameters()
   m_muMin = 0.0;
   m_writeResiduals = false;
   m_minStepFactor = 1.0;
+  m_eliminateFastIce = false;
+  m_eliminateFastIceSpeed = 1.0e+5;
+  m_eliminateRemoteIceTol = 1.0;
+  m_eliminateRemoteIceMaxIter = 10;
+
+
   // these ones don't need to be stored (at least for now), but should be set
   int mgAverageType  = CoarseAverageFace::arithmetic;
   ViscousTensorOpFactory::s_coefficientAverageType = mgAverageType;
@@ -706,6 +713,11 @@ void JFNKSolver::define(const ProblemDomain& a_coarseDomain,
   pp.query("uMaxAbs", m_uMaxAbs);
   pp.query("writeResiduals", m_writeResiduals);
   pp.query("minStepFactor", m_minStepFactor);
+  pp.query("eliminateFastIce",m_eliminateFastIce);
+  pp.query("eliminateFastIceSpeed",m_eliminateFastIceSpeed);
+  pp.query("eliminateRemoteIceTol",m_eliminateRemoteIceTol);
+  pp.query("eliminateRemoteIceMaxIter",m_eliminateRemoteIceMaxIter);
+
   if (pp.contains("solverType") )
     {
       int solverIntType = m_linearSolverType;
@@ -934,6 +946,15 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
       // if (m_writeIterations)
       // 	writeIteration(iter,localU,localRhs,residual);
 
+      // get rid of ice with excessive |u|
+      if (m_eliminateFastIce)
+	{
+	  IceUtility::eliminateFastIce(a_coordSys, localU, m_grids , m_domains, 
+				       m_refRatios, m_dxs[0][0], a_maxLevel, 
+				       m_eliminateRemoteIceMaxIter, m_eliminateRemoteIceTol, 
+				       m_eliminateFastIceSpeed, m_verbosity);
+	}
+      
       if (iter == 0 || !a_linear)
 	current.setState(a_u);  
       JFNKOp newOp

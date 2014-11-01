@@ -499,6 +499,13 @@ public:
   //options to do with writing out residual data
   bool m_writeResiduals;
   
+  ///throw away fast ice at the end of each iteration? 
+  bool m_eliminateFastIce;
+  Real m_eliminateFastIceSpeed;
+  Real m_eliminateRemoteIceTol;
+  Real m_eliminateRemoteIceMaxIter;
+
+
   Real m_uMaxAbs, m_muMin, m_muMax;
 private:
 
