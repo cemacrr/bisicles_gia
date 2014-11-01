@@ -352,6 +352,13 @@ private:
   /// evolve geoemtry according to the thickness transport equation
   void evolveGeometry(Real a_dt, Real a_time);
 
+  ///eliminate remote ice after evolving ?
+  bool m_eliminateRemoteIce;
+  ///maximum number of elimination iterations
+  int m_eliminateRemoteIceMaxIter;
+  /// thin ice tolerance
+  Real m_eliminateRemoteIceTol;
+
 };
 
 #else

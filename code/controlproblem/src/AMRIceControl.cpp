@@ -532,6 +532,13 @@ void AMRIceControl::solveControl()
   m_evolveMeltRateLengthScale = 0.4e+4 ; //4 km smoothness scale
   pp.query("evolveMeltRateLengthScale",m_evolveMeltRateLengthScale);
 
+  m_eliminateRemoteIce = false;
+  pp.query("eliminate_remote_ice",  m_eliminateRemoteIce);
+  m_eliminateRemoteIceMaxIter = 10;
+  pp.query("eliminate_remote_ice_max_iter",  m_eliminateRemoteIceMaxIter);
+  m_eliminateRemoteIceTol = 1.0;
+  pp.query("eliminate_remote_ice_tol",  m_eliminateRemoteIceTol);
+
   if (m_outerCounter > 0)
     {
       
@@ -1071,6 +1078,16 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
       
     } // end time loop
 
+  //eliminate newly generated remote ice if required
+  if (m_eliminateRemoteIce)
+    {
+      int verbosity = 1;
+      IceUtility::eliminateRemoteIce(m_coordSys, m_grids, m_domain, m_refRatio, 
+				     m_dx[0][0], m_finestLevel, 
+				     m_eliminateRemoteIceMaxIter, m_eliminateRemoteIceTol,
+				     verbosity );
+    }
+  
  
   //writeState("postAdvect.2d.hdf5", m_innerCounter, x,g );
   for (int lev = 0; lev <= m_finestLevel;lev++)
