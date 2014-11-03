@@ -7312,17 +7312,26 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 #if BISICLES_Z == BISICLES_LAYERED
 	  deltaBedHeightComp +=2;
 #endif
-	    if (numComps > deltaBedHeightComp)
+
+	  deltaBedHeight.define(old_thickness);
+
+	  if (numComps > deltaBedHeightComp)
 	      {
-	      //TODO, think of a better test
-	      deltaBedHeight.define(old_thickness);
-	      dataStatus = read<FArrayBox>(a_handle,
-					   deltaBedHeight,
-					   "deltaBedHeightData",
-					   levelDBL);
-	      if (dataStatus != 0)
+		//TODO, think of a better test
+		dataStatus = read<FArrayBox>(a_handle,
+					     deltaBedHeight,
+					     "deltaBedHeightData",
+					     levelDBL);
+		if (dataStatus != 0)
+		  {
+		    MayDay::Error("checkpoint file does not contain delta bed height data");
+		  }
+	      }
+	  else
+	    {
+	      for (DataIterator dit = deltaBedHeight.disjointBoxLayout(); dit.ok();++dit)
 		{
-		  MayDay::Error("checkpoint file does not contain delta bed height data");
+		  deltaBedHeight[dit].setVal(0.0);
 		}
 	    }
 	  
