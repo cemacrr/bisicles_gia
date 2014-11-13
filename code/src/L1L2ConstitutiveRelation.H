@@ -35,8 +35,11 @@ class L1L2ConstitutiveRelation : public ConstitutiveRelation
 public:
   ///
   L1L2ConstitutiveRelation() 
-    :m_solverTol(1.0e-6),m_additionalVelocitySIAGradSLimit(1.0e-2),
-     m_additionalVelocitySIAOnly(true),m_startFromAnalyticMu(false)
+    :m_solverTol(1.0e-6),
+     m_additionalVelocitySIAGradSLimit(1.0e-2),
+     m_effectiveViscositySIAGradSLimit(1.0e+10),
+     m_additionalVelocitySIAOnly(true),
+     m_startFromAnalyticMu(false)
   {;}
   ///
   
@@ -247,7 +250,8 @@ private:
   Real m_solverTol;
   // if > 0, limit the magnitude of grad(s) when computing the SIA part of u(z) - u(z=base)
   Real m_additionalVelocitySIAGradSLimit; 
-
+  // if > 0, limit the magnitude of grad(s) when computing the effective viscosity
+  Real m_effectiveViscositySIAGradSLimit;
   // neglect non SIA contribution to u(z) - u(z=base)  
   bool m_additionalVelocitySIAOnly; 
 

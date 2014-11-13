@@ -33,6 +33,7 @@ L1L2ConstitutiveRelation::getNewConstitutiveRelation() const
   L1L2ConstitutiveRelation* newPtr = new L1L2ConstitutiveRelation;
   newPtr->m_solverTol = m_solverTol;
   newPtr->m_additionalVelocitySIAGradSLimit = m_additionalVelocitySIAGradSLimit;
+  newPtr->m_effectiveViscositySIAGradSLimit = m_effectiveViscositySIAGradSLimit;
   newPtr->m_additionalVelocitySIAOnly = m_additionalVelocitySIAOnly;
   newPtr->m_startFromAnalyticMu = m_startFromAnalyticMu;
   GlensFlowRelation* gfr =  newPtr->getGlensFlowRelationPtr();
@@ -48,6 +49,11 @@ L1L2ConstitutiveRelation::parseParameters()
 {
   ParmParse ppL1L2("L1L2");
   ppL1L2.query("solverTolerance", m_solverTol);
+  ppL1L2.query("effectiveViscositySIAGradSLimit", m_effectiveViscositySIAGradSLimit);
+  if (m_effectiveViscositySIAGradSLimit > 0.0)
+    {
+      m_additionalVelocitySIAGradSLimit = std::min(m_effectiveViscositySIAGradSLimit,m_additionalVelocitySIAGradSLimit);
+    }
   ppL1L2.query("additionalVelocitySIAGradSLimit", m_additionalVelocitySIAGradSLimit);
   ppL1L2.query("additionalVelocitySIAOnly", m_additionalVelocitySIAOnly);
   ppL1L2.query("startFromAnalyticMu",m_startFromAnalyticMu);
@@ -313,9 +319,20 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
   const Real& rhog = a_rhog;
   FArrayBox phiTildeSqr(a_box,1);
   int nComp = a_grads.nComp();
+
+  FArrayBox grads(a_box,nComp);
+  grads.copy(a_grads,0,0,nComp);
+  if (m_effectiveViscositySIAGradSLimit > 0.0)
+    {
+      FORT_L1L2MODLIMIT(CHF_FRA(grads),
+			CHF_CONST_REAL(m_effectiveViscositySIAGradSLimit),
+			CHF_BOX(a_box),
+			CHF_CONST_INT(nComp));
+    }
+
   FORT_L1L2PHITILDESQR(CHF_FRA1(phiTildeSqr,0),
 		       CHF_CONST_FRA1(a_H,0),
-		       CHF_CONST_FRA(a_grads),
+		       CHF_CONST_FRA(grads),
 		       CHF_CONST_REAL(rhog),
 		       CHF_INT(nComp),
 		       CHF_BOX(a_box));
