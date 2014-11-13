@@ -499,6 +499,10 @@ AmrIce::setDefaults()
   m_tagOndivHgradVel = false;
   m_divHGradVel_tagVal = 1.0;
   m_tagGroundingLine  = false;
+  m_tagVelDx = false;
+  m_velDx_tagVal = 0.0;
+  m_velDx_tagVal_finestLevelGrounded = -1;
+  m_velDx_tagVal_finestLevelFloating = -1;
   m_tagMargin  = false;
   m_tagAllIce  = false;
   m_groundingLineTaggingMinVel = 200.0;
@@ -1219,6 +1223,18 @@ AmrIce::initialize()
       ppAmr.query("grounding_line_tagging_max_basal_friction_coef", m_groundingLineTaggingMaxBasalFrictionCoef);
     }
   
+  
+  ppAmr.query("tag_vel_dx", m_tagVelDx);
+  isThereATaggingCriterion |= m_tagVelDx;
+  // if we set this to be true, require that we also provide the threshold
+  if (m_tagVelDx)
+    {
+      ppAmr.get("vel_dx_tagging_val",m_velDx_tagVal);
+      ppAmr.query("vel_dx_finest_level_grounded",m_velDx_tagVal_finestLevelGrounded);
+      m_velDx_tagVal_finestLevelFloating = m_velDx_tagVal_finestLevelGrounded;
+      ppAmr.query("vel_dx_finest_level_floating",m_velDx_tagVal_finestLevelFloating);
+    }
+
 #ifdef HAVE_PYTHON
   ppAmr.query("tag_python", m_tagPython);
   isThereATaggingCriterion |= m_tagPython;
@@ -2308,6 +2324,10 @@ AmrIce::timeStep(Real a_dt)
           // compute new ice velocity field
       if (m_evolve_velocity )
 	{
+	  if (s_verbosity > 3) 
+	    {
+	      pout() << "AmrIce::timeStep solveVelocityField() [m_temporalAccuracy == 2]" << endl;
+	    }
 	  solveVelocityField();
 	}
       // average cell-centered velocity field to faces just like before
@@ -2414,6 +2434,10 @@ AmrIce::timeStep(Real a_dt)
   // compute new ice velocity field
   if (m_evolve_velocity )
     {
+      if (s_verbosity > 3) 
+	{
+	  pout() << "AmrIce::timeStep solveVelocityField() (step end) " << endl;
+	}
       solveVelocityField();
     }
 
@@ -3597,6 +3621,11 @@ AmrIce::regrid()
 		}
 	    } // end loop over levels to determine covered levels
 
+	  // this is a good time to check for remote ice
+          if ((m_eliminate_remote_ice_after_regrid) 
+              && !(m_eliminate_remote_ice))
+            eliminateRemoteIce();
+	
 	  if (m_evolve_velocity)
 	    {
 	      //velocity solver needs to be re-defined
@@ -3609,15 +3638,7 @@ AmrIce::regrid()
 	      CH_assert(m_evolve_velocity);
 	      MayDay::Error("AmrIce::regrid() not implemented for !m_evolve_velocity");
 	    }
-          // this is a good time to check for remote ice
-          if ((m_eliminate_remote_ice_after_regrid) 
-              && !(m_eliminate_remote_ice))
-            eliminateRemoteIce();
-          
-	  //velocity solver needs to be re-defined
-	  defineSolver();
-	  //solve velocity field, but use the previous initial residual norm in place of this one
-	  solveVelocityField(m_velocitySolveInitialResidualNorm);
+         
 	  
 	} // end if tags changed
     } // end if max level > 0 in the first place
@@ -3837,6 +3858,35 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
 	}
     }
   
+  // tag on |vel| * dx > m_velDx_tagVal. This style of tagging is used in the AMRControl.cpp
+  // (but with the observed field), so can be used to construct similar meshes
+  if (m_tagVelDx)
+    {
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+	  const Box& box = levelGrids[dit()];
+	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
+	  const FArrayBox& vel = levelVel[dit];
+	  for (BoxIterator bit(box) ; bit.ok(); ++bit)
+	    {
+	      const IntVect& iv = bit();
+	      if ((mask(iv) == GROUNDEDMASKVAL && a_level < m_velDx_tagVal_finestLevelGrounded) ||
+		  (mask(iv) == FLOATINGMASKVAL && a_level < m_velDx_tagVal_finestLevelFloating) )
+		{
+		  Real v = 0.0;
+		  for (int dir = 0; dir < SpaceDim; ++dir)
+		    {
+		      v += std::pow(vel(iv,dir),2);
+		    }
+		  if (sqrt(v)*dx(a_level)[0] > m_velDx_tagVal)
+		    {
+		      local_tags |= iv;
+		    }
+		}
+	    }
+	}
+    }
+
   // tag on div(H grad (vel)) 
   if (m_tagOndivHgradVel)
     {
@@ -7037,7 +7087,11 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
     }
 
   m_time = header.m_real["time"];
-
+  ParmParse pp("amr");
+  bool set_time = false;
+  pp.query("restart_set_time",set_time);
+  if (set_time)
+    pp.query("restart_time",m_time);
   // read timestep
   if (header.m_real.find("dt") == header.m_real.end())
     {
@@ -7445,6 +7499,12 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   defineSolver();
   m_doInitialVelSolve = false; // since we have just read the velocity field
   m_doInitialVelGuess = false; // ditto
+
+
+  if (s_verbosity > 3) 
+    {
+      pout() << "AmrIce::readCheckPointFile solveVelocityField() " << endl;
+    }
   solveVelocityField();
   m_doInitialVelSolve = true;
 

@@ -796,6 +796,12 @@ protected:
   Real m_groundingLineTaggingMinVel;
   /// threshold Basal friction coefficient at the grounding line : tag if C < value
   Real m_groundingLineTaggingMaxBasalFrictionCoef;
+  
+  ///tag  where |vel| * dx > m_maxVelDxVal
+  bool m_tagVelDx;
+  Real m_velDx_tagVal;
+  int m_velDx_tagVal_finestLevelGrounded;
+  int m_velDx_tagVal_finestLevelFloating;
 
   /// tag at the ice margin
   bool m_tagMargin;
