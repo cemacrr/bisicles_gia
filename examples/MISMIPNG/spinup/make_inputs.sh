@@ -7,7 +7,13 @@ getcre()
   esac
 }
 
-
+getnodes()
+{
+  case $lev in
+    5)  NODES=1;;
+    *) NODES=1
+  esac
+}
 
 
 for solver in Chombo PETSc
@@ -18,9 +24,11 @@ do
 	do
 	    tagcap=$(( lev - 1 )) 
 	    getcre
-	    
-	    INFILE=inputs.ghgChannel.spin.$smod.l$lev.$solver
-	    sed -e s/#$solver// -e s/@MAXLEVEL/$lev/ -e s/@TAGCAP/$tagcap/ -e s/@SMOD/$smod/ -e s/@CRE/$cre/ inputs.ghgChannel.template > $INFILE
+	    getnodes
+	    NAME=ghgChannel.spin.$smod.l$lev.$solver
+	    INFILE=inputs.$NAME
+	    sed -e s/#$solver// -e s/@SOLVER/$solver/ -e s/@NAME/$NAME/ -e s/@MAXLEVEL/$lev/ -e s/@TAGCAP/$tagcap/ -e s/@SMOD/$smod/ -e s/@CRE/$cre/ inputs.ghgChannel.template > $INFILE
+	    sed -e s/@SOLVER/$solver/  -e s/@SMOD/$smod/ -e s/@NODES/$NODES/ -e s/@INFILE/$INFILE/ -e s/@LEV/$lev/  job.newblue.template.sh > job.newblue.$NAME.sh
 	done
     done
 done

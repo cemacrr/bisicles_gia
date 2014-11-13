@@ -53,3 +53,19 @@ def friction(x,y,t,thck,topg):
     return friction
 
 
+def linear100(x,y,t,thck,topg):
+    zb = -thck * 0.9
+    a = m.sin(t*2.0/100.0*m.pi)
+    a = a**2 * 0.1
+    arg = max(1.0,1.0+zb-topg)
+    
+    return a*zb*m.log(arg)
+
+
+def linlogB(x,y,t,thck,topg):
+    zb = -thck * 0.9
+    a = m.sin(t*2.0/100.0*m.pi)
+    a = a**2 * 0.025
+    arg = max(1.0,1.0+zb-topg)
+    
+    return a*zb*m.log(arg)

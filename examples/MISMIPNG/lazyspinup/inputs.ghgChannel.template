@@ -94,7 +94,7 @@ JFNKSolver.switchRate = 1.8
 
 #time stepping
 main.maxTime = 50000.0  # maximum time to run to
-main.maxStep = 100000   # maximum number of steps to runx
+main.maxStep = 9999999   # maximum number of steps to runx
 amr.temporal_accuracy = 1
 amr.cfl = 0.25 
 amr.initial_cfl = 0.25 
@@ -144,7 +144,11 @@ amr.grounding_line_tagging_min_vel = 0
 amr.verbosity = 5
 
 
+amr.velocity_solve_interval = @SOLVEINTERVAL
+
 amr.restart_file = ../chk.ghgChannel.ssa.0lev.Chombo.018000.2d.hdf5
+
+#L1L2.effectiveViscositySIAGradSLimit = 1.0e-1
 
 #END OF TEMPLATE
 

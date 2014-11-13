@@ -40,7 +40,11 @@ surfaceFlux.type = pythonFlux
 surfaceFlux.module = ghgChannel
 surfaceFlux.function = accumulation 
 
-basalFlux.type = zeroFlux
+basalFlux.type = maskedFlux
+basalFlux.grounded.type = zeroFlux
+basalFlux.floating.type =  pythonFlux
+basalFlux.floating.module = ghgChannel
+basalFlux.floating.function = linlogB
 
 #CalvingModel.type = BennCalvingModel
 CalvingModel.type = DomainEdgeCalvingModel
@@ -94,7 +98,7 @@ JFNKSolver.switchRate = 1.8
 
 #time stepping
 main.maxTime = 50000.0  # maximum time to run to
-main.maxStep = 100000   # maximum number of steps to runx
+main.maxStep = 9999999   # maximum number of steps to runx
 amr.temporal_accuracy = 1
 amr.cfl = 0.25 
 amr.initial_cfl = 0.25 
@@ -102,8 +106,8 @@ amr.max_dt_grow_factor = 1.1
 amr.time_step_ticks = 1
 
 #plotting options
-amr.plot_interval = 1000
-amr.plot_prefix = plot.ghgChannel.@SMOD.@MAXLEVELlev.@SOLVER.
+amr.plot_interval = 100
+amr.plot_prefix = plot.ghgChannel.meltB.@SMOD.@MAXLEVELlev.@SOLVER.
 
 amr.write_solver_rhs = 1
 amr.write_viscous_tensor = true
@@ -112,7 +116,7 @@ amr.write_thickness_sources = true
 #check points
 amr.check_interval = 1000
 
-amr.check_prefix = chk.ghgChannel.@SMOD.@MAXLEVELlev.@SOLVER.
+amr.check_prefix = chk.ghgChannel.meltB.@SMOD.@MAXLEVELlev.@SOLVER.
 
 amr.check_overwrite = 0
 amr.verbosity = 5
@@ -144,7 +148,13 @@ amr.grounding_line_tagging_min_vel = 0
 amr.verbosity = 5
 
 
-amr.restart_file = ../chk.ghgChannel.ssa.0lev.Chombo.018000.2d.hdf5
+amr.velocity_solve_interval = @SOLVEINTERVAL
+
+amr.restart_file = chk.ghgChannel.@SMOD.@MAXLEVELlev.@SOLVER.initial.2d.hdf5
+amr.restart_set_time = true
+amr.restart_time = 0.0
+ 
+#L1L2.effeamr.restart_set_timectiveViscositySIAGradSLimit = 1.0e-1
 
 #END OF TEMPLATE
 
