@@ -537,7 +537,7 @@ void IceUtility::computeFaceVelocity
 
 ///Identify regions of fast ice  and eliminate them.
 /**
-   implies a call to IceUtility::eliminateRemoteIce 
+   implies a call to IceUtility::eliminateRemoteIce iff any fast ice is removed
  */
 void IceUtility::eliminateFastIce
 (Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
@@ -552,6 +552,7 @@ void IceUtility::eliminateFastIce
     {
       pout() << "IceUtility::eliminateFastIce" << endl;
     }
+  int nEliminated = 0;
   Real fastIceTolSq = a_fastIceTol * a_fastIceTol;
   for (int lev=0; lev <= a_finestLevel ; ++lev)
     {
@@ -568,14 +569,44 @@ void IceUtility::eliminateFastIce
 		{
 		  H(iv) = 0.0;
 		  D_DECL(u(iv,0) = 0 ,u(iv,1) = 0, u(iv,2) = 0);
+		  nEliminated++;
 		}
 	    }
 	}
     }
   
-  // eliminateRemoteIce will recompute surface elevation etc
-  eliminateRemoteIce(a_coordSys,a_grids,a_domain,a_refRatio, a_crseDx,
-		     a_finestLevel,a_maxIter,a_thinIceTol,  a_verbosity);
+  if (a_verbosity > 0)
+	{
+	  pout() << "... (this cpu) eliminated " << nEliminated << " cells " << endl;
+	}
+
+#ifdef CH_MPI
+  {
+    int tmp = 1.;
+    int result = MPI_Allreduce(&nEliminated, &tmp, 1, MPI_INT,
+			       MPI_SUM, Chombo_MPI::comm);
+    
+    CH_assert(result == MPI_SUCCESS);
+    if (result != MPI_SUCCESS)
+      {
+	MayDay::Error("communication error on MPI_Allreduce");
+      }
+    nEliminated = tmp;
+  }
+#endif  
+
+  if (a_verbosity > 0)
+	{
+	  pout() << "... (all cpus) eliminated " << nEliminated << " cells " << endl;
+	}
+
+  if (nEliminated > 0)
+    {
+      
+      // eliminateRemoteIce will recompute surface elevation etc
+      eliminateRemoteIce(a_coordSys,a_grids,a_domain,a_refRatio, a_crseDx,
+			 a_finestLevel,a_maxIter,a_thinIceTol,  a_verbosity);
+    }
 }
 
 ///Identify regions of floating ice that are remote
