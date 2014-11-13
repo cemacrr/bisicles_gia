@@ -90,7 +90,7 @@ namespace PythonInterface
 	  return RefCountedPtr<BCFunction>(new NaturalBCFunction(a_dir, a_side));
 	}
       CH_assert(a_type < MaxBCType && a_type > 0);
-
+      return RefCountedPtr<BCFunction>(new IceDivideBCFunction(a_dir, a_side));
     }
 
   public:
