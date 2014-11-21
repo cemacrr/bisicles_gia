@@ -74,6 +74,11 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   ParmParse ppGeom("geometry");
   Vector<int> ncells(3); 
   ppGeom.getarr("num_cells",ncells,0,ncells.size());
+
+  // set domain offset (default is zero)
+  Vector<int> domain_off(3, 0);
+  ppGeom.queryarr("domain_offset",domain_off,0,domain_off.size());
+
   bool periodic[SpaceDim] = {D_DECL(false,false,false)};
   {
     Vector<int> is_periodic(SpaceDim);
@@ -86,7 +91,10 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   
   IntVect lo(IntVect::Zero);
   IntVect hi(D_DECL(ncells[0]-1, ncells[1]-1, ncells[2]-1));
+  IntVect domain_offset(D_DECL(domain_off[0], domain_off[1], domain_off[2]));
   ProblemDomain domain(lo,hi,periodic);
+  domain.shift(domain_offset);
+
   RealVect domainSize;
   Vector<Real> domSize(SpaceDim);
   ppGeom.getarr("domain_size", domSize, 0, SpaceDim);
@@ -508,7 +516,7 @@ void AMRIceControl::solveControl()
   m_outerStepFileNameBase = "ControlOuter";
   pp.query("outerStepFileNameBase",m_outerStepFileNameBase);
 
-  m_outerCounter = 0;
+  m_outerCounter = -1;
   pp.query("restart",m_outerCounter);
 
   m_restartInterval = 10;
@@ -539,7 +547,7 @@ void AMRIceControl::solveControl()
   m_eliminateRemoteIceTol = 1.0;
   pp.query("eliminate_remote_ice_tol",  m_eliminateRemoteIceTol);
 
-  if (m_outerCounter > 0)
+  if (m_outerCounter >= 0)
     {
       
       std::string restartfile = outerStateFile();
@@ -551,6 +559,7 @@ void AMRIceControl::solveControl()
     }
   else
     {
+      m_outerCounter = 0;
       m_innerCounter = 0;
     }
 
