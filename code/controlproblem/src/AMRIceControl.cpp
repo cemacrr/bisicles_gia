@@ -269,7 +269,7 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
       IceUtility::computeA(*m_A[lev],m_coordSys[lev]->getSigma(), *m_coordSys[lev], m_rateFactor, *m_temperature[lev]);
       CellToEdge(*m_A[lev], *m_faceA[lev]);
 
-      //copy intial thickness data
+      //copy initial thickness data
       for (DataIterator dit(m_thicknessOrigin[lev]->disjointBoxLayout()); dit.ok(); ++dit)
 	{
 	  (*m_thicknessOrigin[lev])[dit].copy(m_coordSys[lev]->getH()[dit]);
@@ -570,7 +570,7 @@ void AMRIceControl::solveControl()
       
       CGOptimize(*this ,  X , CGmaxIter , CGtol , CGhang,
 		 CGsecantParameter, CGsecantStepMaxGrow, 
-		 CGsecantMaxIter , CGsecantTol);
+		 CGsecantMaxIter , CGsecantTol, m_outerCounter);
 
       if (i < m_evolveSteps)
 	{

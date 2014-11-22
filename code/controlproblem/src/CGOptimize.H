@@ -29,16 +29,18 @@ inline Real sqr(const Real& a)
 }
 
 template <class O, class X>
-void CGOptimize(O& a_F, X& a_x, 
+int CGOptimize(O& a_F, X& a_x, 
 		int  a_maxIter, 
 		Real a_tol,
 		Real a_hang,
 		Real a_secantParameter,
 	        Real a_secantStepMaxGrow,
 	        int  a_maxSecantIter,
-		Real a_secantTol)
+		Real a_secantTol,
+                int a_iter = 0)
 {
 
+  //pout() << "CGOptimize -- a_iter = " << a_iter << endl;
   //Preconditioned Nonlinear Conjugate Gradients 
   //with Secant line search and Polak-Ribiere updates
   //from J. R. Shewchuk, 1994 
@@ -62,7 +64,7 @@ void CGOptimize(O& a_F, X& a_x,
   a_F.assign(d,s);
   Real deltaNew = a_F.dotProduct(r,s);
   Real deltaZero = deltaNew;
-  int iter = 0; int k = 0;
+  int iter = a_iter; int k = 0;
   while (   (iter < a_maxIter) 
 	    && (deltaNew > sqr(a_tol) * deltaZero) 
 	    && (fm > 1.0e-16) 
@@ -185,6 +187,7 @@ void CGOptimize(O& a_F, X& a_x,
   a_F.free(y);
   a_F.free(p);
 
+  return iter;
 
 }
 
