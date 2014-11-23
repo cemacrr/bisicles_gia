@@ -539,6 +539,8 @@ void AMRIceControl::solveControl()
   pp.query("evolveSteps",m_evolveSteps);
   m_evolveMeltRateLengthScale = 0.4e+4 ; //4 km smoothness scale
   pp.query("evolveMeltRateLengthScale",m_evolveMeltRateLengthScale);
+  m_evolveWeightOverSpeed = -1.0;
+  pp.query("evolveWeightOverSpeed",m_evolveWeightOverSpeed);
 
   m_eliminateRemoteIce = false;
   pp.query("eliminate_remote_ice",  m_eliminateRemoteIce);
@@ -1032,6 +1034,7 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 	      FArrayBox dH(box,1);
 	      const FArrayBox& div = (*m_divUH[lev])[dit];
 	      const FArrayBox& divo = (*m_divUHObs[lev])[dit];
+	      const FArrayBox& u = (*m_vels[lev])[dit];
 	      dH.setVal(0.0);
 	      //regularization
 	      if (m_evolveRegularizationCoefficient > 0.0)
@@ -1040,6 +1043,15 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 		  dH -= H;
 		  dH *= m_evolveRegularizationCoefficient; 
 		  dH *= (*m_thkCoef[lev])[dit];
+		  if (m_evolveWeightOverSpeed > 0.0)
+		    {
+		      for (BoxIterator bit(box);bit.ok();++bit)
+			{
+			  const IntVect& iv = bit();
+			  Real usq = D_TERM(u(iv,0)*u(iv,0),+u(iv,1)*u(iv,1),+0.0);
+			  dH(iv) *= m_evolveWeightOverSpeed / (1.0 + std::sqrt(usq));
+			}
+		    }
 		}
 	      // flux divergence
 	      dH -= div; 

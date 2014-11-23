@@ -347,6 +347,7 @@ private:
   Real m_evolveRegularizationCoefficient;
   Real m_evolveLimitDH; // maximum change in thickness
   Real m_evolveMeltRateLengthScale;
+  Real m_evolveWeightOverSpeed; // if > 0, weight regularization by w/(|u| + 1)
   /// evolve the geoemtry on CG restarts ?
   bool m_evolveOnRestart;
   /// evolve geoemtry according to the thickness transport equation
