@@ -5819,8 +5819,8 @@ void AmrIce::updateViscousTensor() const
 		     m_A, faceA, m_time, vtopSafety, vtopRelaxMinIter, vtopRelaxTol, 
 		     muMin, muMax);
   state.setState(m_velocity);
-  viscosityCoef = state.getViscosityCoef();
-  dragCoef = state.getDragCoef();
+  viscosityCoef = state.mu();
+  dragCoef = state.alpha();
   state.computeViscousTensorFace(m_viscousTensorFace);
   
   for (int lev =0; lev < numLevels; lev++)

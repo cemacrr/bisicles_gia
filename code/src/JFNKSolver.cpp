@@ -232,9 +232,9 @@ void JFNKOp::writeResidual
       int j = 0;
       a_u[lev]->copyTo(Interval(0,1),*data[lev],Interval(j,j+1)); j+=2;
       a_residual[lev]->copyTo(Interval(0,1),*data[lev],Interval(j,j+1)); j+=2;
-      m_u->getDragCoef()[lev]->copyTo(Interval(0,0),*data[lev],Interval(j,j)); j+=1;
+      m_u->alpha()[lev]->copyTo(Interval(0,0),*data[lev],Interval(j,j)); j+=1;
 
-      const LevelData<FluxBox>& mu =  *m_u->getViscosityCoef()[lev];
+      const LevelData<FluxBox>& mu =  *m_u->mu()[lev];
       for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
 	{
 	  FArrayBox muSum; 
@@ -281,350 +281,6 @@ void JFNKOp::preCond(Vector<LevelData<FArrayBox>*>& a_cor,
   m_mlOp.preCond( a_cor, a_residual);
   //CH_assert(norm(a_cor,0) < HUGE_NORM);
 }
-
-IceJFNKstate::~IceJFNKstate()
-{
-  delete m_bcPtr;
-}
-IceJFNKstate::IceJFNKstate
-(const Vector<DisjointBoxLayout>& a_grids,
- const Vector<int>& a_refRatio,
- const Vector<ProblemDomain>& a_domains,
- const Vector<RealVect>& a_dxs,
- const Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
- const Vector<LevelData<FArrayBox>*>& a_u,
- const Vector<LevelData<FArrayBox>*>& a_C,
- const Vector<LevelData<FArrayBox>*>& a_C0,
- const int a_finestLevel,
- const ConstitutiveRelation& a_constRel,
- const BasalFrictionRelation& a_basalFrictionRel,
- IceThicknessIBC& a_bc,
- const Vector<LevelData<FArrayBox>*>& a_A,
- const Vector<LevelData<FluxBox>*>& a_faceA,
- const Real a_time,
- const Real a_vtopSafety,
- const int a_vtopRelaxMinIter,
- const Real a_vtopRelaxTol,
- const Real a_muMin ,
- const Real a_muMax)
-  :m_u(a_u), m_C(a_C), m_C0(a_C0), m_grids(a_grids), m_refRatio(a_refRatio),
-   m_domains(a_domains), m_dxs(a_dxs),m_finestLevel(a_finestLevel), 
-   m_coordSys(a_coordSys), m_constRelPtr(&a_constRel), 
-   m_basalFrictionRelPtr(&a_basalFrictionRel), m_bcPtr(a_bc.new_thicknessIBC()),
-   m_A(a_A), m_faceA(a_faceA) , m_time(a_time), m_vtopSafety(a_vtopSafety),
-   m_vtopRelaxMinIter(a_vtopRelaxMinIter),m_vtopRelaxTol(a_vtopRelaxTol),
-   m_muMin(a_muMin),m_muMax(a_muMax)
-{
-
-  m_mu.resize(m_finestLevel + 1);
-  m_lambda.resize(m_finestLevel + 1);
-  m_alpha.resize(m_finestLevel + 1);
-  m_muCoef.resize(m_finestLevel + 1);
-
-  for (int lev =0; lev <= m_finestLevel; ++lev)
-    {
-      DisjointBoxLayout levelGrids = m_grids[lev];
-
-      m_mu[lev] = RefCountedPtr<LevelData<FluxBox> >
-	(new LevelData<FluxBox>(levelGrids, 1, IntVect::Unit));
-
-      m_muCoef[lev] = NULL;
-      
-      m_lambda[lev] = RefCountedPtr<LevelData<FluxBox> >
-	(new LevelData<FluxBox>(levelGrids, 1, IntVect::Unit));	
-      
-      m_alpha[lev] = RefCountedPtr<LevelData<FArrayBox> >
-	(new LevelData<FArrayBox>(levelGrids, 1, IntVect::Unit));
-
-      // (DFM - 10/29/13) sending these values into the constructor 
-      // uninitialized is giving valgrind fits. Initialize everything 
-      // to bogus values here
-      bool initializeValues = true;
-      if (initializeValues)
-        {
-          // negative viscosities and friction should be suitably unphysical
-          Real bogusValue = -1;
-          DataIterator dit = levelGrids.dataIterator();
-          for (dit.begin(); dit.ok(); ++dit)
-            {
-              (*m_mu[lev])[dit].setVal(bogusValue);
-              (*m_lambda[lev])[dit].setVal(bogusValue);
-              (*m_alpha[lev])[dit].setVal(bogusValue);
-            }
-        }
-    }
-
-   Real alpha = -1.0;
-   Real beta = 1.0;
-   // for the moment, at least, this only works for dx = dy:
-   if (SpaceDim > 1) CH_assert(m_dxs[0][0] == m_dxs[0][1]);
-
-   m_velSolveBC = m_bcPtr->velocitySolveBC();
-   m_opFactoryPtr = 
-     RefCountedPtr<AMRLevelOpFactory<LevelData<FArrayBox> > >
-     (new ViscousTensorOpFactory(m_grids, m_mu, m_lambda, m_alpha, alpha, 
-				 beta, m_refRatio , m_domains[0], m_dxs[0][0], 
-				 m_velSolveBC, m_vtopSafety, m_vtopRelaxTol, 
-				 m_vtopRelaxMinIter));
-
-
-}
-
-
-void IceJFNKstate::computeViscousTensorFace(const Vector<LevelData<FluxBox>*>& a_viscousTensor)
-{
-  if (m_opFactoryPtr == NULL)
-    MayDay::Error("IceJFNKstate::computeViscousTensorFace missing m_opFactoryPtr");
-  
-  ViscousTensorOpFactory* vtopf = static_cast<ViscousTensorOpFactory*>(&(*m_opFactoryPtr));
-
-  //compute cell centered grad(vel)
-  Vector<LevelData<FArrayBox>* > gradVel(m_finestLevel + 1, NULL);
-  for (int lev=0; lev <= m_finestLevel; lev++)
-    {
-      const DisjointBoxLayout& grids = m_grids[lev];
-      gradVel[lev] = new LevelData<FArrayBox>(grids , SpaceDim*SpaceDim, IntVect::Unit);
-      LevelData<FArrayBox>& vel = *m_u[lev];
-      LevelData<FArrayBox>& grad = *gradVel[lev];
-      
-      if (lev > 0)
-	{
-	  const DisjointBoxLayout& crseGrids = m_grids[lev-1];
-	  const ProblemDomain& pd = grids.physDomain();
-	  TensorCFInterp cf(grids,&crseGrids,m_dxs[lev][0],m_refRatio[lev-1],SpaceDim,pd);
-	  cf.coarseFineInterp(vel,grad,*m_u[lev-1]);
-	}
-      ViscousTensorOp* vtop = vtopf->AMRnewOp(m_domains[lev]);
-      for (DataIterator dit(m_grids[lev]); dit.ok(); ++dit)
-	{
-	  vtop->cellGrad(grad[dit],vel[dit],grids[dit]);
-	}
-      grad.exchange();
-      delete vtop;
-    }
-  
-  for (int lev=0; lev <= m_finestLevel; lev++)
-    {
-      ViscousTensorOp* vtop = vtopf->AMRnewOp(m_domains[lev]);
-      const DisjointBoxLayout& grids = m_grids[lev];
-      LevelData<FluxBox>& flux = *a_viscousTensor[lev];
-      LevelData<FArrayBox>& vel = *m_u[lev];
-      LevelData<FArrayBox>& grad = *gradVel[lev];
-      
-      for (DataIterator dit(grids);dit.ok();++dit)
-	{
-	  for (int dir = 0; dir < SpaceDim; dir++)
-	    {
-	      const FArrayBox& muFace  =  (*m_mu[lev])[dit][dir];
-	      const FArrayBox& lambdaFace  = (*m_lambda[lev])[dit][dir];
-	      Box faceBox =  surroundingNodes(grids[dit],dir);
-	      Box domFaceBox = surroundingNodes(m_domains[lev].domainBox(), dir);
-	      faceBox &= domFaceBox;
-	      FArrayBox tmpFlux(faceBox,SpaceDim); //  vtop->getFlux tinkers with the FAB box
-	      vtop->getFlux(tmpFlux, vel[dit], grad[dit] , muFace, lambdaFace, faceBox, dir, 1);
-	      flux[dit][dir].setVal(0.0);
-	      flux[dit][dir].copy(tmpFlux,faceBox);
-	    }
-	}
-      delete vtop;
-    }
-  
-  for (int lev=0; lev <= m_finestLevel; lev++)
-    {
-      if (gradVel[lev] != NULL)
-	{
-	  delete gradVel[lev];
-	  gradVel[lev] = NULL; 
-	}
-    }
-}
-
-
-
-//store a_u and set the coeffients mu(u), lambda(u) = 2*mu(u) and alpha(u)
-//in L[u] = div( mu * (grad(u) + grad(u)^T) + lambda * div(u)*I) - alpha*u
-void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
-{
-  m_u = a_u;
-  
-  CH_TIME("IceJFNKstate::setState");
-  
-  for (int lev=0; lev <= m_finestLevel ; lev++)
-    {
-      ProblemDomain levelDomain = m_domains[lev];
-      const DisjointBoxLayout& levelGrids = m_grids[lev];
-      LevelData<FArrayBox>& levelVel = *a_u[lev];
-      LevelData<FArrayBox>* crseVelPtr = NULL;
-      int nRefCrse = -1;
-      if (lev > 0) 
-        {
-          crseVelPtr = a_u[lev-1];
-          nRefCrse = m_refRatio[lev-1];
-        }
-      LevelData<FluxBox>& levelMu = *m_mu[lev];
-     
-      LevelSigmaCS& levelCoords = *m_coordSys[lev];
-      const LevelData<FArrayBox>& levelC = *m_C[lev];
-      LevelData<FArrayBox>& levelAlpha = *m_alpha[lev];
-
-      // // first thing, if there is a finer level, average-down
-      // // the current velocity field
-      if (lev < m_finestLevel )
-        {
-          LevelData<FArrayBox>& finerVel = *a_u[lev+1];
-
-          CoarseAverage averager(finerVel.getBoxes(),
-                                 levelGrids,
-                                 finerVel.nComp(),
-                                 m_refRatio[lev]);
-
-          averager.averageToCoarse(levelVel, finerVel);
-        }
-
-      // just in case, add an exchange here
-      levelVel.exchange();
-      
-      // first set BC's on vel
-      m_bcPtr->velocityGhostBC(levelVel,
-                               levelCoords,
-                               levelDomain, m_time);
-      
-
-      DataIterator dit = levelGrids.dataIterator();
-      dit.reset();
-#define TENSORCF
-#ifndef TENSORCF 
-      if (lev > 0) 
-        {
-          QuadCFInterp qcfi(levelGrids, &m_grids[lev-1],
-                            m_dxs[lev][0], m_refRatio[lev-1], 
-                            2, levelDomain);
-          qcfi.coarseFineInterp(levelVel, *a_u[lev-1]);
-        }
-
-      //slc : qcfi.coarseFineInterp fills the edges of lev > 0 cells
-      //but not the corners. We need them filled to compute the
-      //rate-of-strain invariant, so here is a bodge for now
-      if (SpaceDim == 2)
-      	{
-      	  for (dit.begin(); dit.ok(); ++dit)
-      	    {
-      	      Box sbox = levelVel[dit].box();
-      	      sbox.grow(-1);
-      	      FORT_EXTRAPCORNER2D(CHF_FRA(levelVel[dit]),
-      				  CHF_BOX(sbox));
-      	    }
-	  
-      	}
-
-#endif
-      // actually need to use a cornerCopier, too...
-      CornerCopier cornerCopier(levelGrids, levelGrids, 
-                                levelDomain,levelVel.ghostVect(),
-                                true);
-      levelVel.exchange(cornerCopier);
-           
-      (*m_constRelPtr).computeFaceMu(levelMu,
-                                     levelVel,
-                                     crseVelPtr,
-                                     nRefCrse,
-                                     *m_faceA[lev],
-                                     levelCoords,
-				     levelDomain,
-                                     IntVect::Zero);
-
-      // now limit and  multiply by ice thickness H
-      const LevelData<FluxBox>& faceH = levelCoords.getFaceH();
-      LevelData<FluxBox>* muCoefPtr = m_muCoef[lev];
-      for (dit.begin(); dit.ok(); ++dit)
-        {
-          for (int dir=0; dir<SpaceDim; dir++)
-            {
-	      FArrayBox& thisMu = levelMu[dit][dir];
-	      const Box& box = thisMu.box();
-	       
-	      FORT_MAXFAB1(CHF_FRA(thisMu),
-	       		  CHF_CONST_REAL(m_muMin),
-	       		  CHF_BOX(box));
-
-	      if (muCoefPtr!=NULL)
-		{
-		  levelMu[dit][dir].mult( (*muCoefPtr)[dit][dir] );
-		}
-
-	      Box facebox = levelGrids[dit].surroundingNodes(dir);
-	      CH_assert(levelMu[dit][dir].min(facebox) >= 0.0);
-
-              levelMu[dit][dir].mult(faceH[dit][dir],
-                                    levelMu[dit][dir].box(),0,0,1);
-	      //levelMu[dit][dir]*=1000.0;
-	      FORT_MINFAB1(CHF_FRA(thisMu),
-	       		  CHF_CONST_REAL(m_muMax),
-	       		  CHF_BOX(box));
-	      
-	    }
-        
-	  // also update alpha
-          const Box& gridBox = levelGrids[dit];
-	  
-	  m_basalFrictionRelPtr->computeAlpha
-	    (levelAlpha[dit], levelVel[dit], levelC[dit] , 	
-	     levelCoords, dit, gridBox);
-	  levelAlpha[dit] += (*m_C0[lev])[dit];
-	  CH_assert(levelAlpha[dit].min(gridBox) >= 0.0);
-
-	  
-	} // end loop over grids		
-    }
-
-  //coarse average mu and alpha
-  for (int lev = m_finestLevel; lev > 0 ; lev--)
-  {
-      CoarseAverage averageOp(m_grids[lev],1,m_refRatio[lev-1]);
-      averageOp.averageToCoarse(*m_alpha[lev-1], *m_alpha[lev]);
-
-      CoarseAverageFace averageOpFace(m_grids[lev],1,m_refRatio[lev-1]);
-      averageOpFace.averageToCoarse(*m_mu[lev-1], *m_mu[lev] );
-  }
-  // lambda = 2*mu
-  for (int lev=0; lev <= m_finestLevel ; lev++)
-    {
-      const DisjointBoxLayout& levelGrids = m_grids[lev];
-      LevelData<FluxBox>& levelLambda = *m_lambda[lev];
-      LevelData<FluxBox>& levelMu = *m_mu[lev];
-      LevelData<FArrayBox>& levelAlpha = *m_alpha[lev];
-      for (DataIterator dit(levelGrids);dit.ok();++dit)
-	{
-
-#if CH_SPACEDIM==2
-	  {
-	    Real mu0 = 1.0;
-	    Real C0 = 1.0;
-	    
-	    FORT_ENFORCEWELLPOSEDCELL
-	      (CHF_FRA1(levelAlpha[dit],0),
-	       CHF_FRA1(levelMu[dit][0],0),
-	       CHF_FRA1(levelMu[dit][1],0),
-	       CHF_CONST_REAL(mu0),
-	       CHF_CONST_REAL(C0),
-	       CHF_BOX(levelGrids[dit]));
-
-	  }
-#endif
-
-
-	  FluxBox& lambda = levelLambda[dit];
-	  for (int dir=0; dir<SpaceDim; dir++)
-	    {
-	      lambda[dir].copy(levelMu[dit][dir]);
-	      lambda[dir] *= 2.0;
-	    }
-	} // end loop over grids
-    } // end loop over levels
-
-}
-
-
 
 
 
@@ -943,9 +599,6 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
     {
       oldResNorm = resNorm;
       
-      // if (m_writeIterations)
-      // 	writeIteration(iter,localU,localRhs,residual);
-
       // get rid of ice with excessive |u|
       if (m_eliminateFastIce)
 	{
@@ -967,133 +620,56 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
       newOp.m_writeResiduals = m_writeResiduals;
 
       LinearSolver<Vector<LevelData<FArrayBox>* > >* krylovSolver = NULL;
-      if (m_linearSolverType == BiCGStab)
-	{
-	  BiCGStabSolver<Vector<LevelData<FArrayBox>* > >* biCGStabSolver 
-	    = new BiCGStabSolver<Vector<LevelData<FArrayBox>* > >;
-	  
-	  biCGStabSolver->define(&newOp , false);
-	  biCGStabSolver->m_verbosity = m_verbosity - 1;
-	  biCGStabSolver->m_reps = m_BiCGStabRelTol;
-	  biCGStabSolver->m_imax = m_maxBiCGStabIter; 
-	  biCGStabSolver->m_normType = m_normType;
-	  //JFNK mode will only work well if 
-	  //the linear system is solved quickly.
-	  //By being intolerant here, we revert to 
-          //the cheaper Picard mode sooner rather than later
-	  if (mode == JFNK_SOLVER_MODE)
-	    {
-	      biCGStabSolver->m_numRestarts = 0;
-	      biCGStabSolver->m_hang = m_RelaxHang;
-	    }
-	  krylovSolver = biCGStabSolver;
-	}
-      else if (m_linearSolverType == CG)
-	{
-	  CGSolver<Vector<LevelData<FArrayBox>* > >* cGSolver 
-	    = new CGSolver<Vector<LevelData<FArrayBox>* > >;
-	  
-	  cGSolver->define(&newOp , false);
-	  cGSolver->m_verbosity = m_verbosity - 1;
-	  cGSolver->m_eps = m_CGRelTol;
-	  cGSolver->m_imax = m_maxCGIter;
-	  cGSolver->m_normType = m_normType;
 
-	  cGSolver->m_numRestarts = 0;
-	  cGSolver->m_hang = 1.0;
-	  //JFNK mode will only work well if 
-	  //the linear system is solved quickly.
-	  //By being intolerant here, we revert to 
-          //the cheaper Picard mode sooner rather than later
-	  if (mode == JFNK_SOLVER_MODE)
-	    {
-	      cGSolver->m_numRestarts = 0;
-	      cGSolver->m_hang = 1.0;
-	    }
-	  krylovSolver = cGSolver;
-	}
-      else if (m_linearSolverType == GMRES)
+      if (m_linearSolverType == petsc)
 	{
-	  GMRESSolver<Vector<LevelData<FArrayBox>* > >* gmresSolver 
-	    = new GMRESSolver<Vector<LevelData<FArrayBox>* > >();
-	  
-	  gmresSolver->define(&newOp , false);
-	  gmresSolver->m_verbosity = m_verbosity - 1;
-	  gmresSolver->m_reps = m_GMRESRelTol;
-	  gmresSolver->m_imax = m_maxGMRESIter;
-	  gmresSolver->m_normType = m_normType;
-	  //JFNK mode will only work well if 
-	  //the linear system is solved quickly.
-	  //By being intolerant here, we revert to 
-          //the cheaper Picard mode sooner rather than later
-	  //krylovSolver.m_hang = 1.0;
-	  if (mode == JFNK_SOLVER_MODE)
-	    {
-	      //gmresSolver->m_hang = 1.0;
-	    }
-	  krylovSolver = gmresSolver;
-	}
-      else if (m_linearSolverType == Relax)
-	{
-	  
-	  RelaxSolver<Vector<LevelData<FArrayBox>* > >* relaxSolver
-	    = new RelaxSolver<Vector<LevelData<FArrayBox>* > >();
-	  
-	  relaxSolver->define(&newOp,false);
-	  relaxSolver->m_verbosity = m_verbosity - 1;
-	  relaxSolver->m_normType = m_normType;
-	  relaxSolver->m_eps = m_RelaxRelTol;
-	  relaxSolver->m_imax = m_maxRelaxIter;
-	  relaxSolver->m_hang = m_RelaxHang;
-	  krylovSolver = relaxSolver;
-	}
 #ifdef CH_USE_PETSC
-      else if (m_linearSolverType == petsc)
-        {
-          // handle petsc solver a bit differently
-          // since setup is more expensive _and_ it's easy 
-          // to swap the coefficients, keep a pre-defined 
+	  // petsc solver setup expensive and it's easy 
+          // to swap the coefficients, so keep a pre-defined 
           // solver around and just reset the coefficients
+	  
           Real opAlpha, opBeta;
           opAlpha = -1.0;
           opBeta = 1.0;
-
+	  
           if (m_petscSolver == NULL)
             {
               m_petscSolver = new PetscAMRSolver(m_verbosity);
 	      m_petscSolver->m_petscCompMat.setVerbose(m_verbosity-1);
             }
-	  RefCountedPtr<ConstDiriBC> bcfunc = RefCountedPtr<ConstDiriBC>(new ConstDiriBC(0,m_petscSolver->m_petscCompMat.getGhostVect()));
+	  RefCountedPtr<ConstDiriBC> bcfunc = RefCountedPtr<ConstDiriBC>
+	    (new ConstDiriBC(0,m_petscSolver->m_petscCompMat.getGhostVect()));
 	  BCHolder bc(bcfunc);
 	  m_petscSolver->m_petscCompMat.define(m_domains[0],m_grids,m_refRatios,bc,m_dxs[0]); // generic AMR setup
-	  m_petscSolver->m_petscCompMat.defineCoefs(opAlpha,opBeta,current.m_mu,current.m_lambda,current.m_alpha);
-        }
-#endif
-      else 
+	  m_petscSolver->m_petscCompMat.defineCoefs(opAlpha,opBeta,current.mu(),current.lambda(),current.alpha());
+#else	  
+	  MayDay::Error("linearSolverType is petsc, but code compiled w/o PETSC=TRUE");	  
+#endif	  
+	}
+      else
 	{
-	  MayDay::Error("JFNKSolver::solve unknown linear solver type");
+	  // Chombo solver setup is cheap and it's hard 
+          // to swap the coefficients, so create a new solver
+	  krylovSolver = newLinearSolver(newOp, mode);
 	}
 
-      
       if (mode == JFNK_SOLVER_MODE && !a_linear)
 	{
-
 	  newOp.setToZero(du);
-          if (m_linearSolverType != petsc)
+          if (m_linearSolverType == petsc)
             {
-              krylovSolver->solve(du, residual);
-            }
 #ifdef CH_USE_PETSC
-          else if (m_linearSolverType == petsc)
-            {
 	      PetscErrorCode ierr = m_petscSolver->solve_mfree(du,residual,&newOp);CHKERRQ(ierr);
-            }
+#else
+	      MayDay::Error("linearSolverType is petsc, but code compiled w/o PETSC=TRUE");
 #endif
-          else 
-            {
-              MayDay::Error("linearSolverType is petsc, but code compiled w/o PETSC=TRUE");
             }
-
+          else 
+            { 
+	      krylovSolver->solve(du, residual);
+              
+            }
+	  
 	  //take the Newton step du, and if the residual is not reduced try a sequence
 	  //of smaller steps w*du, halving w until either the residual is reduced or
 	  //w < m_minStepFactor
@@ -1161,38 +737,36 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	} // end if (mode == JFNK_SOLVER_MODE)
       else if ( (mode == PICARD_SOLVER_MODE) | a_linear)
 	{
-          if (m_linearSolverType != petsc)
-            {
-              krylovSolver->solve(localU, localRhs);
-            }
+	  
+	  if (m_linearSolverType == petsc)
+	    {
 #ifdef CH_USE_PETSC
-          else if (m_linearSolverType == petsc)          
-            {
 	      if (a_linear)
 		{
 		  PetscErrorCode ierr = m_petscSolver->solve_mfree(localU,localRhs,&newOp);CHKERRQ(ierr);
 		}
 	      else
 		{
+		  //Petsc solver solves for du, never u ???
 		  newOp.setToZero(du);
 		  PetscErrorCode ierr = m_petscSolver->solve_mfree(du,residual,&newOp);CHKERRQ(ierr);
 		  newOp.incr(localU,du,1.0);
-		  //PetscErrorCode ierr = m_petscSolver->solve_mfree(localU,localRhs,&newOp);CHKERRQ(ierr);
 		}
-            }
+#else
+	      MayDay::Error("linearSolverType is petsc, but code compiled w/o PETSC=TRUE");
 #endif
-          else
-            {
-              MayDay::Error("linearSolverType is petsc, but code compiled w/o PETSC=TRUE");
-            }
-          
+	    }
+	  else
+	    {
+	      krylovSolver->solve(localU, localRhs);
+	    }
           
 	  if (a_linear)
 	    {
 	      //if we are solving  a linear equation ,there is no
               //need to update the state, and no point in switching to 
 	      //JFNK mode
-	     
+	      
 	      newOp.outerResidual(residual,localU,localRhs);
 	      resNorm = newOp.norm(residual, m_normType);
 	    }
@@ -1284,6 +858,93 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
   return returnCode;
 
 } 
+
+
+
+LinearSolver<Vector<LevelData<FArrayBox>* > >* 
+JFNKSolver::newLinearSolver (JFNKOp& a_op,  SolverMode a_mode)
+{
+
+  LinearSolver<Vector<LevelData<FArrayBox>* > >* solver = NULL;
+  if (m_linearSolverType == BiCGStab)
+    {
+      BiCGStabSolver<Vector<LevelData<FArrayBox>* > >* biCGStabSolver 
+	= new BiCGStabSolver<Vector<LevelData<FArrayBox>* > >;
+      
+      biCGStabSolver->define(&a_op , false);
+      biCGStabSolver->m_verbosity = m_verbosity - 1;
+      biCGStabSolver->m_reps = m_BiCGStabRelTol;
+      biCGStabSolver->m_imax = m_maxBiCGStabIter; 
+      biCGStabSolver->m_normType = m_normType;
+      //JFNK mode will only work well if 
+      //the linear system is solved quickly.
+      //By being intolerant here, we revert to 
+      //the cheaper Picard mode sooner rather than later
+      if (a_mode == JFNK_SOLVER_MODE)
+	{
+	  biCGStabSolver->m_numRestarts = 0;
+	  biCGStabSolver->m_hang = m_RelaxHang;
+	}
+      solver = biCGStabSolver;
+    }
+  else if (m_linearSolverType == CG)
+    {
+      CGSolver<Vector<LevelData<FArrayBox>* > >* cGSolver 
+	= new CGSolver<Vector<LevelData<FArrayBox>* > >;
+      
+      cGSolver->define(&a_op , false);
+      cGSolver->m_verbosity = m_verbosity - 1;
+      cGSolver->m_eps = m_CGRelTol;
+      cGSolver->m_imax = m_maxCGIter;
+      cGSolver->m_normType = m_normType;
+      
+      cGSolver->m_numRestarts = 0;
+      cGSolver->m_hang = 1.0;
+      //JFNK mode will only work well if 
+      //the linear system is solved quickly.
+      //By being intolerant here, we revert to 
+      //the cheaper Picard mode sooner rather than later
+      if (a_mode == JFNK_SOLVER_MODE)
+	{
+	  cGSolver->m_numRestarts = 0;
+	  cGSolver->m_hang = 1.0;
+	}
+      solver = cGSolver;
+    }
+  else if (m_linearSolverType == GMRES)
+    {
+      GMRESSolver<Vector<LevelData<FArrayBox>* > >* gmresSolver 
+	= new GMRESSolver<Vector<LevelData<FArrayBox>* > >();
+      
+      gmresSolver->define(&a_op , false);
+      gmresSolver->m_verbosity = m_verbosity - 1;
+      gmresSolver->m_reps = m_GMRESRelTol;
+      gmresSolver->m_imax = m_maxGMRESIter;
+      gmresSolver->m_normType = m_normType;
+      solver = gmresSolver;
+    }
+  else if (m_linearSolverType == Relax)
+    {
+      
+      RelaxSolver<Vector<LevelData<FArrayBox>* > >* relaxSolver
+	= new RelaxSolver<Vector<LevelData<FArrayBox>* > >();
+      
+      relaxSolver->define(&a_op,false);
+      relaxSolver->m_verbosity = m_verbosity - 1;
+      relaxSolver->m_normType = m_normType;
+      relaxSolver->m_eps = m_RelaxRelTol;
+      relaxSolver->m_imax = m_maxRelaxIter;
+      relaxSolver->m_hang = m_RelaxHang;
+      solver = relaxSolver;
+    }
+  else
+    {
+      CH_assert(solver != NULL);
+      MayDay::Error("JFNKSolver::newLinearSolver : unknown linear solver type");
+    }
+  return solver;
+}
+
 
 #include "NamespaceFooter.H"
 

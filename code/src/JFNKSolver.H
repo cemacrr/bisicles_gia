@@ -13,6 +13,7 @@
 
 
 #include "IceVelocitySolver.H"
+#include "JFNKState.H"
 #include "AMRMultiGrid.H"
 #include "MultilevelIceVelOp.H"
 #include "ViscousTensorOp.H"
@@ -24,31 +25,6 @@
 
 /// Jacobian-Free Newton Krylov solver for the nonlinear ice-sheet/shelf momentum equations
 enum SolverMode {PICARD_SOLVER_MODE, JFNK_SOLVER_MODE, MAX_SOLVER_MODE};
-
-// virtual base for classes which encpasulate a state,
-class JFNKState
-{
-  friend class JFNKSolver;
-public:
-  virtual ~JFNKState(){};
-  
-  // set the state 
-  virtual void setState(const Vector<LevelData<FArrayBox>*>& a_state)=0;
-
-  // fill ghost cells of a_state as per the bondary conditions
-  virtual void applyBC(Vector<LevelData<FArrayBox>*>& a_phi)=0;
-
-  // retreive the state 
-  virtual const Vector<LevelData<FArrayBox>*>& getState() const =0;
-
-  //retrieve the coefficient C
-  virtual const Vector<RefCountedPtr< LevelData<FArrayBox> > >& getDragCoef() const =0;
-  //retrieve the coefficient mu 
-  virtual const Vector<RefCountedPtr< LevelData<FluxBox> > >& getViscosityCoef() const =0;
-  // provide a pointer to an AMRLevelOpFactory<LevelData<FArrayBox> >
-  // defined at the current state
-  virtual RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > > opFactoryPtr()=0;
-};
 
 /// LinearOp implementation which uses a finite difference approximation
 /// to evaluate L v = 1/h * ( f(u + h*v) - f(u)) at the current iterate u, where
@@ -62,7 +38,6 @@ public:
 /// the multigrid method of  MultilevelLinearOp<FArrayBox>,
 /// with its operator factory defined at u. 
 class JFNKSolver;
-
 
 
 class JFNKOp :  public LinearOp<Vector<LevelData<FArrayBox>*> >
@@ -116,6 +91,8 @@ class JFNKOp :  public LinearOp<Vector<LevelData<FArrayBox>*> >
   (const Vector<LevelData<FArrayBox> *>& a_u,
    const Vector<LevelData<FArrayBox> *>& a_residual);
 
+  
+ 
 
 public:
   virtual ~JFNKOp()
@@ -256,169 +233,6 @@ public:
 
 };
 
-//manage coeffients mu(u), lambda(u) = 2*mu(u) and alpha(u) 
-//in L[u] = div( mu(theta) * (grad(u) + grad(u)^T) + lambda * div(u)*I)  - alpha*u
-//and provide the appropriate ViscousTensorOpFactory
-//alpha(u) and mu(u) are determined by BasalFrictionRelation and 
-//ConstitutiveRelation members.
-class IceJFNKstate : public JFNKState
-{
-  friend class JFNKSolver;
-
-  Vector<LevelData<FArrayBox>*> m_u;
-  Vector<LevelData<FArrayBox>*> m_C;
-  Vector<LevelData<FArrayBox>*> m_C0;
-  RefCountedPtr<AMRLevelOpFactory<LevelData<FArrayBox> > > m_opFactoryPtr;
-  
- 
-
-  //mesh parameters
-  Vector<DisjointBoxLayout> m_grids;
-  Vector<int> m_refRatio;
-  Vector<ProblemDomain> m_domains;
-  Vector<RealVect> m_dxs;
-  int m_finestLevel;
-  Vector<RefCountedPtr<LevelSigmaCS > > m_coordSys;
-  
-  
-  //constitutive relations
-  const ConstitutiveRelation* m_constRelPtr;
-  const BasalFrictionRelation* m_basalFrictionRelPtr;
-  
-  //boundary conditions
-  IceThicknessIBC* m_bcPtr;
-
-  //pointers to temperature fields
-  Vector<LevelData<FArrayBox>*> m_A;
-  Vector<LevelData<FluxBox>*> m_faceA;
-
-  //additional face-centred coefficient of H*mu, usually NULL
-  Vector<LevelData<FluxBox>*> m_muCoef;
-
-  // time : this class doesn't care, but m_bcPtr does
-  Real m_time;
-
-  // safety factor for VicousTensorOp
-  Real m_vtopSafety;
-  //  minimum number of smnooths in viscous tensor op mg relax
-  int m_vtopRelaxMinIter;
-   // relax tolerance for  viscous tensor op
-  Real m_vtopRelaxTol;
-
-  //lower and upper bounds on the viscosity
-  Real m_muMin, m_muMax;
-  
-  // BCHolder
-  BCHolder m_velSolveBC;
-protected:
-  //coefficient storage. 
-  Vector<RefCountedPtr<LevelData<FluxBox> > > m_mu;
-  Vector<RefCountedPtr<LevelData<FluxBox> > > m_lambda;
-  Vector<RefCountedPtr<LevelData<FArrayBox> > > m_alpha;
-  
-
-public:
-
-  ~IceJFNKstate();
-  
-
-  IceJFNKstate(const Vector<DisjointBoxLayout>& a_grids,
-	       const Vector<int>& a_refRatio,
-	       const Vector<ProblemDomain>& a_domains,
-	       const Vector<RealVect>& a_dxs,
-	       const Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
-	       const Vector<LevelData<FArrayBox>*>& a_u,
-	       const Vector<LevelData<FArrayBox>*>& a_C,
-	       const Vector<LevelData<FArrayBox>*>& a_C0,
-	       const int a_finestLevel,
-	       const ConstitutiveRelation& a_constRel,
-	       const BasalFrictionRelation& a_basalFrictionRel,
-	       IceThicknessIBC& a_bc,
-	       const Vector<LevelData<FArrayBox>*>& a_A,
-	       const Vector<LevelData<FluxBox>*>& a_faceFlowLawCoefficient,
-	       const Real a_time, 
-	       const Real a_vtopSafety,
-	       const int a_vtopRelaxMinIter,
-	       const Real a_vtopRelaxTol,
-	       const Real a_muMin = 0.0,
-	       const Real a_muMax = 1.234567e+300);
-
- 
-
-  //implementation of JFNKState interface 
-  virtual void setState(const Vector<LevelData<FArrayBox>*>& a_u);
-
-  // fill ghost cells of a_state as per the boundary conditions
-  virtual void applyBC(Vector<LevelData<FArrayBox>*>& a_phi)
-  {
-    for (int lev =0; lev < a_phi.size(); lev++)
-      {
-	for (DataIterator dit(m_grids[lev]); dit.ok(); ++dit)
-	  {
-	    m_velSolveBC((*a_phi[lev])[dit], m_grids[lev][dit], m_domains[lev], 
-			 m_dxs[lev][0], false, dit());
-	  }
-      }
-  }
-
-
-  virtual const Vector<LevelData<FArrayBox>*>& getState() const
-  {
-    return m_u;
-  }
-  virtual const Vector<LevelData<FArrayBox>*>& getC() const
-  {
-    return m_C;
-  }
-  virtual const Vector<RefCountedPtr<LevelData<FluxBox> > >& getViscosityCoef() const
-  {
-    return m_mu;
-  }
-  virtual const Vector<RefCountedPtr<LevelData<FArrayBox> > >& getDragCoef() const
-  {
-    return m_alpha;
-  }
-
-  virtual RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > > 
-  opFactoryPtr() {
-    return m_opFactoryPtr;
-  } 
-
-  //an overloaded setState, because beta changes with time
-  virtual void setState(const Vector<LevelData<FArrayBox>*>& a_u, 
-			const Vector<LevelData<FArrayBox>*>& a_basalFrictionCoefficent)
-  {
-    m_C = a_basalFrictionCoefficent;
-    setState(a_u);
-  }
-
-  //allows an additional coefficient f of the face-centered viscosity to be specified,
-  // so that H*mu*(grad(u) ... ) is replaced with  f*H*mu*(grad(u) ... ).
-  virtual void setFaceViscCoef(const Vector<LevelData<FluxBox>*>& a_muCoef)
-  {
-    int nlev = min(a_muCoef.size(),m_muCoef.size());
-
-    for (int lev=0; lev < nlev; lev++)
-      {
-	m_muCoef[lev] = a_muCoef[lev];
-      }
-  }
-  virtual void unsetFaceViscCoef()
-  {
-    for (int lev=0; lev < m_muCoef.size(); lev++)
-      {
-	m_muCoef[lev] = NULL;
-      }
-  }
-
-  //provide the components of the Visocus Tensor G[ij] at cell faces, such that
-  //at j-faces we have G[ij] for all i and so on
-  virtual void computeViscousTensorFace(const Vector<LevelData<FluxBox>*>& a_viscousTensor);
-    
-
-
-};
-
 
 /// JFNK implemenation of IceVelocitySolver
 class JFNKSolver : public IceVelocitySolver
@@ -440,7 +254,7 @@ class JFNKSolver : public IceVelocitySolver
   PetscAMRSolver *m_petscSolver;
 #endif
 
-
+ LinearSolver<Vector<LevelData<FArrayBox>* > >* newLinearSolver(JFNKOp& a_op, SolverMode a_mode);
 public:
   LinearSolverType m_linearSolverType;
   //maximum number of Newton steps;
