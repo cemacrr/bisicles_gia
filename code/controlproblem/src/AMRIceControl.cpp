@@ -1614,7 +1614,7 @@ void AMRIceControl::computeObjectiveAndGradient
   {
     //compute unregularized part of gradient with respect to a_x component 1 
     //(viscosity multiplier muCoef)
-    IceJFNKstate state(m_grids, m_refRatio, m_domain, m_dx,
+    IceNonlinearViscousTensor state(m_grids, m_refRatio, m_domain, m_dx,
 		       m_coordSys, m_velb, m_C, m_C0, m_finestLevel ,
 		       *m_constRelPtr, *m_bfRelPtr,
 		       *m_ibcPtr, m_A, m_faceA, 0.0, 0.0, 0, 0.0);
