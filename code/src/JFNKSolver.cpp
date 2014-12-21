@@ -51,8 +51,8 @@ void JFNKSolver::imposeMaxAbs(Vector<LevelData<FArrayBox>*>& a_u,
 
 int JFNKOp::m_residualID(0);
 
-JFNKOp::JFNKOp(JFNKState* a_currentState , 
-	       JFNKState* a_peturbedState, 
+JFNKOp::JFNKOp(NonlinearViscousTensor* a_currentState , 
+	       NonlinearViscousTensor* a_peturbedState, 
 	       Vector<LevelData<FArrayBox>*>& a_u,
 	       Real a_h,  Real a_err, Real a_umin, bool a_hAdaptive, 
 	       Vector<DisjointBoxLayout>& a_grids,
@@ -543,13 +543,13 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
  
 
  //define state managers
- IceJFNKstate current
+ IceNonlinearViscousTensor current
    (m_grids , m_refRatios, m_domains,m_dxs , a_coordSys, localU ,
     localC, localC0, a_maxLevel, *m_constRelPtr, *m_basalFrictionRelPtr, *m_bcPtr, 
     a_A, faceA, a_time, m_vtopSafety, m_vtopRelaxMinIter, m_vtopRelaxTol, 
     m_muMin, m_muMax);
  
- IceJFNKstate perturbed
+ IceNonlinearViscousTensor perturbed
    (m_grids , m_refRatios, m_domains, m_dxs , a_coordSys, localU ,
     localC, localC0, a_maxLevel, *m_constRelPtr,*m_basalFrictionRelPtr, *m_bcPtr, 
     a_A, faceA, a_time, m_vtopSafety, m_vtopRelaxMinIter, m_vtopRelaxTol,

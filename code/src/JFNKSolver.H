@@ -13,7 +13,7 @@
 
 
 #include "IceVelocitySolver.H"
-#include "JFNKState.H"
+#include "NonlinearViscousTensor.H"
 #include "AMRMultiGrid.H"
 #include "MultilevelIceVelOp.H"
 #include "ViscousTensorOp.H"
@@ -48,8 +48,8 @@ class JFNKOp :  public LinearOp<Vector<LevelData<FArrayBox>*> >
 #endif
   //CoefficientProvider* m_coeffProvider;
   
-  JFNKState* m_u; // current state
-  JFNKState* m_uPerturbed; // perturbed state
+  NonlinearViscousTensor* m_u; // current state
+  NonlinearViscousTensor* m_uPerturbed; // perturbed state
 
   Vector<LevelData<FArrayBox>*> m_fu; // current value of f(u)
   Vector<LevelData<FArrayBox>*> m_uplushv; // current value of u + v
@@ -108,8 +108,8 @@ public:
 	  delete m_uplushv[lev];	
       }
   }
-  JFNKOp(JFNKState* a_currentState , 
-	 JFNKState* a_peturbedState, 
+  JFNKOp(NonlinearViscousTensor* a_currentState , 
+	 NonlinearViscousTensor* a_peturbedState, 
 	 Vector<LevelData<FArrayBox>*>& a_u,
 	 Real a_h,  Real m_err, Real m_umin, bool m_hAdaptive,
 	 Vector<DisjointBoxLayout>& a_grids,

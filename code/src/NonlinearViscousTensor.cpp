@@ -8,7 +8,7 @@
 */
 #endif
 
-#include "JFNKState.H"
+#include "NonlinearViscousTensor.H"
 #include "QuadCFInterp.H"
 #include "CornerCopier.H"
 #include "CoarseAverage.H"
@@ -27,12 +27,12 @@
 #include "NamespaceHeader.H"
 
 
-IceJFNKstate::~IceJFNKstate()
+IceNonlinearViscousTensor::~IceNonlinearViscousTensor()
 {
   delete m_bcPtr;
 }
 
-IceJFNKstate::IceJFNKstate
+IceNonlinearViscousTensor::IceNonlinearViscousTensor
 (const Vector<DisjointBoxLayout>& a_grids,
  const Vector<int>& a_refRatio,
  const Vector<ProblemDomain>& a_domains,
@@ -117,10 +117,10 @@ IceJFNKstate::IceJFNKstate
 }
 
 
-void IceJFNKstate::computeViscousTensorFace(const Vector<LevelData<FluxBox>*>& a_viscousTensor)
+void IceNonlinearViscousTensor::computeViscousTensorFace(const Vector<LevelData<FluxBox>*>& a_viscousTensor)
 {
   if (m_opFactoryPtr == NULL)
-    MayDay::Error("IceJFNKstate::computeViscousTensorFace missing m_opFactoryPtr");
+    MayDay::Error("IceNonlinearViscousTensor::computeViscousTensorFace missing m_opFactoryPtr");
   
   ViscousTensorOpFactory* vtopf = static_cast<ViscousTensorOpFactory*>(&(*m_opFactoryPtr));
 
@@ -188,11 +188,11 @@ void IceJFNKstate::computeViscousTensorFace(const Vector<LevelData<FluxBox>*>& a
 
 //store a_u and set the coeffients mu(u), lambda(u) = 2*mu(u) and alpha(u)
 //in L[u] = div( mu * (grad(u) + grad(u)^T) + lambda * div(u)*I) - alpha*u
-void IceJFNKstate::setState(const Vector<LevelData<FArrayBox>*>& a_u)
+void IceNonlinearViscousTensor::setState(const Vector<LevelData<FArrayBox>*>& a_u)
 {
   m_u = a_u;
   
-  CH_TIME("IceJFNKstate::setState");
+  CH_TIME("IceNonlinearViscousTensor::setState");
   
   for (int lev=0; lev <= m_finestLevel ; lev++)
     {

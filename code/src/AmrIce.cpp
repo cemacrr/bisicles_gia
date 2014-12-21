@@ -5813,7 +5813,7 @@ void AmrIce::updateViscousTensor() const
   Real muMax = 1.23456789e+300;
 
   int numLevels = m_finest_level + 1;
-  IceJFNKstate state(m_amrGrids, m_refinement_ratios, m_amrDomains, vdx, m_vect_coordSys, 
+  IceNonlinearViscousTensor state(m_amrGrids, m_refinement_ratios, m_amrDomains, vdx, m_vect_coordSys, 
 		     m_velocity, m_velBasalC, C0, numLevels-1, 
 		     *m_constitutiveRelation,  *m_basalFrictionRelation, *m_thicknessIBCPtr,  
 		     m_A, faceA, m_time, vtopSafety, vtopRelaxMinIter, vtopRelaxTol, 

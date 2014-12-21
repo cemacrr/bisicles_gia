@@ -8,8 +8,8 @@
  */
 #endif
 
-#ifndef _JFNKSTATE_H_
-#define _JFNKSTATE_H_
+#ifndef _NONLINEARVISCOUSTENSOR_H_
+#define _NONLINEARVISCOUSTENSOR_H_
 
 
 #include "IceVelocitySolver.H"
@@ -23,17 +23,16 @@
 
 #include "NamespaceHeader.H"
 
-class JFNKSolver;
-
-/** virtual base for classes which encapsulate a state of the nonlinear
-    velocity problem. States are defined by the velocity, and the
-    important dependents are the coefficients in the ViscousTensorOp: alpha, mu, lambda
+/** virtual base for classes which encapsulate a nonlinear viscosity tensor. 
+    States are defined by the velocity, and the important dependents are the 
+    coefficients in the linear ViscousTensorOp: alpha, mu, lambda. Their dependence
+    on the velocity is computed via a ConstitutiveRelation (for mu and lambda) and
+    a BasalFrictionRelation (for alpha)
 */ 
-class JFNKState
+class NonlinearViscousTensor
 {
-  friend class JFNKSolver;
 public:
-  virtual ~JFNKState(){};
+  virtual ~NonlinearViscousTensor(){};
   
   // set the state 
   virtual void setState(const Vector<LevelData<FArrayBox>*>& a_state)=0;
@@ -62,7 +61,7 @@ public:
 //and provide the appropriate ViscousTensorOpFactory
 //alpha(u) and mu(u) are determined by BasalFrictionRelation and 
 //ConstitutiveRelation members.
-class IceJFNKstate : public JFNKState
+class IceNonlinearViscousTensor : public NonlinearViscousTensor
 {
   //friend class JFNKSolver;
 
@@ -120,10 +119,10 @@ protected:
 
 public:
 
-  ~IceJFNKstate();
+  ~IceNonlinearViscousTensor();
   
 
-  IceJFNKstate(const Vector<DisjointBoxLayout>& a_grids,
+  IceNonlinearViscousTensor(const Vector<DisjointBoxLayout>& a_grids,
 	       const Vector<int>& a_refRatio,
 	       const Vector<ProblemDomain>& a_domains,
 	       const Vector<RealVect>& a_dxs,
@@ -146,7 +145,7 @@ public:
 
  
 
-  //implementation of JFNKState interface 
+  //implementation of NonlinearViscousTensor interface 
   virtual void setState(const Vector<LevelData<FArrayBox>*>& a_u);
 
   // fill ghost cells of a_state as per the boundary conditions
