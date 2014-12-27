@@ -124,7 +124,7 @@ namespace IceUtility
    const Vector<ProblemDomain>& a_domain,
    const Vector<int>& a_refRatio, Real a_crseDx,
    int a_finestLevel, int a_maxIter, Real a_thinIceTol, Real a_fastIceTol,
-   int a_verbosity = 0);
+   bool a_edgeOnly, int a_verbosity = 0);
 
   ///Identify regions of floating ice that are remote
   ///from grounded ice and eliminate them.

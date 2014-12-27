@@ -407,7 +407,7 @@ protected:
   virtual void defineSolver();
 
   /// solve for velocity field (or just set up some auxilliary quantities)
-  virtual void solveVelocityField(Real a_convergenceMetric = -1.0);
+  virtual void solveVelocityField(bool a_forceSolve = false, Real a_convergenceMetric = -1.0);
 
   /// compute RHS for velocity field solve
   /** also sets beta to zero where ice is floating

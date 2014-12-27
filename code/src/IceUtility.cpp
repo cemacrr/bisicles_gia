@@ -545,7 +545,8 @@ void IceUtility::eliminateFastIce
  const Vector<DisjointBoxLayout>& a_grids,
  const Vector<ProblemDomain>& a_domain,
  const Vector<int>& a_refRatio, Real a_crseDx,
- int a_finestLevel, int a_maxIter, Real a_thinIceTol, Real a_fastIceTol, int a_verbosity)
+ int a_finestLevel, int a_maxIter, Real a_thinIceTol, Real a_fastIceTol, 
+ bool a_edgeOnly, int a_verbosity)
 {
   CH_TIME("IceUtility::eliminateFastIce");
   if (a_verbosity > 0)
@@ -567,9 +568,20 @@ void IceUtility::eliminateFastIce
 	      Real usq = D_TERM(u(iv,0)*u(iv,0), + u(iv,1)*u(iv,1), u(iv,2)*u(iv,2));
 	      if (usq > fastIceTolSq)
 		{
-		  H(iv) = 0.0;
-		  D_DECL(u(iv,0) = 0 ,u(iv,1) = 0, u(iv,2) = 0);
-		  nEliminated++;
+		  bool elim = !a_edgeOnly;
+		  int dir = 0;
+		  while ( (!elim) && dir < SpaceDim) {
+		    elim |= (H(iv+BASISV(dir)) < a_thinIceTol);
+		    elim |= (H(iv-BASISV(dir)) < a_thinIceTol);
+		    dir++;
+		  }
+		    
+		  if (elim)
+		    {
+		      H(iv) = 0.0;
+		      D_DECL(u(iv,0) = 0 ,u(iv,1) = 0, u(iv,2) = 0);
+		      nEliminated++;
+		    }
 		}
 	    }
 	}
@@ -751,5 +763,115 @@ void IceUtility::eliminateRemoteIce
 
 }
 
+// ///Identify regions connected to the open ocean
+// /**
+//    Identify cells which are connected to open ocean via cells
+//    with lsrf - topg > a_tol, where open ocean is any region where
+//    a_topg < a_oceanTopg and ice is either floating or absent.
+//    by carrying out a procedure that in the worst case can be 
+//    O(N^2). 
+
+//    fills the Vector<LevelData<FArrayBox>* > a_oceanDepth with
+//    water depth (lower surface - bedrock) for connected cells
+//    and zero elsewhere
+// */ 
+// void IceUtility::computeConnectedOceanDepth
+// (Vector<LevelData<FArrayBox>* >& a_oceanDepth,
+//  const Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+//  const Vector<DisjointBoxLayout>& a_grids,
+//  const Vector<ProblemDomain>& a_domain,
+//  const Vector<int>& a_refRatio, Real a_crseDx,
+//  int a_finestLevel, int a_maxIter, Real a_tol, Real a_topg int a_verbosity)
+// {
+//   CH_TIME("IceUtility::computeConnectedOceanDepth");
+//   if (a_verbosity > 0)
+//     {
+//       pout() << "IceUtility::computeConnectedOceanDepth" << endl;
+//     }
+//   //fill depth=1 in areas that are open ocean by defintion topg(iv) < a_oceanTopg & not grounded
+//   for (int lev=0; lev <= a_finestLevel ; ++lev)
+//     {
+//       const DisjointBoxLayout& levelGrids = a_grids[lev];
+//       LevelSigmaCS& levelCS = *a_coordSys[lev];
+//       for (DataIterator dit(levelGrids); dit.ok(); ++dit)
+// 	{
+// 	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
+// 	  const FArrayBox& usrf = levelCS.getSurfaceHeight()[dit];
+// 	  const FArrayBox& topg = levelCS.getTopography()[dit];
+// 	  const FArrayBox& thck = levelCS.getH()[dit];
+// 	  FArrayBox& depth =  (*a_oceanDepth[lev])[dit];
+// 	  depth.setVal(0.0);
+// 	  for (BoxIterator bit(depth.box()); bit.ok(); ++bit)
+// 	    {
+// 	      if (mask(iv) != GROUNDEDMASKVAL)
+// 		{
+// 		  if (topg(iv) < a_oceanTopg)
+// 		    {
+// 		      depth(iv) = 1.0;
+// 		    }
+// 		}
+// 	    }
+// 	}
+//     }
+  
+//   //flood fill the connected regions
+//   int iter = 0; 
+//   Real sumOcean = computeSum(a_oceanDepth, a_refRatio ,a_crseDx, Interval(0,0), 0);
+//   Real oldSumOcean = 0.0;
+  
+//   do {
+//     oldSumOcean = sumOcean;
+    
+//     for (int lev=0; lev <= a_finestLevel ; ++lev)
+//       {
+// 	LevelData<FArrayBox>& levelOcean = *a_oceanDepth[lev];
+// 	LevelSigmaCS& levelCS = *a_coordSys[lev];
+// 	const DisjointBoxLayout& levelGrids = a_grids[lev];
+	
+// 	if (lev > 0)
+// 	  {
+// 	    //fill ghost cells
+// 	    PiecewiseLinearFillPatch ghostFiller(levelGrids, 
+// 						 a_grids[lev-1],
+// 						 1, 
+// 						 a_domain[lev-1],
+// 						 a_refRatio[lev-1],
+// 						 1);
+	    
+// 	    ghostFiller.fillInterp(levelOcean, *a_oceanDepth[lev-1],*a_oceanDepth[lev-1] , 0.0, 0, 0, 1);
+	    
+// 	  }
+	
+// 	for  (DataIterator dit(levelGrids); dit.ok(); ++dit)
+// 	  {
+// 	    //sweep in all four directions, copying phi = 1 into cells with water depth > tol 
+// 	    FArrayBox wd(levelGrids[dit],1);
+// 	    wd.copy(levelCS.getSurfaceHeight()[dit]);
+// 	    wd.minus(levelCS.getH()[dit]);
+// 	    wd.minus(levelCS.getTopography()[dit]);
+	    
+// 	    FORT_SWEEPCONNECTED2D(CHF_FRA1(levelOcean[dit],0),
+// 				  CHF_CONST_FRA1(wd,0),
+// 				  CHF_CONST_REAL(a_tol), 
+// 				  CHF_BOX(levelGrids[dit]));
+// 	  }
+
+	
+// 	levelOcean.exchange();
+//       }
+    
+    
+//     sumOceanDepth = computeSum(a_oceanDepth, a_refRatio, a_crseDx, Interval(0,0), 0);
+    
+//     if (a_verbosity > 0)
+//       {
+// 	pout() << "IceUtility::computeConnectedOceanDepth iteration " << iter 
+// 	       << " ocean volume s = " << sumOcenDepth << endl;
+//       }
+    
+//     iter++;
+//   } while ( iter < a_maxIter && sumOceanDpeth > oldSumOcenDepth );
+
+// }
 
 #include "NamespaceFooter.H"

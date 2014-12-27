@@ -322,6 +322,7 @@ void JFNKSolver::setDefaultParameters()
   m_minStepFactor = 1.0;
   m_eliminateFastIce = false;
   m_eliminateFastIceSpeed = 1.0e+5;
+  m_eliminateFastIceEdgeOnly = false;
   m_eliminateRemoteIceTol = 1.0;
   m_eliminateRemoteIceMaxIter = 10;
 
@@ -371,6 +372,7 @@ void JFNKSolver::define(const ProblemDomain& a_coarseDomain,
   pp.query("minStepFactor", m_minStepFactor);
   pp.query("eliminateFastIce",m_eliminateFastIce);
   pp.query("eliminateFastIceSpeed",m_eliminateFastIceSpeed);
+  pp.query("eliminateFastIceEdgeOnly",m_eliminateFastIceEdgeOnly);
   pp.query("eliminateRemoteIceTol",m_eliminateRemoteIceTol);
   pp.query("eliminateRemoteIceMaxIter",m_eliminateRemoteIceMaxIter);
 
@@ -579,7 +581,8 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
     {
       pout() << "JFNK initial residual norm = " << resNorm << std::endl;
     }
-  Real convergenceMetric = (a_convergenceMetric < 0.0)?a_initialResidualNorm:a_convergenceMetric;
+  //Real convergenceMetric = (a_convergenceMetric < 0.0)?a_initialResidualNorm:a_convergenceMetric;
+  Real convergenceMetric = std::max(a_convergenceMetric,a_initialResidualNorm);
   if (m_verbosity > 0)
     {
       pout() << "JFNK convergence metric = " <<  convergenceMetric << std::endl;
@@ -605,7 +608,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	  IceUtility::eliminateFastIce(a_coordSys, localU, m_grids , m_domains, 
 				       m_refRatios, m_dxs[0][0], a_maxLevel, 
 				       m_eliminateRemoteIceMaxIter, m_eliminateRemoteIceTol, 
-				       m_eliminateFastIceSpeed, m_verbosity);
+				       m_eliminateFastIceSpeed, m_eliminateFastIceEdgeOnly, m_verbosity);
 	}
       
       if (iter == 0 || !a_linear)

@@ -318,7 +318,7 @@ public:
   Real m_eliminateFastIceSpeed;
   Real m_eliminateRemoteIceTol;
   Real m_eliminateRemoteIceMaxIter;
-
+  bool m_eliminateFastIceEdgeOnly;
 
   Real m_uMaxAbs, m_muMin, m_muMax;
 private:

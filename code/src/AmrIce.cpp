@@ -3631,7 +3631,8 @@ AmrIce::regrid()
 	      //velocity solver needs to be re-defined
 	      defineSolver();
 	      //solve velocity field, but use the previous initial residual norm in place of this one
-	      solveVelocityField(m_velocitySolveInitialResidualNorm);
+	      //and force a solve even if other conditions (e.g the timestep interval condition) are not met
+	      solveVelocityField(true, m_velocitySolveInitialResidualNorm);
 	    }
 	  else
 	    {
@@ -4550,8 +4551,8 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
   setToZero(m_calvedIceThickness);
   setToZero(m_deltaTopography);
 
-  // now call velocity solver to initialize velocity field
-  solveVelocityField();
+  // now call velocity solver to initialize velocity field, force a solve no matter what the time step
+  solveVelocityField(true);
 
   // may be necessary to average down here
   for (int lev=m_finest_level; lev>0; lev--)
@@ -4575,7 +4576,7 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
 
 /// solve for velocity field
 void
-AmrIce::solveVelocityField(Real a_convergenceMetric)
+AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 {
 
   CH_TIME("AmrIce::solveVelocityField");
@@ -4867,7 +4868,7 @@ AmrIce::solveVelocityField(Real a_convergenceMetric)
 	    }
 	}
 
-	if (m_cur_step%m_velocity_solve_interval == 0)
+	if (a_forceSolve || ((m_cur_step+1)%m_velocity_solve_interval == 0))
 	  {
 	    solverRetVal = m_velSolver->solve(m_velocity,
 					      m_velocitySolveInitialResidualNorm, 
