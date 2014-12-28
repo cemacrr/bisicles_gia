@@ -46,7 +46,6 @@ class JFNKOp :  public LinearOp<Vector<LevelData<FArrayBox>*> >
 #ifdef CH_USE_PETSC
   friend class PetscAMRSolver;
 #endif
-  //CoefficientProvider* m_coeffProvider;
   
   NonlinearViscousTensor* m_u; // current state
   NonlinearViscousTensor* m_uPerturbed; // perturbed state
@@ -91,9 +90,6 @@ class JFNKOp :  public LinearOp<Vector<LevelData<FArrayBox>*> >
   (const Vector<LevelData<FArrayBox> *>& a_u,
    const Vector<LevelData<FArrayBox> *>& a_residual);
 
-  
- 
-
 public:
   virtual ~JFNKOp()
   {
@@ -109,7 +105,6 @@ public:
       }
   }
   JFNKOp(NonlinearViscousTensor* a_currentState , 
-	 NonlinearViscousTensor* a_peturbedState, 
 	 Vector<LevelData<FArrayBox>*>& a_u,
 	 Real a_h,  Real m_err, Real m_umin, bool m_hAdaptive,
 	 Vector<DisjointBoxLayout>& a_grids,

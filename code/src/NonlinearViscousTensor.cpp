@@ -32,36 +32,16 @@ IceNonlinearViscousTensor::~IceNonlinearViscousTensor()
   delete m_bcPtr;
 }
 
-IceNonlinearViscousTensor::IceNonlinearViscousTensor
-(const Vector<DisjointBoxLayout>& a_grids,
- const Vector<int>& a_refRatio,
- const Vector<ProblemDomain>& a_domains,
- const Vector<RealVect>& a_dxs,
- const Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
- const Vector<LevelData<FArrayBox>*>& a_u,
- const Vector<LevelData<FArrayBox>*>& a_C,
- const Vector<LevelData<FArrayBox>*>& a_C0,
- const int a_finestLevel,
- const ConstitutiveRelation& a_constRel,
- const BasalFrictionRelation& a_basalFrictionRel,
- IceThicknessIBC& a_bc,
- const Vector<LevelData<FArrayBox>*>& a_A,
- const Vector<LevelData<FluxBox>*>& a_faceA,
- const Real a_time,
- const Real a_vtopSafety,
- const int a_vtopRelaxMinIter,
- const Real a_vtopRelaxTol,
- const Real a_muMin ,
- const Real a_muMax)
-  :m_u(a_u), m_C(a_C), m_C0(a_C0), m_grids(a_grids), m_refRatio(a_refRatio),
-   m_domains(a_domains), m_dxs(a_dxs),m_finestLevel(a_finestLevel), 
-   m_coordSys(a_coordSys), m_constRelPtr(&a_constRel), 
-   m_basalFrictionRelPtr(&a_basalFrictionRel), m_bcPtr(a_bc.new_thicknessIBC()),
-   m_A(a_A), m_faceA(a_faceA) , m_time(a_time), m_vtopSafety(a_vtopSafety),
-   m_vtopRelaxMinIter(a_vtopRelaxMinIter),m_vtopRelaxTol(a_vtopRelaxTol),
-   m_muMin(a_muMin),m_muMax(a_muMax)
+NonlinearViscousTensor* 
+IceNonlinearViscousTensor::newNonlinearViscousTensor()
 {
+  IceNonlinearViscousTensor* ptr = new IceNonlinearViscousTensor(*this);
+  ptr->setFaceViscCoef(m_muCoef);
+  return static_cast<NonlinearViscousTensor*>(ptr);
+}
 
+void IceNonlinearViscousTensor::setupCoeffs()
+{
   m_mu.resize(m_finestLevel + 1);
   m_lambda.resize(m_finestLevel + 1);
   m_alpha.resize(m_finestLevel + 1);
@@ -73,7 +53,7 @@ IceNonlinearViscousTensor::IceNonlinearViscousTensor
 
       m_mu[lev] = RefCountedPtr<LevelData<FluxBox> >
 	(new LevelData<FluxBox>(levelGrids, 1, IntVect::Unit));
-
+      
       m_muCoef[lev] = NULL;
       
       m_lambda[lev] = RefCountedPtr<LevelData<FluxBox> >
@@ -113,7 +93,53 @@ IceNonlinearViscousTensor::IceNonlinearViscousTensor
 				 m_velSolveBC, m_vtopSafety, m_vtopRelaxTol, 
 				 m_vtopRelaxMinIter));
 
+}
 
+
+IceNonlinearViscousTensor::IceNonlinearViscousTensor
+(const IceNonlinearViscousTensor& a)
+  :m_u(a.m_u), m_C(a.m_C), m_C0(a.m_C0), m_grids(a.m_grids), m_refRatio(a.m_refRatio),
+   m_domains(a.m_domains), m_dxs(a.m_dxs),m_finestLevel(a.m_finestLevel), 
+   m_coordSys(a.m_coordSys), m_constRelPtr(a.m_constRelPtr), 
+   m_basalFrictionRelPtr(a.m_basalFrictionRelPtr), m_bcPtr(a.m_bcPtr->new_thicknessIBC()),
+   m_A(a.m_A), m_faceA(a.m_faceA) , m_time(a.m_time), m_vtopSafety(a.m_vtopSafety),
+   m_vtopRelaxMinIter(a.m_vtopRelaxMinIter),m_vtopRelaxTol(a.m_vtopRelaxTol),
+   m_muMin(a.m_muMin),m_muMax(a.m_muMax)
+{
+  setupCoeffs();
+}
+
+
+IceNonlinearViscousTensor::IceNonlinearViscousTensor
+(const Vector<DisjointBoxLayout>& a_grids,
+ const Vector<int>& a_refRatio,
+ const Vector<ProblemDomain>& a_domains,
+ const Vector<RealVect>& a_dxs,
+ const Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+ const Vector<LevelData<FArrayBox>*>& a_u,
+ const Vector<LevelData<FArrayBox>*>& a_C,
+ const Vector<LevelData<FArrayBox>*>& a_C0,
+ const int a_finestLevel,
+ const ConstitutiveRelation& a_constRel,
+ const BasalFrictionRelation& a_basalFrictionRel,
+ IceThicknessIBC& a_bc,
+ const Vector<LevelData<FArrayBox>*>& a_A,
+ const Vector<LevelData<FluxBox>*>& a_faceA,
+ const Real a_time,
+ const Real a_vtopSafety,
+ const int a_vtopRelaxMinIter,
+ const Real a_vtopRelaxTol,
+ const Real a_muMin ,
+ const Real a_muMax)
+  :m_u(a_u), m_C(a_C), m_C0(a_C0), m_grids(a_grids), m_refRatio(a_refRatio),
+   m_domains(a_domains), m_dxs(a_dxs),m_finestLevel(a_finestLevel), 
+   m_coordSys(a_coordSys), m_constRelPtr(&a_constRel), 
+   m_basalFrictionRelPtr(&a_basalFrictionRel), m_bcPtr(a_bc.new_thicknessIBC()),
+   m_A(a_A), m_faceA(a_faceA) , m_time(a_time), m_vtopSafety(a_vtopSafety),
+   m_vtopRelaxMinIter(a_vtopRelaxMinIter),m_vtopRelaxTol(a_vtopRelaxTol),
+   m_muMin(a_muMin),m_muMax(a_muMax)
+{
+  setupCoeffs();
 }
 
 

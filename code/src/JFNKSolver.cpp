@@ -52,7 +52,6 @@ void JFNKSolver::imposeMaxAbs(Vector<LevelData<FArrayBox>*>& a_u,
 int JFNKOp::m_residualID(0);
 
 JFNKOp::JFNKOp(NonlinearViscousTensor* a_currentState , 
-	       NonlinearViscousTensor* a_peturbedState, 
 	       Vector<LevelData<FArrayBox>*>& a_u,
 	       Real a_h,  Real a_err, Real a_umin, bool a_hAdaptive, 
 	       Vector<DisjointBoxLayout>& a_grids,
@@ -63,14 +62,13 @@ JFNKOp::JFNKOp(NonlinearViscousTensor* a_currentState ,
 	       int a_numMGSmooth,
 	       int a_numMGIter,
 	       SolverMode a_mode) 
-  : m_u(a_currentState), m_uPerturbed(a_peturbedState),
+  : m_u(a_currentState),
     m_h(a_h), m_err(a_err), m_umin(a_umin), m_hAdaptive(a_hAdaptive),
     m_grids(a_grids), m_refRatio(a_refRatio),
     m_domains(a_domains), m_dxs(a_dxs), m_lBase(a_lBase),
     m_mode(a_mode),m_writeResiduals(false)
     
 {
-  CH_assert(a_currentState != a_peturbedState);
   
   Vector<LevelData<FArrayBox>*> localU( m_grids.size());
   for (int lev = 0; lev < m_grids.size(); ++lev)
@@ -88,17 +86,21 @@ JFNKOp::JFNKOp(NonlinearViscousTensor* a_currentState ,
   m_mlOp.define(m_grids , m_refRatio, m_domains, m_dxs, 
 		opFactoryPtr ,a_lBase);
   
- 
-  RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > > 
-    pOpFactoryPtr = m_uPerturbed->opFactoryPtr();
-  m_perturbedMlOp.define(m_grids , m_refRatio, m_domains, m_dxs, 
+  create(m_fu,localU);
+  setU(localU);
+
+  if (a_mode == JFNK_SOLVER_MODE)
+    {
+      
+      m_uPerturbed = m_u->newNonlinearViscousTensor();
+      RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > > 
+	pOpFactoryPtr = m_uPerturbed->opFactoryPtr();
+      m_perturbedMlOp.define(m_grids , m_refRatio, m_domains, m_dxs, 
 			 pOpFactoryPtr , a_lBase);
   
+      create(m_uplushv,localU);
+    }
   
-  create(m_fu,localU);
-  if (m_mode == JFNK_SOLVER_MODE)
-    create(m_uplushv,localU);
-  setU(localU);
     
   }
 
@@ -544,25 +546,18 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
    }
  
 
- //define state managers
+ //Nonlinear ViscousTensor
  IceNonlinearViscousTensor current
    (m_grids , m_refRatios, m_domains,m_dxs , a_coordSys, localU ,
     localC, localC0, a_maxLevel, *m_constRelPtr, *m_basalFrictionRelPtr, *m_bcPtr, 
     a_A, faceA, a_time, m_vtopSafety, m_vtopRelaxMinIter, m_vtopRelaxTol, 
     m_muMin, m_muMax);
- 
- IceNonlinearViscousTensor perturbed
-   (m_grids , m_refRatios, m_domains, m_dxs , a_coordSys, localU ,
-    localC, localC0, a_maxLevel, *m_constRelPtr,*m_basalFrictionRelPtr, *m_bcPtr, 
-    a_A, faceA, a_time, m_vtopSafety, m_vtopRelaxMinIter, m_vtopRelaxTol,
-    m_muMin, m_muMax);
- 
- current.setFaceViscCoef(a_muCoef);perturbed.setFaceViscCoef(a_muCoef);
+ current.setFaceViscCoef(a_muCoef);
 
  //define a JFNKOp
  CH_assert(a_lbase == 0); //\todo : support lBase != 0
  JFNKOp jfnkOp
-   (&current, &perturbed, localU, m_h, m_err, m_umin, m_hAdaptive,  m_grids, m_refRatios, 
+   (&current, localU, m_h, m_err, m_umin, m_hAdaptive,  m_grids, m_refRatios, 
     m_domains, m_dxs, a_lbase, m_numMGSmooth, m_numMGIter, PICARD_SOLVER_MODE);
  
   Vector<LevelData<FArrayBox>*> residual;
@@ -614,7 +609,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
       if (iter == 0 || !a_linear)
 	current.setState(a_u);  
       JFNKOp newOp
-	(&current, &perturbed, localU, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
+	(&current, localU, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
 	 m_refRatios, m_domains, m_dxs, a_lbase, m_numMGSmooth, m_numMGIter, mode);
 
       if (a_linear)
@@ -681,7 +676,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	  do 
             {
 	      current.setState(localU);      
-	      JFNKOp testOp (&current, &perturbed, localU, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
+	      JFNKOp testOp (&current, localU, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
 			     m_refRatios, m_domains, m_dxs, a_lbase, 
 			     m_numMGSmooth, m_numMGIter, mode);
 	      testOp.m_writeResiduals = m_writeResiduals;

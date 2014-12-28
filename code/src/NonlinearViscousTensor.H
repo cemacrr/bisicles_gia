@@ -25,24 +25,20 @@
 
 /** virtual base for classes which encapsulate a nonlinear viscosity tensor. 
     States are defined by the velocity, and the important dependents are the 
-    coefficients in the linear ViscousTensorOp: alpha, mu, lambda. Their dependence
-    on the velocity is computed via a ConstitutiveRelation (for mu and lambda) and
-    a BasalFrictionRelation (for alpha)
+    coefficients in the linear ViscousTensorOp: alpha, mu, lambda. 
 */ 
 class NonlinearViscousTensor
 {
 public:
   virtual ~NonlinearViscousTensor(){};
-  
+  //factory method
+  virtual NonlinearViscousTensor* newNonlinearViscousTensor()=0;
   // set the state 
   virtual void setState(const Vector<LevelData<FArrayBox>*>& a_state)=0;
-
   // fill ghost cells of a_state as per the boundary conditions
   virtual void applyBC(Vector<LevelData<FArrayBox>*>& a_phi)=0;
-
-  // retreive the state 
+  // retrieve the state 
   virtual const Vector<LevelData<FArrayBox>*>& getState() = 0;
-
   //retrieve the coefficient alpha
   virtual Vector<RefCountedPtr< LevelData<FArrayBox> > >& alpha() =0;
   //retrieve the coefficient mu 
@@ -51,27 +47,22 @@ public:
   virtual Vector<RefCountedPtr< LevelData<FluxBox> > >& lambda() =0;
   // provide a pointer to an AMRLevelOpFactory<LevelData<FArrayBox> >
   // defined at the current state
-  
-
   virtual RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > > opFactoryPtr()=0;
 };
 
 //manage coeffients mu(u), lambda(u) = 2*mu(u) and alpha(u) 
 //in L[u] = div( mu(theta) * (grad(u) + grad(u)^T) + lambda * div(u)*I)  - alpha*u
 //and provide the appropriate ViscousTensorOpFactory
-//alpha(u) and mu(u) are determined by BasalFrictionRelation and 
+//alpha(u) and mu(u),lambda(u) are determined by BasalFrictionRelation and 
 //ConstitutiveRelation members.
 class IceNonlinearViscousTensor : public NonlinearViscousTensor
 {
-  //friend class JFNKSolver;
-
+ 
   Vector<LevelData<FArrayBox>*> m_u;
   Vector<LevelData<FArrayBox>*> m_C;
   Vector<LevelData<FArrayBox>*> m_C0;
   RefCountedPtr<AMRLevelOpFactory<LevelData<FArrayBox> > > m_opFactoryPtr;
   
- 
-
   //mesh parameters
   Vector<DisjointBoxLayout> m_grids;
   Vector<int> m_refRatio;
@@ -79,7 +70,6 @@ class IceNonlinearViscousTensor : public NonlinearViscousTensor
   Vector<RealVect> m_dxs;
   int m_finestLevel;
   Vector<RefCountedPtr<LevelSigmaCS > > m_coordSys;
-  
   
   //constitutive relations
   const ConstitutiveRelation* m_constRelPtr;
@@ -110,17 +100,21 @@ class IceNonlinearViscousTensor : public NonlinearViscousTensor
   
   // BCHolder
   BCHolder m_velSolveBC;
-protected:
+
   //coefficient storage. 
   Vector<RefCountedPtr<LevelData<FluxBox> > > m_mu;
   Vector<RefCountedPtr<LevelData<FluxBox> > > m_lambda;
   Vector<RefCountedPtr<LevelData<FArrayBox> > > m_alpha;
-  
+
+  void setupCoeffs();
 
 public:
 
   ~IceNonlinearViscousTensor();
-  
+
+  virtual NonlinearViscousTensor* newNonlinearViscousTensor();
+
+  IceNonlinearViscousTensor(const IceNonlinearViscousTensor&);
 
   IceNonlinearViscousTensor(const Vector<DisjointBoxLayout>& a_grids,
 	       const Vector<int>& a_refRatio,
@@ -144,6 +138,7 @@ public:
 	       const Real a_muMax = 1.234567e+300);
 
  
+  
 
   //implementation of NonlinearViscousTensor interface 
   virtual void setState(const Vector<LevelData<FArrayBox>*>& a_u);
