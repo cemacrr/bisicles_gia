@@ -68,7 +68,7 @@ int CGOptimize(O& a_F, X& a_x,
   while (   (iter < a_maxIter) 
 	    && (deltaNew > sqr(a_tol) * deltaZero) 
 	    && (fm > 1.0e-16) 
-	    && ( (iter < 1) || (fm/fmOld < a_hang) ) )
+	    && ( (iter < (1 + a_iter) ) || (fm/fmOld < a_hang) ) )
     {
       
       pout() << "CGOptimize iteration " << iter 
