@@ -65,17 +65,17 @@ int CGOptimize(O& a_F, X& a_x,
   Real deltaNew = a_F.dotProduct(r,s);
   Real deltaZero = deltaNew;
   int iter = a_iter; int k = 0;
-  while (   (iter < a_maxIter) 
+  while (   (iter - a_iter < a_maxIter) 
 	    && (deltaNew > sqr(a_tol) * deltaZero) 
 	    && (fm > 1.0e-16) 
-	    && ( (iter < (1 + a_iter) ) || (fm/fmOld < a_hang) ) )
+	    && ( (iter - a_iter < 1  ) || (fm/fmOld < a_hang) ) )
     {
       
       pout() << "CGOptimize iteration " << iter 
 	     << " ||f'(x)||^2 = " << deltaNew 
 	     << " ||fm(x)||^2 = " << fm 
 	     << " ||fp(x)||^2 = " << fp; 
-      if (iter > 0)
+      if (iter - a_iter > 0)
 	{
 	  pout() << " ||fm(x)||^2/||fm_old(x)||^2 = " << fm/fmOld;
 	}
