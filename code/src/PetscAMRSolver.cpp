@@ -40,7 +40,7 @@ PetscErrorCode PetscAMRSolver::apply_mfree(Mat A, Vec x, Vec f)
 PetscErrorCode
 PetscAMRSolver::solve_mfree( Vector<LevelData<FArrayBox>*>& a_phi, 
 			     const Vector<LevelData<FArrayBox>*>& a_rhs, 
-			     JFNKOp *a_op )
+			     LinearizedVTOp *a_op )
 {
   CH_TIME("PetscSolver::solve_mfree");
 #ifdef CH_MPI

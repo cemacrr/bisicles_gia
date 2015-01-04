@@ -19,7 +19,7 @@
 
 #include "NamespaceHeader.H"
 
-class JFNKOp;
+class LinearizedVTOp;
 // solver class for VTO operators
 class PetscAMRSolver
 {
@@ -39,7 +39,7 @@ public:
   */
   virtual PetscErrorCode solve_mfree( Vector<LevelData<FArrayBox>*>& a_phi, 
 				      const Vector<LevelData<FArrayBox>*>& a_rhs, 
-				      JFNKOp *a_op );
+				      LinearizedVTOp *a_op );
 
   virtual PetscErrorCode solve( Vector<LevelData<FArrayBox>*>& a_phi, 
 				const Vector<LevelData<FArrayBox>*>& a_rhs );
@@ -49,7 +49,7 @@ public:
   void plot(const string, const Vector<LevelData<FArrayBox>*>& a_phi);
   PetscErrorCode setCoords(KSP, const Vector<LevelData<FArrayBox>*>& a_phi);
 
-  JFNKOp *m_op_mfree;
+  LinearizedVTOp *m_op_mfree;
   Vector<LevelData<FArrayBox>*> m_phi_mfree;
   Vector<LevelData<FArrayBox>*> m_Lphi_mfree;
   bool m_mfree_homogeneous;

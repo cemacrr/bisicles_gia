@@ -27,8 +27,8 @@
 #include "NamespaceHeader.H"
 
 // static member initialization
-int JFNKOp::m_bottom_solver_type = bicg;
-int JFNKOp::m_MG_solver_depth = -1;
+int LinearizedVTOp::m_bottom_solver_type = bicg;
+int LinearizedVTOp::m_MG_solver_depth = -1;
 
 void JFNKSolver::imposeMaxAbs(Vector<LevelData<FArrayBox>*>& a_u,
 		 Real a_limit)
@@ -49,9 +49,9 @@ void JFNKSolver::imposeMaxAbs(Vector<LevelData<FArrayBox>*>& a_u,
 
 }
 
-int JFNKOp::m_residualID(0);
+int LinearizedVTOp::m_residualID(0);
 
-JFNKOp::JFNKOp(NonlinearViscousTensor* a_currentState , 
+LinearizedVTOp::LinearizedVTOp(NonlinearViscousTensor* a_currentState , 
 	       Vector<LevelData<FArrayBox>*>& a_u,
 	       Real a_h,  Real a_err, Real a_umin, bool a_hAdaptive, 
 	       Vector<DisjointBoxLayout>& a_grids,
@@ -61,7 +61,7 @@ JFNKOp::JFNKOp(NonlinearViscousTensor* a_currentState ,
 	       int a_lBase, 
 	       int a_numMGSmooth,
 	       int a_numMGIter,
-	       SolverMode a_mode) 
+	       LinearizationMode a_mode) 
   : m_u(a_currentState),
     m_h(a_h), m_err(a_err), m_umin(a_umin), m_hAdaptive(a_hAdaptive),
     m_grids(a_grids), m_refRatio(a_refRatio),
@@ -89,7 +89,7 @@ JFNKOp::JFNKOp(NonlinearViscousTensor* a_currentState ,
   create(m_fu,localU);
   setU(localU);
 
-  if (a_mode == JFNK_SOLVER_MODE)
+  if (a_mode == JFNK_LINEARIZATION_MODE)
     {
       
       m_uPerturbed = m_u->newNonlinearViscousTensor();
@@ -104,7 +104,7 @@ JFNKOp::JFNKOp(NonlinearViscousTensor* a_currentState ,
     
   }
 
-void  JFNKOp::outerResidual(Vector<LevelData<FArrayBox>*>& a_lhs, 
+void  LinearizedVTOp::outerResidual(Vector<LevelData<FArrayBox>*>& a_lhs, 
 			     const Vector<LevelData<FArrayBox>*>& a_u, 
 			     const Vector<LevelData<FArrayBox>*>& a_rhs, 
 			     bool a_homogeneous )
@@ -120,7 +120,7 @@ void  JFNKOp::outerResidual(Vector<LevelData<FArrayBox>*>& a_lhs,
   }
   
 
-void  JFNKOp::residual(Vector<LevelData<FArrayBox>*>& a_lhs, 
+void  LinearizedVTOp::residual(Vector<LevelData<FArrayBox>*>& a_lhs, 
 		       const Vector<LevelData<FArrayBox>*>& a_v, 
 		       const Vector<LevelData<FArrayBox>*>& a_rhs, 
 		       bool a_homogeneous)
@@ -130,7 +130,7 @@ void  JFNKOp::residual(Vector<LevelData<FArrayBox>*>& a_lhs,
   scale(a_lhs, -1.0);
   if (m_writeResiduals)
     {
-      if (m_mode == JFNK_SOLVER_MODE)
+      if (m_mode == JFNK_LINEARIZATION_MODE)
 	writeResidual(m_uplushv,a_lhs);
       else
 	writeResidual(a_v,a_lhs);
@@ -139,14 +139,14 @@ void  JFNKOp::residual(Vector<LevelData<FArrayBox>*>& a_lhs,
 }
 
 
-void JFNKOp::setU(Vector<LevelData<FArrayBox>*>& a_u)
+void LinearizedVTOp::setU(Vector<LevelData<FArrayBox>*>& a_u)
 {
-  CH_TIME("JFNKOp::setU");
+  CH_TIME("LinearizedVTOp::setU");
   m_u->setState(a_u);
   m_mlOp.applyOp(m_fu, a_u);
   
 }
-Real JFNKOp::finiteh(const Vector<LevelData<FArrayBox>*>& a_v)
+Real LinearizedVTOp::finiteh(const Vector<LevelData<FArrayBox>*>& a_v)
 {
   Real h = m_h;
 
@@ -177,16 +177,16 @@ Real JFNKOp::finiteh(const Vector<LevelData<FArrayBox>*>& a_v)
 }
 
 
-void JFNKOp::applyOp(Vector<LevelData<FArrayBox>*>& a_lhs, 
+void LinearizedVTOp::applyOp(Vector<LevelData<FArrayBox>*>& a_lhs, 
 		       const Vector<LevelData<FArrayBox>*>& a_v, 
 		       bool a_homogeneous )
 {
 
-  CH_TIME("JFNKOp::applyOp");
+  CH_TIME("LinearizedVTOp::applyOp");
  
   
 
-  if (m_mode == JFNK_SOLVER_MODE)
+  if (m_mode == JFNK_LINEARIZATION_MODE)
     {
       //"Newton mode"
       setToZero(m_uplushv);
@@ -200,20 +200,20 @@ void JFNKOp::applyOp(Vector<LevelData<FArrayBox>*>& a_lhs,
       scale(a_lhs, 1.0 / h);
 
     }
-  else if (m_mode == PICARD_SOLVER_MODE)
+  else if (m_mode == PICARD_LINEARIZATION_MODE)
     {
       //"Picard mode"
       m_mlOp.applyOp(a_lhs, a_v, a_homogeneous);
     }
   else 
     {
-      MayDay::Error("Unknown SolverMode in JFNKOp::applyOp");
+      MayDay::Error("Unknown LinearizationMode in LinearizedVTOp::applyOp");
     }
 
 }
 
 
-void JFNKOp::writeResidual  
+void LinearizedVTOp::writeResidual  
 (const Vector<LevelData<FArrayBox> *>& a_u,
  const Vector<LevelData<FArrayBox> *>& a_residual)
 {
@@ -275,11 +275,11 @@ void JFNKOp::writeResidual
   m_residualID++;
 }
 
-void JFNKOp::preCond(Vector<LevelData<FArrayBox>*>& a_cor,
+void LinearizedVTOp::preCond(Vector<LevelData<FArrayBox>*>& a_cor,
 		     const Vector<LevelData<FArrayBox>*>& a_residual)
 {
   //CH_assert(norm(a_residual,0) < HUGE_NORM);
-  CH_TIME("JFNKOp::precond");
+  CH_TIME("LinearizedVTOp::precond");
   m_mlOp.preCond( a_cor, a_residual);
   //CH_assert(norm(a_cor,0) < HUGE_NORM);
 }
@@ -429,13 +429,13 @@ void JFNKSolver::define(const ProblemDomain& a_coarseDomain,
         }
     }
   
-  int bs_type = JFNKOp::m_bottom_solver_type;
+  int bs_type = LinearizedVTOp::m_bottom_solver_type;
   pp.query("bottom_solver_type", bs_type);
-  JFNKOp::m_bottom_solver_type = bs_type;
+  LinearizedVTOp::m_bottom_solver_type = bs_type;
 
-  int mg_depth = JFNKOp::m_MG_solver_depth;
+  int mg_depth = LinearizedVTOp::m_MG_solver_depth;
   pp.query("mg_solver_depth", mg_depth);
-  JFNKOp::m_MG_solver_depth = mg_depth;
+  LinearizedVTOp::m_MG_solver_depth = mg_depth;
 
   int mgAverageType  = CoarseAverageFace::arithmetic;
   pp.query("mgCoefficientAverageType", mgAverageType);
@@ -500,11 +500,22 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 
 }			    
 
-//general solve, linear or non-linear
+
 #ifdef CH_USE_PETSC
 #undef __FUNCT__
 #define __FUNCT__ "solve"
 #endif
+/// uses a quasi-Newton method to solve a non-linear viscous tensor equation
+/**
+   
+   The equation to be solved is L[u] u = r, where r is input in a_rhs, L[u] a the
+   viscous tensor operator whose coefficients depend on u. a_u is an initial
+   guess for u on input, and contains the result (u) on output
+
+   if a_linear == true, then the equation is L[u*] u = r, where u* is the input a_u, 
+   and u is the output. This option is useful for solving e.g the adjoint equation.
+   
+ */ 
 int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 		      Real& a_initialResidualNorm, Real& a_finalResidualNorm,
 		      const Real a_convergenceMetric,
@@ -518,7 +529,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 		      Real a_time,  int a_lbase, int a_maxLevel)
 {
   CH_TIME("JFNKSolver::solve");
-
+  CH_assert(a_lbase == 0); //\todo : support lBase != 0
   int returnCode = 0;
   
   Vector<LevelData<FArrayBox>* > localU(a_maxLevel+1);
@@ -545,40 +556,48 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
      CellToEdge(*a_A[lev] , *faceA[lev]);
    }
  
-
- //Nonlinear ViscousTensor
+ //An IceNonlinearViscousTensor object is used to compute the viscosity and drag coefficents
+ //(which depend on the velocity u) for the current outer iteration
  IceNonlinearViscousTensor current
    (m_grids , m_refRatios, m_domains,m_dxs , a_coordSys, localU ,
     localC, localC0, a_maxLevel, *m_constRelPtr, *m_basalFrictionRelPtr, *m_bcPtr, 
     a_A, faceA, a_time, m_vtopSafety, m_vtopRelaxMinIter, m_vtopRelaxTol, 
     m_muMin, m_muMax);
+ current.setState(localU);
  current.setFaceViscCoef(a_muCoef);
 
- //define a JFNKOp
- CH_assert(a_lbase == 0); //\todo : support lBase != 0
- JFNKOp jfnkOp
+ // LinearizedVTOp J0 provides several methods useful for initializtion, 
+ LinearizedVTOp J0
    (&current, localU, m_h, m_err, m_umin, m_hAdaptive,  m_grids, m_refRatios, 
-    m_domains, m_dxs, a_lbase, m_numMGSmooth, m_numMGIter, PICARD_SOLVER_MODE);
+    m_domains, m_dxs, a_lbase, m_numMGSmooth, m_numMGIter, PICARD_LINEARIZATION_MODE);
  
-  Vector<LevelData<FArrayBox>*> residual;
-  jfnkOp.create(residual,localU);
-  
-  Vector<LevelData<FArrayBox>*> du;
-  jfnkOp.create(du,localU);
+ 
+ 
+ //storage for residual and correction data
+ Vector<LevelData<FArrayBox>*> residual;
+ Vector<LevelData<FArrayBox>*> du;
+ J0.create(residual,localU);  
+ J0.create(du,localU);
+ 
+ //calculate the initial residual and its norm
+ J0.m_writeResiduals = m_writeResiduals;
 
-  int iter = 0;
-  Real oldResNorm;
-  Real& resNorm = a_finalResidualNorm;
-  jfnkOp.m_writeResiduals = m_writeResiduals;
-  jfnkOp.outerResidual(residual,localU,localRhs);
-  resNorm = a_initialResidualNorm = jfnkOp.norm(residual, m_normType);
-  if (m_verbosity > 0)
-    {
-      pout() << "JFNK initial residual norm = " << resNorm << std::endl;
-    }
-  //Real convergenceMetric = (a_convergenceMetric < 0.0)?a_initialResidualNorm:a_convergenceMetric;
-  Real convergenceMetric = std::max(a_convergenceMetric,a_initialResidualNorm);
-  if (m_verbosity > 0)
+ if (a_linear)
+   {
+     J0.setToZero(localU);
+   }
+ J0.outerResidual(residual,localU,localRhs);
+ Real oldResNorm;
+ Real& resNorm = a_finalResidualNorm;
+ resNorm = a_initialResidualNorm = J0.norm(residual, m_normType);
+ 
+
+ if (m_verbosity > 0)
+   {
+     pout() << "JFNK initial residual norm = " << resNorm << std::endl;
+   }
+ Real convergenceMetric = std::max(a_convergenceMetric,a_initialResidualNorm);
+ if (m_verbosity > 0)
     {
       pout() << "JFNK convergence metric = " <<  convergenceMetric << std::endl;
     }
@@ -586,195 +605,54 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
     return 0;
 
   bool done =  (resNorm  < m_absTol) |  (resNorm < a_convergenceMetric * m_relTol);
-  SolverMode mode = PICARD_SOLVER_MODE;
-  if (m_minPicardIter < 0)
+  
+  if (a_linear)
     {
-      mode = JFNK_SOLVER_MODE;
+     
+      linearSolve(J0, a_u, a_rhs, PICARD_LINEARIZATION_MODE);
+      J0.residual(residual,a_u,a_rhs);
+      resNorm = J0.norm(residual, m_normType);
+      done = true;
     }
-
-
-  while (!done && iter < m_maxIter)
-    {
-      oldResNorm = resNorm;
+  else
+    {     
+      LinearizationMode mode =  (m_minPicardIter < 0)?JFNK_LINEARIZATION_MODE:PICARD_LINEARIZATION_MODE;
+      int iter = 0;
       
-      // get rid of ice with excessive |u|
-      if (m_eliminateFastIce)
+      while (!done && iter < m_maxIter)
 	{
-	  IceUtility::eliminateFastIce(a_coordSys, localU, m_grids , m_domains, 
-				       m_refRatios, m_dxs[0][0], a_maxLevel, 
-				       m_eliminateRemoteIceMaxIter, m_eliminateRemoteIceTol, 
-				       m_eliminateFastIceSpeed, m_eliminateFastIceEdgeOnly, m_verbosity);
-	}
+	  oldResNorm = resNorm;
+	  
+	  // optionally get rid of ice with excessive |u|
+	  if (m_eliminateFastIce)
+	    {
+	      IceUtility::eliminateFastIce(a_coordSys, localU, m_grids , m_domains, 
+					   m_refRatios, m_dxs[0][0], a_maxLevel, 
+					   m_eliminateRemoteIceMaxIter, m_eliminateRemoteIceTol, 
+					   m_eliminateFastIceSpeed, m_eliminateFastIceEdgeOnly, m_verbosity);
+	    }
       
-      if (iter == 0 || !a_linear)
-	current.setState(a_u);  
-      JFNKOp newOp
-	(&current, localU, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
-	 m_refRatios, m_domains, m_dxs, a_lbase, m_numMGSmooth, m_numMGIter, mode);
-
-      if (a_linear)
-	 newOp.setToZero(localU);
-
-      newOp.m_writeResiduals = m_writeResiduals;
-
-      LinearSolver<Vector<LevelData<FArrayBox>* > >* krylovSolver = NULL;
-
-      if (m_linearSolverType == petsc)
-	{
-#ifdef CH_USE_PETSC
-	  // petsc solver setup expensive and it's easy 
-          // to swap the coefficients, so keep a pre-defined 
-          // solver around and just reset the coefficients
+	  //create a linearization (either the Jacobian of f or an approximation to it) around the current a_u
+	  LinearizedVTOp J
+	    (&current, localU, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
+	     m_refRatios, m_domains, m_dxs, a_lbase, m_numMGSmooth, m_numMGIter, mode);
+	  J.m_writeResiduals = m_writeResiduals;
 	  
-          Real opAlpha, opBeta;
-          opAlpha = -1.0;
-          opBeta = 1.0;
+	  //solve the linear system J du = r (with r = -f(u))
 	  
-          if (m_petscSolver == NULL)
-            {
-              m_petscSolver = new PetscAMRSolver(m_verbosity);
-	      m_petscSolver->m_petscCompMat.setVerbose(m_verbosity-1);
-            }
-	  RefCountedPtr<ConstDiriBC> bcfunc = RefCountedPtr<ConstDiriBC>
-	    (new ConstDiriBC(0,m_petscSolver->m_petscCompMat.getGhostVect()));
-	  BCHolder bc(bcfunc);
-	  m_petscSolver->m_petscCompMat.define(m_domains[0],m_grids,m_refRatios,bc,m_dxs[0]); // generic AMR setup
-	  m_petscSolver->m_petscCompMat.defineCoefs(opAlpha,opBeta,current.mu(),current.lambda(),current.alpha());
-#else	  
-	  MayDay::Error("linearSolverType is petsc, but code compiled w/o PETSC=TRUE");	  
-#endif	  
-	}
-      else
-	{
-	  // Chombo solver setup is cheap and it's hard 
-          // to swap the coefficients, so create a new solver
-	  krylovSolver = newLinearSolver(newOp, mode);
-	}
-
-      if (mode == JFNK_SOLVER_MODE && !a_linear)
-	{
-	  newOp.setToZero(du);
-          if (m_linearSolverType == petsc)
-            {
-#ifdef CH_USE_PETSC
-	      PetscErrorCode ierr = m_petscSolver->solve_mfree(du,residual,&newOp);CHKERRQ(ierr);
-#else
-	      MayDay::Error("linearSolverType is petsc, but code compiled w/o PETSC=TRUE");
-#endif
-            }
-          else 
-            { 
-	      krylovSolver->solve(du, residual);
-              
-            }
+	  J.setToZero(du);
+	  linearSolve(J, du, residual, mode);
 	  
-	  //take the Newton step du, and if the residual is not reduced try a sequence
-	  //of smaller steps w*du, halving w until either the residual is reduced or
-	  //w < m_minStepFactor
-	  Real w = 1.0; 
-	  newOp.incr(localU,du,w);
-	  do 
-            {
-	      current.setState(localU);      
-	      JFNKOp testOp (&current, localU, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
-			     m_refRatios, m_domains, m_dxs, a_lbase, 
-			     m_numMGSmooth, m_numMGIter, mode);
-	      testOp.m_writeResiduals = m_writeResiduals;
-	      testOp.outerResidual(residual,localU,localRhs);
-	      resNorm = testOp.norm(residual, m_normType);
-	      if (resNorm >= oldResNorm)
-		{
-		  w *= 0.5;
-		  if (w >= m_minStepFactor)
-		    {
-		      //step halfway back to the last U
-		      newOp.incr(localU,du,-w);
-		      if (m_verbosity > 0)
-			pout() << "JFNK iteration " << iter  << " halving step length, w =   " << w << std::endl; 	
-		    }
-		  else
-		    {
-		      //give up, return to the last U
-		      newOp.incr(localU,du,-2.0*w);
-		    } 
-		}
-	    }
-          while ( resNorm >= oldResNorm && w >= m_minStepFactor);
+	  //update u <- u + w*du for some w with minW < w <= 1.0.
+	  //When du is a JFNK step, allow w < 1 and w = 0 if ||f(u + minW * du)|| > ||f(u)||
+	  Real minW = (mode == JFNK_LINEARIZATION_MODE)?m_minStepFactor:1.0;
+	  bool resetOnFail = (mode == JFNK_LINEARIZATION_MODE);
+	  resNorm = lineSearch(localU, residual, localRhs,  du, 
+			       current, minW, resetOnFail, a_linear);
 	  
-	  if (resNorm > oldResNorm)
+	  //test the state and decide whether to switch modes
+	  if (mode == PICARD_LINEARIZATION_MODE)
 	    {
-	      if (m_verbosity > 0){
-		pout() << "JFNK iteration " << iter  << 
-		  " did not reduce residual" << std::endl;
-                if (m_verbosity > 1)
-                  {
-                    pout() << " ---- old residual = " << oldResNorm 
-                           << " -- new residual = " << resNorm
-                           << std::endl;
-                  }
-              }
-	      
-	      //don't take the step and 
-	      //switch back to Picard mode
-	      //newOp.incr(localU,du,-w); 
-	      //imposeMaxAbs(localU,m_uMaxAbs); 
-	      mode = PICARD_SOLVER_MODE;
-	      resNorm = oldResNorm;
-	    }
-	
-	  
-	  if (m_verbosity > 0)
-	    {
-	      pout() << " JFNK iteration " << iter 
-		     << " residual norm = " << resNorm 
-		     << " rate = " <<  oldResNorm / resNorm 
-		     << std::endl;
-	      
-	    }
-	  
-	} // end if (mode == JFNK_SOLVER_MODE)
-      else if ( (mode == PICARD_SOLVER_MODE) | a_linear)
-	{
-	  
-	  if (m_linearSolverType == petsc)
-	    {
-#ifdef CH_USE_PETSC
-	      if (a_linear)
-		{
-		  PetscErrorCode ierr = m_petscSolver->solve_mfree(localU,localRhs,&newOp);CHKERRQ(ierr);
-		}
-	      else
-		{
-		  //Petsc solver solves for du, never u ???
-		  newOp.setToZero(du);
-		  PetscErrorCode ierr = m_petscSolver->solve_mfree(du,residual,&newOp);CHKERRQ(ierr);
-		  newOp.incr(localU,du,1.0);
-		}
-#else
-	      MayDay::Error("linearSolverType is petsc, but code compiled w/o PETSC=TRUE");
-#endif
-	    }
-	  else
-	    {
-	      krylovSolver->solve(localU, localRhs);
-	    }
-          
-	  if (a_linear)
-	    {
-	      //if we are solving  a linear equation ,there is no
-              //need to update the state, and no point in switching to 
-	      //JFNK mode
-	      
-	      newOp.outerResidual(residual,localU,localRhs);
-	      resNorm = newOp.norm(residual, m_normType);
-	    }
-	  else
-	    {
-	      
-	      imposeMaxAbs(localU,m_uMaxAbs);
-	      current.setState(localU); 
-	      newOp.outerResidual(residual,localU,localRhs);
-	      resNorm = newOp.norm(residual, m_normType);
 	      Real rate = oldResNorm / resNorm;
 	      if (m_verbosity > 0)
 		{
@@ -783,57 +661,77 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 			 << " rate = " <<  rate
 			 << std::endl;
 		}
-	  
+	      
 	      if (iter >= m_minPicardIter && rate > 1.0 && rate < m_switchRate){
 		//since the iterations are progressing slowly
 		//but positively, try JFNK mode
-		mode = JFNK_SOLVER_MODE;
+		mode = JFNK_LINEARIZATION_MODE;
 	      }
 	    }
+	  else if (mode == JFNK_LINEARIZATION_MODE)
+	    {
+	      if (resNorm > oldResNorm)
+		{
+		  if (m_verbosity > 0){
+		    pout() << "JFNK iteration " << iter  <<  " did not reduce residual" << std::endl;
+		    if (m_verbosity > 1)
+		      {
+			pout() << " -- old residual = " << oldResNorm  
+			       << " -- new residual = " << resNorm << std::endl;
+		      }
+		  }
+		  
+		  //The JFNK step has failed, so switch back to Picard mode 
+		  mode = PICARD_LINEARIZATION_MODE;
+		  resNorm = oldResNorm;
+		}
+	      else
+		{
+		  if (m_verbosity > 0)
+		    {
+		      pout() << " JFNK iteration " << iter 
+			     << " residual norm = " << resNorm 
+			 << " rate = " <<  oldResNorm / resNorm 
+			     << std::endl;
+		      
+		    }
+		}
+	    }
+	  
+	  done = resNorm < m_absTol || resNorm < convergenceMetric * m_relTol;
+	  
+	  ++iter;
+	}
+       pout() << "JFNK final residual norm = " << resNorm << std::endl;
 
-	}// end if (mode == PICARD_SOLVER_MODE)
-	
-      if (m_linearSolverType != petsc)
-        {
-          delete krylovSolver;
-        }
-      done = a_linear || resNorm < m_absTol || resNorm < convergenceMetric * m_relTol;
-      
-      ++iter;
-    }
-  // if (m_writeIterations)
-  //   writeIteration(iter,localU,localRhs,residual);
-  // check to see if we actually solved the problem
-  pout() << "JFNK final residual norm = " << resNorm << std::endl;
+       // check to see if we actually solved the problem
+       if (done)
+	 {
+	   returnCode = 0;
+	   if (m_verbosity > 0)
+	     {
+	       pout() << "JFNKSolver converged -- final norm(resid) = "
+		      << resNorm << " after " << iter << " iterations"
+		      << endl;
+	     }
+	 }
+       else 
+	 {
+	   returnCode = 1;
+	   if (m_verbosity > 0)
+	     {
+	       pout() << "JFNKSolver NOT CONVERGED -- final norm(resid) = "
+		      << resNorm << " after " << iter << " iterations"
+		      << endl;          
+	     }
+	 }
+       
+    }// end !a_linear
 
-  
-
-  if (done)
-    {
-      returnCode = 0;
-      if (m_verbosity > 0)
-        {
-          pout() << "JFNKSolver converged -- final norm(resid) = "
-                 << resNorm << " after " << iter << " iterations"
-                 << endl;
-        }
-    }
-  else 
-    {
-      returnCode = 1;
-      if (m_verbosity > 0)
-        {
-          pout() << "JFNKSolver NOT CONVERGED -- final norm(resid) = "
-                 << resNorm << " after " << iter << " iterations"
-                 << endl;          
-        }
-    }
-  
+ 
   // clean up storage
   for (int lev=0; lev<residual.size(); lev++)
     {
-
- 
       if (residual[lev] != NULL)
 	{
 	  delete residual[lev];
@@ -860,7 +758,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 
 
 LinearSolver<Vector<LevelData<FArrayBox>* > >* 
-JFNKSolver::newLinearSolver (JFNKOp& a_op,  SolverMode a_mode)
+JFNKSolver::newLinearSolver (LinearizedVTOp& a_op,  LinearizationMode a_mode)
 {
 
   LinearSolver<Vector<LevelData<FArrayBox>* > >* solver = NULL;
@@ -878,7 +776,7 @@ JFNKSolver::newLinearSolver (JFNKOp& a_op,  SolverMode a_mode)
       //the linear system is solved quickly.
       //By being intolerant here, we revert to 
       //the cheaper Picard mode sooner rather than later
-      if (a_mode == JFNK_SOLVER_MODE)
+      if (a_mode == JFNK_LINEARIZATION_MODE)
 	{
 	  biCGStabSolver->m_numRestarts = 0;
 	  biCGStabSolver->m_hang = m_RelaxHang;
@@ -902,7 +800,7 @@ JFNKSolver::newLinearSolver (JFNKOp& a_op,  SolverMode a_mode)
       //the linear system is solved quickly.
       //By being intolerant here, we revert to 
       //the cheaper Picard mode sooner rather than later
-      if (a_mode == JFNK_SOLVER_MODE)
+      if (a_mode == JFNK_LINEARIZATION_MODE)
 	{
 	  cGSolver->m_numRestarts = 0;
 	  cGSolver->m_hang = 1.0;
@@ -943,6 +841,112 @@ JFNKSolver::newLinearSolver (JFNKOp& a_op,  SolverMode a_mode)
   return solver;
 }
 
+
+Real JFNKSolver::lineSearch(Vector<LevelData<FArrayBox>* >& a_u, 
+			    Vector<LevelData<FArrayBox>* >& a_residual,
+			    const Vector<LevelData<FArrayBox>* >& a_rhs,
+			    const Vector<LevelData<FArrayBox>* >& a_du, 
+			    NonlinearViscousTensor& a_nvt, Real a_minW, 
+			    bool a_resetOnFail, bool a_linear)
+{
+  CH_TIME("JFNKSolver::lineSearch");
+  //try u + du, and if the residual is not reduced try a sequence
+  //of smaller steps u + w*du, halving w until either the residual
+  // is reduced or w < a_minW
+  Real w = 1.0; 
+  LinearizedVTOp op(&a_nvt, a_u, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
+		    m_refRatios, m_domains, m_dxs, 0, 
+		    m_numMGSmooth, m_numMGIter, PICARD_LINEARIZATION_MODE);
+
+  a_nvt.setState(a_u);
+  Real oldResNorm = op.norm(a_residual, m_normType);
+  Real resNorm = oldResNorm;
+  op.incr(a_u,a_du,w);
+
+  do 
+    {
+      if (!a_linear)
+	{
+	  a_nvt.setState(a_u);
+	}      
+      LinearizedVTOp testOp (&a_nvt, a_u, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
+			     m_refRatios, m_domains, m_dxs, 0, 
+			     m_numMGSmooth, m_numMGIter,PICARD_LINEARIZATION_MODE );
+      testOp.m_writeResiduals = m_writeResiduals;
+      testOp.outerResidual(a_residual,a_u,a_rhs);
+      resNorm = testOp.norm(a_residual, m_normType);
+      if (resNorm >= oldResNorm)
+	{
+	  w *= 0.5;
+	  if (w >= a_minW)
+	    {
+	      //step halfway back to the last U
+	      testOp.incr(a_u,a_du,-1.0*w);
+	      if (m_verbosity > 0)
+		pout()  << "JFNKSolver::lineSearch halving step length, w =   " << w << std::endl; 	
+	    }
+	  else if (a_resetOnFail)
+	    {
+	      //give up, return to the last U
+	      testOp.incr(a_u,a_du,-2.0*w); 
+	      if (!a_linear)
+		{
+		  a_nvt.setState(a_u);
+		} 
+	      testOp.outerResidual(a_residual,a_u,a_rhs);
+	      resNorm = testOp.norm(a_residual, m_normType);
+	    } 
+	}
+    }
+  while ( resNorm >= oldResNorm && w >= a_minW);
+
+  return resNorm;
+
+}
+
+void 
+JFNKSolver::linearSolve(LinearizedVTOp& a_op, 
+			Vector<LevelData<FArrayBox>* >& a_u,
+			const Vector<LevelData<FArrayBox>* >& a_rhs, 
+			LinearizationMode a_mode)
+{
+  if (m_linearSolverType == petsc)
+    {
+#ifdef CH_USE_PETSC
+      // petsc solver setup is expensive and it's easy 
+      // to swap the coefficients, so keep a pre-defined 
+      // solver around and just reset the coefficients
+      if (m_petscSolver == NULL)
+	{
+	  m_petscSolver = new PetscAMRSolver(m_verbosity);
+	  m_petscSolver->m_petscCompMat.setVerbose(m_verbosity-1);
+	}
+      RefCountedPtr<ConstDiriBC> bcfunc = RefCountedPtr<ConstDiriBC>
+	(new ConstDiriBC(0,m_petscSolver->m_petscCompMat.getGhostVect()));
+      BCHolder bc(bcfunc);
+      Real opAlpha, opBeta;
+      opAlpha = -1.0;
+      opBeta = 1.0;
+      m_petscSolver->m_petscCompMat.define(m_domains[0],m_grids,m_refRatios,bc,m_dxs[0]); // generic AMR setup
+      m_petscSolver->m_petscCompMat.defineCoefs(opAlpha,opBeta,a_op.current().mu(),
+						a_op.current().lambda(),a_op.current().alpha());
+
+      PetscErrorCode ierr = m_petscSolver->solve_mfree(a_u,a_rhs,&a_op);
+      //CHKERRQ(ierr);
+#else
+      MayDay::Error("linearSolverType is petsc, but code compiled w/o PETSC=TRUE");
+#endif
+    }
+  else 
+    {  
+      // Chombo solver setup is cheap and it's hard 
+      // to swap the coefficients, so create a new solver
+      LinearSolver<Vector<LevelData<FArrayBox>* > >* krylovSolver = 
+	newLinearSolver(a_op,a_mode);
+      krylovSolver->solve(a_u, a_rhs);
+      delete krylovSolver;	      
+    }
+}
 
 #include "NamespaceFooter.H"
 

@@ -24,7 +24,7 @@
 #include "NamespaceHeader.H"
 
 /// Jacobian-Free Newton Krylov solver for the nonlinear ice-sheet/shelf momentum equations
-enum SolverMode {PICARD_SOLVER_MODE, JFNK_SOLVER_MODE, MAX_SOLVER_MODE};
+enum LinearizationMode {PICARD_LINEARIZATION_MODE, JFNK_LINEARIZATION_MODE, MAX_LINEARIZATION_MODE};
 
 /// LinearOp implementation which uses a finite difference approximation
 /// to evaluate L v = 1/h * ( f(u + h*v) - f(u)) at the current iterate u, where
@@ -40,7 +40,7 @@ enum SolverMode {PICARD_SOLVER_MODE, JFNK_SOLVER_MODE, MAX_SOLVER_MODE};
 class JFNKSolver;
 
 
-class JFNKOp :  public LinearOp<Vector<LevelData<FArrayBox>*> >
+class LinearizedVTOp :  public LinearOp<Vector<LevelData<FArrayBox>*> >
 {  
   friend class JFNKSolver;
 #ifdef CH_USE_PETSC
@@ -80,7 +80,7 @@ class JFNKOp :  public LinearOp<Vector<LevelData<FArrayBox>*> >
   Vector<RealVect> m_dxs;
   int m_lBase;
 
-  SolverMode m_mode;
+  LinearizationMode m_mode;
 
   //options related to writing out the residual
   bool m_writeResiduals;
@@ -91,7 +91,10 @@ class JFNKOp :  public LinearOp<Vector<LevelData<FArrayBox>*> >
    const Vector<LevelData<FArrayBox> *>& a_residual);
 
 public:
-  virtual ~JFNKOp()
+
+  NonlinearViscousTensor& current() const {return *m_u;}
+
+  virtual ~LinearizedVTOp()
   {
     for (int lev = 0; lev < m_fu.size(); ++lev)
       {
@@ -104,7 +107,7 @@ public:
 	  delete m_uplushv[lev];	
       }
   }
-  JFNKOp(NonlinearViscousTensor* a_currentState , 
+  LinearizedVTOp(NonlinearViscousTensor* a_currentState , 
 	 Vector<LevelData<FArrayBox>*>& a_u,
 	 Real a_h,  Real m_err, Real m_umin, bool m_hAdaptive,
 	 Vector<DisjointBoxLayout>& a_grids,
@@ -114,7 +117,7 @@ public:
 	 int a_lBase, 
 	 int a_numMGSmooth, 
 	 int a_numMGIter,
-	 SolverMode a_mode
+	 LinearizationMode a_mode
 	 );
 
   // set the current solution u (so that J * v \approx (f(u+hv)-f(u))/h
@@ -249,7 +252,24 @@ class JFNKSolver : public IceVelocitySolver
   PetscAMRSolver *m_petscSolver;
 #endif
 
- LinearSolver<Vector<LevelData<FArrayBox>* > >* newLinearSolver(JFNKOp& a_op, SolverMode a_mode);
+  LinearSolver<Vector<LevelData<FArrayBox>* > >* newLinearSolver(LinearizedVTOp& a_op, 
+								 LinearizationMode a_mode);
+
+  /// find the largest w <= 1 such that  the residual norm ||f(a_u + w * a_du) - a_rhs|| is not increased
+  /// return residual norm
+  Real lineSearch(Vector<LevelData<FArrayBox>* >& a_u, 
+		  Vector<LevelData<FArrayBox>* >& a_residual,
+		  const Vector<LevelData<FArrayBox>* >& a_rhs,
+		  const Vector<LevelData<FArrayBox>* >& a_du, 
+		  NonlinearViscousTensor& a_nvt, Real a_minW, 
+		  bool a_resetOnFail, bool a_linear);
+
+  ///set up and solve the linear system a_op * a_u = a_rhs
+  void linearSolve(LinearizedVTOp& a_op,
+		   Vector<LevelData<FArrayBox>* >& a_u,
+		   const Vector<LevelData<FArrayBox>* >& a_rhs, 
+		   LinearizationMode a_mode);
+
 public:
   LinearSolverType m_linearSolverType;
   //maximum number of Newton steps;
