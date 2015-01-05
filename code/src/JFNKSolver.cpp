@@ -609,8 +609,8 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
   if (a_linear)
     {
      
-      linearSolve(J0, a_u, a_rhs, PICARD_LINEARIZATION_MODE);
-      J0.residual(residual,a_u,a_rhs);
+      linearSolve(J0, localU, localRhs, PICARD_LINEARIZATION_MODE);
+      J0.residual(residual,localU,localRhs);
       resNorm = J0.norm(residual, m_normType);
       done = true;
     }
