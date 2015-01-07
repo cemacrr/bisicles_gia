@@ -630,9 +630,11 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 					   m_refRatios, m_dxs[0][0], a_maxLevel, 
 					   m_eliminateRemoteIceMaxIter, m_eliminateRemoteIceTol, 
 					   m_eliminateFastIceSpeed, m_eliminateFastIceEdgeOnly, m_verbosity);
+	      current.setState(localU);
 	    }
-      
+	 
 	  //create a linearization (either the Jacobian of f or an approximation to it) around the current a_u
+	 
 	  LinearizedVTOp J
 	    (&current, localU, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
 	     m_refRatios, m_domains, m_dxs, a_lbase, m_numMGSmooth, m_numMGIter, mode);
