@@ -34,7 +34,7 @@ def thickness(x,y):
     thickness = 0.0
   
     if (x < 700.0e+3):
-        thickness = -B0 + 100.0
+        thickness =  100.0
         
     return thickness
 
