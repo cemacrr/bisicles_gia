@@ -41,7 +41,7 @@ do
 	    getsolveinterval
 	    NAME=shortshallow.spin.$smod.l$lev.$solver
 	    INFILE=inputs.$NAME
-	    sed -e s/@SOLVEINTERVAL/$SOLVEINTERVAL/  -e s/#$solver// -e s/@SOLVER/$solver/ -e s/@NAME/$NAME/ -e s/@MAXLEVEL/$lev/ -e s/@TAGCAP/$tagcap/ -e s/@SMOD/$smod/ -e s/@CRE/$cre/ inputs.shortdeep.template > $INFILE
+	    sed -e s/@SOLVEINTERVAL/$SOLVEINTERVAL/  -e s/#$solver// -e s/@SOLVER/$solver/ -e s/@NAME/$NAME/ -e s/@MAXLEVEL/$lev/ -e s/@TAGCAP/$tagcap/ -e s/@SMOD/$smod/ -e s/@CRE/$cre/ inputs.shortshallow.template > $INFILE
 	    sed -e s/@SOLVEINTERVAL/$SOLVEINTERVAL/ -e s/@SOLVER/$solver/  -e s/@SMOD/$smod/ -e s/@NODES/$NODES/ -e s/@INFILE/$INFILE/ -e s/@LEV/$lev/  job.newblue.template.sh > job.newblue.$NAME.sh
 	done
     done
