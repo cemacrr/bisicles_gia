@@ -672,7 +672,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	    }
 	  else if (mode == JFNK_LINEARIZATION_MODE)
 	    {
-	      if (resNorm > oldResNorm)
+	      if (resNorm >= oldResNorm)
 		{
 		  if (m_verbosity > 0){
 		    pout() << "JFNK iteration " << iter  <<  " did not reduce residual" << std::endl;
@@ -879,13 +879,17 @@ Real JFNKSolver::lineSearch(Vector<LevelData<FArrayBox>* >& a_u,
       resNorm = testOp.norm(a_residual, m_normType);
       if (resNorm >= oldResNorm)
 	{
-	  w *= 0.5;
+	   if (m_verbosity > 0)
+	     pout()  << "JFNKSolver::lineSearch residual norm = " << resNorm << std::endl;
+	   w *= 0.5;
+	   
+	   
 	  if (w >= a_minW)
 	    {
-	      //step halfway back to the last U
-	      testOp.incr(a_u,a_du,-1.0*w);
 	      if (m_verbosity > 0)
-		pout()  << "JFNKSolver::lineSearch halving step length, w =   " << w << std::endl; 	
+		pout()  << "JFNKSolver::lineSearch halving step length, w =   " << w << std::endl; 
+	      //step halfway back to the last U
+	      testOp.incr(a_u,a_du,-1.0*w);	
 	    }
 	  else if (a_resetOnFail)
 	    {
