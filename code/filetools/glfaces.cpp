@@ -324,7 +324,7 @@ int main(int argc, char* argv[]) {
     Real vtopRelaxTol = 1.0;
     Real muMin = 0.0;
     Real muMax = 1.23456789e+300;
-    IceJFNKstate state(grids, ratio, domain, vdx, coords, vel, C, C0,
+    IceNonlinearViscousTensor state(grids, ratio, domain, vdx, coords, vel, C, C0,
 		       numLevels-1, *constRelPtr, *basalFrictionRelationPtr, 
 		       *thicknessIBC, cellA, faceA, time, 
 		       vtopSafety, vtopRelaxMinIter, vtopRelaxTol, 
