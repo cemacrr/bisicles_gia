@@ -29,7 +29,7 @@ getsolveinterval()
   esac  
 }
 
-for solver in Chombo PETSc
+for solver in Chombo PETSc fullPETSc
 do
     for smod in l1l2 ssa;
     do
