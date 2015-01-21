@@ -1,2 +1,2 @@
 #!/usr/bin/awk -f
-{if ($9 =="dt") print $2 " " ($11)}
+{if ($11 =="dt") print $2 " " ($13)}
