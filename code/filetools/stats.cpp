@@ -457,6 +457,7 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
   CH_STOP(t2);
   Real iceVolumeAbove = 0.0;
   Real groundedArea = 0.0;
+  Real groundedPlusOpenLandArea = 0.0;
   Real floatingArea = 0.0;
   Real totalArea = 0.0;
 
@@ -486,6 +487,7 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
        
       Vector<LevelData<FArrayBox>* > tmp(numLevels, NULL);
       Vector<LevelData<FArrayBox>* > tmp2(numLevels, NULL);
+      Vector<LevelData<FArrayBox>* > tmp3(numLevels, NULL);
       for (int lev=0; lev< numLevels; lev++)
 	{
 	  const DisjointBoxLayout& grids = topography[lev]->disjointBoxLayout();
@@ -516,14 +518,17 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
 	    const DisjointBoxLayout& grids = coords[lev]->grids();
 	    //tmp[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
 	    tmp2[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+	    tmp3[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
 	    for (DataIterator dit(grids);dit.ok();++dit)
 	      {
 		const BaseFab<int>& mask =  coords[lev]->getFloatingMask()[dit];
 		const Box& b = grids[dit];
 		FArrayBox& a = (*tmp[lev])[dit];
 		FArrayBox& a2 = (*tmp2[lev])[dit];
+		FArrayBox& a3 = (*tmp3[lev])[dit];
 		a.setVal(0.0);
 		a2.setVal(0.0);
+                a3.setVal(0.0);
 		for (BoxIterator bit(b);bit.ok();++bit)
 		  {
 		    const IntVect& iv = bit();
@@ -536,13 +541,20 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
 		      {
 			a2(iv) = 1.0;
 		      }
+
+                    // grounded plus open land
+		    if ((mask(iv) == GROUNDEDMASKVAL) || (mask(iv) == OPENLANDMASKVAL))
+		      {
+			a3(iv) = 1.0;
+		      }
 		
 		  }
 	      }
 	  }
 	groundedArea = computeSum(tmp, ratio, dx[0], Interval(0,0), 0);
 	floatingArea = computeSum(tmp2, ratio, dx[0], Interval(0,0), 0);
-   
+        groundedPlusOpenLandArea = computeSum(tmp3, ratio, dx[0], Interval(0,0), 0);
+
     
       }
       CH_STOP(t4);
@@ -586,6 +598,11 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
 	    {
 	      delete tmp2[lev]; tmp2[lev];
 	    } 
+
+	  if (tmp3[lev] != NULL)
+	    {
+	      delete tmp3[lev]; tmp3[lev];
+	    } 
 	}
     }
     
@@ -594,6 +611,7 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
   pout() << " groundedArea = " << groundedArea << " ";
   pout() << " floatingArea = " << floatingArea << " ";
   pout() << " totalArea = " << totalArea << " ";
+  pout() << " groundedPlusOpenLandArea = " << groundedPlusOpenLandArea << " ";
  
   
 }
