@@ -26,12 +26,19 @@
 #include "Vector.H"
 #include "AMRIO.H"
 #include "LevelDataOps.H"
-#include "NamespaceHeader.H"
+#include "SurfaceFlux.H"
 #include <map>
+#include <iostream>
+#include <fstream>
+#include "NamespaceHeader.H"
+
 #if BISICLES_Z == BISICLES_LAYERED
+
+
 
 class AMRIceControl
 {
+
 
   // finest level permitted
   int m_maxFinestLevel;
@@ -99,6 +106,8 @@ class AMRIceControl
   //thickness
   //thickness = exp(X[2]) * m_thicknessOrigin;
   Vector<LevelData<FArrayBox>*> m_thicknessOrigin;
+  Vector<LevelData<FArrayBox>*> m_pointThicknessData;
+
   //right-hand side of the velocity equation
   Vector<LevelData<FArrayBox>*> m_rhs;
   //right-hand side of the adjoint velocity equation
@@ -172,6 +181,13 @@ class AMRIceControl
     m_X0Regularization, 
     m_X1Regularization;
  
+
+  enum VelocityMisfitType {Speed, Velocity, MAX_VELOCITY_MISFIT_TYPE};
+  VelocityMisfitType m_velMisfitType;
+
+  enum ThicknessUpdateType {GroundedSurfaceConstant, BedrockDownSurfaceDown, MAX_THICKNESS_UPDATE_TYPE};
+  ThicknessUpdateType m_evolveThicknessUpdateType;
+
 
   Real m_lowerX0, m_upperX0, m_lowerX1, m_upperX1;
 
@@ -347,12 +363,14 @@ private:
   Real m_evolveRegularizationCoefficient;
   Real m_evolveLimitDH; // maximum change in thickness
   Real m_evolveMeltRateLengthScale;
-  Real m_evolveWeightOverSpeed; // if > 0, weight regularization by w/(|u| + 1)
+  Real m_evolveThicknessLengthScale;
+  Real m_evolveObservedVelocityMinVelc; // use observed velocity in the evolve step where velc > m_evolveObservedVelocityMinVelc
   /// evolve the geoemtry on CG restarts ?
   bool m_evolveOnRestart;
   /// evolve geoemtry according to the thickness transport equation
   void evolveGeometry(Real a_dt, Real a_time);
-
+  ///compute a smoothed melt-rate such that m_divUHObs \approx m_divUH in the ice shelf
+  void evolveMeltRate();
   ///eliminate remote ice after evolving ?
   bool m_eliminateRemoteIce;
   ///maximum number of elimination iterations

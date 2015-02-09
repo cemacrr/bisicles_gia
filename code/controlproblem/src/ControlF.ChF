@@ -41,6 +41,44 @@ c      misfit(CHF_AUTOIX[i]) = (uo-um)
       return
       end
 
+
+c---------------------------------------------------
+c contribution to the right hand side of the  
+c ssa/l1l2 adjoint equations due to mismatch
+c between model and observed *velocities* um and uo 
+
+c
+c rhs[x] = (uxo - umy)
+c rhs[y] = (uyo - umy)
+c
+c rhs <- contribution
+c misfit <- 0.5 * (uo - um) . (uo - um)
+c umx,umy -> model velocity components
+c uox,uoy -> observed velocity components.
+c---------------------------------------------------
+      subroutine adjrhsvelctrl( CHF_FRA1[rhsx],CHF_FRA1[rhsy], 
+     &     CHF_FRA1[misfit],
+     &     CHF_CONST_FRA1[umx],CHF_CONST_FRA1[umy],
+     &     CHF_CONST_FRA1[uox],CHF_CONST_FRA1[uoy],
+     &     CHF_BOX[box] )
+
+      integer CHF_AUTODECL[i]
+      REAL_T uo,um,t
+
+      CHF_AUTOMULTIDO[box; i]
+      
+      rhsx(CHF_AUTOIX[i]) = uox(CHF_AUTOIX[i]) - umx(CHF_AUTOIX[i])
+      rhsy(CHF_AUTOIX[i]) = uoy(CHF_AUTOIX[i]) - umy(CHF_AUTOIX[i])
+      
+      misfit(CHF_AUTOIX[i]) = half *
+     &     rhsx(CHF_AUTOIX[i])**two 
+     &     + rhsy(CHF_AUTOIX[i])**two
+
+      CHF_ENDDO
+
+      return
+      end
+
 c-----------------------------------------------------
 c contribution to the right hand side of the  
 c ssa/l1l2 adjoint equations due to mismatch
@@ -266,46 +304,30 @@ c-------------------------------------
       return
       end
 
-c----------------------------------------------------
-c set dh <- max(-h, dh)
-c and topg <- topg + d
-c d = max(-dh, -(h+dh)*r - topg) on land 
-c d = min(-dh, -(h+dh)*r - topg) in shelf
-c ie modify topg so that the mask does not change
-c and subject to that, the surface does not change
-c----------------------------------------------------
-
-      subroutine updatehctrl(CHF_FRA1[h],
-     &     CHF_FRA1[topg], CHF_FRA1[dh],
-     &     CHF_CONST_FIA1[mask], CHF_CONST_REAL[r],
+c -----------------------------------------------------
+c h <- max(0, min(ho + limit, max( ho - limit )))
+c ------------------------------------------------------
+      subroutine limitincrctrl(CHF_FRA1[h], 
+     &     CHF_CONST_FRA1[dh],
+     &     CHF_CONST_FRA1[ho],
+     &     CHF_CONST_REAL[limit],
      &     CHF_BOX[box])
-
       
       integer CHF_AUTODECL[i]
-      REAL_T d, t
+      REAL_T t
 
       CHF_AUTOMULTIDO[box; i]
-      dh(CHF_AUTOIX[i]) = max(dh(CHF_AUTOIX[i]),-h(CHF_AUTOIX[i]))
-
-      if ( h(CHF_AUTOIX[i]) .lt. TINY_THICKNESS) then
-         dh(CHF_AUTOIX[i]) = zero
-      end if
-
-      h(CHF_AUTOIX[i]) = h(CHF_AUTOIX[i]) + dh(CHF_AUTOIX[i])
-      t = -h(CHF_AUTOIX[i])*r - topg(CHF_AUTOIX[i])
-      
-      if (mask (CHF_AUTOIX[i]) .eq. FLOATINGMASKVAL) then
-         d = min(-dh(CHF_AUTOIX[i]), t) 
-      else if (mask (CHF_AUTOIX[i]) .eq. GROUNDEDMASKVAL) then
-         d = max(-dh(CHF_AUTOIX[i]), t) 
-      end if
-      topg(CHF_AUTOIX[i]) = topg(CHF_AUTOIX[i]) + d
+      t = h(CHF_AUTOIX[i]) + dh(CHF_AUTOIX[i])
+      t = max(t,zero)
+      t = max(ho(CHF_AUTOIX[i])-limit,t)
+      t = min(ho(CHF_AUTOIX[i])+limit,t)
+      h(CHF_AUTOIX[i]) = t
       CHF_ENDDO
 
       return
       end
 
-
+      
 c----------------------------------------------------
 c set dh <- max(-h, dh)
 c and topg <- topg + d
@@ -314,7 +336,7 @@ c d = min(-dh, -(h+dh)*r - topg) in shelf
 c ie modify topg so that the mask does not change
 c for floating ice and the surface does not change for grounded ice
 c So, the grounding line can retreat but not re-advance
-c also limit |h - ho| <= dhmax 
+c also limit |h - ho| <= dhmax and set h <- 0 if h < hmin
 c----------------------------------------------------
 
       subroutine updatehctrlb(CHF_FRA1[h],
@@ -347,20 +369,92 @@ c----------------------------------------------------
 
       if ( h(CHF_AUTOIX[i]) .gt. ho(CHF_AUTOIX[i]) +  dhmax) then
          h(CHF_AUTOIX[i]) = ho(CHF_AUTOIX[i]) +  dhmax
-      !else if (h(CHF_AUTOIX[i]) .lt. ho(CHF_AUTOIX[i]) - dhmax) then
-      !  h(CHF_AUTOIX[i]) = ho(CHF_AUTOIX[i]) -  dhmax
+      else if (h(CHF_AUTOIX[i]) .lt. ho(CHF_AUTOIX[i]) - dhmax) then
+         h(CHF_AUTOIX[i]) = ho(CHF_AUTOIX[i]) -  dhmax
       end if
 
-      
-
       dh(CHF_AUTOIX[i]) = h(CHF_AUTOIX[i]) - t 
-!     h(CHF_AUTOIX[i]) = h(CHF_AUTOIX[i]) + dh(CHF_AUTOIX[i])
-!t = -h(CHF_AUTOIX[i])*r - topg(CHF_AUTOIX[i])
-      
+
       if (mask (CHF_AUTOIX[i]) .eq. FLOATINGMASKVAL) then
          d = min(-dh(CHF_AUTOIX[i]), zero) ! don't allow sub-shelf cavity to shrink 
       else if (mask (CHF_AUTOIX[i]) .eq. GROUNDEDMASKVAL) then
          d = -dh(CHF_AUTOIX[i])
+      else
+         d = zero
+      end if
+      topg(CHF_AUTOIX[i]) = topg(CHF_AUTOIX[i]) + d
+
+     
+
+
+      CHF_ENDDO
+
+      return
+      end
+
+
+c----------------------------------------------------
+c set dh <- max(-h, dh) and topg <- topg + d 
+c d = -dh on land
+c d = min(-dh, -(h+dh)*r - topg) in shelf
+c ie modify topg and thck so that the mask does not change
+c for floating ice and the neither the bedrock nor the surface
+c are raised for for grounded ice.
+c
+c so, if ice thins, the surface lowers, and if it thickens
+c the bedrock lowers. this is a crude rule, and assumes 
+c bedrock elevation tends to be overestimated (which
+c might occur because radar reflections tend to be biased
+c to early returns - hyperbolae, crevasses) and surface
+c elevation tends to be overestimated (by interpolating 
+c across the cliffs)
+c
+c So, the grounding line can retreat but not re-advance
+c
+c also limit |h - ho| <= dhmax and set h <- 0 if h < hmin
+c----------------------------------------------------
+
+      subroutine updatehctrlc(CHF_FRA1[h],
+     &     CHF_FRA1[topg], 
+     &     CHF_FRA1[dh],
+     &     CHF_CONST_FIA1[mask],  
+     &     CHF_CONST_FRA1[ho],
+     &     CHF_CONST_REAL[r],
+     &     CHF_CONST_REAL[dhmax],
+     &     CHF_CONST_REAL[hmin],
+     &     CHF_BOX[box])
+
+      
+      integer CHF_AUTODECL[i]
+      REAL_T d, t
+
+      CHF_AUTOMULTIDO[box; i]
+      dh(CHF_AUTOIX[i]) = max(dh(CHF_AUTOIX[i]),-h(CHF_AUTOIX[i]))
+
+      if ( h(CHF_AUTOIX[i]) .lt. TINY_THICKNESS) then
+         dh(CHF_AUTOIX[i]) = zero
+      end if
+
+      t = h(CHF_AUTOIX[i])
+      h(CHF_AUTOIX[i]) = h(CHF_AUTOIX[i]) + dh(CHF_AUTOIX[i])
+
+      if ( h(CHF_AUTOIX[i]) .lt. hmin) then
+         h(CHF_AUTOIX[i]) = zero
+      end if
+
+      if ( h(CHF_AUTOIX[i]) .gt. ho(CHF_AUTOIX[i]) +  dhmax) then
+         h(CHF_AUTOIX[i]) = ho(CHF_AUTOIX[i]) +  dhmax
+      else if (h(CHF_AUTOIX[i]) .lt. ho(CHF_AUTOIX[i]) - dhmax) then
+         h(CHF_AUTOIX[i]) = ho(CHF_AUTOIX[i]) -  dhmax
+      end if
+
+      dh(CHF_AUTOIX[i]) = h(CHF_AUTOIX[i]) - t 
+
+      !nb : rule is the same for grounded and floating ice - bedrock down only
+      if (mask (CHF_AUTOIX[i]) .eq. FLOATINGMASKVAL) then
+         d = min(-dh(CHF_AUTOIX[i]), zero) ! don't allow sub-shelf cavity to shrink 
+      else if (mask (CHF_AUTOIX[i]) .eq. GROUNDEDMASKVAL) then
+         d = min(-dh(CHF_AUTOIX[i]), zero) ! don't allow topography to be raised.
       else
          d = zero
       end if

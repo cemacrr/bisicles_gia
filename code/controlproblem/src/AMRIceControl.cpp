@@ -40,6 +40,94 @@
 #include <sstream>
 #include "NamespaceHeader.H"
 
+
+
+class PointDataStatistics 
+{
+  Vector<Real> m_x,m_y,m_v;
+  Real m_sigmaSqr0;
+  
+public:
+  ~PointDataStatistics()
+  {
+    
+  }
+
+  PointDataStatistics(std::string a_textFile, Real a_sigmaSqr0 = 1.0) 
+    : m_sigmaSqr0(a_sigmaSqr0)
+  {
+    pout() << "PointDataStatistics::PointDataStatistics reading point data from " 
+	   << a_textFile << std::endl;
+    std::ifstream is(a_textFile.c_str(), ios::in);
+    CH_assert(!is.fail());
+    do 
+      {
+	Real x,y,v;
+	is >> x; is >> y; is >> v; is.ignore(1,ios::eofbit);
+
+	m_x.push_back(x);
+	m_y.push_back(y);
+	m_v.push_back(v);
+	
+      } while (!is.eof());
+  }
+
+  /// fill each cell [i,j] of 2-component surface LevelData<FArrayBox> 
+  /// with the mean and 1/sigma^2[v]  where v is drawn from point 
+  /// data x,y,v and x,y sit inside the cell.    
+  void evaluate(LevelData<FArrayBox>& a_data, RealVect a_dx)
+  {
+    RealVect a_halfDx = 0.5 * a_dx;
+    CH_assert(a_data.nComp() >= 2);
+    for (DataIterator dit(a_data.disjointBoxLayout()); dit.ok(); ++dit)
+      {
+	FArrayBox& f = a_data[dit]; 
+	f.setVal(0.0);
+	const Box& b = f.box();
+	FArrayBox n(b,1);
+	n.setVal(0.0);
+	// maybe optimize this by sorting m_x,m_y,m_z by m_x
+	for (int i = 0; i < m_x.size(); i++)
+	  {
+	    IntVect iv( int(m_x[i]/a_dx[0]-0.5), int(m_y[i]/a_dx[1]-0.5));
+	    if (b.contains(iv))
+	      {
+		f(iv,0) += m_v[i];
+		n(iv) += 1.0;
+	      }
+	  }
+	//update f(0) to the mean
+	for (BoxIterator bit(b);bit.ok();++bit)
+	  {
+	    const IntVect& iv = bit();
+	    if (n(iv) > 0.0)
+	      {
+		f(iv,0) /= n(iv);
+	      }
+	  }
+	for (int i = 0; i < m_x.size(); i++)
+	  {
+	    IntVect iv( int(m_x[i]/a_dx[0]-0.5), int(m_y[i]/a_dx[1]-0.5));
+	    if (b.contains(iv))
+	      {
+		f(iv,1) += std::pow( m_v[i] - f(iv,0), 2) + m_sigmaSqr0; 
+	      }
+	  }
+	//update f(1) to the 1/variance (so zero for no data)
+	for (BoxIterator bit(b);bit.ok();++bit)
+	  {
+	    const IntVect& iv = bit();
+	    if (n(iv) > 0.0)
+	      {
+		f(iv,1) = n(iv)/f(iv,1);
+	      }
+	  }
+
+      }
+  }
+
+};
+
 void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
 			   IceTemperatureIBC* a_tempIBCPtr,
 			   RateFactor* a_rateFactor,
@@ -251,7 +339,9 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
 
   //copy of the original thickness
   create(m_thicknessOrigin, 1, IntVect::Unit);
- 
+  //point thickness data, e.g from flightlines
+  create(m_pointThicknessData,2,IntVect::Unit);
+  setToZero(m_pointThicknessData);
   create(m_divUH,1,IntVect::Unit);
   create(m_faceThckFlux,1,IntVect::Unit);
   
@@ -454,6 +544,23 @@ void AMRIceControl::solveControl()
   m_velMisfitCoefficient = 1.0;
   pp.query("velMisfitCoefficient",m_velMisfitCoefficient);
 
+  {
+    std::string s = "Speed";
+    pp.query("velMisfitType",s);
+    if (s == "Speed")
+      {
+	m_velMisfitType = Speed;
+      }
+    else if (s == "Velocity")
+      {
+	m_velMisfitType = Velocity;
+      }
+    else
+      {
+	MayDay::Error("unknown control.velMisfitType");
+      }
+  }
+
   m_massImbalanceCoefficient = 0.0;
   pp.query("massImbalanceCoefficient",m_massImbalanceCoefficient);
 
@@ -539,15 +646,49 @@ void AMRIceControl::solveControl()
   pp.query("evolveSteps",m_evolveSteps);
   m_evolveMeltRateLengthScale = 0.4e+4 ; //4 km smoothness scale
   pp.query("evolveMeltRateLengthScale",m_evolveMeltRateLengthScale);
-  m_evolveWeightOverSpeed = -1.0;
-  pp.query("evolveWeightOverSpeed",m_evolveWeightOverSpeed);
-
+  m_evolveThicknessLengthScale = -0.0;
+  pp.query("evolveThicknessLengthScale",m_evolveThicknessLengthScale);
   m_eliminateRemoteIce = false;
   pp.query("eliminate_remote_ice",  m_eliminateRemoteIce);
   m_eliminateRemoteIceMaxIter = 10;
   pp.query("eliminate_remote_ice_max_iter",  m_eliminateRemoteIceMaxIter);
   m_eliminateRemoteIceTol = 1.0;
   pp.query("eliminate_remote_ice_tol",  m_eliminateRemoteIceTol);
+  m_evolveObservedVelocityMinVelc = HUGE_NORM; //by default, never use the observed velocity
+  pp.query("evolveObservedVelocityMinVelc",m_evolveObservedVelocityMinVelc);
+  
+  std::string pointThicknessFile = "";
+  pp.query("pointThicknessFile",pointThicknessFile);
+  if (pointThicknessFile != "")
+    {
+      Real sigmaSqr0 = 1.0;
+      pp.query("pointThicknessSigmaSqr0",sigmaSqr0);
+      PointDataStatistics p(pointThicknessFile, sigmaSqr0);
+      for (int lev = 0; lev < m_pointThicknessData.size(); lev++)
+	{
+	  p.evaluate(*m_pointThicknessData[lev], m_dx[lev]);
+	}
+    }
+  
+  {
+    std::string s = "GroundedSurfaceConstant";
+    pp.query("evolveThicknessUpdateType", s);
+    if (s == "GroundedSurfaceConstant")
+      {
+	m_evolveThicknessUpdateType = GroundedSurfaceConstant;
+      }
+    else if (s == "BedrockDownSurfaceDown")
+      {
+	m_evolveThicknessUpdateType = BedrockDownSurfaceDown;
+      }
+    else
+      {
+	MayDay::Error("unknown control.evolveThicknessUpdateType");
+      }
+ 
+  }
+
+
 
   if (m_outerCounter >= 0)
     {
@@ -569,7 +710,14 @@ void AMRIceControl::solveControl()
     {
       //ensure X sits within constraints
       checkBounds(X);
-      
+
+      //do one evolution before the control problem if the
+      //obsersved velocities are good:
+      //if (m_evolveObservedVelocityMinVelc < HUGE_NORM - 1.0)
+      //	{
+      //	  evolveGeometry(m_evolveDt, m_evolveTime);
+      //	}
+
       CGOptimize(*this ,  X , CGmaxIter , CGtol , CGhang,
 		 CGsecantParameter, CGsecantStepMaxGrow, 
 		 CGsecantMaxIter , CGsecantTol, m_outerCounter);
@@ -613,6 +761,7 @@ AMRIceControl::~AMRIceControl()
   free(m_faceMuCoef);
   free(m_divUH);
   free(m_thicknessOrigin);
+  free(m_pointThicknessData);
   free(m_faceThckFlux);
   free(m_temperature);
   free(m_sTemperature);
@@ -859,6 +1008,376 @@ void AMRIceControl::helmholtzSolve
 
 }
 
+#define ALT_EVOLVE_WITH_SMOOTH
+#ifdef ALT_EVOLVE_WITH_SMOOTH
+///compute a smoothed melt-rate such that m_divUHObs \approx m_divUH in the ice shelf 
+///(using m_divUH as workspace)
+void  AMRIceControl::evolveMeltRate()
+{
+  
+  for (int lev=0; lev <= m_finestLevel ;lev++)
+    {
+      IceUtility::applyDiv(*m_divUH[lev],*m_faceThckFlux[lev],
+			   m_grids[lev],m_dx[lev]);
+
+      //set m_divUH to zero outside of the ice : this avoids
+      //a melt spike at the calving front
+      Real tol = 1.0;
+      for (DataIterator dit(m_grids[lev]); dit.ok(); ++dit)
+	{
+	  const FArrayBox& H = m_coordSys[lev]->getH()[dit];
+	  FArrayBox& m = (*m_divUH[lev])[dit];
+	  for (BoxIterator bit(m_grids[lev][dit]);bit.ok();++bit)
+	    {
+	      const IntVect& iv = bit();
+	      if ( H(iv) < tol )
+		{
+		  m(iv) = 0.0;
+		}
+	    }
+	}
+      
+      m_divUH[lev]->exchange();
+    }
+	  
+  Real alpha = 1.0; Real scale = m_evolveMeltRateLengthScale ; 
+  helmholtzSolve(m_divUH, alpha, alpha*scale*scale);
+  
+  //update the 'observed' melt-rate, chosing the largest negative value to minimize thicknening near the GL
+  for (int lev=0; lev <= m_finestLevel ;lev++)
+    {
+      for (DataIterator dit(m_grids[lev]); dit.ok(); ++dit)
+	{
+	  const BaseFab<int>& mask = m_coordSys[lev]->getFloatingMask()[dit];
+	  for (BoxIterator bit(m_grids[lev][dit]);bit.ok();++bit)
+	    {
+	      const IntVect& iv = bit();
+	      if (mask(iv) != GROUNDEDMASKVAL)
+		{
+		  (*m_divUHObs[lev])[dit](iv) = min((*m_divUHObs[lev])[dit](iv), (*m_divUH[lev])[dit](iv));
+		}
+	    }
+	}
+      m_divUHObs[lev]->exchange();
+    }
+}
+
+
+void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
+{
+
+  // compute face-centered velocity field, need two ghost cells of cell-centered velocity
+  Vector<LevelData<FArrayBox>*> cellVelocity;
+  create(cellVelocity,SpaceDim,2*IntVect::Unit);
+  Vector<LevelData<FluxBox>*> faceVelocity;
+  create(faceVelocity,1,IntVect::Unit);
+  
+  for (int lev = 0; lev <= m_finestLevel; lev++)
+    {
+      for (DataIterator dit(m_grids[lev]); dit.ok(); ++dit)
+	{
+	  (*cellVelocity[lev])[dit].setVal(0.0);
+	  (*cellVelocity[lev])[dit].copy( (*m_velb[lev])[dit], 0, 0, SpaceDim);
+	}
+      if (lev > 0)
+	{
+	  PiecewiseLinearFillPatch pwl(m_grids[lev] , m_grids[lev-1], SpaceDim, 
+				       m_grids[lev-1].physDomain(), m_refRatio[lev-1], 2); 
+	  pwl.fillInterp(*cellVelocity[lev], *cellVelocity[lev-1], *cellVelocity[lev-1],
+			 0.0 ,0, 0, SpaceDim);
+	}
+      cellVelocity[lev]->exchange();
+    }
+
+  for (int lev = 0; lev <= m_finestLevel ;lev++)
+    {
+      LevelData<FArrayBox>& ccVel = *cellVelocity[lev];
+      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	{
+	  CH_assert(ccVel[dit].norm(0,0,SpaceDim) < HUGE_VEL);
+	  //replace advection velocity with observed velocity where velc > m_evolveObservedVelocityMinVelc
+	  if (m_evolveObservedVelocityMinVelc < HUGE_NORM - 1.0)
+	    {
+	      const FArrayBox& velc = (*m_velCoef[lev])[dit];
+	      FArrayBox& uf = ccVel[dit];
+	      const FArrayBox& ufo = (*m_velObs[lev])[dit];
+	      Box b = m_grids[lev][dit];
+	      b.grow(1);
+	      b &= m_grids[lev].physDomain().domainBox();
+	      for (BoxIterator bit(b);bit.ok();++bit)
+		{
+		    const IntVect& iv = bit();
+		    if (velc(iv) >= m_evolveObservedVelocityMinVelc ) 
+		      {
+			D_TERM(uf(iv,0) = ufo(iv,0);, uf(iv,1) = ufo(iv,1);, uf(iv,2) = ufo(iv,2););
+		      }   
+		}
+	    }
+	  CH_assert(ccVel[dit].norm(0,0,SpaceDim) < HUGE_VEL);
+	}
+      CellToEdge(ccVel,*faceVelocity[lev]);
+  
+      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	{
+	  for (int dir =0; dir < SpaceDim; dir++)
+	    {
+	      Box faceBox = m_grids[lev][dit].surroundingNodes(dir);
+	      Real maxVel = (*faceVelocity[lev])[dit][dir].norm(faceBox, 0, 0, 1);
+	      pout() << "before extrap level , maxvel " << lev << ", " << maxVel << std::endl; 
+	      a_dt = min(a_dt  , m_evolveCFL * m_dx[lev][0] / maxVel) ;
+	    }
+	}
+
+      //correct margins, where the face average does not make sense
+      IceUtility::extrapVelocityToMargin(*faceVelocity[lev], ccVel, *m_coordSys[lev]);
+
+      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	{
+	  for (int dir =0; dir < SpaceDim; dir++)
+	    {
+	      Box faceBox = m_grids[lev][dit].surroundingNodes(dir);
+	      Real maxVel = (*faceVelocity[lev])[dit][dir].norm(faceBox, 0, 0, 1);
+	      pout() << "after extrap level , maxvel " << lev << ", " << maxVel << std::endl; 
+	      a_dt = min(a_dt  , m_evolveCFL * m_dx[lev][0] / maxVel) ;
+	    }
+	}
+     
+
+
+    }
+
+  //CFL calculation
+  for (int lev=0; lev <= m_finestLevel ; lev++)
+    {
+      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	{
+	  for (int dir =0; dir < SpaceDim; dir++)
+	    {
+	      Box faceBox = m_grids[lev][dit].surroundingNodes(dir);
+	      Real maxVel = 1.0 + (*faceVelocity[lev])[dit][dir].norm(faceBox, 0, 0, 1);
+	      CH_assert(maxVel < 2.0e+5);
+	      a_dt = min(a_dt  , m_evolveCFL * m_dx[lev][0] / maxVel) ;
+	    }
+	}
+    }
+#ifdef CH_MPI
+  Real tmp = 1.;
+  int result = MPI_Allreduce(&a_dt, &tmp, 1, MPI_CH_REAL,
+			     MPI_MIN, Chombo_MPI::comm);
+  if (result != MPI_SUCCESS)
+    {
+      MayDay::Error("communication error on MPI_Allreduce");
+    }
+  a_dt = tmp;
+#endif
+  pout() << "AMRIceControl::evolveGeometry dt =  " << a_dt << std::endl;
+
+
+  //temporary storage for thickness data
+  Vector<LevelData<FArrayBox>*> thickness;
+  int nStep = int ( a_time/a_dt) ;
+  create(thickness,1,4*IntVect::Unit);
+  for (int lev = 0; lev <= m_finestLevel ;lev++)
+    {
+      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	{
+	  (*thickness[lev])[dit].copy(m_coordSys[lev]->getH()[dit]);
+	}
+      //coarse-fine interpolation
+      if (lev > 0)
+	{
+	  PiecewiseLinearFillPatch pwl(m_grids[lev] , m_grids[lev-1], SpaceDim, 
+				       m_grids[lev-1].physDomain(), m_refRatio[lev-1], 1); 
+	  pwl.fillInterp(*thickness[lev], *thickness[lev-1], *thickness[lev-1],
+			     0.0 ,0, 0, 1);
+	}
+      thickness[lev]->exchange();
+    }
+
+  for (int step = 0; step < nStep ; step++)
+    {
+      pout() << "AMRIceControl::evolveGeometry timestep " << step << std::endl;
+      //compute  face-centered fluxes.
+      for (int lev = 0; lev <= m_finestLevel ;lev++)
+	{
+	  //face-centered fluxes will be needed to compute div(UH)
+	  IceUtility::computeFaceFluxUpwind
+	    (*m_faceThckFlux[lev],*faceVelocity[lev],*thickness[lev],m_grids[lev]);	
+	}
+      // coarse average fluxes to covered regions
+      for (int lev= m_finestLevel; lev>0; lev--)
+	{
+	  CoarseAverageFace faceAverager(m_grids[lev],
+					 1, m_refRatio[lev-1]);
+	  faceAverager.averageToCoarse(*m_faceThckFlux[lev-1], *m_faceThckFlux[lev]);
+	}
+      
+      if (step == 0)
+	{
+	  evolveMeltRate();
+	}
+
+      //compute cell-centered div(UH)
+      for (int lev=0; lev <= m_finestLevel ;lev++)
+	{
+
+	  IceUtility::applyDiv(*m_divUH[lev],*m_faceThckFlux[lev],
+				m_grids[lev],m_dx[lev]);
+	  m_divUH[lev]->exchange();
+	  
+	}
+
+      //update thickness field
+      for (int lev=0; lev <= m_finestLevel ;lev++)
+	{
+	  for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	    {
+	      FArrayBox& H = (*thickness[lev])[dit];
+	      const FArrayBox& Ho = (*m_thicknessOrigin[lev])[dit];
+	      const Box& box = m_grids[lev][dit];
+	      FArrayBox dH(box,1);
+	      dH.setVal(0.0);
+	      if (m_evolveRegularizationCoefficient > 0.0)
+		{
+		  //regularization : add a * (ho - h)
+		  dH += Ho;
+		  dH -= H;
+		  dH *= m_evolveRegularizationCoefficient; 
+		  dH *= (*m_thkCoef[lev])[dit];
+		}
+
+	      //point thickness data (hp) : add b * (hp -h)
+	      {
+		const FArrayBox& pth = (*m_pointThicknessData[lev])[dit];
+		FArrayBox s(dH.box(),1);
+		s.copy(pth,0,0);  // point thickness data hp
+		s -= H;           // hp - h
+		s.mult(pth,1,0);  // b * (hp - h)
+		dH += s;
+	      }
+	      //flux divergence
+	      dH -= (*m_divUH[lev])[dit];
+	      //melt rate / accumulation
+	      dH += (*m_divUHObs[lev])[dit];
+	      //scale to time step
+	      dH *= a_dt;
+	      //update H
+	      FORT_LIMITINCRCTRL(CHF_FRA1(H,0),
+				 CHF_CONST_FRA1(dH,0),
+				 CHF_CONST_FRA1(Ho,0),
+				 CHF_CONST_REAL(m_evolveLimitDH),
+				 CHF_BOX(box)); 
+	      
+	    } // end loop over DBL
+
+	  //coarse-fine interpolation
+	  if (lev > 0)
+	    {
+	      PiecewiseLinearFillPatch pwl(m_grids[lev] , m_grids[lev-1], SpaceDim, 
+					   m_grids[lev-1].physDomain(), m_refRatio[lev-1], 1); 
+	      pwl.fillInterp(*thickness[lev], *thickness[lev-1], *thickness[lev-1],
+			     0.0 ,0, 0, 1);
+	    }
+	  thickness[lev]->exchange();
+	} // end loop over levels
+    } // end of advection timestep 
+  
+  if (m_evolveThicknessLengthScale > TINY_NORM)
+    {
+      //apply smoother to modified thickness
+      Real alpha = 1.0; Real scale = m_evolveThicknessLengthScale ; 
+      helmholtzSolve(thickness, alpha, alpha*scale*scale*Real(nStep)*a_dt);
+    }
+  
+  for (int lev=0; lev <= m_finestLevel ;lev++)
+    {
+      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	{
+	      //modify the thickness *and* topography so that 
+	      //the mask does not change and subject to that
+	      //condition the surface does not change
+	      
+	      //modification : options 
+	      // 1. Keep the surface constant
+	      // 2. Keep the surface constant if dh/dt > 0, keep the bedrock constant if dh/dt < 0
+
+	      const FArrayBox& Ho = (*m_thicknessOrigin[lev])[dit];
+	      const BaseFab<int>& mask = m_coordSys[lev]->getFloatingMask()[dit];
+	      const Box& box = m_grids[lev][dit];
+	      FArrayBox& H = m_coordSys[lev]->getH()[dit];
+	      //delta H accumulated over the previous timesteps
+	      FArrayBox& dH = (*thickness[lev])[dit];
+	      dH -= H;
+
+	      Real hmin = 10.0;
+	      Real r = m_coordSys[lev]->iceDensity() / m_coordSys[lev]->waterDensity();
+
+	      if (m_evolveThicknessUpdateType == GroundedSurfaceConstant)
+		{
+		  FORT_UPDATEHCTRLB(CHF_FRA1(H,0),
+				    CHF_FRA1(m_coordSys[lev]->getTopography()[dit],0),
+				    CHF_FRA1(dH,0),
+				    CHF_CONST_FIA1(mask,0),
+				    CHF_CONST_FRA1(Ho,0),
+				    CHF_CONST_REAL(r),
+				    CHF_CONST_REAL(m_evolveLimitDH),
+				    CHF_CONST_REAL(hmin),
+				    CHF_BOX(box)); 
+		} 
+	      else if (m_evolveThicknessUpdateType == BedrockDownSurfaceDown)
+		{
+		  FORT_UPDATEHCTRLC(CHF_FRA1(H,0),
+				     CHF_FRA1(m_coordSys[lev]->getTopography()[dit],0),
+				     CHF_FRA1(dH,0),
+				     CHF_CONST_FIA1(mask,0),
+				     CHF_CONST_FRA1(Ho,0),
+				     CHF_CONST_REAL(r),
+				     CHF_CONST_REAL(m_evolveLimitDH),
+				     CHF_CONST_REAL(hmin),
+				     CHF_BOX(box)); 
+
+		}
+	      else
+		{
+		  // ought not to get here
+		  CH_assert(m_evolveThicknessUpdateType < MAX_THICKNESS_UPDATE_TYPE);
+		}
+
+	    }
+
+	  m_coordSys[lev]->getTopography().exchange();
+	  m_coordSys[lev]->getH().exchange();
+	  
+	  if (lev > 0)
+	    {
+	      m_coordSys[lev]->recomputeGeometry(m_coordSys[lev-1],m_refRatio[lev-1]);
+	    }
+	  else
+	    {
+	      m_coordSys[lev]->recomputeGeometry(NULL,0);
+	    }
+
+    }
+      
+    
+
+  //eliminate newly generated remote ice if required
+  if (m_eliminateRemoteIce)
+    {
+      int verbosity = 1;
+      IceUtility::eliminateRemoteIce(m_coordSys, m_grids, m_domain, m_refRatio, 
+				     m_dx[0][0], m_finestLevel, 
+				     m_eliminateRemoteIceMaxIter, m_eliminateRemoteIceTol,
+				     verbosity );
+    }
+
+  // clean up
+  free(cellVelocity);
+  free(faceVelocity);
+  free(thickness);
+
+}
+#else
 
 void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 {
@@ -938,7 +1457,7 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 	     crseCellDiffusivityPtr,
 	     (lev > 0)?m_refRatio[lev-1]:1,
 	     m_constRelPtr, m_additionalVelocity);
-      
+
 	  //face-centered fluxes will be needed to compute div(UH)
 	  IceUtility::computeFaceFluxUpwind
 	    (*m_faceThckFlux[lev],faceVelAdvection,m_coordSys[lev]->getH(),m_grids[lev]);
@@ -1027,6 +1546,11 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 	      //modify the thickness *and* topography so that 
 	      //the mask does not change and subject to that
 	      //condition the surface does not change
+
+	      //modification : options 
+	      // 1. Keep the surface constant
+	      // 2. Keep the surface constant if dh/dt > 0, keep the bedrock constant if dh/dt < 0
+
 	      FArrayBox& H = m_coordSys[lev]->getH()[dit];
 	      const FArrayBox& Ho = (*m_thicknessOrigin[lev])[dit];
 	      const BaseFab<int>& mask = m_coordSys[lev]->getFloatingMask()[dit];
@@ -1036,53 +1560,69 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 	      const FArrayBox& divo = (*m_divUHObs[lev])[dit];
 	      const FArrayBox& u = (*m_vels[lev])[dit];
 	      dH.setVal(0.0);
-	      //regularization
 	      if (m_evolveRegularizationCoefficient > 0.0)
 		{
+		  //regularization : add a * (ho - h)
 		  dH += Ho;
 		  dH -= H;
 		  dH *= m_evolveRegularizationCoefficient; 
 		  dH *= (*m_thkCoef[lev])[dit];
-		  if (m_evolveWeightOverSpeed > 0.0)
-		    {
-		      for (BoxIterator bit(box);bit.ok();++bit)
-			{
-			  const IntVect& iv = bit();
-			  Real usq = D_TERM(u(iv,0)*u(iv,0),+u(iv,1)*u(iv,1),+0.0);
-			  dH(iv) *= m_evolveWeightOverSpeed / (1.0 + std::sqrt(usq));
-			}
-		    }
 		}
+	      
+	      {
+		//point thickness data (hp) : add b * (hp -h)
+		const FArrayBox& pth = (*m_pointThicknessData[lev])[dit];
+		FArrayBox s(dH.box(),1);
+		s.copy(pth,0,0);  // point thickness data hp
+		s -= H;           // hp - h
+		s.mult(pth,1,0);  // b * (hp - h)
+		dH += s;
+	      }
+
 	      // flux divergence
 	      dH -= div; 
 	      //melt rate / accumulation
 	      dH += divo; 
-	     
-	      
 	      //scale to time step
 	      dH *= a_dt;
-	      
-	      // for (BoxIterator bit(box);bit.ok();++bit)
-	      // 	{
-	      // 	  const IntVect& iv = bit();
-	      // 	  //dH(iv) = max(dH(iv),-H(iv));
-	      // 	  if (H(iv) < 10.0)
-	      // 	    H(iv) = 0.0;
-	      // 	}
+
 	      Real hmin = 10.0;
 	      Real r = m_coordSys[lev]->iceDensity() / m_coordSys[lev]->waterDensity();
 
-	      FORT_UPDATEHCTRLB(CHF_FRA1(H,0),
-				CHF_FRA1(m_coordSys[lev]->getTopography()[dit],0),
-				CHF_FRA1(dH,0),
-				CHF_CONST_FIA1(mask,0),
-				CHF_CONST_FRA1(Ho,0),
-				CHF_CONST_REAL(r),
-				CHF_CONST_REAL(m_evolveLimitDH),
-				CHF_CONST_REAL(hmin),
-				CHF_BOX(box));
+	    
+	      if (m_evolveThicknessUpdateType == GroundedSurfaceConstant)
+		{
+		  FORT_UPDATEHCTRLB(CHF_FRA1(H,0),
+				    CHF_FRA1(m_coordSys[lev]->getTopography()[dit],0),
+				    CHF_FRA1(dH,0),
+				    CHF_CONST_FIA1(mask,0),
+				    CHF_CONST_FRA1(Ho,0),
+				    CHF_CONST_REAL(r),
+				    CHF_CONST_REAL(m_evolveLimitDH),
+				    CHF_CONST_REAL(hmin),
+				    CHF_BOX(box)); 
+		} 
+	      else if (m_evolveThicknessUpdateType == BedrockDownSurfaceDown)
+		{
+		  FORT_UPDATEHCTRLC(CHF_FRA1(H,0),
+				     CHF_FRA1(m_coordSys[lev]->getTopography()[dit],0),
+				     CHF_FRA1(dH,0),
+				     CHF_CONST_FIA1(mask,0),
+				     CHF_CONST_FRA1(Ho,0),
+				     CHF_CONST_REAL(r),
+				     CHF_CONST_REAL(m_evolveLimitDH),
+				     CHF_CONST_REAL(hmin),
+				     CHF_BOX(box)); 
+
+		}
+	      else
+		{
+		  // ought not to get here
+		  CH_assert(m_evolveThicknessUpdateType < MAX_THICKNESS_UPDATE_TYPE);
+		}
 
 	    }
+
 	  m_coordSys[lev]->getTopography().exchange();
 	  m_coordSys[lev]->getH().exchange();
 
@@ -1119,7 +1659,7 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
 
 
 }
-
+#endif
 
 // restart
 void AMRIceControl::restart()
@@ -1457,7 +1997,7 @@ void AMRIceControl::computeObjectiveAndGradient
       
       
 
-      //contribution due to speed misfit
+      //contribution due to speed/velocity misfit
       for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
 	{
 
@@ -1470,11 +2010,26 @@ void AMRIceControl::computeObjectiveAndGradient
 	  
 	  FArrayBox& misfit = (*m_velocityMisfit[lev])[dit];
 
-	  FORT_ADJRHSSPEEDCTRL(CHF_FRA1(adjRhs,0), CHF_FRA1(adjRhs,1),
-			       CHF_CONST_FRA1(misfit,0),
-			       CHF_CONST_FRA1(um,0), CHF_CONST_FRA1(um,1),
-			       CHF_CONST_FRA1(uo,0), CHF_CONST_FRA1(uo,1),
-			       CHF_BOX(box));    
+	  if (m_velMisfitType == Speed)
+	    {
+	      FORT_ADJRHSSPEEDCTRL(CHF_FRA1(adjRhs,0), CHF_FRA1(adjRhs,1),
+				   CHF_CONST_FRA1(misfit,0),
+				   CHF_CONST_FRA1(um,0), CHF_CONST_FRA1(um,1),
+				   CHF_CONST_FRA1(uo,0), CHF_CONST_FRA1(uo,1),
+				   CHF_BOX(box));
+	    }
+	  else if (m_velMisfitType == Velocity)
+	    {
+	      FORT_ADJRHSVELCTRL(CHF_FRA1(adjRhs,0), CHF_FRA1(adjRhs,1),
+				   CHF_CONST_FRA1(misfit,0),
+				   CHF_CONST_FRA1(um,0), CHF_CONST_FRA1(um,1),
+				   CHF_CONST_FRA1(uo,0), CHF_CONST_FRA1(uo,1),
+				   CHF_BOX(box));
+	    }
+	  else
+	    {
+	      CH_assert(m_velMisfitType < MAX_VELOCITY_MISFIT_TYPE);
+	    }
 			     
 	  
 
@@ -1829,6 +2384,8 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
   names.push_back("topg");
   names.push_back("thck");
   names.push_back("usrf");
+  names.push_back("pointThck");
+  names.push_back("pointThckCoef");
 
   Vector<LevelData<FArrayBox>*> vdata(m_finestLevel+1);
   for (int lev = 0; lev <= m_finestLevel;lev++)
@@ -1857,6 +2414,7 @@ void AMRIceControl::writeState(const std::string& a_file, int a_counter,
       m_coordSys[lev]->getTopography().copyTo(Interval(0,0),data,Interval(j,j));j++;
       m_coordSys[lev]->getH().copyTo(Interval(0,0),data,Interval(j,j));j++;
       m_coordSys[lev]->getSurfaceHeight().copyTo(Interval(0,0),data,Interval(j,j));j++;
+      m_pointThicknessData[lev]->copyTo(Interval(0,1),data,Interval(j,j+1));j+=2;
     }
   const Real dt = 1.0;
   const Real time = Real(a_counter);
