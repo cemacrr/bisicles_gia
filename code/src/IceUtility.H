@@ -92,6 +92,11 @@ namespace IceUtility
    const RateFactor* a_rateFactor,
    const LevelData<FArrayBox>& a_temperature);
 
+  /// extrapolate face centered velocity field (usually derived by cell-to-face average) to the margins
+  void extrapVelocityToMargin(LevelData<FluxBox>& a_faceVel, 
+					  const LevelData<FArrayBox>& a_cellVel, 
+					  const LevelSigmaCS& a_coordSys);
+
   ///compute face-centered velocity and thickness diffusion coefficients from cell-centered velocity
   void computeFaceVelocity
   (LevelData<FluxBox>& a_faceVelAdvection,

@@ -330,6 +330,75 @@ void IceUtility::addWallDrag(FArrayBox& a_drag,
     }
 }
 
+/// extrapolate face centered velocity field (usually derived by cell-to-face average) 
+/// to the margins
+void IceUtility::extrapVelocityToMargin(LevelData<FluxBox>& a_faceVel, 
+					const LevelData<FArrayBox>& a_cellVel, 
+					const LevelSigmaCS& a_coordSys)
+{
+
+  //modification to fluxes at the margins, that is where mask changes to open sea or land.
+  //
+  // -----|-----|-----|-----|-----|
+  //      |     |     |     |     |
+  //   x  o  x  o  x  F     |     |
+  //      |     |     |     |     |
+  // -----|-----|-----|-----|-----|
+  //
+  //  n-2   n-2    n    n+1
+  //
+  // 2D case (L1L2 / SSA)
+  // there are valid values of the basal velocity at points x and
+  // and the z-varying velocity at points o. The points at o 
+  // have been interpolated from the x, and should vary little vertically
+  // We need the flux at F, but since there is no x_n+1, the interpolated
+  // value makes no sense. Using the margin boundary condition to get
+  // du/dx at the face is perhaps the ideal approach , but for now we just
+  // take x_{n-1} and o_{n-1} and extrapolate.
+  // 
+  // On top of that, the face velocity is reduced by a factor 
+  // f = min( (surface(n)-topography(n+1) , thickness(n) ), / thickness(n)
+  // which prevents ice from flowing up vertical walls
+
+  const DisjointBoxLayout& grids = a_cellVel.disjointBoxLayout();
+
+  // this calculation needs at least one ghost cell in the face-centered
+  // and cell centered velocity FABs
+  for (int dir = 0; dir < SpaceDim; dir++)
+    {
+      CH_assert(a_cellVel.ghostVect()[dir] >= 1);
+      CH_assert(a_faceVel.ghostVect()[dir] >= 1);
+    }
+
+  for (DataIterator dit(grids); dit.ok(); ++dit)
+    {
+      const FArrayBox& cellVel = a_cellVel[dit];
+      const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
+      const FArrayBox& usrf = a_coordSys.getSurfaceHeight()[dit];
+      const FArrayBox& topg = a_coordSys.getTopography()[dit];
+      const FArrayBox& thk = a_coordSys.getH()[dit];
+      for (int dir = 0; dir <SpaceDim; dir++)
+	{
+	  Box faceBox = grids[dit];
+	  faceBox.surroundingNodes(dir);
+	  FArrayBox& faceVel = a_faceVel[dit][dir];
+	  Box grownFaceBox = faceBox;
+	  CH_assert(faceVel.box().contains(grownFaceBox));
+	  FArrayBox vface(faceBox,1);
+	  FORT_EXTRAPTOMARGIN(CHF_FRA1(faceVel,0), CHF_FRA1(vface,0),
+			      CHF_CONST_FRA1(cellVel,dir),
+			      CHF_CONST_FRA1(usrf,0),
+			      CHF_CONST_FRA1(topg,0),
+			      CHF_CONST_FRA1(thk,0),
+			      CHF_CONST_INT(dir),
+			      CHF_BOX(faceBox));
+	  Real maxFaceVelocity = faceVel.norm(faceBox,0);
+	  CH_assert(maxFaceVelocity < HUGE_VEL);
+	}
+    }
+}
+    
+
 void IceUtility::computeFaceVelocity
 (LevelData<FluxBox>& a_faceVelAdvection,
  LevelData<FluxBox>& a_faceVelTotal,
@@ -394,6 +463,10 @@ void IceUtility::computeFaceVelocity
       
   //default calculation : average to faces 
   CellToEdge(grownVel, a_faceVelAdvection);
+
+  //correct margins, where the face average does not make sense
+  IceUtility::extrapVelocityToMargin(a_faceVelAdvection, grownVel, a_coordSys);
+
 #if BISICLES_Z == BISICLES_LAYERED
   //for layered models (SSA,L1L2) assume du/dz = 0
   for (int j = 0; j < a_layerXYFaceXYVel.nComp(); ++j)
@@ -403,58 +476,6 @@ void IceUtility::computeFaceVelocity
     grownVel.copyTo(Interval(0,SpaceDim-1), a_layerSFaceXYVel,Interval(j,j+SpaceDim-1)); 
 #endif
 
-  //modification to fluxes at the margins, that is where mask changes to open sea or land.
-  //
-  // -----|-----|-----|-----|-----|
-  //      |     |     |     |     |
-  //   x  o  x  o  x  F     |     |
-  //      |     |     |     |     |
-  // -----|-----|-----|-----|-----|
-  //
-  //  n-2   n-2    n    n+1
-  //
-  // 2D case (L1L2 / SSA)
-  // there are valid values of the basal velocity at points x and
-  // and the z-varying velocity at points o. The points at o 
-  // have been interpolated from the x, and should vary little vertically
-  // We need the flux at F, but since there is no x_n+1, the interpolated
-  // value makes no sense. Using the margin boundary condition to get
-  // du/dx at the face is perhaps the ideal approach , but for now we just
-  // take x_{n-1} and o_{n-1} and extrapolate.
-  // 
-  // On top of that, the face velocity is reduced by a factor 
-  // f = min( (surface(n)-topography(n+1) , thickness(n) ), / thickness(n)
-  // which prevents ice from flowing up vertical walls
-  for (DataIterator dit(grids); dit.ok(); ++dit)
-    {
-      for (int dir = 0; dir < SpaceDim; ++dir)
-	{
-	  Box faceBox = grids[dit];
-	  faceBox.surroundingNodes(dir);
-	    
-	  FArrayBox& faceVel = a_faceVelAdvection[dit][dir];
-	  CH_assert(faceVel.box().contains(faceBox));
-	  const FArrayBox& cellVel = grownVel[dit];
-	  const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
-	  const FArrayBox& usrf = a_coordSys.getSurfaceHeight()[dit];
-	  const FArrayBox& topg = a_coordSys.getTopography()[dit];
-	  const FArrayBox& thk = a_coordSys.getH()[dit];
-
-	  //CH_assert(faceVel.norm(faceBox,0) < HUGE_NORM);
-	  FORT_EXTRAPTOMARGIN(CHF_FRA1(faceVel,0),
-			      CHF_CONST_FRA1(cellVel,dir),
-			      CHF_CONST_FRA1(usrf,0),
-			      CHF_CONST_FRA1(topg,0),
-			      CHF_CONST_FRA1(thk,0),
-			      CHF_CONST_FIA1(mask,0),
-			      CHF_CONST_INT(dir),
-			      CHF_BOX(faceBox));
-	  //pout() << "FORT_EXTRAPTOMARGIN" << std::endl;
-	  CH_assert(faceVel.norm(faceBox,0) < HUGE_NORM);
-
-	}
-    }
-    
   //allow the thickness/velocity bc to modify the face velocities 
   if (a_iceThicknessIBC != NULL)
     {

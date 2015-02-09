@@ -359,57 +359,51 @@ c f = ursf(i)-topg(i+1) / thk(i) for ursf(i)-topg(i+1) < thk(i)
 c f = 1 for ursf(i) - topg(i+1) > thk [the 'usual' case]
 c------------------------------------------------------
 
-      subroutine extraptomargin(CHF_FRA1[uf],
+      subroutine extraptomargin(CHF_FRA1[uf], CHF_FRA1[vface],
      &     CHF_CONST_FRA1[uc],
      &     CHF_CONST_FRA1[usrf],
      &     CHF_CONST_FRA1[topg],
      &     CHF_CONST_FRA1[thk],
-     &     CHF_CONST_FIA1[mask],
      &     CHF_CONST_INT[dir],
      &     CHF_BOX[facebox])
 
-      REAL_T vface
+      REAL_T f,hl,hr
       integer CHF_AUTODECL[i]
       integer CHF_AUTODECL[ii]
-      integer ice,noice,maskl,maskp,maskr
       logical icel,icer
-      ice = ior(GROUNDEDMASKVAL, FLOATINGMASKVAL)
-      noice = ior(OPENSEAMASKVAL,OPENLANDMASKVAL)
-     
-
+    
       CHF_DTERM[ii0 = CHF_ID(dir,0);
                 ii1 = CHF_ID(dir,1);
                 ii2 = CHF_ID(dir,2)]
 
       CHF_AUTOMULTIDO[facebox ; i]
 
+      hl = thk(CHF_OFFSETIX[i;-ii])
+      hr = thk(CHF_AUTOIX[i])
 
-      icel = .false.
-      if (thk(CHF_OFFSETIX[i;-ii]).gt.1.0e-10) then 
-         icel = .true.
-      end if
-      icer = .false.
-      if (thk(CHF_AUTOIX[i]).gt.1.0e-10) then 
-         icer = .true.
-      end if
+      icel = (hl.gt.tiny_thickness) 
+      icer = (hr.gt.tiny_thickness)
 
-      vface = thk(CHF_AUTOIX[i]) + one
+      vface(CHF_AUTOIX[i]) = one
       if (icel.and.(.not.icer)) then
 !     ice on the left and not on the right
          uf(CHF_AUTOIX[i]) = max(two * uc(CHF_OFFSETIX[i;-ii])
      &           - uf(CHF_OFFSETIX[i;-ii]), uf(CHF_AUTOIX[i]))
-         vface = usrf(CHF_OFFSETIX[i;-ii]) -  topg(CHF_AUTOIX[i])
+         vface(CHF_AUTOIX[i]) = one/hl * max(zero,  
+     &        usrf(CHF_OFFSETIX[i;-ii]) -  topg(CHF_AUTOIX[i]))
       else if (icer.and.(.not.icel)) then
 !     ice on the right and not on the left
          uf(CHF_AUTOIX[i]) = min(two * uc(CHF_AUTOIX[i])
      &        - uf(CHF_OFFSETIX[i;+ii]),uf(CHF_AUTOIX[i]))
-         vface = usrf(CHF_AUTOIX[i]) -  topg(CHF_OFFSETIX[i;-ii])
+         vface(CHF_AUTOIX[i]) = one/hr * max(zero,  
+     &        usrf(CHF_AUTOIX[i]) -  topg(CHF_OFFSETIX[i;-ii]))
       end if
-      
-      if (vface.lt.thk(CHF_AUTOIX[i])) then
-         uf(CHF_AUTOIX[i]) =  uf(CHF_AUTOIX[i]) * max(vface,zero)
-     &        /(thk(CHF_AUTOIX[i]) + 1.0e-10)
+
+      if (vface(CHF_AUTOIX[i]) .lt. one ) then
+         uf(CHF_AUTOIX[i]) =  uf(CHF_AUTOIX[i]) * vface(CHF_AUTOIX[i])
       end if
+
+
 
       CHF_ENDDO
       return
