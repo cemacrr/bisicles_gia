@@ -27,11 +27,11 @@ BASE_DIR = ../
 
 EXEC_DIR = .
 
-src_dirs = src ../src ../util
+src_dirs =  ../src ../util  src
 
 
 XTRACPPFLAGS=-I$(NETCDF_HOME)/include
-XTRALIBFLAGS=-L$(NETCDF_HOME)/lib -lnetcdf -lhdf5_hl
+XTRALIBFLAGS=-L$(NETCDF_HOME)/lib $(NETCDF_LIBS)
 include $(CHOMBO_HOME)/mk/Make.example
 #CPPFLAGS+=-I$(NETCDF_HOME)/include 
 #LIBFLAGS+=-L$(NETCDF_HOME)/lib -lnetcdf -lhdf5_hl -lhdf5

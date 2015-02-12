@@ -248,13 +248,12 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 		const FArrayBox& cellVel = (*ccVel[lev])[dit];
 		
 		BaseFab<int> mask(grids[dit],1) ;
-		//mask is no longer used by FORT_EXTRAPTOMARGIN but is still in the arg list
 		FORT_EXTRAPTOMARGIN(CHF_FRA1(faceVel,0),
+                                    CHF_FRA1(faceVel,1),
 				    CHF_CONST_FRA1(cellVel,dir),
 				    CHF_CONST_FRA1(usrf,0),
 				    CHF_CONST_FRA1(topg,0),
 				    CHF_CONST_FRA1(thck,0),
-				    CHF_CONST_FIA1(mask,0),
 				    CHF_CONST_INT(dir),
 				    CHF_BOX(faceBox));
 		
@@ -348,7 +347,7 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 		  dhc(iv) += (flux(iv) - flux(iv + BASISV(dir)))/dx[lev]; // flux divergence
 		  
 		  Real epsThck = 10.0;// TODO fix magic number
-		  if ((thck(iv) < epsThck) | mask(iv) != GROUNDEDMASKVAL)
+		  if ((thck(iv) < epsThck) | (mask(iv) != GROUNDEDMASKVAL))
 		    {
 		      dh(iv) = 0.0;
 		      dhc(iv) = 0.0;
