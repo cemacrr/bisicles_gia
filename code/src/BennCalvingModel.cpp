@@ -54,6 +54,36 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
       //create one element of m_selected
       m_selected[a_level] = new LevelData<BaseFab<int> > (levelCoords.grids(),1,IntVect::Zero);
   
+      //used to make sure that only cells within nCalve cells of open sea: 
+      //grow the opensea mask by nCalve cells.
+      int nCalve = 4;
+      LevelData<BaseFab<int> > openSeaMask (levelCoords.grids(), 1 , (nCalve + 1) * IntVect::Unit);
+      levelCoords.getFloatingMask().copyTo(Interval(0,0),  openSeaMask, Interval(0,0));
+      for (int iter = 0; iter < nCalve; iter++)
+	{
+	  openSeaMask.exchange();
+	  for (DataIterator dit (levelCoords.grids()); dit.ok(); ++dit)
+	    {
+	      Box b = levelCoords.grids()[dit];
+	      b.grow(nCalve);
+	      BaseFab<int>& m = openSeaMask[dit];
+	      for (BoxIterator bit(b); bit.ok(); ++bit)
+		{
+		  const IntVect& iv = bit();
+		  if ( m(iv) == OPENSEAMASKVAL)
+		    {
+		      for (int i = 1; i < 2; i++)
+			{
+			  m(iv + i * BASISV(0)) =  OPENSEAMASKVAL;
+			  m(iv - i * BASISV(0)) =  OPENSEAMASKVAL;
+			  m(iv + i * BASISV(1)) =  OPENSEAMASKVAL;
+			  m(iv - i * BASISV(1)) =  OPENSEAMASKVAL;
+			}
+		    }
+		}
+	    }
+	}
+
       for (DataIterator dit (levelCoords.grids()); dit.ok(); ++dit)
 	{
 	  FArrayBox& source = a_flux[dit];
@@ -63,6 +93,7 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 	  const FArrayBox& vel = levelVel[dit];
 	  const FArrayBox& Hab = levelCoords.getThicknessOverFlotation()[dit];
 	  BaseFab<int>& selected = (*m_selected[a_level])[dit];
+	  
 	  const Box& b = levelCoords.grids()[dit];
 
 	  Box remnantBox = b; remnantBox.grow(1); //we need one layer of ghost cells to do upwind calculations
@@ -74,6 +105,8 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 	  for (BoxIterator bit(remnantBox); bit.ok(); ++bit)
 	    {
 	      const IntVect& iv = bit();
+
+	      
 	      const Real& sxx = VT(iv,0);
 	      const Real& syy = VT(iv,3);
 	      const Real& sxy = 0.5 *(VT(iv,2) + VT(iv,1));
@@ -84,74 +117,79 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 	      
 	      //vertically averaged first principal stress
 	      s1 *= thck(iv) / (1.0e-6 + thck(iv)*thck(iv));
-
+	      
 	      //surface crevasse depth
 	      Real Ds = std::max(s1,0.0) / (grav*rhoi) + rhoi/rhoo * m_waterDepth;
 	      
-	      Real random1 = ((Real)(rand())+0.0001)/((Real)(RAND_MAX)+0.0001);
-	      Real random2 = ((Real)(rand())+0.0001)/((Real)(RAND_MAX)+0.0001);
-	      
-	      Real normalRandom = std::cos(8.*std::atan(1.)*random2)*std::sqrt(-2.*std::log(random1));
-	      
-	      Real noise = normalRandom * m_NoiseScale;
-
-	      if (m_inclBasalCrev == true)
-		{
-		  //explicit basal crevasse depth calculation
-		  Real Db = (rhoi/(rhoo-rhoi)) * ((s1/(grav*rhoi)) - Hab(iv));
-		  remnant(iv) = std::min(thck(iv),thck(iv) - (Db + Ds + noise));
-		}
-	      else
-		{
-		  //assume basal crevasse reaches water level if surface crevasses do 
-		  remnant(iv) = std::min(thck(iv),usrf(iv)-(Ds + noise));
-		}
-	      remnant(iv) = std::max(-0.0, remnant(iv));
+	      Real noise = 0.0;
+	      if (m_NoiseScale > TINY_NORM)
+		    {
+		      Real random1 = ((Real)(rand())+0.0001)/((Real)(RAND_MAX)+0.0001);
+		      Real random2 = ((Real)(rand())+0.0001)/((Real)(RAND_MAX)+0.0001);
+		      Real normalRandom = std::cos(8.*std::atan(1.)*random2)*std::sqrt(-2.*std::log(random1));
+		      noise = normalRandom * m_NoiseScale;
+		    }
+		  
+		  if (m_inclBasalCrev == true)
+		    {
+		      //explicit basal crevasse depth calculation
+		      Real Db = (rhoi/(rhoo-rhoi)) * ((s1/(grav*rhoi)) - Hab(iv));
+		      remnant(iv) = std::min(thck(iv),thck(iv) - (Db + Ds + noise));
+		    }
+		  else
+		    {
+		      //assume basal crevasse reaches water level if surface crevasses do 
+		      remnant(iv) = std::min(thck(iv),usrf(iv)-(Ds + noise));
+		    }
+		  remnant(iv) = std::max(-0.0, remnant(iv));
 	    }
 	  
+	  const BaseFab<int>& seamask = openSeaMask[dit];
 	  for (BoxIterator bit(b); bit.ok(); ++bit)
 	    {
 	      const IntVect& iv = bit();
-	      
-	      //compute a melt-rate which should be dominated by the contribution
-	      //of thick upwind cells: it will only be large if all upwind cells
-	      //are close to fractured and the current cell
-	 
-	      Real upwRemnant = remnant(iv)*thck(iv) ;
-	      Real umod = std::sqrt(vel(iv,0)*vel(iv,0)+vel(iv,1)*vel(iv,1)) + 1.0e-10;
-	      Real upwThck = thck(iv) + 1.0e-10; 
-	      
-	      for (int dir = 0; dir < SpaceDim; dir++)
+	      if (seamask(iv) == OPENSEAMASKVAL)
 		{
-		  for (int side = -1; side <=1; side += 2)
+		  //compute a melt-rate which should be dominated by the contribution
+		  //of thick upwind cells: it will only be large if all upwind cells
+		  //are close to fractured and the current cell
+		  
+		  Real upwRemnant = remnant(iv)*thck(iv) ;
+		  Real umod = std::sqrt(vel(iv,0)*vel(iv,0)+vel(iv,1)*vel(iv,1)) + 1.0e-10;
+		  Real upwThck = thck(iv) + 1.0e-10; 
+		  
+		  for (int dir = 0; dir < SpaceDim; dir++)
 		    {
-		      const IntVect ivu = iv + side*BASISV(dir);
-		      Real fu = (side < 0)?
-			(std::max(vel(ivu,dir),0.0)):
-			(std::max(-vel(ivu,dir),0.0));
-		      fu /= umod;
-		      
-		      upwThck += thck(ivu)*fu;
-		      upwRemnant += thck(ivu)*remnant(ivu)*fu;
+		      for (int side = -1; side <=1; side += 2)
+			{
+			  const IntVect ivu = iv + side*BASISV(dir);
+			  Real fu = (side < 0)?
+			    (std::max(vel(ivu,dir),0.0)):
+			    (std::max(-vel(ivu,dir),0.0));
+			  fu /= umod;
+			  
+			  upwThck += thck(ivu)*fu;
+			  upwRemnant += thck(ivu)*remnant(ivu)*fu;
+			  
+			}
+		    }
+		  // set mask to 1 to indicate calving event
+		  if ((m_setZeroThck == true) && (upwRemnant < 5.0))
+		    {
+		      selected(iv) = 1;
+		    }
+		  else if (m_oldMeltRate == true) // use a_dt melt rate
+		    {
+		      const Real decay = 3.0e+2;
+		      source(iv) -= 10.0 * thck(iv)/a_dt * std::min(upwThck,1.0) 
+			* std::min(1.0, std::exp( - decay * upwRemnant/(upwThck)));
+		    }
+		  else // use decay and ts melt rate
+		    {
+		      source(iv) -=  thck(iv)/m_timescale * std::min(upwThck,1.0) 
+			* std::min(1.0, std::exp( - m_decay * upwRemnant/(upwThck)));
 		      
 		    }
-		}
-	      // set mask to 1 to indicate calving event
-	      if ((m_setZeroThck == true) && (upwRemnant < 5.0))
-		{
-		  selected(iv) = 1;
-		}
-	      else if (m_oldMeltRate == true) // use a_dt melt rate
-		{
-		  const Real decay = 3.0e+2;
-		  source(iv) -= 10.0 * thck(iv)/a_dt * std::min(upwThck,1.0) 
-		    * std::min(1.0, std::exp( - decay * upwRemnant/(upwThck)));
-		}
-	      else // use decay and ts melt rate
-		{
-		  source(iv) -=  thck(iv)/m_timescale * std::min(upwThck,1.0) 
-		    * std::min(1.0, std::exp( - m_decay * upwRemnant/(upwThck)));
-		  
 		}
 	    }  
 	}

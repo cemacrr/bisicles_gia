@@ -282,10 +282,10 @@ subroutine tarmac_update_temperature(temp, stemp, sflux, sdiric, btemp, mask, &
   logical, intent(in) :: sdiric
   !locals
   
-  real(kind=8) :: chi, dtcfl,tthcknew,tthckold
+  real(kind=8) :: chi, dtcfl,tthcknew,tthckold,tt
   real(kind=8), dimension(1:n) :: rhsl
   
-  integer l,nt,it,i,tt
+  integer l,nt,it,i
  
   btemp=min(trpt - pmlt * rhoi * grav * thcknew - temp_eps,btemp)
   stemp=min(trpt - temp_eps,stemp)

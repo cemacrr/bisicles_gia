@@ -612,6 +612,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
       linearSolve(J0, localU, localRhs, PICARD_LINEARIZATION_MODE);
       J0.residual(residual,localU,localRhs);
       resNorm = J0.norm(residual, m_normType);
+      pout() << "JFNK final residual norm = " << resNorm << std::endl;
       done = true;
     }
   else
