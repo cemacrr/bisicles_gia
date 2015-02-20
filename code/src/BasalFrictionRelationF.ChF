@@ -15,7 +15,7 @@ c-----------------------------------
      &     CHF_BOX[box])
 
       integer CHF_AUTODECL[i]
-      Real usq, mExp, nExp
+      REAL_T usq, mExp, nExp
 
       mExp = m/two
       nExp = n
@@ -51,7 +51,7 @@ c-----------------------------------
      &     CHF_BOX[box])
 
       integer CHF_AUTODECL[i], ncomp, icomp
-      Real usq
+      REAL_T usq
 
       CHF_AUTOMULTIDO[box;i]
       CHF_DTERM[
