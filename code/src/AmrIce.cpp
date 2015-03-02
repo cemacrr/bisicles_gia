@@ -6726,8 +6726,8 @@ AmrIce::writePlotFile()
       m_headerData.m_int["max_level"] = m_max_level;
       m_headerData.m_int["finest_level"] = m_finest_level;
       m_headerData.m_int["current_step"] = m_cur_step;
-      m_headerData.m_real["time"] = m_time;
-      m_headerData.m_real["dt"] = m_dt;
+      m_headerData.m_real["time"] = time();
+      m_headerData.m_real["dt"] = dt;
       m_headerData.writeToFile(handle);
       handle.close();
     }
