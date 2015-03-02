@@ -11,7 +11,6 @@
 #include "CalvingModel.H"
 #include "BennCalvingModel.H"
 #include "FlotationCalvingModel.H"
-#include "VdVCalvingModel.H"
 #include "IceConstants.H"
 #include "AmrIce.H"
 #include "ParmParse.H"
@@ -323,42 +322,7 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
 				 oldMeltRate, NoiseScale, calvingFreq,
 				 decay, timescale);
     }
-  else if (type == "VanDerVeenCalvingModel")
-    {
-      Real waterDepth = 0.0;
-      pp.get("waterDepth",waterDepth);
-      Vector<int> frontLo(2,false); 
-      pp.getarr("front_lo",frontLo,0,frontLo.size());
-      Vector<int> frontHi(2,false);
-      pp.getarr("front_hi",frontHi,0,frontHi.size());
-      bool preserveSea = false;
-      pp.query("preserveSea",preserveSea);
-      bool preserveLand = false;
-      pp.query("preserveLand",preserveLand);
-      bool inclBasalCrev = false;
-      pp.query("inclBasalCrev",inclBasalCrev);
-      bool oneDimCrev = false;
-      pp.query("oneDimCrev",oneDimCrev);
-      bool RedFreqCalv = false;
-      pp.query("RedFreqCalv",RedFreqCalv);
-      bool setZeroThck = false;
-      pp.query("setZeroThck",setZeroThck);
-      bool oldMeltRate = false;
-      pp.query("oldMeltRate",oldMeltRate);
-      Real NoiseScale = 0.0;
-      pp.query("NoiseScale",NoiseScale);
-      Real calvingFreq = 1.0;
-      pp.query("calvingFreq",calvingFreq);
-      Real decay = 3.0e-1;
-      pp.query("decay",decay);
-      Real timescale = 0.25;
-      pp.query("timescale",timescale);
-      ptr = new VdVCalvingModel(waterDepth, frontLo, frontHi, preserveSea,
-				 preserveLand, inclBasalCrev, oneDimCrev, 
-				 RedFreqCalv, setZeroThck,
-				 oldMeltRate, NoiseScale, calvingFreq,
-				 decay, timescale);
-    }
+ 
 
 //   else
 //     {
