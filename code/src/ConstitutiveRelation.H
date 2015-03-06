@@ -537,7 +537,8 @@ public:
   virtual void setDefaultParameters();
 
   virtual void setParameters(Real a_n,
-                             Real a_epsSqr0);
+                             Real a_epsSqr0, 
+			     Real a_delta);
 
   /// creates a new copy of this ConstitutiveRelation object.
   virtual ConstitutiveRelation* getNewConstitutiveRelation() const;
@@ -554,8 +555,9 @@ public:
   /// Rate factor object
   //RateFactor* m_rateFactor;
 
-  /// small number to ensure that viscosity remains finite
-  Real m_epsSqr0;
+  /// small numbers to ensure that viscosity remains finite as
+  /// strain rates approach 0 or inifinity
+  Real m_epsSqr0, m_delta;
 
 protected:
   /// utility function to compute flow law coefficient dependent part of Glens's

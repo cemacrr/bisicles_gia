@@ -328,7 +328,8 @@ GlensFlowRelation::computeMu(LevelData<FArrayBox>& a_mu,
 			      CHF_CONST_FRA1(epsSqr[dit],0),
 			      CHF_BOX(derivBox),
 			      CHF_CONST_REAL(m_n),
-			      CHF_CONST_REAL(m_epsSqr0)
+			      CHF_CONST_REAL(m_epsSqr0),
+			      CHF_CONST_REAL(m_delta)
 			      );
 
 
@@ -349,7 +350,8 @@ GlensFlowRelation::computeMu(LevelData<FArrayBox>& a_mu,
 				  CHF_CONST_FRA1(epsSqr[dit],0),
 				  CHF_BOX(derivBox),
 				  CHF_CONST_REAL(m_n),
-				  CHF_CONST_REAL(m_epsSqr0)
+				  CHF_CONST_REAL(m_epsSqr0),
+				  CHF_CONST_REAL(m_delta)
 				  );
 	    }
 	}
@@ -467,7 +469,8 @@ GlensFlowRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
                               CHF_CONST_FRA1(thisEpsSqr[faceDir],0),
                               CHF_BOX(faceDerivBox),
                               CHF_CONST_REAL(m_n),
-                              CHF_CONST_REAL(m_epsSqr0)
+                              CHF_CONST_REAL(m_epsSqr0),
+			      CHF_CONST_REAL(m_delta)
                               );
         } // end loop over face directions
     } // end loop over boxes
@@ -482,7 +485,7 @@ GlensFlowRelation::getNewConstitutiveRelation() const
 {
   GlensFlowRelation* newPtr = new GlensFlowRelation;
   
-  newPtr->setParameters(m_n,  m_epsSqr0);
+  newPtr->setParameters(m_n,  m_epsSqr0, m_delta);
                                                 
   return static_cast<ConstitutiveRelation*>(newPtr);
 }
@@ -499,19 +502,23 @@ void GlensFlowRelation::setDefaultParameters()
   // Pattyn (2003) uses 1e-30, but that's likely way too small
   // so instead use 1e-12 to put us more or less in the right neighborhood
   Real epsSqr0 = 1.0e-12;
-  setParameters(n, epsSqr0);                                               
+  /// another regularizaton parameter, used to keep viscosity > A^{-1/n}*delta at large strain rates.
+  /// originally, not present, so default is 0.0 
+  Real delta = 0.0;
+  setParameters(n, epsSqr0, delta); 
 }
 
 // set flow parameters 
 void
-GlensFlowRelation::setParameters(Real a_n,
-                                 Real a_epsSqr0)
+GlensFlowRelation::setParameters(Real a_n, Real a_epsSqr0, Real a_delta)
 {
   
   /// Power law index
   m_n = a_n;
   // small number to ensure that viscosity remains finite (1e-30)
   m_epsSqr0 = a_epsSqr0;
+  //keep viscosity > A^{-1/n}*delta
+  m_delta = a_delta;
 }
 
 
@@ -911,7 +918,9 @@ ConstitutiveRelation* ConstitutiveRelation::parse(const char* a_prefix)
 	glpp.query("n",n);
 	Real epsSqr0 = 1.0e-12;
 	glpp.query("epsSqr0",epsSqr0);
-	ptr->setParameters(n, epsSqr0);
+	Real delta = 0.0;
+	glpp.query("delta",delta);
+	ptr->setParameters(n, epsSqr0, delta);
 	constRelPtr = static_cast<ConstitutiveRelation*>(ptr);
       }
     else if (constRelType == "L1L2")

@@ -239,7 +239,7 @@ c first, precompute what we can
       end 
 c --------------------------------------------------------
 c  compute approximation to viscosity using Glen's flow law.
-c  mu = mu0 (e^2 + e0^2)^(n-1)/2 
+c  mu = mu0 [ (e^2 + e0^2)^(n-1)/2 + delta]
 c  temperature dependence is due to Arrhenius relation described in 
 c  Pattyn (2003).  
 c  INPUTS/OUTPUTS:
@@ -255,7 +255,8 @@ c -----------------------------------------------------------
      &                          CHF_CONST_FRA1[epsSqr],
      &                          CHF_BOX[box],
      &                          CHF_CONST_REAL[nExponent],
-     &                          CHF_CONST_REAL[epsSqr0])
+     &                          CHF_CONST_REAL[epsSqr0], 
+     &                          CHF_CONST_REAL[delta])
 
 
       integer CHF_AUTODECL[i]
@@ -266,7 +267,7 @@ c -----------------------------------------------------------
    
       CHF_AUTOMULTIDO[box;i]
         thisEpsSqr = max(epsSqr(CHF_AUTOIX[i]),epsSqr0)
-        thisMu=mu(CHF_AUTOIX[i])*((thisEpsSqr)**epsExponent)
+        thisMu=mu(CHF_AUTOIX[i])*((thisEpsSqr)**epsExponent + delta)
         mu(CHF_AUTOIX[i]) = thisMu
 
       CHF_ENDDO

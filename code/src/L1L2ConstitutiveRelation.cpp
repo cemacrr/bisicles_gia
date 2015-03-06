@@ -38,7 +38,8 @@ L1L2ConstitutiveRelation::getNewConstitutiveRelation() const
   newPtr->m_startFromAnalyticMu = m_startFromAnalyticMu;
   GlensFlowRelation* gfr =  newPtr->getGlensFlowRelationPtr();
   gfr->setParameters(glensFlowRelation.m_n, 
-		     glensFlowRelation.m_epsSqr0);
+		     glensFlowRelation.m_epsSqr0, 
+		     glensFlowRelation.m_delta);
   return static_cast<ConstitutiveRelation*>(newPtr);
 
 }
@@ -63,7 +64,9 @@ L1L2ConstitutiveRelation::parseParameters()
   ppL1L2.query("n",n);
   Real epsSqr0 = 1.0e-12;
   ppL1L2.query("epsSqr0",epsSqr0);
-  glensFlowRelation.setParameters(n, epsSqr0);
+  Real delta = 0.0;
+  ppL1L2.query("delta",delta);
+  glensFlowRelation.setParameters(n, epsSqr0, delta);
  
 }
 
@@ -337,18 +340,10 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
 		       CHF_INT(nComp),
 		       CHF_BOX(a_box));
 
-  //Real maxPhiTildeSqr = 1.0e+4 * rhog*rhog;
-  // FORT_L1L2SUPRESSFAB(CHF_FRA1(phiTildeSqr,0),
-  // 		    CHF_BOX(a_box),
-  // 		    CHF_CONST_REAL(maxPhiTildeSqr));
+ 
 
   FArrayBox epsSqr(a_box,1);
   epsSqr.copy(a_epsSqr);
-  //Real maxEpsSqr = 1.0e-2;
-  // FORT_L1L2SUPRESSFAB(CHF_FRA1(epsSqr,0),
-  // 		    CHF_BOX(a_box),
-  // 		    CHF_CONST_REAL(maxEpsSqr));
-  
   
   FArrayBox A(a_box,1);
   FArrayBox res(a_box,1);
@@ -378,6 +373,7 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
 			   CHF_CONST_REAL(sigma0),
 			   CHF_CONST_REAL(glensFlowRelation.m_n),
 			   CHF_CONST_REAL(glensFlowRelation.m_epsSqr0),
+			   CHF_CONST_REAL(glensFlowRelation.m_delta),
 			   CHF_CONST_REAL(m_solverTol),
 			   CHF_CONST_INT(maxIter));
       }
@@ -438,6 +434,7 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
 			   CHF_CONST_REAL(a_sigma[l]),
 			   CHF_CONST_REAL(glensFlowRelation.m_n),
 			   CHF_CONST_REAL(glensFlowRelation.m_epsSqr0),
+			   CHF_CONST_REAL(glensFlowRelation.m_delta),
 			   CHF_CONST_REAL(m_solverTol),
 			   CHF_CONST_INT(maxIter));
 	

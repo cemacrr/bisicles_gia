@@ -156,14 +156,22 @@ c      niter = j
 
 
 c------------------------------------------------
-c compute L1L2 mu (of Schoof and Hindmarsh, 2010)
+c compute (a regularized) L1L2 mu (of Schoof and Hindmarsh, 2010)
 c by solving the equation 
 c 
-c 1 - 2 A mu (4 mu ^2 e^2 + t^2)^(n-1)/2 = 0
+c 1 - 2 A mu0 (4 mu0 ^2 e^2 + t^2)^(n-1)/2 = 0
+c
+c where
+c
+c e^2 = epsSqr + epsSqr0 
+c
+c and setting
+c
+c mu = mu0 + A^{-1/n} delta
 c
 c a secant method is used, initialised
 c by mu and res. on return, res is overwritten
-c with the residual 1 - 2 A mu (4 mu ^2 e^2 + t^2)^(n-1)/2
+c with the residual 1 - 2 A mu0 (4 mu0 ^2 e^2 + t^2)^(n-1)/2
 c------------------------------------------------
 
       subroutine COMPUTEL1L2MU(CHF_FRA1[mu],
@@ -175,6 +183,7 @@ c------------------------------------------------
      &     CHF_CONST_REAL[sigma],
      &     CHF_CONST_REAL[nExponent],
      &     CHF_CONST_REAL[epsSqr0],
+     &     CHF_CONST_REAL[delta],
      &     CHF_CONST_REAL[tol],
      &     CHF_CONST_INT[maxIter])
 
@@ -230,6 +239,8 @@ c     no vertical shearing means we can just return plain Glen's law
              mu(CHF_AUTOIX[i]) = tmua
              res(CHF_AUTOIX[i]) = 0.0d0
           end if
+
+          mu(CHF_AUTOIX[i]) = mu(CHF_AUTOIX[i]) + tA**p3 * delta
 
       CHF_ENDDO
       return
@@ -486,7 +497,7 @@ c------------------------------------------------
      &     CHF_BOX[box])
 
       integer CHF_AUTOIX[i], ncomp
-      REAL_T  G, f, p1, p2
+      Real  G, f, p1, p2
       
       f = 2.0*rhog**n
       p1 = (n+two)
