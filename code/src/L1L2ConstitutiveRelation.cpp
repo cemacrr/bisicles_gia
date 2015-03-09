@@ -808,15 +808,27 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 
   LevelData<FluxBox> vertAverageVelFace(a_grids, 1 , IntVect::Zero);
   for (DataIterator dit(a_grids);dit.ok();++dit)
-    for (int dir = 0; dir < SpaceDim; dir++)
-      vertAverageVelFace[dit][dir].setVal(0.0);
-  
-  //find u' = u(z) - u(z=b) and its vertical average \bar{u'}
+    {
+      for (int dir = 0; dir < SpaceDim; dir++)
+	{
+	  vertAverageVelFace[dit][dir].copy(a_faceVelAdvection[dit][dir]);
+	}
+    }
+
+  //find u(z) and \bar{u}
   computeFaceFluxVelocity(grownCellVel, a_crseVelPtr, a_nRefCrse,
 			  sigmaFaceA, grownThickness, dx,  
 			  vertAverageVelFace, a_layerXYFaceXYVel,  a_layerSFaceXYVel,
 			  a_coordSys, a_domain, ghostVect);
 
+  //find average u(z) - u(b) =  \bar{u'} - u(z=b)
+  for (DataIterator dit(a_grids);dit.ok();++dit)
+    {
+      for (int dir = 0; dir < SpaceDim; dir++)
+	{
+	  vertAverageVelFace[dit][dir].minus(a_faceVelAdvection[dit][dir]);
+	}
+    }
 
   //leave u_advection = u_base, set D = \bar{u'}H / grad(H),  u_total = u_base + \bar{u'}
   //LevelData<FArrayBox> cellDiffusivity(a_grids, SpaceDim , IntVect::Unit);
@@ -833,7 +845,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
       FluxBox& uvavg = vertAverageVelFace[dit];
       const FArrayBox& s = a_coordSys.getSurfaceHeight()[dit];
 
-      //set D = \bar{u'}H / grad(H),  u_total = u_base + \bar{u'}
+      //set D = \bar{u'}H / grad(H)
       FORT_L1L2COMPUTEDIFFUSIVITY(CHF_FRA1(D,0),
 				  CHF_CONST_FRA1(uvavg[0],0),
 				  CHF_CONST_FRA1(uvavg[1],0),
@@ -843,7 +855,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 				  CHF_CONST_REAL(dx[0]),
 				  CHF_CONST_REAL(dx[1]),
 				  CHF_BOX(a_grids[dit]));
-      //set D = \bar{u'}H / grad(s),  u_total = u_base + \bar{u'}
+      //set D = \bar{u'}H / grad(s)
       FORT_L1L2COMPUTEDIFFUSIVITY(CHF_FRA1(D,0),
 				  CHF_CONST_FRA1(uvavg[0],0),
 				  CHF_CONST_FRA1(uvavg[1],0),
