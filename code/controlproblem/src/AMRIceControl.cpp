@@ -2142,31 +2142,50 @@ void AMRIceControl::computeObjectiveAndGradient
 	  FArrayBox t(thisG.box(),1);
 	  
 	  // terms arising from (grad C)^2 penalty
-	  t.copy(levelLapC[dit]);t*= levelC[dit]; t*= -m_gradCsqRegularization;
-	  thisG.plus(t,0,CCOMP);
-	  
+	  if (m_gradCsqRegularization > 0.0)
+	    {
+	      t.copy(levelLapC[dit]);t*= levelC[dit]; t*= -m_gradCsqRegularization;
+	      thisG.plus(t,0,CCOMP);
+	    }
+
 	  // terms arising from (grad muCoef)^2 penalty
-	  t.copy(levelLapMuCoef[dit]);t*= levelMuCoef[dit]; t*= -m_gradMuCoefsqRegularization;
-	  thisG.plus(t,0,MUCOMP);
-	  
+	  if (m_gradMuCoefsqRegularization > 0.0)
+	    {
+	      t.copy(levelLapMuCoef[dit]);t*= levelMuCoef[dit]; t*= -m_gradMuCoefsqRegularization;
+	      thisG.plus(t,0,MUCOMP);
+	    }
+
 	  // terms arising from (X0)^2 penalty
-	  t.copy(thisX,CCOMP,0);
-	  t *= m_X0Regularization;
-	  thisG.plus(t,0,CCOMP);
-	  
+	  if (m_X0Regularization > 0.0)
+	    {
+	      t.copy(thisX,CCOMP,0);
+	      t *= m_X0Regularization;
+	      thisG.plus(t,0,CCOMP);
+	    }
+
 	  // terms arising from (X1)^2 penalty
-	  t.copy(thisX,MUCOMP,0);
-	  t *= m_X1Regularization;
-	  thisG.plus(t,0,MUCOMP);
-	
+	  if (m_X1Regularization > 0.0)
+	    {
+	      t.copy(thisX,MUCOMP,0);
+	      t *= m_X1Regularization;
+	      thisG.plus(t,0,MUCOMP);
+	    }
+
 	  // terms arising from (grad X0)^2 penalty
-	  t.copy((*m_lapX[lev])[dit],CCOMP,0); t*= -m_gradX0sqRegularization;
-	  thisG.plus(t,0,CCOMP);
+	  if (m_gradX0sqRegularization > 0.0)
+	    {
+	      t.copy((*m_lapX[lev])[dit],CCOMP,0); t*= -m_gradX0sqRegularization;
+	      thisG.plus(t,0,CCOMP);
+	    }
 
 	  // terms arising from (grad X1)^2 penalty
-	  t.copy((*m_lapX[lev])[dit],MUCOMP,0); t*= -m_gradX1sqRegularization;
-	  thisG.plus(t,0,MUCOMP); 
-	  
+	  if (m_gradX1sqRegularization > 0.0)
+	    {
+	      t.copy((*m_lapX[lev])[dit],MUCOMP,0);
+	      CH_assert(t.norm() < 1.2345678e+300);
+	      t*= -m_gradX1sqRegularization;
+	      thisG.plus(t,0,MUCOMP); 
+	    }
 	}
 
 	

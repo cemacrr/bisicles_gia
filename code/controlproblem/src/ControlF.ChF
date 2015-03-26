@@ -105,9 +105,12 @@ c---------------------------------------------------
 
       uo = (uox(CHF_AUTOIX[i])**two+uoy(CHF_AUTOIX[i])**two)**half
       um = (umx(CHF_AUTOIX[i])**two+umy(CHF_AUTOIX[i])**two)**half
-      r = um/(TINY_NORM + uo)
+
+      uo = uo + 10.0
+      um = um + 10.0
+      r = um/uo
       t = log(r)
-      s = t *  uo / ( (TINY_NORM + um)**2)
+      s = t *  uo / um**2
 
       rhsx(CHF_AUTOIX[i]) = s*uox(CHF_AUTOIX[i]) 
       rhsy(CHF_AUTOIX[i]) = s*uoy(CHF_AUTOIX[i])
