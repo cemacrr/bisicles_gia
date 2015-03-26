@@ -334,9 +334,9 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   create(m_muCoef,1,IntVect::Unit);
   create(m_lapMuCoef,1,IntVect::Zero);
   create(m_gradMuCoefSq,1,IntVect::Zero);
-  //create(m_muCoef,1,IntVect::Unit);
+  create(m_lapX,NXCOMP,IntVect::Zero);
+  create(m_gradXSq,NXCOMP,IntVect::Zero);
   create(m_faceMuCoef,1,IntVect::Zero);
-
   //copy of the original thickness
   create(m_thicknessOrigin, 1, IntVect::Unit);
   //point thickness data, e.g from flightlines
@@ -576,6 +576,11 @@ void AMRIceControl::solveControl()
   m_X1Regularization = 0.0;
   pp.query("X1Regularization",m_X1Regularization);
 
+  m_gradX0sqRegularization = 0.0;
+  pp.query("gradX0sqRegularization",  m_gradX0sqRegularization);
+
+  m_gradX1sqRegularization = 0.0;
+  pp.query("gradX1sqRegularization", m_gradX1sqRegularization);
 
   m_boundArgX0 = 3.0;
   m_boundArgX1 = 2.0;
@@ -611,7 +616,7 @@ void AMRIceControl::solveControl()
 
 
   Vector<LevelData<FArrayBox>* > X;
-  create(X,2,IntVect::Zero);
+  create(X,2,IntVect::Unit);
   setToZero(X);
 
   m_writeInnerSteps = false;
@@ -758,6 +763,8 @@ AMRIceControl::~AMRIceControl()
   free(m_muCoef);
   free(m_lapMuCoef);
   free(m_gradMuCoefSq);
+  free(m_lapX);
+  free(m_gradXSq);
   free(m_faceMuCoef);
   free(m_divUH);
   free(m_thicknessOrigin);
@@ -1683,8 +1690,7 @@ void AMRIceControl::computeObjectiveAndGradient
   //muCoef = exp(a_x[1]) * muCoefOrigin
   //H = exp(a_x[2]) * HOrigin
 
-#define CCOMP 0
-#define MUCOMP 1
+
   //#define HCOMP 2
 
   setToZero(a_g);
@@ -1708,7 +1714,7 @@ void AMRIceControl::computeObjectiveAndGradient
   for (int lev=0; lev <= m_finestLevel;lev++)
     {
 
-      const LevelData<FArrayBox>& levelX =  *a_x[lev];
+      LevelData<FArrayBox>& levelX =  *a_x[lev];
       LevelSigmaCS& levelCS =  *m_coordSys[lev];
       LevelData<FArrayBox>& levelC =  *m_C[lev];
       LevelData<FArrayBox>& levelCcopy =  *m_Ccopy[lev];
@@ -1742,11 +1748,13 @@ void AMRIceControl::computeObjectiveAndGradient
 	  		    CHF_BOX(box));
 	}
 
-      //boundary values for C, muCoef, topography, thickness: extrapolation or reflection should be sufficient
+      //boundary values for X, C, muCoef, topography, thickness: extrapolation or reflection should be sufficient
       for (int dir = 0; dir < SpaceDim; dir++)
 	{
 	  if (! m_domain[lev].isPeriodic(dir))
 	    {
+	      ReflectGhostCells(levelX, m_domain[lev], dir, Side::Lo);
+	      ReflectGhostCells(levelX, m_domain[lev], dir, Side::Hi);
 	      ReflectGhostCells(levelC, m_domain[lev], dir, Side::Lo);
 	      ReflectGhostCells(levelC, m_domain[lev], dir, Side::Hi);
 	      ReflectGhostCells(levelMuCoef, m_domain[lev], dir, Side::Lo);
@@ -1776,6 +1784,8 @@ void AMRIceControl::computeObjectiveAndGradient
               
 	  // since we're not subcycling, don't need to interpolate in time
 	  Real time_interp_coeff = 0.0;
+	 
+
 	  li.fillInterp(levelMuCoef,
 			*m_muCoef[lev-1],
 			*m_muCoef[lev-1],
@@ -1796,10 +1806,23 @@ void AMRIceControl::computeObjectiveAndGradient
 			m_coordSys[lev-1]->getH(),
 			time_interp_coeff,
 			0, 0, 1);
+  
+	  PiecewiseLinearFillPatch lin(levelGrids, 
+				       m_grids[lev-1],
+				       levelX.nComp(), 
+				       m_domain[lev-1],
+				       m_refRatio[lev-1],
+				      nGhost);
+	  lin.fillInterp(levelX,
+			 *a_x[lev-1],
+			 *a_x[lev-1],
+			 time_interp_coeff,
+			 0, 0, 1);
+
              
         }
 
-    
+      levelX.exchange();
       levelC.exchange();
       levelMuCoef.exchange();
       levelCS.getH().exchange();
@@ -1817,11 +1840,14 @@ void AMRIceControl::computeObjectiveAndGradient
       IceUtility::applyHelmOp(*m_lapC[lev], levelC, 0.0, 1.0, 
 			       m_grids[lev], m_dx[lev]);
       IceUtility::applyGradSq(*m_gradCSq[lev], levelC,m_grids[lev], m_dx[lev]);
-     
+      
       IceUtility::applyHelmOp(*m_lapMuCoef[lev], levelMuCoef, 0.0, 1.0,
 			       m_grids[lev], m_dx[lev]);
       IceUtility::applyGradSq(*m_gradMuCoefSq[lev], levelMuCoef,  m_grids[lev], m_dx[lev]);
 
+      IceUtility::applyHelmOp(*m_lapX[lev], levelX, 0.0, 1.0, 
+			       m_grids[lev], m_dx[lev]);
+      IceUtility::applyGradSq(*m_gradXSq[lev], levelX,m_grids[lev], m_dx[lev]);
 
     }
 
@@ -2058,16 +2084,18 @@ void AMRIceControl::computeObjectiveAndGradient
   
   //compute the objective function 
   Real vobj = computeSum(m_velocityMisfit, m_refRatio, m_dx[0][0]);
-
   Real sumGradCSq = computeSum(m_gradCSq,m_refRatio, m_dx[0][0]);
   Real sumGradMuSq = computeSum(m_gradMuCoefSq,m_refRatio, m_dx[0][0]);
-
+  Real sumGradX0Sq = computeSum(m_gradXSq,m_refRatio, m_dx[0][0], Interval(0,0));
+  Real sumGradX1Sq = computeSum(m_gradXSq,m_refRatio, m_dx[0][0], Interval(1,1));
   Real normX0 = computeNorm(a_x,m_refRatio, m_dx[0][0], Interval(0,0));
   Real normX1 = computeNorm(a_x,m_refRatio, m_dx[0][0], Interval(1,1));
 
   a_fm = vobj  ;
   a_fp =  m_gradCsqRegularization * sumGradCSq
     + m_gradMuCoefsqRegularization * sumGradMuSq
+    + m_gradX0sqRegularization * sumGradX0Sq
+    + m_gradX1sqRegularization * sumGradX1Sq
     + m_X0Regularization * normX0*normX0
     + m_X1Regularization * normX1*normX1;
   pout() << " ||velocity misfit||^2 = " << vobj
@@ -2081,10 +2109,9 @@ void AMRIceControl::computeObjectiveAndGradient
       avg.averageToCoarse(*m_adjVel[lev-1],*m_adjVel[lev]);
     }
 
-  //initialize  the gradient vector with the regularization terms R = (- a C lap(C)) 
+  //initialize  the gradient vector with the regularization terms R = (- a C lap(C)) etc
  
 
-  
   for (int lev = 0; lev <= m_finestLevel; lev++)
     {
       LevelData<FArrayBox>& levelG =  *a_g[lev];
@@ -2102,21 +2129,32 @@ void AMRIceControl::computeObjectiveAndGradient
 
 	  FArrayBox t(thisG.box(),1);
 	  
-	  
+	  // terms arising from (grad C)^2 penalty
 	  t.copy(levelLapC[dit]);t*= levelC[dit]; t*= -m_gradCsqRegularization;
 	  thisG.plus(t,0,CCOMP);
 	  
+	  // terms arising from (grad muCoef)^2 penalty
 	  t.copy(levelLapMuCoef[dit]);t*= levelMuCoef[dit]; t*= -m_gradMuCoefsqRegularization;
 	  thisG.plus(t,0,MUCOMP);
 	  
+	  // terms arising from (X0)^2 penalty
 	  t.copy(thisX,CCOMP,0);
 	  t *= m_X0Regularization;
 	  thisG.plus(t,0,CCOMP);
 	  
+	  // terms arising from (X1)^2 penalty
 	  t.copy(thisX,MUCOMP,0);
 	  t *= m_X1Regularization;
 	  thisG.plus(t,0,MUCOMP);
-		  
+	
+	  // terms arising from (grad X0)^2 penalty
+	  t.copy((*m_lapX[lev])[dit],CCOMP,0); t*= -m_gradX0sqRegularization;
+	  thisG.plus(t,0,CCOMP);
+
+	  // terms arising from (grad X1)^2 penalty
+	  t.copy((*m_lapX[lev])[dit],CCOMP,0); t*= -m_gradX1sqRegularization;
+	  thisG.plus(t,0,MUCOMP); 
+	  
 	}
 
 	

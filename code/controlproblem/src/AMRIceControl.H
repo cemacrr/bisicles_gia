@@ -39,7 +39,9 @@
 class AMRIceControl
 {
 
-
+#define CCOMP 0
+#define MUCOMP 1
+#define NXCOMP MUCOMP + 1
   // finest level permitted
   int m_maxFinestLevel;
 
@@ -82,8 +84,9 @@ class AMRIceControl
   // co-ordinate system, stores thickness, topography, surfaces, mask
   Vector<RefCountedPtr<LevelSigmaCS > > m_coordSys;
 
-  
- 
+  //Storage for lap(X) and grad(X)^2
+  Vector<LevelData<FArrayBox>*> m_lapX;
+  Vector<LevelData<FArrayBox>*> m_gradXSq;
 
   // coefficients of basal friction.
   // m_C = exp(X[0]) * m_COrigin;
@@ -94,6 +97,7 @@ class AMRIceControl
   Vector<LevelData<FArrayBox>*> m_Ccopy;
   Vector<LevelData<FArrayBox>*> m_lapC;
   Vector<LevelData<FArrayBox>*> m_gradCSq;
+ 
   // coefficients of mu.
   // m_muCoef = exp(X[1]) * m_referenceMuCoefOrigin;
   Vector<LevelData<FArrayBox>*> m_muCoefOrigin;
@@ -179,9 +183,10 @@ class AMRIceControl
     m_gradCsqRegularization,
     m_gradMuCoefsqRegularization, 
     m_X0Regularization, 
-    m_X1Regularization;
+    m_X1Regularization,
+    m_gradX0sqRegularization, 
+    m_gradX1sqRegularization;
  
-
   enum VelocityMisfitType {Speed, Velocity, MAX_VELOCITY_MISFIT_TYPE};
   VelocityMisfitType m_velMisfitType;
 
