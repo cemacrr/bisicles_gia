@@ -187,7 +187,7 @@ class AMRIceControl
     m_gradX0sqRegularization, 
     m_gradX1sqRegularization;
  
-  enum VelocityMisfitType {Speed, Velocity, MAX_VELOCITY_MISFIT_TYPE};
+  enum VelocityMisfitType {Speed, Velocity, LogSpeed, MAX_VELOCITY_MISFIT_TYPE};
   VelocityMisfitType m_velMisfitType;
 
   enum ThicknessUpdateType {GroundedSurfaceConstant, BedrockDownSurfaceDown, MAX_THICKNESS_UPDATE_TYPE};

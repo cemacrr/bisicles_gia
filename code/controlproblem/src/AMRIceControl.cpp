@@ -555,6 +555,10 @@ void AMRIceControl::solveControl()
       {
 	m_velMisfitType = Velocity;
       }
+     else if (s == "LogSpeed")
+      {
+	m_velMisfitType = LogSpeed;
+      }
     else
       {
 	MayDay::Error("unknown control.velMisfitType");
@@ -2052,6 +2056,14 @@ void AMRIceControl::computeObjectiveAndGradient
 				   CHF_CONST_FRA1(uo,0), CHF_CONST_FRA1(uo,1),
 				   CHF_BOX(box));
 	    }
+	   if (m_velMisfitType == LogSpeed)
+	    {
+	      FORT_ADJRHSLOGSPDCTRL(CHF_FRA1(adjRhs,0), CHF_FRA1(adjRhs,1),
+				    CHF_CONST_FRA1(misfit,0),
+				    CHF_CONST_FRA1(um,0), CHF_CONST_FRA1(um,1),
+				    CHF_CONST_FRA1(uo,0), CHF_CONST_FRA1(uo,1),
+				    CHF_BOX(box));
+	    }
 	  else
 	    {
 	      CH_assert(m_velMisfitType < MAX_VELOCITY_MISFIT_TYPE);
@@ -2152,7 +2164,7 @@ void AMRIceControl::computeObjectiveAndGradient
 	  thisG.plus(t,0,CCOMP);
 
 	  // terms arising from (grad X1)^2 penalty
-	  t.copy((*m_lapX[lev])[dit],CCOMP,0); t*= -m_gradX1sqRegularization;
+	  t.copy((*m_lapX[lev])[dit],MUCOMP,0); t*= -m_gradX1sqRegularization;
 	  thisG.plus(t,0,MUCOMP); 
 	  
 	}

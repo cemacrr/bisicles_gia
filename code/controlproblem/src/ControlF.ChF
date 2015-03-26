@@ -78,6 +78,46 @@ c---------------------------------------------------
 
       return
       end
+c---------------------------------------------------
+c contribution to the right hand side of the  
+c ssa/l1l2 adjoint equations due to mismatch
+c between logs of and observed speed um and uo 
+
+c
+c rhs[x] = ln(|um|/|uo|) |um|/|uo|^2 uox
+c rhs[y] = ln(|um|/|uo|) |um|/|uo|^2 uoy
+c
+c rhs <- contribution
+c misfit <- 0.5 * [ln(|uo|/|um|)]**2
+c umx,umy -> model velocity components
+c uox,uoy -> observed velocity components.
+c---------------------------------------------------
+      subroutine adjrhslogspdctrl( CHF_FRA1[rhsx],CHF_FRA1[rhsy], 
+     &     CHF_FRA1[misfit],
+     &     CHF_CONST_FRA1[umx],CHF_CONST_FRA1[umy],
+     &     CHF_CONST_FRA1[uox],CHF_CONST_FRA1[uoy],
+     &     CHF_BOX[box] )
+
+      integer CHF_AUTODECL[i]
+      REAL_T uo,um,r,s,t
+
+      CHF_AUTOMULTIDO[box; i]
+
+      uo = (uox(CHF_AUTOIX[i])**two+uoy(CHF_AUTOIX[i])**two)**half
+      um = (umx(CHF_AUTOIX[i])**two+umy(CHF_AUTOIX[i])**two)**half
+      r = um/(TINY_NORM + uo)
+      t = log(r)
+      s = t *  uo / ( (TINY_NORM + um)**2)
+
+      rhsx(CHF_AUTOIX[i]) = s*uox(CHF_AUTOIX[i]) 
+      rhsy(CHF_AUTOIX[i]) = s*uoy(CHF_AUTOIX[i])
+      
+      misfit(CHF_AUTOIX[i]) = half * t**2 
+
+      CHF_ENDDO
+
+      return
+      end
 
 c-----------------------------------------------------
 c contribution to the right hand side of the  
