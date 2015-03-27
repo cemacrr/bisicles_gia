@@ -618,6 +618,10 @@ void AMRIceControl::solveControl()
       }
   }
 
+  m_thicknessThreshold = 100.0;
+  pp.query("thicknessThreshold",m_thicknessThreshold);
+    
+
 
   Vector<LevelData<FArrayBox>* > X;
   create(X,2,IntVect::Unit);
@@ -2077,8 +2081,7 @@ void AMRIceControl::computeObjectiveAndGradient
 	      if (levelVelCoef[dit](iv) < 0.975)
 		levelVelCoef[dit](iv) = 0.0;
 
-	      const Real saneIceThickness = 100.0;
-	      if (levelH[dit](iv) < saneIceThickness)
+	      if (levelH[dit](iv) < m_thicknessThreshold)
 		levelVelCoef[dit](iv) = 0.0;
 	    }
 
@@ -2139,7 +2142,7 @@ void AMRIceControl::computeObjectiveAndGradient
 	  thisG.setVal(0.0,CCOMP);
 	  thisG.setVal(0.0,MUCOMP);
 
-	  FArrayBox t(thisG.box(),1);
+	  FArrayBox t(m_grids[lev][dit],1);
 	  
 	  // terms arising from (grad C)^2 penalty
 	  if (m_gradCsqRegularization > 0.0)

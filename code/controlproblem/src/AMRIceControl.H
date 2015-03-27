@@ -185,7 +185,8 @@ class AMRIceControl
     m_X0Regularization, 
     m_X1Regularization,
     m_gradX0sqRegularization, 
-    m_gradX1sqRegularization;
+    m_gradX1sqRegularization, 
+    m_thicknessThreshold;
  
   enum VelocityMisfitType {Speed, Velocity, LogSpeed, MAX_VELOCITY_MISFIT_TYPE};
   VelocityMisfitType m_velMisfitType;
