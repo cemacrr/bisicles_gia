@@ -36,7 +36,6 @@ NonlinearViscousTensor*
 IceNonlinearViscousTensor::newNonlinearViscousTensor()
 {
   IceNonlinearViscousTensor* ptr = new IceNonlinearViscousTensor(*this);
-  ptr->m_bcPtr = m_bcPtr->new_thicknessIBC();
   ptr->setFaceViscCoef(m_muCoef);
   return static_cast<NonlinearViscousTensor*>(ptr);
 }
