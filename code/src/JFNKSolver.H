@@ -96,6 +96,13 @@ public:
 
   virtual ~LinearizedVTOp()
   {
+
+    if (m_uPerturbed != NULL)
+      {
+	delete m_uPerturbed;
+	m_uPerturbed = NULL;
+      }
+
     for (int lev = 0; lev < m_fu.size(); ++lev)
       {
 	if (m_fu[lev] != NULL)

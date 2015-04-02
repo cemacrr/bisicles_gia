@@ -100,6 +100,10 @@ LinearizedVTOp::LinearizedVTOp(NonlinearViscousTensor* a_currentState ,
   
       create(m_uplushv,localU);
     }
+  else
+    {
+      m_uPerturbed = NULL;
+    }
   
     
   }
