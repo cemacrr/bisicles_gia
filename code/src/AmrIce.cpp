@@ -6686,7 +6686,8 @@ AmrIce::writePlotFile()
   char* iter_str = new char[m_plot_prefix.size() + fs.size() + 16];
   sprintf(iter_str, fs.c_str(), m_plot_prefix.c_str(), m_cur_step );
   string filename(iter_str);
-  delete iter_str;
+
+  delete[] iter_str;
  
   // need to pull out SigmaCS pointers:
   Vector<const LevelSigmaCS* > vectCS(m_vect_coordSys.size(), NULL);
@@ -6793,7 +6794,7 @@ AmrIce::writeCheckpointFile()
     }
 
   writeCheckpointFile(std::string(iter_str));
-  delete iter_str;
+  delete[] iter_str;
 }
 
 /// write checkpoint file out for later restarting
