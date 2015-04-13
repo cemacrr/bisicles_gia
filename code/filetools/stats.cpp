@@ -36,6 +36,7 @@
 
 void createMaskedDEM( Vector<LevelData<FArrayBox>* >& topography,  
 		      Vector<LevelData<FArrayBox>* >& thickness, 
+		      Vector<LevelData<FArrayBox>* >& basalThicknessSrc, 
 		      Vector<LevelData<FArrayBox>* >& mdata, 
 		      Vector<std::string>& name, 
 		      Vector<LevelData<FArrayBox>* >& data,
@@ -47,6 +48,9 @@ void createMaskedDEM( Vector<LevelData<FArrayBox>* >& topography,
 {
   CH_TIME("createMaskedDEM");
   int numLevels = data.size();
+  bool has_src = false;
+  if (basalThicknessSrc[0] != NULL) has_src = true;
+
   for (int lev = 0; lev < numLevels; lev++)
     {
 
@@ -55,6 +59,7 @@ void createMaskedDEM( Vector<LevelData<FArrayBox>* >& topography,
 	{
 	  (*topography[lev])[dit].setVal(0.0);
 	  (*thickness[lev])[dit].setVal(0.0);
+          if (has_src) (*basalThicknessSrc[lev])[dit].setVal(0.0);
 	}
 
       for (int j = 0; j < name.size(); j++)
@@ -66,6 +71,10 @@ void createMaskedDEM( Vector<LevelData<FArrayBox>* >& topography,
 	  else if (name[j] == "thickness")
 	    {
 	      data[lev]->copyTo(Interval(j,j),*thickness[lev],Interval(0,0));
+	    }	  
+	  else if (name[j] == "basalThicknessSource")
+	    {
+	      data[lev]->copyTo(Interval(j,j),*basalThicknessSrc[lev],Interval(0,0));
 	    }	  
 	}
 
@@ -82,9 +91,18 @@ void createMaskedDEM( Vector<LevelData<FArrayBox>* >& topography,
 			    time_interp_coeff,0, 0, 1);
 	  filler.fillInterp(*thickness[lev],*thickness[lev-1] ,*thickness[lev-1],
 			    time_interp_coeff,0, 0, 1);
+
+          if (has_src)
+            {
+              filler.fillInterp(*basalThicknessSrc[lev],
+                                *basalThicknessSrc[lev-1],
+                                *basalThicknessSrc[lev-1],
+                                time_interp_coeff,0, 0, 1);
+            }
 	}
       thickness[lev] -> exchange();
       topography[lev] -> exchange();
+      if (has_src) basalThicknessSrc[lev]->exchange();
     }
   if (mdata.size() != 0)
     {
@@ -112,6 +130,10 @@ void createMaskedDEM( Vector<LevelData<FArrayBox>* >& topography,
                     }
 		}
 	      levelData[dit].mult(coef,0,0,1);
+              if (has_src)
+                {
+                  (*basalThicknessSrc[lev])[dit].mult(coef,0,0,1);
+                }
 		
 	    }
 	    
@@ -431,7 +453,9 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 }
 		      
 void computeStats(Vector<LevelData<FArrayBox>* >& topography, 
-		  Vector<LevelData<FArrayBox>* >& thickness, Vector<Real>& dx, Vector<int>& ratio,
+		  Vector<LevelData<FArrayBox>* >& thickness, 
+		  Vector<LevelData<FArrayBox>* >& basalThicknessSrc, 
+                  Vector<Real>& dx, Vector<int>& ratio,
 		  Real iceDensity, Real waterDensity, Real gravity)
 { 
 
@@ -444,6 +468,8 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
   
   int numLevels = topography.size();
 
+  bool has_src = (basalThicknessSrc[0] != NULL);  
+
   CH_START(t2);
    
   //Compute the total thickness
@@ -452,13 +478,20 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
   //    coords[lev]->getH().copyTo(Interval(0,0),*tmp[lev],Interval(0,0));
   //  }
   Real iceVolumeAll = computeSum(thickness, ratio, dx[0], Interval(0,0), 0);
- 
+  Real totalMelt = 0.0;
+  if (has_src) 
+    {
+      totalMelt = computeSum(basalThicknessSrc, ratio, dx[0], 
+                             Interval(0,0), 0);
+    }
+
   CH_STOP(t2);
   Real iceVolumeAbove = 0.0;
   Real groundedArea = 0.0;
   Real groundedPlusOpenLandArea = 0.0;
   Real floatingArea = 0.0;
   Real totalArea = 0.0;
+
 
   //Creating a LevelSigmaCS is expensive, so only do it if there is some ice
   if (iceVolumeAll > 1.0e-10)
@@ -611,7 +644,11 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
   pout() << " floatingArea = " << floatingArea << " ";
   pout() << " totalArea = " << totalArea << " ";
   pout() << " groundedPlusOpenLandArea = " << groundedPlusOpenLandArea << " ";
- 
+  if (has_src)
+    {
+      pout() << " Total Melt = " << totalMelt << "." << endl;
+    }
+
   
 }
 
@@ -705,22 +742,35 @@ int main(int argc, char* argv[]) {
 
     Vector<LevelData<FArrayBox>* > thickness(numLevels,NULL);
     Vector<LevelData<FArrayBox>* > topography(numLevels,NULL);
+    Vector<LevelData<FArrayBox>* > basalThicknessSrc(numLevels,NULL);
+    int srcComp = -1;
+    for (int i=0; i< name.size(); i++)
+      {
+        if (name[i] == "basalThicknessSource") srcComp=i;
+      }
+
     for (int lev=0;lev<numLevels;++lev)
       {
 	thickness[lev] = new LevelData<FArrayBox>(grids[lev],1,4*IntVect::Unit);
 	topography[lev] = new LevelData<FArrayBox>(grids[lev],1,4*IntVect::Unit);
+        if (srcComp >=0)
+          {
+            basalThicknessSrc[lev] = new LevelData<FArrayBox>(grids[lev],1,4*IntVect::Unit);
+          }
       }
 
-
+    
     pout().setf(ios_base::scientific,ios_base::floatfield); 
     pout().precision(12);
 
    
     for (int maskNo = maskNoStart; maskNo <= maskNoEnd; ++maskNo)
       {
-	createMaskedDEM(topography, thickness, mdata, name, data, ratio, dx, mcrseDx, maskNo, maskNo);
+	createMaskedDEM(topography, thickness, basalThicknessSrc, mdata, 
+                        name, data, ratio, dx, mcrseDx, maskNo, maskNo);
 	pout() << " time = " << time  ;
-	computeStats(topography, thickness, dx, ratio, iceDensity, waterDensity,gravity);
+	computeStats(topography, thickness, basalThicknessSrc, 
+                     dx, ratio, iceDensity, waterDensity,gravity);
 	if (maskFile)
 	  {
 	    pout() << " sector = " << maskNo;
@@ -734,9 +784,9 @@ int main(int argc, char* argv[]) {
     // now compute stats for all selected sectors combined
     if (maskNoStart != maskNoEnd)
       {
-	createMaskedDEM(topography, thickness, mdata, name, data, ratio, dx, mcrseDx, maskNoStart, maskNoEnd);
+	createMaskedDEM(topography, thickness, basalThicknessSrc, mdata, name, data, ratio, dx, mcrseDx, maskNoStart, maskNoEnd);
 	pout() << " time = " << time  ;
-	computeStats(topography, thickness, dx, ratio, iceDensity, waterDensity,gravity);
+	computeStats(topography, thickness, basalThicknessSrc, dx, ratio, iceDensity, waterDensity,gravity);
 	if (maskFile)
 	  {
 	    pout() << " all sectors ";
@@ -751,6 +801,7 @@ int main(int argc, char* argv[]) {
       {
 	if (thickness[lev] != NULL) delete thickness[lev];
 	if (topography[lev] != NULL) delete topography[lev];
+	if (basalThicknessSrc[lev] != NULL) delete basalThicknessSrc[lev];
       }
 
 		  
