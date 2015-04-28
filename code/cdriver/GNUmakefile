@@ -54,11 +54,11 @@ libChomboLibs$(config).a: $(CHOMBO_HOME)/libamrelliptic$(config).a $(CHOMBO_HOME
 	mkdir tmp_lib_objects; \
 	cd tmp_lib_objects; \
 		pwd; \
-		ar -x $(PWD)/$(CHOMBO_HOME)/libamrelliptic$(config).a; \
-		ar -x $(PWD)/$(CHOMBO_HOME)/libamrtimedependent$(config).a; \
-		ar -x $(PWD)/$(CHOMBO_HOME)/libamrtools$(config).a; \
-		ar -x $(PWD)/$(CHOMBO_HOME)/libboxtools$(config).a; \
-		ar -x $(PWD)/$(CHOMBO_HOME)/libbasetools$(config).a; 
+		ar -x $(CHOMBO_HOME)/libamrelliptic$(config).a; \
+		ar -x $(CHOMBO_HOME)/libamrtimedependent$(config).a; \
+		ar -x $(CHOMBO_HOME)/libamrtools$(config).a; \
+		ar -x $(CHOMBO_HOME)/libboxtools$(config).a; \
+		ar -x $(CHOMBO_HOME)/libbasetools$(config).a; 
 	ar -cvq libChomboLibs$(config).a  tmp_lib_objects/*.o
 	rm tmp_lib_objects/*.o
 	rmdir tmp_lib_objects
@@ -77,28 +77,7 @@ libBisicles$(config).a: ../exec2D/o/$(config) o/$(config)/cwrapper.o libChomboLi
 	if test -f o/$(config)/driver.o; then \
            mv o/$(config)/driver.o o/$(config)/driver.o.tmp; \
         fi 
-	if test -f o/$(config)/faces.o; then \
-           mv o/$(config)/faces.o o/$(config)/faces.o.tmp; \
-        fi 
-	if test -f o/$(config)/glfaces.o; then \
-           mv o/$(config)/glfaces.o o/$(config)/glfaces.o.tmp; \
-        fi 
-	if test -f o/$(config)/stats.o; then \
-           mv o/$(config)/stats.o o/$(config)/stats.o.tmp; \
-        fi 
 	ar -cvq libBisicles$(config).a o/$(config)/*.o 
-	if test -f o/$(config)/driver.o.tmp; then \
-	   mv o/$(config)/driver.o.tmp o/$(config)/driver.o; \
-	fi 
-	if test -f o/$(config)/faces.o.tmp; then \
-	   mv o/$(config)/faces.o.tmp o/$(config)/faces.o; \
-	fi 
-	if test -f o/$(config)/glfaces.o.tmp; then \
-	   mv o/$(config)/glfaces.o.tmp o/$(config)/glfaces.o; \
-	fi 
-	if test -f o/$(config)/stats.o.tmp; then \
-	   mv o/$(config)/stats.o.tmp o/$(config)/stats.o; \
-	fi 
 
 
 libs: bisiclesObjects$(config) libBisicles$(config).a libChomboLibs$(config).a
