@@ -932,7 +932,7 @@ JFNKSolver::linearSolve(LinearizedVTOp& a_op,
 	  m_petscSolver->m_petscCompMat.setVerbose(m_verbosity-1);
 	}
       RefCountedPtr<ConstDiriBC> bcfunc = RefCountedPtr<ConstDiriBC>
-	(new ConstDiriBC(0,m_petscSolver->m_petscCompMat.getGhostVect()));
+	(new ConstDiriBC(1,m_petscSolver->m_petscCompMat.getGhostVect()));
       BCHolder bc(bcfunc);
       Real opAlpha, opBeta;
       opAlpha = -1.0;
