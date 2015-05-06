@@ -7253,7 +7253,10 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
           MayDay::Error("checkpoint file does not contain dx");
         }
       
-      m_amrDx[lev] = header.m_real["dx"];
+      if ( Abs(m_amrDx[lev] - header.m_real["dx"]) > TINY_NORM )
+	{
+	  MayDay::Error("restart file dx != input file dx");
+	}
       
       // read problem domain box
       if (header.m_box.find("prob_domain") == header.m_box.end())
@@ -7262,10 +7265,10 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
         }
       Box domainBox = header.m_box["prob_domain"];
 
-      m_amrDomains[lev] = ProblemDomain(domainBox, isPeriodic);
-
-      
-
+      if (m_amrDomains[lev].domainBox() != domainBox)
+	{ 
+	  MayDay::Error("restart file domain != input file domain");
+	}
 
       // the rest is only applicable if this level is defined
       if (lev <= m_finest_level)
