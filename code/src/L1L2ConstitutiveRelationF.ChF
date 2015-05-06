@@ -497,7 +497,7 @@ c------------------------------------------------
      &     CHF_BOX[box])
 
       integer CHF_AUTOIX[i], ncomp
-      Real  G, f, p1, p2
+      Real_t  G, f, p1, p2
       
       f = 2.0*rhog**n
       p1 = (n+two)
