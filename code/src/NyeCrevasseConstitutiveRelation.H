@@ -15,7 +15,7 @@
 #include "NamespaceHeader.H"
 /// Computes the effective viscosity \f$\mu\f$ including a factor due to crevassing
 /**
-   The effective viscosity \f$\mu}\f$ is computed by multiplying
+   The effective viscosity \f$\mu\f$ is computed by multiplying
    an effective viscosity \f$\mu_0\f$ as calculated by another subclass
    of ConstitutiveRelation by a factor \f$(1-d)/H\f$, where \f$d\f$
    is the total depth of crevasses (surface plus base). \f$d\f$ is
