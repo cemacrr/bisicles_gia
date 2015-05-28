@@ -74,6 +74,12 @@ void DomainEdgeCalvingModel::endTimeStepModifyState
 	      if (m_frontLo[dir] > 0)
 		{
 		  Box loBox = adjCellLo(domain,dir,ghost[dir]);
+                  // (DFM 5-25-15) grow in transverse direction
+                  // to ensure that we don't wind up with corner
+                  // cells with ice in them
+                  IntVect transverseVect = ghost;
+                  transverseVect[dir] = 0;
+                  loBox.grow(transverseVect);
 		  loBox &= a_thickness[dit].box();
 		  for (BoxIterator bit(loBox); bit.ok(); ++bit)
 		    {
@@ -87,6 +93,12 @@ void DomainEdgeCalvingModel::endTimeStepModifyState
 	      if (m_frontHi[dir] > 0)
 		{
 		  Box hiBox = adjCellHi(domain,dir,ghost[dir]);
+                  // (DFM 5-25-15) grow in transverse direction
+                  // to ensure that we don't wind up with corner
+                  // cells with ice in them
+                  IntVect transverseVect = ghost;
+                  transverseVect[dir] = 0;
+                  hiBox.grow(transverseVect);
 		  hiBox &= a_thickness[dit].box();
 		  for (BoxIterator bit(hiBox); bit.ok(); ++bit)
 		    {
