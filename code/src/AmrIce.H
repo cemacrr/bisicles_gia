@@ -805,6 +805,7 @@ protected:
 
   /// tag at the ice margin
   bool m_tagMargin;
+  int m_margin_tagVal_finestLevel;
 
   /// tag any cell with ice in it
   bool m_tagAllIce;

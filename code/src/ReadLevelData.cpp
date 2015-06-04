@@ -124,11 +124,14 @@ void readMultiLevelData
   Box domBox;
   int numLevels;
 
+  pout() << " no really  " << std::endl;
   pout() << " attempting to open file  " << a_file << std::endl;
 
   int status = ReadAMRHierarchyHDF5
     (a_file,vectGrids,vectData,names,domBox,a_crseDx,dt,time,
      a_refRatio,numLevels);
+
+  pout() << " read in data  " << std::endl;
 
  CH_assert(status == 0);
  if (status != 0)
@@ -139,6 +142,7 @@ void readMultiLevelData
  //stored on a single processor.
 
  //decompose level 0
+ pout() << " create boxes  " << std::endl;
  Vector<Box> boxes;
  int maxBoxSize = 64;
  int blockFactor = 8;

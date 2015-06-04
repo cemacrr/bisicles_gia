@@ -504,6 +504,7 @@ AmrIce::setDefaults()
   m_velDx_tagVal_finestLevelGrounded = -1;
   m_velDx_tagVal_finestLevelFloating = -1;
   m_tagMargin  = false;
+  m_margin_tagVal_finestLevel = -1;
   m_tagAllIce  = false;
   m_groundingLineTaggingMinVel = 200.0;
   m_groundingLineTaggingMaxBasalFrictionCoef = 1.2345678e+300;
@@ -1252,6 +1253,12 @@ AmrIce::initialize()
   
   ppAmr.query("tag_ice_margin", m_tagMargin);
   isThereATaggingCriterion |= m_tagMargin;
+  // if we set this to be true, require finest level to tag
+  if (m_tagMargin)
+    {
+      m_margin_tagVal_finestLevel = m_max_level+1;
+      ppAmr.query("margin_finest_level",m_margin_tagVal_finestLevel);
+    }
 
   ppAmr.query("tag_all_ice", m_tagAllIce);
   isThereATaggingCriterion |= m_tagAllIce;
@@ -3995,24 +4002,27 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
           for (BoxIterator bit(gridBox); bit.ok(); ++bit)
             {
               const IntVect& iv = bit();
-              // neglect diagonals for now...
-              for (int dir=0; dir<SpaceDim; dir++)
-                {
-                  IntVect ivm = iv - BASISV(dir);
-                  IntVect ivp = iv + BASISV(dir);
-                  if ( (H(iv,0) > 0) && (H(ivm,0) < TINY_THICKNESS) )
-                    {
-                      local_tags |= iv;
-                      local_tags |= ivm;
-                    } // end if low-side margin
-                  if ( (H(iv,0) > 0) && (H(ivp,0) < TINY_THICKNESS) )
-                    {
-                      local_tags |= iv;
-                      local_tags |= ivp;
-                    } // end high-side margin
-                } // end loop over directions
-            } // end loop over cells
-        } // end loop over boxes
+	      if ( a_level < m_margin_tagVal_finestLevel )
+		{
+		  // neglect diagonals for now...
+		  for (int dir=0; dir<SpaceDim; dir++)
+		    {
+		      IntVect ivm = iv - BASISV(dir);
+		      IntVect ivp = iv + BASISV(dir);
+		      if ( (H(iv,0) > 0) && (H(ivm,0) < TINY_THICKNESS) )
+			{
+			  local_tags |= iv;
+			  local_tags |= ivm;
+			} // end if low-side margin
+		      if ( (H(iv,0) > 0) && (H(ivp,0) < TINY_THICKNESS) )
+			{
+			  local_tags |= iv;
+			  local_tags |= ivp;
+			} // end high-side margin
+		    } // end loop over directions
+		}
+	    } // end loop over cells
+	} // end loop over boxes
     } // end if tagging on ice margins
 
   // tag anywhere there's ice
