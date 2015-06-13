@@ -2864,17 +2864,7 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
       averager.averageToCoarse(*vectB[lev-1],
                                *vectB[lev]);
     }
-  
-  // //interpolate H to any levels above finestTimestepLevel()
-  // for (int lev=finestTimestepLevel() + 1; lev < vectH.size(); lev++)
-  // 	{
-  // 	  FineInterp interpolator(m_amrGrids[lev],1,
-  // 				  m_refinement_ratios[lev-1],
-  // 				  m_amrDomains[lev]);
-  
-  // 	  interpolator.interpToFine(*vectH[lev], *vectH[lev-1]);
-  
-  // 	}
+
   // now pass back over and do PiecewiseLinearFillPatch
   for (int lev=1; lev<vectH.size(); lev++)
     {
@@ -2904,7 +2894,7 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
   for (int lev=0; lev <= finestTimestepLevel()  ; ++lev)
     {
       RealVect levelDx = m_amrDx[lev]*RealVect::Unit;
-      m_thicknessIBCPtr->setGeometryBCs(*m_vect_coordSys[lev],
+      m_thicknessIBCPtr->setGeometryBCs(*a_vect_coordSys_new[lev],
                                         m_amrDomains[lev],levelDx, m_time, m_dt);
     }
   
@@ -2913,7 +2903,7 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
     {
       //keep track of the calved ice
       LevelData<FArrayBox> prevThck(m_amrGrids[lev],1,IntVect::Unit);
-      LevelData<FArrayBox>& thck = m_vect_coordSys[lev]->getH();
+      LevelData<FArrayBox>& thck = a_vect_coordSys_new[lev]->getH();
       LevelData<FArrayBox>& calv = *m_calvedIceThickness[lev];
       for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
 	{
@@ -2934,7 +2924,7 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
   for (int lev=0; lev<= m_finest_level; lev++)
     {
       DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-      LevelSigmaCS& levelCoords = *(m_vect_coordSys[lev]);
+      LevelSigmaCS& levelCoords = *(a_vect_coordSys_new[lev]);
       LevelData<FArrayBox>& levelH = levelCoords.getH();
       DataIterator dit = levelGrids.dataIterator();          
       
@@ -2989,6 +2979,7 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
       LevelSigmaCS& levelCoords = *(m_vect_coordSys[lev]);
       //slc : I think we need an exchange here
       levelCoords.getH().exchange();
+      levelCoords.getTopography().exchange();
       LevelSigmaCS* crseCoords = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
       int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
       levelCoords.recomputeGeometry(crseCoords, refRatio);            
@@ -3181,31 +3172,26 @@ AmrIce::regrid()
 		LevelSigmaCS* crsePtr = &(*m_vect_coordSys[lev-1]);
 		int refRatio = m_refinement_ratios[lev-1];
 
-		// initialize geometry from thicknessIBCPtr
-		if (!m_interpolate_zb)
+		bool interpolate_zb = (m_interpolate_zb ||
+				       !m_thicknessIBCPtr->regridIceGeometry
+				       (*m_vect_coordSys[lev],dx,  m_domainSize, 
+					m_time,  crsePtr,refRatio ) );
+		
+		if (!interpolate_zb)
 		  {
-		    
-		    m_thicknessIBCPtr->regridIceGeometry(*m_vect_coordSys[lev],
-							 dx, 
-							 m_domainSize, 
-							 m_time, 
-							 crsePtr,
-							 refRatio); 
-
-
-		    //re-apply accumulated bedrock differences. Could be optional?
+		    // need to re-apply accumulated bedrock (GIA). Could be optional?
 		    for (DataIterator dit(newDBL); dit.ok(); ++dit)
 		      {
 			m_vect_coordSys[lev]->getTopography()[dit] += (*new_deltaTopographyDataPtr)[dit];
 		      }
 		  }
+
 		
 		//interpolate thickness & (maybe) topography
 		m_vect_coordSys[lev]->interpFromCoarse(*m_vect_coordSys[lev-1],
 						       m_refinement_ratios[lev-1],
-						       m_interpolate_zb , true);
+						       interpolate_zb , true);
 
-	
 		LevelData<FArrayBox>& thisLevelH = m_vect_coordSys[lev]->getH();
 		LevelData<FArrayBox>& thisLevelB = m_vect_coordSys[lev]->getTopography();
 		
@@ -4467,7 +4453,7 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
   levelAllocate(&m_basalThicknessSource[a_level], a_grids,  1, IntVect::Unit) ;
   levelAllocate(&m_balance[a_level],a_grids,   1, IntVect::Zero) ;
   levelAllocate(&m_calvedIceThickness[a_level],a_grids, 1, IntVect::Unit);
-  levelAllocate(&m_deltaTopography[a_level],a_grids, 1, IntVect::Unit);
+  levelAllocate(&m_deltaTopography[a_level],a_grids, 1, IntVect::Zero);
   // probably eventually want to do this differently
   RealVect dx = m_amrDx[a_level]*RealVect::Unit;
 
@@ -7337,7 +7323,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	  m_surfaceThicknessSource[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_basalThicknessSource[lev] = new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_calvedIceThickness[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
-	  m_deltaTopography[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
+	  m_deltaTopography[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Zero) ;
 	  m_balance[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Zero) ;
 	  m_diffusivity[lev] = new LevelData<FluxBox>(levelDBL, 1, IntVect::Zero);
 

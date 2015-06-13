@@ -73,7 +73,7 @@ public:
   virtual void initialize(LevelData<FArrayBox>& a_U);
  
   ///modify the ice sheet geometry after regrid
-  void regridIceGeometry(LevelSigmaCS& a_coords,
+  bool regridIceGeometry(LevelSigmaCS& a_coords,
 			 const RealVect& a_dx,
 			 const RealVect& a_domainSize,
 			 const Real& a_time,

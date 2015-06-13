@@ -1227,7 +1227,7 @@ FortranInterfaceIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
     }
 }
 
-void
+bool
 FortranInterfaceIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 				       const RealVect& a_dx,
 				       const RealVect& a_domainSize,
@@ -1242,10 +1242,16 @@ FortranInterfaceIBC::regridIceGeometry(LevelSigmaCS& a_coords,
     }
 
    Real tolerance = 1.0e-6;
+
+   if (a_dx[0] + tolerance < m_inputThicknessDx[0] )
+    return false; // if the requested grid is finer than the stored DEM, the best approach is interpolation
+
    if (a_crseCoords != NULL &&
        a_refRatio * a_dx[0] <= m_inputThicknessDx[0] * (1.0 + tolerance))
      {
        // in this (common) case, interpolation from a_crseCoords is as good as it gets
+       // now deprecated
+       MayDay::Error("FortranInterfaceIBC::regridIceGeometry interpolation from a_crseCoords deprecated");
        if (m_verbose)
 	 {
 	   pout() << " ...interpolating data from coarse LevelSigmaCS with refinement ratio = " 

@@ -481,7 +481,7 @@ MarineIBC::setSurfaceHeightBCs(LevelData<FArrayBox>& a_zSurface,
 }
 
 /// set up topography, etc at regrid time
-void
+bool
 MarineIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 			     const RealVect& a_dx,
 			     const RealVect& a_domainSize,
@@ -511,6 +511,8 @@ MarineIBC::regridIceGeometry(LevelSigmaCS& a_coords,
             }
         } 
     } // end loop over boxes
+
+    return true;
  }
 
 

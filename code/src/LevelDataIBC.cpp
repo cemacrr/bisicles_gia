@@ -326,15 +326,18 @@ void LevelDataIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
   setGeometryBCs(a_coords, a_coords.grids().physDomain(), a_dx, a_time, dt);  
 }
 
-void LevelDataIBC::regridIceGeometry(LevelSigmaCS& a_coords,
+bool LevelDataIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 				     const RealVect& a_dx,
 				     const RealVect& a_domainSize,
 				     const Real& a_time, 
 				     const LevelSigmaCS* a_crseCoords,
 				     const int a_refRatio)
 {
-  
+
+    
   Real tolerance = 1.0e-6;
+  if (a_dx[0] + tolerance < m_dx[0])
+    return false; // if the requested grid is finer than the stored DEM, the best approach is interpolation
 
   Real refRatio = m_dx[0]/a_dx[0];
   //sanity check
@@ -349,12 +352,13 @@ void LevelDataIBC::regridIceGeometry(LevelSigmaCS& a_coords,
       a_refRatio * a_dx[0] <= m_dx[0] * (1.0 + tolerance))
      {
        // in this (common) case, interpolation from a_crseCoords is as good as it gets
+       // But we should not get here now.
+       MayDay::Error("LevelDataIBC::regridIceGeometry interpolation from a_crseCoords deprecated");
        if (m_verbose)
 	 {
 	   pout() << " ...interpolating data from coarse LevelSigmaCS with refinement ratio = " 
 		  << a_refRatio << endl;
 	 }
-       
        a_coords.interpFromCoarse(*a_crseCoords, a_refRatio);
      }
    else
@@ -375,6 +379,8 @@ void LevelDataIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 	}
 
      }
+
+  return true;
 }
 
 

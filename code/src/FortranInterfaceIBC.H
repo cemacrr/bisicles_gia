@@ -158,7 +158,7 @@ public:
 				     const int a_refRatio) ;
 
   /// update the topgraphy in LevelSigmaCS but *not* the thickness
-  virtual void regridIceGeometry(LevelSigmaCS& a_coords,
+  virtual bool regridIceGeometry(LevelSigmaCS& a_coords,
 				 const RealVect& a_dx,
 				 const RealVect& a_domainSize,
 				 const Real& a_time, 

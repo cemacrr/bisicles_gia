@@ -81,19 +81,19 @@ public:
   
 
   /// set up topography, etc at regrid time
-  /*  just like initializeIceGeometry except that we don't set 
-      ice thickness, since it's assumed to be set using current state.
-      
-      default is to do nothing, in which case we assume that the current
-      state will be interpolated in AmrIce::regrid (to enable isostasy, 
-      for example)
+  /*  Default is to do nothing, and return false, 
+      in which case the topography probably needs 
+      to be interpolated by the user. 
   */
-  virtual void regridIceGeometry(LevelSigmaCS& a_coords,
+  virtual bool regridIceGeometry(LevelSigmaCS& a_coords,
                                  const RealVect& a_dx,
                                  const RealVect& a_domainSize,
                                  const Real& a_time,
 				 const LevelSigmaCS* a_crseCoords,
-				 const int a_refRatio) {;}
+				 const int a_refRatio) 
+  {
+    return false;
+  }
   /// Set boundary fluxes
   /**
    */

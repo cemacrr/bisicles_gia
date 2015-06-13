@@ -447,7 +447,7 @@ void  PythonInterface::PythonIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
   setGeometryBCs(a_coords, grids.physDomain(), a_dx, a_time, dt);  
 }
 
-void  PythonInterface::PythonIBC::regridIceGeometry(LevelSigmaCS& a_coords,
+bool  PythonInterface::PythonIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 				     const RealVect& a_dx,
 				     const RealVect& a_domainSize,
 				     const Real& a_time, 
@@ -481,8 +481,8 @@ void  PythonInterface::PythonIBC::regridIceGeometry(LevelSigmaCS& a_coords,
   a_coords.getTopography().exchange();
   a_coords.getH().exchange();
 
-  //Real dt = 0.0;
-  //setGeometryBCs(a_coords, grids.physDomain(), a_dx, a_time, dt);
+  // pythonIBC always regrids topography
+  return true;
 }
 
 void PythonInterface::PythonIBC::modifyFaceVelocity

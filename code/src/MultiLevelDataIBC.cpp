@@ -177,7 +177,7 @@ void MultiLevelDataIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 
 }
 
-void MultiLevelDataIBC::regridIceGeometry(LevelSigmaCS& a_coords,
+bool MultiLevelDataIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 				     const RealVect& a_dx,
 				     const RealVect& a_domainSize,
 				     const Real& a_time, 
@@ -202,17 +202,28 @@ void MultiLevelDataIBC::regridIceGeometry(LevelSigmaCS& a_coords,
       MayDay::Error("MultiLevelDataIBC::regridIceGeometry incompatible a_dx and m_dxCrse");
     }
 
+
+
+
   //interpolate level from coarser data, or copy.
   int nRef = int(refRatio);
+
+  if ( (a_crseCoords != NULL) && a_refRatio <= nRef)
+    {
+      return false;
+    }
+  
   RealVect dx = m_dxCrse;
   for (int lev = 0; lev < m_nLevel; lev++)
     {
       if (nRef > 1)
 	{
-	  //required level is finer than the data level, so interpolate
+	 //required level is finer than the data level, so interpolate.
 	  if ( (a_crseCoords != NULL) && a_refRatio <= nRef)
 	    {
 	      //we have a valid coarse level LevelSigmaCS, so we might as well interpolate from that
+	      //thi function is deprecated.
+	      MayDay::Error("MultiLevelDataIBC::regridIceGeometry interploation deprecated");
 	      a_coords.interpFromCoarse(*a_crseCoords, a_refRatio);
 	    }
 	  else
@@ -250,7 +261,7 @@ void MultiLevelDataIBC::regridIceGeometry(LevelSigmaCS& a_coords,
       dx /= Real(m_refRatio[lev]);
     } 
 
-  
+  return true;
 
 
 
