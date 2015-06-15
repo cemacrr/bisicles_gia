@@ -67,6 +67,9 @@ struct BisiclesWrapper
   bool m_surface_heat_boundary_dirichlett;
   LevelDataSurfaceFlux* m_basal_heat_boundary_data;
 
+  //optional bedrock elevation change per unit time (GIA)
+  LevelDataSurfaceFlux* m_topography_flux;
+
   //optional (initial) geometry data
   RefCountedPtr<LevelData<FArrayBox> >m_geometry_ice_thickness;
   RefCountedPtr<LevelData<FArrayBox> > m_geometry_bedrock_elevation;
@@ -82,6 +85,7 @@ struct BisiclesWrapper
     m_surface_heat_boundary_data = NULL;
     m_surface_heat_boundary_dirichlett = true;
     m_basal_heat_boundary_data = NULL;
+    m_topography_flux = NULL;
     m_geometry_dx = -RealVect::Unit;
   }
 
@@ -99,6 +103,8 @@ struct BisiclesWrapper
       delete m_surface_heat_boundary_data;
     if (m_basal_heat_boundary_data != NULL) 
       delete m_basal_heat_boundary_data;
+    if (m_topography_flux != NULL)
+      delete m_topography_flux;
   }
 };
 
@@ -507,7 +513,26 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
     }
 
 
+  // ---------------------------------------------
+  // set  topography (bedrock) flux
+  // ---------------------------------------------
+  
+  SurfaceFlux* topg_flux_ptr = SurfaceFlux::parseSurfaceFlux("topographyFlux");
+  if (topg_flux_ptr == NULL)
+    {
+      topg_flux_ptr = new zeroFlux();
+    }
 
+   if (a_wrapper.m_topography_flux)
+     {
+       AxbyFlux* ptr = new AxbyFlux(1.0, a_wrapper.m_topography_flux, 1.0, topg_flux_ptr);	
+       amrObject.setTopographyFlux(ptr);
+       delete(ptr);
+     }
+   else
+     {
+      amrObject.setTopographyFlux(topg_flux_ptr);
+}
 
   // ---------------------------------------------
   // set mu coefficient
@@ -1101,6 +1126,9 @@ void bisicles_set_2d_data
 	  break;
 	case BISICLES_FIELD_BASAL_HEAT_FLUX:
 	  wrapper_ptr->m_basal_heat_boundary_data = new LevelDataSurfaceFlux(ptr, dxv);
+	  break;
+	case BISICLES_FIELD_TOPOGRAPHY_FLUX:
+	  wrapper_ptr->m_topography_flux = new LevelDataSurfaceFlux(ptr, dxv);
 	  break;
 
 	default: 
