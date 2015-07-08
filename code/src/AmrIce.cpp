@@ -582,10 +582,10 @@ AmrIce::setDefaults()
   m_basalLengthScale = 0.0; // don't mess about with the basal friction / rhs by default
  
   m_wallDrag = true; //compute additional drag due to contact with rocky walls 
-  m_wallDragExtra = 0.0; // assume wall drag proportional to basal drag
+  m_wallDragExtra = 0.0; // assume wall drag proportional to basal drag;
 
-  m_groundingLineRegularization = 0.0;
   m_groundingLineCorrection = true;
+  m_groundingLineSubdivision = 0;
   m_evolve_thickness = true;
   m_evolve_velocity = true;
   m_grounded_ice_stable = false;
@@ -1371,8 +1371,8 @@ AmrIce::initialize()
   ppAmr.query("wallDrag",m_wallDrag);
   ppAmr.query("wallDragExtra",m_wallDragExtra);
 
-  ppAmr.query("grounding_line_regularization",m_groundingLineRegularization);
   ppAmr.query("grounding_line_correction",m_groundingLineCorrection);
+  ppAmr.query("grounding_line_subdivision", m_groundingLineSubdivision);
 
   //calving model options
   m_calvingModelPtr = CalvingModel::parseCalvingModel("CalvingModel");
@@ -4604,21 +4604,16 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
       vectRhs[lev] = m_velRHS[lev];
       vectC[lev] = m_velBasalC[lev];
       vectC0[lev] = new LevelData<FArrayBox>; vectC0[lev]->define(*vectC[lev]);
-      LevelData<FArrayBox>& C0 = *vectC0[lev];
-      for (DataIterator dit=C0.dataIterator(); dit.ok(); ++dit)
-	{
-	  C0[dit].setVal(0.0);
-	}
     }
 
-  //setBasalFriction(vectC);
+  //
   setMuCoefficient(m_cellMuCoef,m_faceMuCoef);
-  //eliminateRemoteIce();
-  setBasalFriction(vectC);
-  //setMuCoefficient(m_cellMuCoef,m_faceMuCoef);
 
-  // also sets beta=0 where ice is floating 
-  defineVelRHS(vectRhs, vectC,vectC0);
+  // set basal friction coeffs C,C0. C = 0 for floating ice. C0 != 0 at walls
+  setBasalFriction(vectC, vectC0);
+
+  // right hand side of the stress-balance
+  defineVelRHS(vectRhs);
   
   // write out sumRhs if appropriate
   if (s_verbosity > 3)
@@ -4903,80 +4898,23 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 
 }
 
-/// compute RHS for velocity field solve
-void
-AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
-                     Vector<LevelData<FArrayBox>* >& a_vectC,
-		     Vector<LevelData<FArrayBox>* >& a_vectC0)
+	  
+
+    
+
+
+void AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs)
 {
-  // ice density from Pattyn(2003) in kg/m^3
-  //Real rhoIce = 910.0;
-
-  // gravitational acceleration in m/s^2
-  //Real g = 9.81;
-  
-  
-  // we will need ghost cells for H when we come to to
-  // FORT_GLCORRECTION. 
-  Vector<LevelData<FArrayBox>* >tempH(m_finest_level+1);
-  for (int lev=0; lev <= m_finest_level ; ++lev)
-    {
-      const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-      LevelSigmaCS& levelCoords = *m_vect_coordSys[lev];
-     
-      tempH[lev] = (&levelCoords.getH());
-      LevelData<FArrayBox>& levelH = *tempH[lev];
-
-      if (lev > 0)
-	{
-	  PiecewiseLinearFillPatch ghostFiller(levelGrids, 
-					       m_amrGrids[lev-1],
-					       1, 
-					       m_amrDomains[lev-1],
-					       m_refinement_ratios[lev-1],
-					       1);
-
-	  const LevelData<FArrayBox>& coarseH = *tempH[lev-1]; 
-	  ghostFiller.fillInterp(levelH, coarseH, coarseH, 0.0, 0, 0, 1);
-	}
-      
-      levelH.exchange();
-    }
-
-
-  // construct multilevel surface height
-  Vector<LevelData<FArrayBox>* > zSurf(m_finest_level+1, NULL);
-  for (int lev=0; lev<=m_finest_level; lev++)
-    {
-      LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
-      const DisjointBoxLayout& grids = m_amrGrids[lev];
-      zSurf[lev] = new LevelData<FArrayBox>(grids, 1, IntVect::Unit);
-      levelCS.getSurfaceHeight(*zSurf[lev]);
-    }
-  
-  // used for limiting RHS, if needed
-  Real maxZs = 0.0;
-  Real maxGrad = -1.0;
-  if (m_limitVelRHS && (m_gradLimitRadius > 0) )
-    {
-      Interval comps(0,0);
-      maxZs = computeMax(zSurf, m_refinement_ratios, comps, 0);
-      maxGrad = maxZs/Real(m_gradLimitRadius);
-    }
-  
 
   for (int lev=0; lev<=m_finest_level; lev++)
     {
       LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
       const LevelData<FArrayBox>& levelH = levelCS.getH();
-      
       const LevelData<FArrayBox>& levelGradS = levelCS.getGradSurface();
       const LevelData<BaseFab<int> >& levelMask = levelCS.getFloatingMask();
       const LayoutData<bool>& levelAnyFloating = levelCS.anyFloating();
-      LevelData<FArrayBox>& levelC = (*a_vectC[lev]);
       LevelData<FArrayBox>& levelRhs = (*a_vectRhs[lev]);
       const DisjointBoxLayout& grids = m_amrGrids[lev];
-      LevelData<FArrayBox>& levelZs = *zSurf[lev];
 
       const RealVect& dx = levelCS.dx();
       Real iceDensity = levelCS.iceDensity();
@@ -4987,61 +4925,54 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
           const FArrayBox& thisH = levelH[dit];
 	  const BaseFab<int>& floatingMask = levelMask[dit];
 	  bool  anyFloating = levelAnyFloating[dit];  
-          // now take grad(z_s)
           FArrayBox& thisRhs = levelRhs[dit];
 	  const FArrayBox& grad = levelGradS[dit];
 	  const Box& gridBox = grids[dit];
 	  
-          
-
-          // now add in background slope 
-	  //and compute RHS.	  
-          // break this into two steps and limit grad(z_s) if 
-          // necessary
+          // limit rhs if necessary
           thisRhs.copy(grad, gridBox);
-          if (m_limitVelRHS && (m_gradLimitRadius > 0) )
-            {
-              RealVect maxGradDir;
-              maxGradDir[0] = maxGrad / dx[0];
-              maxGradDir[1] = maxGrad / dx[1];
+          // if (m_limitVelRHS && (m_gradLimitRadius > 0) )
+          //   {
+          //     RealVect maxGradDir;
+          //     maxGradDir[0] = maxGrad / dx[0];
+          //     maxGradDir[1] = maxGrad / dx[1];
              
+          //     for (BoxIterator bit(gridBox); bit.ok(); ++bit)
+          //       {
+          //         IntVect iv = bit();
+          //         // don't limit in floating regions, since 
+          //         // grad(s) here represents the marine boundary condition
+          //         if  (floatingMask(iv) == GROUNDEDMASKVAL)
+          //           {
+          //             for (int dir=0; dir<SpaceDim; dir++)
+          //               {
+          //                 if (thisRhs(iv,dir) > maxGradDir[dir])
+          //                   thisRhs(iv,dir) = maxGradDir[dir];
+          //                 else if (thisRhs(iv,dir) < -maxGradDir[dir])
+          //                   thisRhs(iv,dir) = -maxGradDir[dir];
+          //               }
+          //           }                          
+          //       }
+          //   }
 
-              for (BoxIterator bit(gridBox); bit.ok(); ++bit)
-                {
-                  IntVect iv = bit();
-                  // don't limit in floating regions, since 
-                  // grad(s) here represents the marine boundary condition
-                  if  (floatingMask(iv) == GROUNDEDMASKVAL)
-                    {
-                      for (int dir=0; dir<SpaceDim; dir++)
-                        {
-                          if (thisRhs(iv,dir) > maxGradDir[dir])
-                            thisRhs(iv,dir) = maxGradDir[dir];
-                          else if (thisRhs(iv,dir) < -maxGradDir[dir])
-                            thisRhs(iv,dir) = -maxGradDir[dir];
-                        }
-                    }                          
-                }
-            }
-          for (BoxIterator bit (gridBox); bit.ok(); ++bit)
-            {
-              IntVect iv = bit();
-
-              for (int dir=0; dir<SpaceDim; dir++)
-                {     
-                  thisRhs(iv,dir) *= iceDensity*gravity*thisH(iv,0);
-                } // end loop over directions
-            } // end loop over cells in this box
-
-
-	  if(m_groundingLineCorrection && anyFloating == 1)
+	  //rhs is now (limited) grad(s); needs to be rho * g * h * grad(s)
+           for (BoxIterator bit (gridBox); bit.ok(); ++bit)
+             {
+               IntVect iv = bit();
+               for (int dir=0; dir<SpaceDim; dir++)
+                 {     
+                   thisRhs(iv,dir) *= iceDensity*gravity*thisH(iv,0);
+                 }
+	     }
+	  
+	   if(m_groundingLineCorrection && anyFloating == 1)
 	    {
 	      Real rhog = iceDensity*gravity;
 	      CH_assert(SpaceDim != 3);
 	      for (int dir=0; dir<SpaceDim; dir++)
 		{
-		  const FArrayBox& thisH = (*tempH[lev])[dit];
-		  const FArrayBox& thisZsurf = levelZs[dit];
+		  const FArrayBox& thisH = levelCS.getH()[dit];
+		  const FArrayBox& thisZsurf = levelCS.getSurfaceHeight()[dit];
 		  FORT_GLCORRECTION(CHF_FRA1(thisRhs, dir),
 				    CHF_CONST_FRA1(thisH,0),
 				    CHF_CONST_FRA1(thisZsurf,0),
@@ -5053,53 +4984,203 @@ AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
 		}
 	    }
 
-	  FArrayBox& thisC = levelC[dit];
-	  FArrayBox& thisC0 = (*a_vectC0[lev])[dit];
-
-       
-	  // add drag due to ice in contact with ice-free rocky walls
-	  
-	  thisC0.setVal(0.0);
-	  if (m_wallDrag)
-	  {
-	    IceUtility::addWallDrag(thisC0, floatingMask, levelCS.getSurfaceHeight()[dit],
-				     thisH, levelCS.getTopography()[dit], thisC, m_wallDragExtra,
-				     RealVect::Unit*m_amrDx[lev], gridBox);
-	  }
-	  
-
-	    // set friction on open land and open sea to 100. Set friction on floating ice to 0
-          if(anyFloating && m_reset_floating_friction_to_zero)
-            {
-              FORT_SETFLOATINGBETA(CHF_FRA1       (thisC,0),
-                                   CHF_CONST_FIA1(floatingMask,0),
-                                   CHF_BOX        (gridBox));
-
-              // friction must be non-negative
-	      CH_assert(thisC.min(gridBox) >= 0.0); 
-            } 
-	   
+	
         } // end loop over boxes
 
       // finally, modify RHS in problem-dependent ways,
-      m_thicknessIBCPtr->modifyVelocityRHS(levelRhs, 
-                                           *m_vect_coordSys[lev],
+      m_thicknessIBCPtr->modifyVelocityRHS(levelRhs,  *m_vect_coordSys[lev],
                                            m_amrDomains[lev],m_time, m_dt);
       
     } // end loop over levels
 
 
-  // clean up
-  for (int lev=0; lev<zSurf.size(); lev++)
-    {
-      if (zSurf[lev] != NULL)
-        {
-          delete zSurf[lev];
-          zSurf[lev] = NULL;
-        }
-    }
 
 }
+
+// /// compute RHS for velocity field solve
+// void
+// old_AmrIce_defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
+//                      Vector<LevelData<FArrayBox>* >& a_vectC,
+// 		     Vector<LevelData<FArrayBox>* >& a_vectC0)
+// {
+  
+//   // we will need ghost cells for H when we come to to
+//   // FORT_GLCORRECTION etc
+//   Vector<LevelData<FArrayBox>* >tempH(m_finest_level+1);
+//   for (int lev=0; lev <= m_finest_level ; ++lev)
+//     {
+//       const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+//       LevelSigmaCS& levelCoords = *m_vect_coordSys[lev];
+//       tempH[lev] = (&levelCoords.getH());
+//       LevelData<FArrayBox>& levelH = *tempH[lev];
+//       if (lev > 0)
+// 	{
+// 	  PiecewiseLinearFillPatch ghostFiller
+// 	    (levelGrids,  m_amrGrids[lev-1],  1, 
+// 	     m_amrDomains[lev-1],m_refinement_ratios[lev-1], 1);
+// 	  const LevelData<FArrayBox>& coarseH = *tempH[lev-1]; 
+// 	  ghostFiller.fillInterp(levelH, coarseH, coarseH, 0.0, 0, 0, 1);
+// 	}
+//       levelH.exchange();
+//     }
+
+
+//   // construct multilevel surface height
+//   Vector<LevelData<FArrayBox>* > zSurf(m_finest_level+1, NULL);
+//   for (int lev=0; lev<=m_finest_level; lev++)
+//     {
+//       LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
+//       const DisjointBoxLayout& grids = m_amrGrids[lev];
+//       zSurf[lev] = new LevelData<FArrayBox>(grids, 1, IntVect::Unit);
+//       levelCS.getSurfaceHeight(*zSurf[lev]);
+//     }
+  
+//   // used for limiting RHS, if needed
+//   Real maxZs = 0.0;
+//   Real maxGrad = -1.0;
+//   if (m_limitVelRHS && (m_gradLimitRadius > 0) )
+//     {
+//       Interval comps(0,0);
+//       maxZs = computeMax(zSurf, m_refinement_ratios, comps, 0);
+//       maxGrad = maxZs/Real(m_gradLimitRadius);
+//     }
+  
+
+//   for (int lev=0; lev<=m_finest_level; lev++)
+//     {
+//       LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
+//       const LevelData<FArrayBox>& levelH = levelCS.getH();
+      
+//       const LevelData<FArrayBox>& levelGradS = levelCS.getGradSurface();
+//       const LevelData<BaseFab<int> >& levelMask = levelCS.getFloatingMask();
+//       const LayoutData<bool>& levelAnyFloating = levelCS.anyFloating();
+//       LevelData<FArrayBox>& levelC = (*a_vectC[lev]);
+//       LevelData<FArrayBox>& levelRhs = (*a_vectRhs[lev]);
+//       const DisjointBoxLayout& grids = m_amrGrids[lev];
+//       LevelData<FArrayBox>& levelZs = *zSurf[lev];
+
+//       const RealVect& dx = levelCS.dx();
+//       Real iceDensity = levelCS.iceDensity();
+//       Real gravity = levelCS.gravity();
+//       DataIterator dit = grids.dataIterator();
+//       for (dit.begin(); dit.ok(); ++dit)
+//         {
+//           const FArrayBox& thisH = levelH[dit];
+// 	  const BaseFab<int>& floatingMask = levelMask[dit];
+// 	  bool  anyFloating = levelAnyFloating[dit];  
+//           // now take grad(z_s)
+//           FArrayBox& thisRhs = levelRhs[dit];
+// 	  const FArrayBox& grad = levelGradS[dit];
+// 	  const Box& gridBox = grids[dit];
+	  
+          
+
+//           // now add in background slope 
+// 	  //and compute RHS.	  
+//           // break this into two steps and limit grad(z_s) if 
+//           // necessary
+//           thisRhs.copy(grad, gridBox);
+//           if (m_limitVelRHS && (m_gradLimitRadius > 0) )
+//             {
+//               RealVect maxGradDir;
+//               maxGradDir[0] = maxGrad / dx[0];
+//               maxGradDir[1] = maxGrad / dx[1];
+             
+
+//               for (BoxIterator bit(gridBox); bit.ok(); ++bit)
+//                 {
+//                   IntVect iv = bit();
+//                   // don't limit in floating regions, since 
+//                   // grad(s) here represents the marine boundary condition
+//                   if  (floatingMask(iv) == GROUNDEDMASKVAL)
+//                     {
+//                       for (int dir=0; dir<SpaceDim; dir++)
+//                         {
+//                           if (thisRhs(iv,dir) > maxGradDir[dir])
+//                             thisRhs(iv,dir) = maxGradDir[dir];
+//                           else if (thisRhs(iv,dir) < -maxGradDir[dir])
+//                             thisRhs(iv,dir) = -maxGradDir[dir];
+//                         }
+//                     }                          
+//                 }
+//             }
+//           for (BoxIterator bit (gridBox); bit.ok(); ++bit)
+//             {
+//               IntVect iv = bit();
+
+//               for (int dir=0; dir<SpaceDim; dir++)
+//                 {     
+//                   thisRhs(iv,dir) *= iceDensity*gravity*thisH(iv,0);
+//                 } // end loop over directions
+//             } // end loop over cells in this box
+
+
+// 	  if(m_groundingLineCorrection && anyFloating == 1)
+// 	    {
+// 	      Real rhog = iceDensity*gravity;
+// 	      CH_assert(SpaceDim != 3);
+// 	      for (int dir=0; dir<SpaceDim; dir++)
+// 		{
+// 		  const FArrayBox& thisH = (*tempH[lev])[dit];
+// 		  const FArrayBox& thisZsurf = levelZs[dit];
+// 		  FORT_GLCORRECTION(CHF_FRA1(thisRhs, dir),
+// 				    CHF_CONST_FRA1(thisH,0),
+// 				    CHF_CONST_FRA1(thisZsurf,0),
+// 				    CHF_CONST_FIA1(floatingMask,0),
+// 				    CHF_INT(dir),
+// 				    CHF_CONST_REAL(dx[dir]),
+// 				    CHF_CONST_REAL(rhog),
+// 				    CHF_BOX(gridBox));
+// 		}
+// 	    }
+
+// 	  FArrayBox& thisC = levelC[dit];
+// 	  FArrayBox& thisC0 = (*a_vectC0[lev])[dit];
+
+       
+// 	  // add drag due to ice in contact with ice-free rocky walls
+	  
+// 	  thisC0.setVal(0.0);
+// 	  if (m_wallDrag)
+// 	  {
+// 	    IceUtility::addWallDrag(thisC0, floatingMask, levelCS.getSurfaceHeight()[dit],
+// 				     thisH, levelCS.getTopography()[dit], thisC, m_wallDragExtra,
+// 				     RealVect::Unit*m_amrDx[lev], gridBox);
+// 	  }
+	  
+
+// 	    // set friction on open land and open sea to 100. Set friction on floating ice to 0
+//           if(anyFloating && m_reset_floating_friction_to_zero)
+//             {
+//               FORT_SETFLOATINGBETA(CHF_FRA1       (thisC,0),
+//                                    CHF_CONST_FIA1(floatingMask,0),
+//                                    CHF_BOX        (gridBox));
+
+//               // friction must be non-negative
+// 	      CH_assert(thisC.min(gridBox) >= 0.0); 
+//             } 
+	   
+//         } // end loop over boxes
+
+//       // finally, modify RHS in problem-dependent ways,
+//       m_thicknessIBCPtr->modifyVelocityRHS(levelRhs, 
+//                                            *m_vect_coordSys[lev],
+//                                            m_amrDomains[lev],m_time, m_dt);
+      
+//     } // end loop over levels
+
+
+//   // clean up
+//   for (int lev=0; lev<zSurf.size(); lev++)
+//     {
+//       if (zSurf[lev] != NULL)
+//         {
+//           delete zSurf[lev];
+//           zSurf[lev] = NULL;
+//         }
+//     }
+
+// }
 
 /// set mu coefficient (phi) prior to velocity solve
 void
@@ -5130,36 +5211,137 @@ AmrIce::setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef,
  }
 
 
-/// set basal friction coefficient (beta) prior to velocity solve
+/// set basal friction coefficients C,C0 prior to velocity solve
 void
-AmrIce::setBasalFriction(Vector<LevelData<FArrayBox>* >& a_vectBeta)
+AmrIce::setBasalFriction(Vector<LevelData<FArrayBox>* >& a_vectC,Vector<LevelData<FArrayBox>* >& a_vectC0)
 {
-  CH_assert(m_basalFrictionPtr != NULL);
 
+  // first, compute C and C0 as though there was no floating ice
+  CH_assert(m_basalFrictionPtr != NULL);
   for (int lev=0; lev<=m_finest_level; lev++)
     {
-      m_basalFrictionPtr->setBasalFriction(*a_vectBeta[lev],
-                                           *m_vect_coordSys[lev],
-                                           this->time(),
-                                           m_dt); 
-
+      m_basalFrictionPtr->setBasalFriction(*a_vectC[lev], *m_vect_coordSys[lev],
+                                           this->time(),m_dt); 
       if (m_basalRateFactor != NULL)
 	{
 	  //basal temperature dependence
-	  LevelData<FArrayBox>& B = *a_vectBeta[lev];
+	  LevelData<FArrayBox>& C = *a_vectC[lev];
 	  Vector<Real> bSigma(1,1.0);
-	  LevelData<FArrayBox> A(B.disjointBoxLayout(),1,B.ghostVect());
+	  LevelData<FArrayBox> A(C.disjointBoxLayout(),1,C.ghostVect());
 	  IceUtility::computeA(A, bSigma,*m_vect_coordSys[lev],  
 			       m_basalRateFactor, *m_bTemperature[lev]);
-	  for (DataIterator dit = B.dataIterator(); dit.ok(); ++dit)
+	  for (DataIterator dit = C.dataIterator(); dit.ok(); ++dit)
 	    {
-	      B[dit] /= A[dit];
+	      C[dit] /= A[dit];
 	    }
 	}
      
-      a_vectBeta[lev]->exchange();
+      a_vectC[lev]->exchange();
+    }
+
+  // compute C0 (wall drag) before setting C = 0 in floating regions
+  for (int lev=0; lev<=m_finest_level; lev++)
+    {
+      LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
+      const DisjointBoxLayout& grids = m_amrGrids[lev];
+      for (DataIterator dit(grids); dit.ok(); ++dit)
+        {
+	  FArrayBox& thisC0 = (*a_vectC0[lev])[dit];
+	  const FArrayBox& thisC = (*a_vectC[lev])[dit];
+	  thisC0.setVal(0.0);
+	  if (m_wallDrag)
+	    {
+	      IceUtility::addWallDrag(thisC0, levelCS.getFloatingMask()[dit], 
+				      levelCS.getSurfaceHeight()[dit], levelCS.getH()[dit], 
+				      levelCS.getTopography()[dit], thisC, m_wallDragExtra,
+				      RealVect::Unit*m_amrDx[lev], grids[dit]);
+	    }
+	}
+    }
+
+  if ( m_reset_floating_friction_to_zero )
+    {
+      //set C = 0 in floating region, possibly employing a thickness-above-flotation interpolation 
+      for (int lev=0; lev<=m_finest_level; lev++)
+	{
+	  setFloatingBasalFriction(*a_vectC[lev], *m_vect_coordSys[lev] ,
+				   m_amrGrids[lev], m_groundingLineSubdivision);
+	}
+    }
+
+}
+
+/// set C = 0 in floating region
+/** 
+    If nRef <= 0, C is set to zero according to the mask in a_levelCS
+
+    Otherwise Hab, the thickness above/below flotation (> 0 on grounded ice, < 0 in the shelf)
+    is computed, and then interpolated (using the bilinear formula : this is not
+    the usual conservative Chombo formula. C is then multplied by  the integral of (Hab > 0)?1:0 
+    over the each cell.  
+ 
+ */ 
+void
+AmrIce::setFloatingBasalFriction(LevelData<FArrayBox>& a_C, const LevelSigmaCS& a_coords,
+				 const DisjointBoxLayout& a_grids, int a_subdivision)
+{
+
+  if (a_subdivision > 0)
+    {
+      pout() << " AmrIce::setFloatingBasalFriction : interpolation... " << std::endl;
+      for (DataIterator dit(a_grids); dit.ok(); ++dit)
+	{ 
+	  Box grownBox = a_grids[dit];
+	  grownBox.grow(1);
+	  FArrayBox hab(grownBox,1);
+	  // thickness above / under flotation (< 0 in shelf)
+	  Real rhoi = a_coords.iceDensity();
+	  Real rhoo = a_coords.waterDensity();
+	  Real seaLev = a_coords.seaLevel();
+	  Real habmin, habmax;
+	  FORT_HOVERUNDERFLOTATION( CHF_FRA1(hab,0),CHF_REAL(habmin),CHF_REAL(habmax),
+				    CHF_CONST_FRA1(a_coords.getH()[dit],0),
+				    CHF_CONST_FRA1(a_coords.getTopography()[dit],0),
+				    CHF_CONST_REAL(rhoi),
+				    CHF_CONST_REAL(rhoo),
+				    CHF_CONST_REAL(seaLev),
+				    CHF_BOX(grownBox));
+
+	  if ( (habmin < 0.0) && (habmax > 0.0))
+	    {
+	      int nRef = std::pow(2,a_subdivision);
+	      //integrate (hab>0)?1:0 over each cell to approximate grounded area
+	      FArrayBox ag(a_grids[dit],1);
+	      FORT_INTEGRATEHEAVISIDE2D( CHF_FRA1(ag,0), CHF_CONST_FRA1(hab,0),
+					 CHF_CONST_INT(nRef), CHF_BOX(a_grids[dit]));
+	      
+	      //weight C
+	      a_C[dit] *= ag;
+	    }
+	}
+      pout() << " AmrIce::setFloatingBasalFriction : done interpolation " << std::endl;
+    }
+
+  //finally, set C = 0 in any floating cells - covers nRef == 0 and nRef > 0
+  for (DataIterator dit(a_grids); dit.ok(); ++dit)
+    {
+      bool anyFloating = a_coords.anyFloating()[dit];
+      
+      // set friction on open land and open sea to 100. Set friction on floating ice to 0
+      if(anyFloating)
+	{
+	  FArrayBox& thisC = a_C[dit];
+	  const BaseFab<int>& mask = a_coords.getFloatingMask()[dit];
+	  FORT_SETFLOATINGBETA(CHF_FRA1(thisC,0),
+			       CHF_CONST_FIA1(mask,0),
+			       CHF_BOX(a_grids[dit]));
+	  
+	  // friction must be non-negative
+	  CH_assert(thisC.min(a_grids[dit]) >= 0.0); 
+	}  
     }
 }
+
 
 /// given the current cell centred velocity field, compute a face centred velocity field
 void 
@@ -6408,7 +6590,9 @@ AmrIce::writePlotFile()
 
   if (m_write_solver_rhs)
     {
-      defineVelRHS(m_velRHS, m_velBasalC, vectC0);
+      setBasalFriction(m_velBasalC, vectC0);
+      defineVelRHS(m_velRHS);
+      
     }
 
 

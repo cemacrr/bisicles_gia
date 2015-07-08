@@ -410,14 +410,15 @@ protected:
   virtual void solveVelocityField(bool a_forceSolve = false, Real a_convergenceMetric = -1.0);
 
   /// compute RHS for velocity field solve
-  /** also sets beta to zero where ice is floating
-   */
-  virtual void defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs,
-                            Vector<LevelData<FArrayBox>* >& a_vectC,
-                            Vector<LevelData<FArrayBox>* >& a_vectC0);
+  virtual void defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs);
 
-  /// set basal friction coefficient (beta) prior to velocity solve
-  virtual void setBasalFriction(Vector<LevelData<FArrayBox>* >& a_vectBeta);
+  /// set basal friction coefficients C,C0 prior to velocity solve
+  virtual void setBasalFriction(Vector<LevelData<FArrayBox>* >& a_C, Vector<LevelData<FArrayBox>* >& a_C0);
+
+  /// set basal friction coefficient C = 0 in floating ice prior to velocity solve
+  virtual void setFloatingBasalFriction(LevelData<FArrayBox>& a_C,const LevelSigmaCS& a_coords,
+					const DisjointBoxLayout& a_grids, int nRef);
+  
 
   /// set mu coefficient (phi) prior to velocity solve
   virtual void setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef, 
@@ -599,17 +600,11 @@ protected:
   bool m_wallDrag;
   Real m_wallDragExtra;
 
-  // Attempt to limit velocity
-  // gradients close to the grounding line by adding a drag
-  // term -rHu to the LHS and a source term -rQ to the RHS.
-  // r = m_groundingLineRegularization
-  // Q is the analytic expression for the GL flux  of 
-  // Schoof (2007) J Geophys. Res. vol 112, p F03S28, which
-  // is only valid for 1D SSA models.
-  Real m_groundingLineRegularization;
-
   //use one sided diffs at the grounding line?
   bool m_groundingLineCorrection;
+  //set m_groundingLineSubdivision > 0 to 
+  //interpolate the grounding line position and reduce friction near the GL
+  int m_groundingLineSubdivision;
 #if 0
   /// BCFunc for velSolver. Eventually would like this to be a BCHolder
   BCFunc m_velBCs;

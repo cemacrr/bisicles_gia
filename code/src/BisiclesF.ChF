@@ -301,3 +301,122 @@ c from face-centered u and cell-centered s
 
       return
       end
+
+c------------------------------------------------------------
+c compute thickness over or under flotation (< 0 in shelf)
+c returns the max and min values too
+c------------------------------------------------------------
+      
+      subroutine hoverunderflotation(CHF_FRA1[hab], 
+     &     CHF_REAL[hmin],CHF_REAL[hmax],
+     &     CHF_CONST_FRA1[thck],
+     &     CHF_CONST_FRA1[topg],
+     &     CHF_CONST_REAL[rhoi],
+     &     CHF_CONST_REAL[rhoo],
+     &     CHF_CONST_REAL[sealevel], 
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      REAL_T ratio
+
+      ratio = rhoo / rhoi
+      hmax = -1.0e+12
+      hmin = +1.0e+12
+
+      CHF_AUTOMULTIDO[box; i]
+      hab(CHF_AUTOIX[i]) = thck(CHF_AUTOIX[i]) - 
+     &     ratio*max(zero, seaLevel - topg(CHF_AUTOIX[i]))
+
+      hmax = max( hab(CHF_AUTOIX[i]), hmax)
+      hmin = min( hab(CHF_AUTOIX[i]), hmin)
+
+      CHF_ENDDO
+
+      return
+      end
+
+c------------------------------------------------------------
+c integrate (h>0)?1:0 over each cell, using the midpoint rule
+c with n > 0 subdivisions and bilinear interpolation to compute
+c h. Result normalized to cell area. 
+c Requires ghost radius = 1, and sensible corner ghost data
+c------------------------------------------------------------
+      
+      subroutine integrateheaviside2D(CHF_FRA1[r], 
+     &     CHF_CONST_FRA1[h], CHF_CONST_INT[n],
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      integer CHF_AUTODECL[ix]
+      integer CHF_AUTODECL[iy]
+      integer CHF_AUTODECL[ixy]
+      integer kx,ky,nk,sx,sy
+      REAL_T h00,h01,h10,h11,hh,rr,xx,yy,subdx,subdx2
+      REAL_T w00(0:n-1,0:n-1),w01(0:n-1,0:n-1)
+      REAL_T w10(0:n-1,0:n-1),w11(0:n-1,0:n-1)
+
+      CHF_DTERM[ix0 = CHF_ID(0,0);
+                ix1 = CHF_ID(0,1);
+                ix2 = CHF_ID(0,2)]
+
+      CHF_DTERM[iy0 = CHF_ID(1,0);
+                iy1 = CHF_ID(1,1);
+                iy2 = CHF_ID(1,2)]   
+     
+      CHF_DTERM[ixy0 = CHF_ID(1,0);
+                ixy1 = CHF_ID(1,1);
+                ixy2 = CHF_ID(1,2)]   
+    
+
+
+
+c     width of sub cells
+      subdx = one / (n*two)
+      subdx2 = subdx**2
+
+c     weights for the bilinear formula
+      do ky = 0,n-1
+         do kx = 0,n-1
+           xx = (kx + half)*subdx
+           yy = (ky + half)*subdx
+           w00(kx,ky) = (one-xx)*(one-yy)
+           w01(kx,ky) = (one-xx)*yy
+           w10(kx,ky) = xx*(one-yy)
+           w11(kx,ky) = xx*yy
+ !          write(*,*) kx,ky,xx,yy,w00(kx,ky),w01(kx,ky),
+ !    &          w10(kx,ky),w11(kx,ky),
+ !    &          w00(kx,ky)+ w01(kx,ky) + w10(kx,ky)+ w11(kx,ky)
+        end do
+      end do
+      CHF_AUTOMULTIDO[box; i]
+
+      rr = zero
+
+c     loop over quadrants
+      do sx = -1,1,2
+         do sy = -1,1,2
+c     interpolation corners
+            h00 = h(i0,i1)
+            h10 = h(i0+sx,i1)
+            h01 = h(i0,i1+sy)
+            !how to get the i+1,j+1 cell using offsetix?
+            h11 = h(i0+sx,i1+sy)
+            do ky = 0,n-1  
+               do kx = 0,n-1
+                  hh = h00*w01(kx,ky) 
+     &                 + h01*w01(kx,ky) 
+     &                 + h10*w10(kx,ky)
+     &                 + h11*w11(kx,ky)
+                  
+                  if (hh .gt. zero) then
+                     rr = rr + subdx2
+                  end if
+               end do
+            end do
+         end do
+      end do
+      r(CHF_AUTOIX[i]) = rr
+      CHF_ENDDO
+
+      return
+      end
