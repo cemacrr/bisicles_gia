@@ -62,12 +62,16 @@ public:
     CH_assert(!is.fail());
     do 
       {
-	Real x,y,v;
-	is >> x; is >> y; is >> v; is.ignore(1,ios::eofbit);
-
-	m_x.push_back(x);
-	m_y.push_back(y);
-	m_v.push_back(v);
+	int c = is.peek();
+	if ( std::isdigit(c))
+	  {
+	    Real x,y,v;
+	    is >> x; is >> y; is >> v; 
+	    m_x.push_back(x);
+	    m_y.push_back(y);
+	    m_v.push_back(v);
+	  }
+	is.ignore(1,ios::eofbit);
 	
       } while (!is.eof());
   }
@@ -2116,6 +2120,7 @@ void AMRIceControl::computeObjectiveAndGradient
   pout() << " ||velocity misfit||^2 = " << vobj
 	 << std::endl;
   //solve the adjoint problem
+  pout() << " solving adjoint equations... " << std::endl;
   solveForwardProblem(m_adjVel,true,m_adjRhs,m_C,m_C0,m_A,m_faceMuCoef);
   //this might not be necessary, but it makes the plotted fields look better
   for (int lev=m_finestLevel; lev > 0 ;lev--)
