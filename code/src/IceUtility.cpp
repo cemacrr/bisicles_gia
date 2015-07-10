@@ -79,36 +79,7 @@ void IceUtility::defineRHS(Vector<LevelData<FArrayBox>* >& a_rhs,
     }
 }
 
-// compute RHS for velocity field solve
-void IceUtility::setFloatingC(Vector<LevelData<FArrayBox>* >& a_C,
-			       const Vector<RefCountedPtr<LevelSigmaCS > >& a_CS,
-			       const Vector<DisjointBoxLayout>& a_grids,
-			       const Real& a_basalFrictionDecay)
-{
-   CH_assert(SpaceDim == 2);
-   CH_assert(a_C.size() <= a_CS.size());
-  for (int lev = 0; lev < a_C.size(); ++lev)
-    {
-      CH_assert(a_C[lev] != NULL && a_CS[lev] != NULL);
-      LevelData<FArrayBox>& levelC = *a_C[lev];
-      const LevelSigmaCS& levelCS = *a_CS[lev];
-      const DisjointBoxLayout& levelGrids = a_grids[lev];
-      for (DataIterator dit(levelGrids);dit.ok();++dit)
-	{
-	   const bool& anyFloating = levelCS.anyFloating()[dit];
-	   if (anyFloating)
-	     {
-	       const Box& box = levelGrids[dit];
-	       FArrayBox& C = levelC[dit];
-               const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
-	       	       
-	       FORT_SETFLOATINGBETA(CHF_FRA1(C,0),
-				    CHF_CONST_FIA1(mask,0),
-                                    CHF_BOX(box));
-	     }
-	}
-    }
-}
+
 
 //apply cell-centred helmholtz operator a phi + b grad^2(phi) 
 //to cell-centred phi. Assumes that boundary values have been

@@ -1884,42 +1884,50 @@ void AMRIceControl::computeObjectiveAndGradient
 	 << " min muCoef = " << minMuCoef
 	   << std::endl;
   }
-  //solve the forward problem (to update mu)
+  
 
+  
+  {
+    //Usual adjustments to C : set to 0 in shelves. add wall drag
+    
+    ParmParse ppamr("amr");
 
-
-  IceUtility::setFloatingC(m_C, m_coordSys, m_grids, 0.0);
-
-  // add drag due to ice in contact with ice-free rocky walls
-	 
-  ParmParse ppamr("amr");
-  bool wallDrag = true; 
-  ppamr.query("wallDrag", wallDrag);
-  if (wallDrag)
-    {
-      Real wallDragExtra = 0.0;
-      ppamr.query("wallDragExtra", wallDragExtra);
-
-      for (int lev=0; lev <= m_finestLevel;lev++)
-	{
-	  const LevelSigmaCS& levelCS =  *m_coordSys[lev];
-	  LevelData<FArrayBox>& levelC =  *m_C[lev];
-	  const LevelData<FArrayBox>& levelCCopy =  *m_Ccopy[lev]; //not set to zero in shelves
-	  const DisjointBoxLayout levelGrids =  m_grids[lev];
-	  for (DataIterator dit(levelGrids);dit.ok();++dit)
+    //set C to zero in shelves
+    int subdiv = 0;
+    ppamr.query("grounding_line_subdivision",subdiv);
+    for (int lev=0; lev <= m_finestLevel;lev++)
+      {	
+	IceUtility::setFloatingBasalFriction(*m_C[lev], *m_coordSys[lev], m_grids[lev], subdiv);
+      }
+  
+    // add drag due to ice in contact with ice-free rocky walls
+    bool wallDrag = true; 
+    ppamr.query("wallDrag", wallDrag);
+    if (wallDrag)
+      {
+	Real wallDragExtra = 0.0;
+	ppamr.query("wallDragExtra", wallDragExtra);
+	
+	for (int lev=0; lev <= m_finestLevel;lev++)
+	  {
+	    const LevelSigmaCS& levelCS =  *m_coordSys[lev];
+	    LevelData<FArrayBox>& levelC =  *m_C[lev];
+	    const LevelData<FArrayBox>& levelCCopy =  *m_Ccopy[lev]; //not set to zero in shelves
+	    const DisjointBoxLayout levelGrids =  m_grids[lev];
+	    for (DataIterator dit(levelGrids);dit.ok();++dit)
 	    {
-
 	      FArrayBox wallC(levelGrids[dit],1);
 	      wallC.setVal(0.0);
 	      IceUtility::addWallDrag(wallC, 
-				       levelCS.getFloatingMask()[dit], levelCS.getSurfaceHeight()[dit],
-				       levelCS.getH()[dit], levelCS.getTopography()[dit], 
-				       levelCCopy[dit], wallDragExtra,m_dx[lev],levelGrids[dit]);
+				      levelCS.getFloatingMask()[dit], levelCS.getSurfaceHeight()[dit],
+				      levelCS.getH()[dit], levelCS.getTopography()[dit], 
+				      levelCCopy[dit], wallDragExtra,m_dx[lev],levelGrids[dit]);
 	      
 	      levelC[dit] += wallC;
 	    }
-	}
-    }
+	  }
+      }
+  }
 
 
   
@@ -1936,6 +1944,7 @@ void AMRIceControl::computeObjectiveAndGradient
       m_constRelPtr = tmpPtr;
       m_velocityInitialised = true;
     }
+  //solve the forward problem (to update mu)
   solveForwardProblem(m_velb,false,m_rhs,m_C,m_C0,m_A,m_faceMuCoef);
 #if BISICLES_Z == BISICLES_LAYERED
 

@@ -35,11 +35,6 @@ namespace IceUtility
 		 const Vector<RealVect>& a_dx);
 
 
-  void  setFloatingC(Vector<LevelData<FArrayBox>* >& a_C,
-		    const Vector<RefCountedPtr<LevelSigmaCS > >& a_CS,
-		    const Vector<DisjointBoxLayout>& a_grids,
-		    const Real& a_basalFrictionDecay);
-
   /// compute the operator L phi = a * phi + b * grad^2 (phi) 
   void applyHelmOp
   (LevelData<FArrayBox>& a_lapPhi,
