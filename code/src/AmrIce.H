@@ -415,11 +415,6 @@ protected:
   /// set basal friction coefficients C,C0 prior to velocity solve
   virtual void setBasalFriction(Vector<LevelData<FArrayBox>* >& a_C, Vector<LevelData<FArrayBox>* >& a_C0);
 
-  /// set basal friction coefficient C = 0 in floating ice prior to velocity solve
-  virtual void setFloatingBasalFriction(LevelData<FArrayBox>& a_C,const LevelSigmaCS& a_coords,
-					const DisjointBoxLayout& a_grids, int nRef);
-  
-
   /// set mu coefficient (phi) prior to velocity solve
   virtual void setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef, 
 			Vector<LevelData<FluxBox>* >& a_faceMuCoef);

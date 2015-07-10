@@ -784,6 +784,104 @@ void IceUtility::eliminateRemoteIce
 
 }
 
+/// multiply a_u by the grounded portion of each cell
+/**
+   For a_subdivision > 0, the grounded portion of a cell
+   is computed by (1) approximating the thickness above/below
+   flotation in each quarter of each cell with a bilinear formula 
+   h(x,y) (2) integrating the Heaviside function (h > 0)?1:0 over 
+   each quarter  using the midpoint rule in [2^a_n]^2 subdivisions
+   (making 4*[2^a_n]^2 subcells)
+
+   a_subdivision = 2 (subcell size = dx/8) is probably plenty, 
+   the cost is obviously O(a_subdivision^2)
+ */
+void IceUtility::multiplyByGroundedFraction
+(LevelData<FArrayBox>& a_u, 
+ const LevelSigmaCS& a_coords,
+ const DisjointBoxLayout& a_grids,
+ int a_subdivision)
+{
+  CH_TIME("IceUtility::multiplyByGroundedFraction");
+  CH_assert(a_subdivision > 0);
+
+  for (DataIterator dit(a_grids); dit.ok(); ++dit)
+    { 
+      Box grownBox = a_grids[dit];
+      grownBox.grow(1);
+      FArrayBox hab(grownBox,1);
+      // thickness above / under flotation (< 0 in shelf)
+      Real rhoi = a_coords.iceDensity();
+      Real rhoo = a_coords.waterDensity();
+      Real seaLev = a_coords.seaLevel();
+      Real habmin, habmax;
+      FORT_HOVERUNDERFLOTATION
+	( CHF_FRA1(hab,0),CHF_REAL(habmin),CHF_REAL(habmax),
+	  CHF_CONST_FRA1(a_coords.getH()[dit],0),
+	  CHF_CONST_FRA1(a_coords.getTopography()[dit],0),
+	  CHF_CONST_REAL(rhoi),
+	  CHF_CONST_REAL(rhoo),
+	  CHF_CONST_REAL(seaLev),
+	  CHF_BOX(grownBox));
+      
+      if ( (habmin < 0.0) && (habmax > 0.0))
+	{
+	  int nRef = std::pow(2,a_subdivision);
+	  //integrate (hab>0)?1:0 over each cell to approximate grounded area
+	  FArrayBox ag(a_grids[dit],1);
+	  FORT_INTEGRATEHEAVISIDE2D( CHF_FRA1(ag,0), CHF_CONST_FRA1(hab,0),
+				     CHF_CONST_INT(nRef), CHF_BOX(a_grids[dit]));
+	  
+	  //weight u
+	  a_u[dit] *= ag;
+	}
+    }
+}
+
+
+/// set C = 0 in floating region
+/** 
+    If nRef <= 0, C is set to zero according to the mask in a_levelCS
+
+    Otherwise Hab, the thickness above/below flotation (> 0 on grounded ice, < 0 in the shelf)
+    is computed, and then interpolated (using the bilinear formula : this is not
+    the usual conservative Chombo formula. C is then multplied by  the integral of (Hab > 0)?1:0 
+    over the each cell.  
+ 
+ */ 
+void IceUtility::setFloatingBasalFriction
+(LevelData<FArrayBox>& a_C, const LevelSigmaCS& a_coords,
+ const DisjointBoxLayout& a_grids, int a_subdivision)
+{
+  CH_TIME("IceUtility::setFloatingBasalFriction");
+
+  if (a_subdivision > 0)
+    {
+      pout() << " IceUtility::setFloatingBasalFriction : interpolation... " << std::endl;
+      IceUtility::multiplyByGroundedFraction(a_C,  a_coords, a_grids,  a_subdivision);
+      pout() << " IceUtility::setFloatingBasalFriction : done interpolation " << std::endl;
+    }
+  
+  //finally, set C = 0 in any floating cells - covers nRef == 0 and nRef > 0
+  for (DataIterator dit(a_grids); dit.ok(); ++dit)
+    {
+      bool anyFloating = a_coords.anyFloating()[dit]; 
+      // set friction on open land and open sea to 100. Set friction on floating ice to 0
+      if(anyFloating)
+	{
+	  FArrayBox& thisC = a_C[dit];
+	  const BaseFab<int>& mask = a_coords.getFloatingMask()[dit];
+	  FORT_SETFLOATINGBETA(CHF_FRA1(thisC,0),
+			       CHF_CONST_FIA1(mask,0),
+			       CHF_BOX(a_grids[dit]));
+	  
+	  // friction must be non-negative
+	  CH_assert(thisC.min(a_grids[dit]) >= 0.0); 
+	}  
+    }
+}
+
+
 // ///Identify regions connected to the open ocean
 // /**
 //    Identify cells which are connected to open ocean via cells

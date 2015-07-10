@@ -140,6 +140,17 @@ namespace IceUtility
    const Vector<int>& a_refRatio, Real a_crseDx,
    int a_finestLevel, int a_maxIter, Real a_tol, 
    int a_verbosity = 0);
+
+  /// subgrid grounding line interpolation : multiply a_u by the grounded portion of each cell
+  void multiplyByGroundedFraction
+  (LevelData<FArrayBox>& a_u, const LevelSigmaCS& a_coords,
+   const DisjointBoxLayout& a_grids, int a_subdivision);
+
+  /// set C = 0 in floating region, potentially using subgrid interpolation 
+  void setFloatingBasalFriction
+  (LevelData<FArrayBox>& a_C, const LevelSigmaCS& a_coords,
+   const DisjointBoxLayout& a_grids, int a_subdivision);
+
   
 }
 

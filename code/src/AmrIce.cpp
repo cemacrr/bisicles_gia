@@ -5264,83 +5264,14 @@ AmrIce::setBasalFriction(Vector<LevelData<FArrayBox>* >& a_vectC,Vector<LevelDat
       //set C = 0 in floating region, possibly employing a thickness-above-flotation interpolation 
       for (int lev=0; lev<=m_finest_level; lev++)
 	{
-	  setFloatingBasalFriction(*a_vectC[lev], *m_vect_coordSys[lev] ,
-				   m_amrGrids[lev], m_groundingLineSubdivision);
+	  IceUtility::setFloatingBasalFriction(*a_vectC[lev], *m_vect_coordSys[lev] ,
+					       m_amrGrids[lev], m_groundingLineSubdivision);
 	}
     }
 
 }
 
-/// set C = 0 in floating region
-/** 
-    If nRef <= 0, C is set to zero according to the mask in a_levelCS
 
-    Otherwise Hab, the thickness above/below flotation (> 0 on grounded ice, < 0 in the shelf)
-    is computed, and then interpolated (using the bilinear formula : this is not
-    the usual conservative Chombo formula. C is then multplied by  the integral of (Hab > 0)?1:0 
-    over the each cell.  
- 
- */ 
-void
-AmrIce::setFloatingBasalFriction(LevelData<FArrayBox>& a_C, const LevelSigmaCS& a_coords,
-				 const DisjointBoxLayout& a_grids, int a_subdivision)
-{
-
-  if (a_subdivision > 0)
-    {
-      pout() << " AmrIce::setFloatingBasalFriction : interpolation... " << std::endl;
-      for (DataIterator dit(a_grids); dit.ok(); ++dit)
-	{ 
-	  Box grownBox = a_grids[dit];
-	  grownBox.grow(1);
-	  FArrayBox hab(grownBox,1);
-	  // thickness above / under flotation (< 0 in shelf)
-	  Real rhoi = a_coords.iceDensity();
-	  Real rhoo = a_coords.waterDensity();
-	  Real seaLev = a_coords.seaLevel();
-	  Real habmin, habmax;
-	  FORT_HOVERUNDERFLOTATION( CHF_FRA1(hab,0),CHF_REAL(habmin),CHF_REAL(habmax),
-				    CHF_CONST_FRA1(a_coords.getH()[dit],0),
-				    CHF_CONST_FRA1(a_coords.getTopography()[dit],0),
-				    CHF_CONST_REAL(rhoi),
-				    CHF_CONST_REAL(rhoo),
-				    CHF_CONST_REAL(seaLev),
-				    CHF_BOX(grownBox));
-
-	  if ( (habmin < 0.0) && (habmax > 0.0))
-	    {
-	      int nRef = std::pow(2,a_subdivision);
-	      //integrate (hab>0)?1:0 over each cell to approximate grounded area
-	      FArrayBox ag(a_grids[dit],1);
-	      FORT_INTEGRATEHEAVISIDE2D( CHF_FRA1(ag,0), CHF_CONST_FRA1(hab,0),
-					 CHF_CONST_INT(nRef), CHF_BOX(a_grids[dit]));
-	      
-	      //weight C
-	      a_C[dit] *= ag;
-	    }
-	}
-      pout() << " AmrIce::setFloatingBasalFriction : done interpolation " << std::endl;
-    }
-
-  //finally, set C = 0 in any floating cells - covers nRef == 0 and nRef > 0
-  for (DataIterator dit(a_grids); dit.ok(); ++dit)
-    {
-      bool anyFloating = a_coords.anyFloating()[dit];
-      
-      // set friction on open land and open sea to 100. Set friction on floating ice to 0
-      if(anyFloating)
-	{
-	  FArrayBox& thisC = a_C[dit];
-	  const BaseFab<int>& mask = a_coords.getFloatingMask()[dit];
-	  FORT_SETFLOATINGBETA(CHF_FRA1(thisC,0),
-			       CHF_CONST_FIA1(mask,0),
-			       CHF_BOX(a_grids[dit]));
-	  
-	  // friction must be non-negative
-	  CH_assert(thisC.min(a_grids[dit]) >= 0.0); 
-	}  
-    }
-}
 
 
 /// given the current cell centred velocity field, compute a face centred velocity field
