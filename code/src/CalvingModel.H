@@ -268,6 +268,75 @@ public:
 
 
 
+// A Deglacation-only calving model which 
+// i. Makes calving irreversible : if a cell mask is open sea / land, set thickness
+//    there to zero. No need to worry about the velocity fields in cells
+//    which were previously calved.
+// ii. Sets any floating ice below a given thickness to the min thickness in (iii) (this is where it differs from ModelA, which doesn't actually use the CalvingThickness)
+// iii. prevents thickness from dropping below a given thickness
+class DeglaciationCalvingModelB : public CalvingModel
+{
+
+public:
+
+  
+  //alter the thickness field prior to the first time step. Same as endTimeStepModifyState
+  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
+				  const AmrIce& a_amrIce,
+				  int a_level)
+  {
+    endTimeStepModifyState(a_thickness, a_amrIce, a_level);
+  }
+
+
+  //alter the thickness field at the end of a time step
+  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
+				      const AmrIce& a_amrIce,
+				      int a_level);
+
+
+  //alter the thickness field after a regrid
+  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
+                                 const AmrIce& a_amrIce,
+                                 int a_level)
+  {
+    //do nothing... for backward compatibility
+  }
+  
+  //modify a thickness flux
+  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  const AmrIce& a_amrIce,
+					  int a_level,
+					  Real a_dt)
+  {
+
+  }
+
+
+  DeglaciationCalvingModelB(const Real& a_calvingThickness,
+			    const Real& a_calvingOceanDepth,
+			    const Real& a_minThickness, 
+			    const Real& a_startTime, 
+			    const Real& a_endTime)
+    : m_calvingThickness(a_calvingThickness),
+      m_calvingOceanDepth(a_calvingOceanDepth),
+      m_minThickness(a_minThickness),
+      m_startTime(a_startTime),
+      m_endTime(a_endTime)
+  {
+    ;
+  }
+ 
+protected:
+  Real m_calvingThickness, m_calvingOceanDepth, m_minThickness, m_startTime, m_endTime;
+  
+private:
+  DeglaciationCalvingModelB();
+};
+
+
+
+
 #include "NamespaceFooter.H"
 
 #endif

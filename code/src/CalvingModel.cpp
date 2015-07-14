@@ -59,7 +59,7 @@ void DomainEdgeCalvingModel::endTimeStepModifyState
   const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
   const DisjointBoxLayout& grids = levelCoords.grids();
   const ProblemDomain domain = grids.physDomain();
-  const LevelData<BaseFab<int> >& levelMask = levelCoords.getFloatingMask();
+  //const LevelData<BaseFab<int> >& levelMask = levelCoords.getFloatingMask();
   const IntVect ghost = a_thickness.ghostVect();
   //const LevelData<FArrayBox>& vt  = *a_amrIce.viscousTensor(a_level);
   DataIterator dit = grids.dataIterator();
@@ -203,7 +203,7 @@ void ProximityCalvingModel::modifySurfaceThicknessFlux
       
       for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
 	{
-	  const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+	  //const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
 	  FArrayBox& flux = a_flux[dit];
 	  const FArrayBox& prox = proximity[dit];
 	  const FArrayBox& vel = velocity[dit];
@@ -271,6 +271,21 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
       Real endTime = 1.2345678e+300;
       pp.query("end_time",  endTime);
       ptr = new DeglaciationCalvingModelA
+	(calvingThickness,  calvingDepth, minThickness, startTime, endTime); 
+    }
+  else if (type == "DeglaciationCalvingModelB")
+    {  
+      Real minThickness = 0.0;
+      pp.get("min_thickness", minThickness );
+      Real calvingThickness = 0.0;
+      pp.get("calving_thickness", calvingThickness );
+      Real calvingDepth = 0.0;
+      pp.query("calving_depth", calvingDepth );
+      Real startTime = -1.2345678e+300;
+      pp.query("start_time",  startTime);
+      Real endTime = 1.2345678e+300;
+      pp.query("end_time",  endTime);
+      ptr = new DeglaciationCalvingModelB
 	(calvingThickness,  calvingDepth, minThickness, startTime, endTime); 
     }
   else if (type == "ProximityCalvingModel")
@@ -344,5 +359,47 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
   
   return ptr;
 }
+
+
+void 
+DeglaciationCalvingModelB::endTimeStepModifyState
+(LevelData<FArrayBox>& a_thickness, 
+ const AmrIce& a_amrIce,
+ int a_level)
+{
+  
+  const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
+  
+  for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
+    {
+      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+      FArrayBox& thck = a_thickness[dit];
+      Box b = thck.box();
+      
+      for (BoxIterator bit(b); bit.ok(); ++bit)
+	{
+	  const IntVect& iv = bit();
+	  if (mask(iv) == OPENSEAMASKVAL)
+	    {
+	      thck(iv) = 0.0;
+	    }
+	  else if (mask(iv) == OPENLANDMASKVAL)
+	    {
+	      thck(iv) = 0.0;
+	    }
+          else if ((mask(iv) == FLOATINGMASKVAL) && (thck(iv) < m_calvingThickness))
+            {
+	      thck(iv) = m_minThickness;              
+            }
+	  else
+	    {
+	      thck(iv) = std::max(thck(iv),m_minThickness);
+	    }
+	}
+    }
+}
+
+
+
 
 #include "NamespaceFooter.H"
