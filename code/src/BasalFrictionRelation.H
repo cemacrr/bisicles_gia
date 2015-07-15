@@ -73,6 +73,8 @@ public:
   virtual Real power() const = 0;
 
 
+  static BasalFrictionRelation* parseBasalFrictionRelation(const char* a_prefix, int a_recursion );
+
 };
 
 
@@ -113,6 +115,54 @@ private:
   Real m_m;
   bool m_includeEffectivePressure;
   BasalFrictionPowerLaw();
+
+};
+
+/// Basal friction relation of the form Tb = min(Tb', a*p*u/|u|)
+/**
+   Tb' is any BasalFrictionRelation
+   a is a constant (for now) coefficient, p is the local (hydrostatic) pressure
+
+   for a ~ 1, Tb = Tb' is applied most places, with the Coulomb law 
+   Tb = a*p*u/|u| imposed as the ice approaches flotation
+
+*/ 
+class PressureLimitedBasalFrictionRelation : public BasalFrictionRelation
+{
+
+  Real m_a;
+  BasalFrictionRelation* m_bfr; 
+  
+public:
+
+  virtual void computeAlpha(FArrayBox& a_alpha,
+			    const FArrayBox& a_basalVel,
+			    const FArrayBox& a_C,
+			    const LevelSigmaCS& a_coords, 
+			    const DataIterator& a_dit,
+			    const Box& a_box) const;
+
+
+  PressureLimitedBasalFrictionRelation(Real a_a, BasalFrictionRelation* a_bfr)
+    : m_a(a_a), m_bfr(a_bfr->getNewBasalFrictionRelation())
+  {
+
+  }
+
+
+  virtual BasalFrictionRelation* getNewBasalFrictionRelation() const
+  {
+    PressureLimitedBasalFrictionRelation* ptr = 
+      new PressureLimitedBasalFrictionRelation(m_a, m_bfr);
+
+    return static_cast<BasalFrictionRelation*>(ptr);
+  }
+    
+
+  virtual Real power() const
+  {
+    return m_bfr->power();
+  }
 
 };
 

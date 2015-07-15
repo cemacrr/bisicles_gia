@@ -15,7 +15,8 @@ c-----------------------------------
      &     CHF_BOX[box])
 
       integer CHF_AUTODECL[i]
-      REAL_T usq, mExp, nExp
+      REAL_T usq, mExp, nExp, usq0
+      usq0 = TINY_VEL**2
 
       mExp = m/two
       nExp = n
@@ -27,7 +28,7 @@ c-----------------------------------
      &        + u(CHF_AUTOIX[i],2)**2]
          if (mask(CHF_AUTOIX[i]).eq.GROUNDEDMASKVAL) then       
             alpha(CHF_AUTOIX[i]) = C(CHF_AUTOIX[i]) 
-     &           * (usq + 1.0e-6)**mExp
+     &           * (usq + usq0)**mExp
 
             if (n.ne.0.0d0) then
                alpha(CHF_AUTOIX[i]) = alpha(CHF_AUTOIX[i]) *
@@ -52,7 +53,6 @@ c-----------------------------------
 
       integer CHF_AUTODECL[i], ncomp, icomp
       REAL_T usq
-
       CHF_AUTOMULTIDO[box;i]
       CHF_DTERM[
       usq = u(CHF_AUTOIX[i],0)**2;
@@ -66,3 +66,28 @@ c-----------------------------------
       return
       end
       
+c------------------------------------
+c alpha <- min(alpha, p*|u|**(-1))
+c-----------------------------------
+      subroutine BFRICTIONPLIMIT(CHF_FRA1[alpha],
+     &     CHF_CONST_FRA[u],CHF_CONST_FRA1[p],
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      REAL_T usq, usq0
+
+      usq0 = TINY_VEL**2
+
+      CHF_AUTOMULTIDO[box;i]
+      CHF_DTERM[
+      usq = usq0 + u(CHF_AUTOIX[i],0)**2;
+     &     + u(CHF_AUTOIX[i],1)**2;
+     &     + u(CHF_AUTOIX[i],2)**2]
+      
+      alpha(CHF_AUTOIX[i]) = min(alpha(CHF_AUTOIX[i]),
+     &     p(CHF_AUTOIX[i]) * usq**(-half))
+      
+      CHF_ENDDO
+
+      return
+      end

@@ -56,7 +56,7 @@ endif
 
 ifeq ($(UNAMEN),smbp)
 PYTHON_VERSION=2.7
-NETCDF_LIBS=-lnetcdf
+NETCDF_LIBS=-lnetcdff -lnetcdf
 endif
 
 ifeq ($(UNAMEN),loren)

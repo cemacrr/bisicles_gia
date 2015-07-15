@@ -11,6 +11,7 @@
 #include "BasalFrictionRelationF_F.H"
 #include "IceConstants.H"
 #include "LevelSigmaCS.H"
+#include "ParmParse.H"
 #include "NamespaceHeader.H"
 
 
@@ -71,5 +72,73 @@ BasalFrictionPowerLaw::computeAlpha(FArrayBox& a_alpha,
     }
   
 }
+
+
+void
+PressureLimitedBasalFrictionRelation::computeAlpha
+(FArrayBox& a_alpha,
+ const FArrayBox& a_basalVel,
+ const FArrayBox& a_C,
+ const LevelSigmaCS& a_coords, 
+ const DataIterator& a_dit,
+ const Box& a_box) const
+{
+  m_bfr->computeAlpha(a_alpha, a_basalVel,  a_C, a_coords,  a_dit, a_box);
+
+  //a * hydrostatic pressure - generalize?
+  FArrayBox limit(a_box,1);
+  const FArrayBox& thckOverFlotation = a_coords.getThicknessOverFlotation()[a_dit];
+  limit.copy( thckOverFlotation );
+  limit *= (m_a * a_coords.iceDensity() * a_coords.gravity());
+
+  FORT_BFRICTIONPLIMIT(CHF_FRA1(a_alpha,0),
+		       CHF_CONST_FRA(a_basalVel),
+		       CHF_CONST_FRA1(limit,0),
+		       CHF_BOX(a_box));
+    
+}
+
+BasalFrictionRelation* 
+BasalFrictionRelation::parseBasalFrictionRelation(const char* a_prefix, int a_recursion)
+{
+  //can't do more than one recursion without changing the input file syntax
+  CH_assert(a_recursion < 2);
+
+  BasalFrictionRelation* basalFrictionRelationPtr = NULL;
+  std::string type = "powerLaw";
+  ParmParse pp(a_prefix);
+  pp.query("basalFrictionRelation",type);
+
+  if (type == "powerLaw")
+      {
+	ParmParse plPP("BasalFrictionPowerLaw");
+
+	Real m = 1.0;
+	plPP.query("m",m);
+	bool includeEffectivePressure = false;
+	plPP.query("includeEffectivePressure",includeEffectivePressure);
+	BasalFrictionPowerLaw*  pl = new BasalFrictionPowerLaw(m,includeEffectivePressure);
+	basalFrictionRelationPtr = static_cast<BasalFrictionRelation*>(pl);
+      }
+  else if (type == "pressureLimitedLaw")
+    {
+     
+      std::string prefix("BasalFrictionPressureLimitedLaw");
+      ParmParse ppPLL(prefix.c_str());
+      Real a = 1.0;
+      ppPLL.query("coefficient",a);
+
+      BasalFrictionRelation* innerLaw = parseBasalFrictionRelation(prefix.c_str(), a_recursion + 1);
+      PressureLimitedBasalFrictionRelation* p = 
+	new PressureLimitedBasalFrictionRelation(a, innerLaw);
+      basalFrictionRelationPtr = static_cast<BasalFrictionRelation*>(p);
+    }
+  else
+    {
+      MayDay::Error("undefined basalFrictionRelation in inputs");
+    }
+  return basalFrictionRelationPtr;
+}
+
 
 #include "NamespaceFooter.H"

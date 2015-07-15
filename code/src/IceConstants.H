@@ -37,8 +37,8 @@
 #define HUGE_THICKNESS (1.0e+4)
 #define HUGE_VEL (1.0e+6)
 #define huge_vel (1.0e+6)
-#define TINY_VEL (1.0e-2)
-#define tiny_vel (1.0e-2)
+#define TINY_VEL (1.0e-3)
+#define tiny_vel (1.0e-3)
 #define iceconductivity 2.1
 #define ICECONDUCTIVITY 2.1
 #define iceheatcapacity 2009.0
