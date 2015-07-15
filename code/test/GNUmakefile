@@ -7,7 +7,7 @@ makefiles += BISICLES_test
 
 # the base name(s) of the application(s) in this directory
 #ebase = testLevelSigmaCS testSigmaCS testConstitutive testL1L2 testVelOp testLinearSolver testPicardSolver testFortranThicknessIBC
-ebase = testhabint
+ebase = testPetsc testLevelSigmaCS testConstitutive testL1L2 testFortranInterfaceIBC 
 # testVelOp testLinearSolver 
 
 # the location of Chombo lib dir
