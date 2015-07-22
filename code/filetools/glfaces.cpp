@@ -29,6 +29,11 @@
 #include "LevelDataIBC.H"
 #include "LevelSigmaCS.H"
 #include "IceConstants.H"
+
+#ifdef HAVE_PYTHON
+#include "PythonInterface.H"
+#endif
+
 int main(int argc, char* argv[]) {
 
 #ifdef CH_MPI
@@ -151,27 +156,10 @@ int main(int argc, char* argv[]) {
 	rateFactorPtr = static_cast<RateFactor*>(zrf);
       }
 
-
-    BasalFrictionRelation* basalFrictionRelationPtr;
-    std::string basalFrictionRelType = "powerLaw";
-    pp2.query("basalFrictionRelation", basalFrictionRelType);
     
     //basal friction relation
-    if (basalFrictionRelType == "powerLaw")
-      {
-	ParmParse plPP("BasalFrictionPowerLaw");
-
-	Real m = 1.0;
-	plPP.query("m",m);
-	bool includeEffectivePressure = false;
-	plPP.query("includeEffectivePressure",includeEffectivePressure);
-	BasalFrictionPowerLaw*  pl = new BasalFrictionPowerLaw(m,includeEffectivePressure);
-	basalFrictionRelationPtr = static_cast<BasalFrictionRelation*>(pl);
-      }
-    else
-      {
-	MayDay::Error("undefined basalFrictionRelation in inputs");
-      }
+    BasalFrictionRelation* basalFrictionRelationPtr 
+      = BasalFrictionRelation::parseBasalFrictionRelation("main",0);
 
     //we only need this for the velocity boundary condition
     IceThicknessIBC* thicknessIBC;
@@ -208,6 +196,26 @@ int main(int argc, char* argv[]) {
         FortranInterfaceIBC* ptr = new FortranInterfaceIBC;
 	 thicknessIBC = static_cast<IceThicknessIBC*>( ptr);
       }
+#ifdef HAVE_PYTHON
+     else if (problem_type == "Python")
+       {
+	 
+	 ParmParse pyPP("PythonIBC");
+	 std::string module;
+	 pyPP.get("module",module);
+	 std::string thckFuncName = "thickness";
+	 pyPP.query("thicknessFunction",thckFuncName);
+	 std::string topgFuncName = "topography";
+	 pyPP.query("topographyFunction",topgFuncName);
+	 std::string rhsFuncName = "";
+	 pyPP.query("RHSFunction",rhsFuncName);
+	 std::string faceVelFuncName = "";
+	 pyPP.query("faceVelFunction",faceVelFuncName);
+	 PythonInterface::PythonIBC* ptr = new PythonInterface::PythonIBC
+	   (module, thckFuncName, topgFuncName, rhsFuncName,faceVelFuncName);
+	 thicknessIBC = static_cast<IceThicknessIBC*>( ptr);
+       }
+#endif
      else 
        {
          MayDay::Error("bad problem type");
@@ -300,7 +308,7 @@ int main(int argc, char* argv[]) {
 
 	    for (DataIterator dit(grids[lev]);dit.ok();++dit)
 	      {
-		(*cellA[lev])[dit].setVal(3.1536e-18);
+		(*cellA[lev])[dit].setVal(3.1536e-18); //yikes....
 		(*C0[lev])[dit].setVal(0.0);
 	      }
 	  }
@@ -356,7 +364,7 @@ int main(int argc, char* argv[]) {
 		const FArrayBox& fthk =  coords[lev]->getFaceH()[dit][fdir];
 
 		Box b = grids[lev][dit];
-		b.grow(fdir,-1);
+		//b.grow(fdir,-1);
 		for (BoxIterator bit(b);bit.ok();++bit)
 		  {
 		    IntVect iv = bit();
@@ -407,8 +415,8 @@ int main(int argc, char* argv[]) {
 				for (int dir = 0; dir < SpaceDim; dir++)
 				  pout() << 0.5*(u(iv,dir)+u(ivp,dir)) << " ";
 				//viscous tensor components;
-				for (int dir = 0; dir < SpaceDim; dir++)
-				  pout() << fvt(ivf,dir) << " ";
+				//for (int dir = 0; dir < SpaceDim; dir++)
+				//  pout() << fvt(ivf,dir) << " ";
 				pout() << std::endl;
 				
 				

@@ -14,6 +14,7 @@ ebase :=  nctoamr amrtotxt amrtoplot flatten extract merge addbox amrtocf stats 
 
 ifneq ($(PYTHON_INC),)
 ebase += pythonf
+
 endif
 
 ##
@@ -37,6 +38,6 @@ include $(CHOMBO_HOME)/mk/Make.example
 #LIBFLAGS+=-L$(NETCDF_HOME)/lib -lnetcdf -lhdf5_hl -lhdf5
 
 ifneq ($(PYTHON_INC),)
-CPPFLAGS+=-I$(PYTHON_INC)	
+CPPFLAGS+=-I$(PYTHON_INC) -DHAVE_PYTHON	
 LIBFLAGS+=$(PYTHON_LIBS)
 endif
