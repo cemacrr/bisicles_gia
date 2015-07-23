@@ -814,66 +814,9 @@ LevelSigmaCS::computeSurface(const LevelSigmaCS* a_crseCoords,
 	 time_interp_coeff, 0, 0, 1);
       
     }
- 
-  //\todo : surface elevation boundary condition. Was in the
-  //        original calculation but is it needed here?
 
-  // put some sensible values into the corners - this seems like a bodge
-  if (SpaceDim == 2)
-    {
-      for (DataIterator dit(m_grids); dit.ok(); ++dit)
-	{
-	  FArrayBox &thisZs = m_surface[dit];
-	  Box sbox = thisZs.box();
-	  sbox.grow(-m_surface.ghostVect()[0]);
-	  //FORT_EXTRAPCORNER2D(CHF_FRA(thisSurface),
-	  //		      CHF_BOX(sbox));
-	}
-      
-    }
-  
   //update the mask
   computeFloatingMask(m_surface);
-
-  // //destroy any floating cells where face H = 0 on all faces
-  // int destroyed = 0;
-  // for (DataIterator dit(m_grids); dit.ok(); ++dit)
-  //   {
-      
-  //     if (anyFloating()[dit])
-  // 	{
-  // 	  int xDir = 0;
-  // 	  if (SpaceDim == 3) xDir = 1;
-  // 	  int yDir = xDir +1;
-  // 	  BaseFab<int>& mask = m_floatingMask[dit];
-  // 	  FArrayBox& H = m_H[dit];
-  // 	  Real thresh = TINY_THICKNESS;
-  // 	  // for (int dir = xDir; dir <= yDir; dir++)
-  // 	  //   {
-  // 	  //     FORT_DESTROYSCFI(CHF_FRA1(H,0),
-  // 	  // 		       CHF_FIA1(mask,0),
-  // 	  // 		       CHF_INT(destroyed),
-  // 	  // 		       CHF_CONST_INT(dir),
-  // 	  // 		       CHF_CONST_REAL(thresh),
-  // 	  // 		       CHF_BOX(m_grids[dit]));
-  // 	  //   }
-  // 	  // FORT_ODESTROYSCFI(CHF_FRA1(H,0),
-  // 	  // 		   CHF_FIA1(mask,0),
-  // 	  // 		   CHF_INT(destroyed),
-  // 	  // 		   CHF_CONST_INT(xDir),
-  // 	  // 		   CHF_CONST_INT(yDir),
-  // 	  // 		   CHF_CONST_REAL(thresh),
-  // 	  // 		   CHF_BOX(m_grids[dit]));
-
-  // 	    }
-  //   }
-  // if (destroyed > 0)
-  //   {
-  //     //char warn[256];
-  //     //sprintf(warn,"Destroyed %i single cell icebergs",destroyed);
-  //     //MayDay::Warning(warn);
-  //     pout() << "Warning :: destroyed " << destroyed << "single cell icebergs";
-  //   }
 
   //thickness over flotation
  for (DataIterator dit(m_grids); dit.ok(); ++dit)
@@ -915,15 +858,7 @@ LevelSigmaCS::computeSurface(const LevelSigmaCS* a_crseCoords,
 
       for (int dir = xDir; dir <= yDir; ++dir)
 	{
-	  // FArrayBox& grad = m_gradSurface[dit];
-	  // Real oneOnTwoDx = 1.0 / (2.0 * m_dx[dir]);
-	  // for (BoxIterator bit(gridBoxPlus); bit.ok(); ++bit)
-	  //   {
-	  //     const IntVect& iv = bit();
-	  //     grad(iv,dir) =  oneOnTwoDx *  
-	  // 	(thisSurf(iv + BASISV(dir)) -  thisSurf(iv - BASISV(dir)));
-	  //   }
-
+	  
 	  Box faceBox = gridBoxPlus;
 	  faceBox.growHi(dir,1);
 	  // FORT_SGLGRADS needs a workspace at cell faces
@@ -1259,6 +1194,7 @@ LevelSigmaCS::makeCoarser(int a_coarsenFactor) const
 }
 
 
+
 void LevelSigmaCS::interpFromCoarse(const LevelSigmaCS& a_crseCoords, 
 				    const int a_refinementRatio, 
 				    const bool a_interpolateTopography, 
@@ -1266,7 +1202,8 @@ void LevelSigmaCS::interpFromCoarse(const LevelSigmaCS& a_crseCoords,
 				    const bool a_preserveMask,
 				    const bool a_interpolateTopographyGhost, 
 				    const bool a_interpolateThicknessGhost, 
-				    const bool a_preserveMaskGhost)
+				    const bool a_preserveMaskGhost, 
+				    int a_thicknessInterpolationMethod)
 {
   CH_TIME("LevelSigmaCS::interpFromCoarse");
   int ncomp = m_H.nComp();
@@ -1298,6 +1235,14 @@ void LevelSigmaCS::interpFromCoarse(const LevelSigmaCS& a_crseCoords,
       crseBase[dit].minus(crseThck[dit]);
     }
 
+  //copy the mask from the coarse level
+  IntFineInterp ifi(m_grids,fineMask.nComp(),
+		    a_refinementRatio,
+		    fineMask.ghostVect(),
+		    m_grids.physDomain());
+  ifi.pwcInterpToFine(fineMask, crseMask);
+
+
   //interpolate the fields, not including ghost regions
   if (a_interpolateTopography)
     {
@@ -1305,8 +1250,34 @@ void LevelSigmaCS::interpFromCoarse(const LevelSigmaCS& a_crseCoords,
     }
    if (a_interpolateThickness)
      {
+       CH_assert(a_thicknessInterpolationMethod < MAX_THICKNESS_INTERPOLATION_METHOD);
+       
        interpolator.interpToFine(fineSurf,crseSurf);
        interpolator.interpToFine(fineBase,crseBase);
+
+       if (a_thicknessInterpolationMethod == SMOOTH_SURFACE_THICKNESS_INTERPOLATION_METHOD)
+	 {
+	   // determine the thickness from the interpolated surface and the fine topography
+	   // in grounded ice regions : the idea is to avoid laying a smooth thickness on top
+	   // of a newly noisy bedrock and getting a noisy surface :
+	   for (DataIterator dit(m_grids); dit.ok(); ++dit)
+	     {
+	       
+	       const BaseFab<int>& mask = fineMask[dit];
+	       const FArrayBox& usrf = fineSurf[dit];
+	       const FArrayBox& topg = fineTopg[dit];
+	       FArrayBox& lsrf = fineBase[dit];
+	       const Box& b = m_grids[dit];
+	       for (BoxIterator bit(b); bit.ok(); ++bit)
+		 {
+		   const IntVect& iv = bit();
+		   if (mask(iv) == GROUNDEDMASKVAL)
+		     {
+		       lsrf(iv) = topg(iv);
+		     }
+		 }
+	     };	  
+	 }
      }
    else 
      {
@@ -1341,12 +1312,7 @@ void LevelSigmaCS::interpFromCoarse(const LevelSigmaCS& a_crseCoords,
     }
   
 
-  //copy the mask from the coarse level
-  IntFineInterp ifi(m_grids,fineMask.nComp(),
-		    a_refinementRatio,
-		    fineMask.ghostVect(),
-		    m_grids.physDomain());
-  ifi.pwcInterpToFine(fineMask, crseMask);
+
 
    bool maskEdgeInterpolate = true;
   // bool maskEdgeInterpolate = false;

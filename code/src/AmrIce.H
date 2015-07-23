@@ -735,7 +735,8 @@ protected:
   /** if false, use IceThicknesIBC::regridIceGeometry function to set values
    */
   bool m_interpolate_zb;
-
+  /// thickness interpolation method to use on regrid, see LevelSigmaCS::ThicknessInterpolationMethod
+  int m_regrid_thickness_interpolation_method;
 
   // if > 0, then the coefficient of friction at the base
   // of the ice and the RHS will be smoothed.

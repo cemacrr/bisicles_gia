@@ -242,27 +242,36 @@ public:
   const DisjointBoxLayout& grids() const {return m_grids;}
 
   const LayoutData<bool>&  anyFloating() const { return m_anyFloating;}
-  
-  // exchange all the relevant fields
-  // void exchange()
-  // {
-  //   m_H.exchange();
-  //   m_topography.exchange();
-  //   recomputeGeometry();
-  // }
-/// fill the data in this by interpolation from a coarser level
+
+  /// choice of thickness interpolation method in interpFromCoarse
+  /**
+     The original (default) method, STD_THICKNESS_INTERPOLATION_METHOD,
+     interpolates the thickness directly, which can lead to a smooth
+     thickness on a rough bedrock, and henec a rough surface
+
+     An alternative method, SMOOTH_SURFACE_THICKNESS_INTERPOLATION_METHOD, 
+     interpolates the upper and lower surfaces, but replaces the lower surface
+     on grounded (on the coarse mesh) cells with the bedrock data. This
+     will be conservative iff the relationship between fine and coarse
+     bedrock data is conservative
+
+   */
+  enum ThicknessInterpolationMethod{
+    STD_THICKNESS_INTERPOLATION_METHOD = 0,
+    SMOOTH_SURFACE_THICKNESS_INTERPOLATION_METHOD = 1,
+    MAX_THICKNESS_INTERPOLATION_METHOD = 2};
+
+  /// fill the data in this by interpolation from a coarser level
   /*** 
-     Interpolating thickness and topography independently tends to
-     move the grounding line, and results in steep surfaces there
-     which are not seen in interpolation of the surface itself. 
-     interpFromCoarse interpolates topography, the upper and lower surfaces
-     then adjusts base (and so thickness) to maintain the grounding line.
-     
-     optionally, topography and thickness can be set elsewhere,
-     and the mask can be recomputed, in either the valid region, or in
-     both valid region and ghost region. 
-
-
+       Interpolating thickness and topography independently tends to
+       move the grounding line, and results in steep surfaces there
+       which are not seen in interpolation of the surface itself. 
+       interpFromCoarse interpolates topography, the upper and lower surfaces
+       then adjusts base (and so thickness) to maintain the grounding line.
+       
+       optionally, topography and thickness can be set elsewhere,
+       and the mask can be recomputed, in either the valid region, or in
+       both valid region and ghost region. 
  */
   void interpFromCoarse(const LevelSigmaCS& a_crseCoords,
 			const int a_refinementRatio, 
@@ -271,7 +280,8 @@ public:
 			const bool a_preserveMask = true,
 			const bool a_interpolateTopographyGhost = true, 
 			const bool a_interpolateThicknessGhost = true, 
-			const bool a_preserveMaskGhost = true);
+			const bool a_preserveMaskGhost = true, 
+			int a_thicknessInterpolationMethod = STD_THICKNESS_INTERPOLATION_METHOD);
 
 
 

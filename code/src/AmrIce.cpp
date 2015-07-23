@@ -480,6 +480,7 @@ AmrIce::setDefaults()
   m_basalSlope = RealVect::Zero;
   
   m_interpolate_zb = true;
+  m_regrid_thickness_interpolation_method = 0;
 
   // set the rest of these to reasonable defaults
   m_nesting_radius = 1;
@@ -1132,6 +1133,8 @@ AmrIce::initialize()
   m_n_regrids = 0;
   
   ppAmr.query("interpolate_zb", m_interpolate_zb);
+
+  ppAmr.query("regrid_thickness_interpolation_method", m_regrid_thickness_interpolation_method);
 
   ppAmr.get("blockFactor", m_block_factor);
 
@@ -2999,6 +3002,9 @@ AmrIce::regrid()
     { 
       pout() << "AmrIce::regrid" << endl;
     }
+  
+  //first part of a conservation of volume check
+  Real volumeBefore = computeTotalIce();
 
   // only do any of this if the max level > 0
   if (m_max_level > 0) 
@@ -3186,11 +3192,25 @@ AmrIce::regrid()
 		      }
 		  }
 
+		{
+		  //interpolate thickness & (maybe) topography
+		  bool interpolateThickness(true);
+		  bool preserveMask(true);
+		  bool interpolateTopographyGhost(true); 
+		  bool interpolateThicknessGhost(true); 
+		  bool preserveMaskGhost(true);
+		  m_vect_coordSys[lev]->interpFromCoarse(*m_vect_coordSys[lev-1],
+							 m_refinement_ratios[lev-1],
+							 interpolate_zb,
+							 interpolateThickness, 
+							 preserveMask,
+							 interpolateTopographyGhost, 
+							 interpolateThicknessGhost, 
+							 preserveMaskGhost, 
+							 m_regrid_thickness_interpolation_method);
+		}
+
 		
-		//interpolate thickness & (maybe) topography
-		m_vect_coordSys[lev]->interpFromCoarse(*m_vect_coordSys[lev-1],
-						       m_refinement_ratios[lev-1],
-						       interpolate_zb , true);
 
 		LevelData<FArrayBox>& thisLevelH = m_vect_coordSys[lev]->getH();
 		LevelData<FArrayBox>& thisLevelB = m_vect_coordSys[lev]->getTopography();
@@ -3637,6 +3657,16 @@ AmrIce::regrid()
 	} // end if tags changed
     } // end if max level > 0 in the first place
   
+  Real volumeAfter = computeTotalIce();
+  Real volumeDifference = volumeAfter - volumeBefore;
+  if (s_verbosity > 3) 
+    { 
+      
+      pout() << "AmrIce::regrid: volume on input,output,difference =  " 
+	     << volumeBefore << "," << volumeAfter << "," << volumeDifference << " m^3" << endl;
+    }
+
+
   m_groundingLineProximity_valid = false;
   m_viscousTensor_valid = false;
 }
