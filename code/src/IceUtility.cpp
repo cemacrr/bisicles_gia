@@ -797,7 +797,13 @@ void IceUtility::multiplyByGroundedFraction
       
       if ( (habmin < 0.0) && (habmax > 0.0))
 	{
-	  int nRef = std::pow(2,a_subdivision);
+	  
+	  //int nRef = std::pow(2,a_subdivision); // std:pow(int,int) is not a real thing
+	  int nRef = 1;
+	  for (int i = 0; i < a_subdivision ;i++)
+	    {
+	      nRef *= 2;
+	    }
 	  //integrate (hab>0)?1:0 over each cell to approximate grounded area
 	  FArrayBox ag(a_grids[dit],1);
 	  FORT_INTEGRATEHEAVISIDE2D( CHF_FRA1(ag,0), CHF_CONST_FRA1(hab,0),
