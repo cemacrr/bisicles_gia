@@ -797,7 +797,6 @@ void IceUtility::multiplyByGroundedFraction
       
       if ( (habmin < 0.0) && (habmax > 0.0))
 	{
-	  
 	  //int nRef = std::pow(2,a_subdivision); // std:pow(int,int) is not a real thing
 	  int nRef = 1;
 	  for (int i = 0; i < a_subdivision ;i++)
