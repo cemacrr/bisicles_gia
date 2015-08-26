@@ -23,12 +23,12 @@
 #include "ReadLevelData.H"
 #include "FillFromReference.H"
 #include "ReflectGhostCells.H"
-#include "AmrIce.H"
+#include "AmrIceBase.H"
 #include "NamespaceHeader.H"
 
 void LevelDataSurfaceFlux::surfaceThicknessFlux
 (LevelData<FArrayBox>& a_flux,
- const AmrIce& a_amrIce, 
+ const AmrIceBase& a_amrIce, 
  int a_level, Real a_dt)
 {
     
@@ -137,7 +137,7 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
 
 void MultiLevelDataSurfaceFlux::surfaceThicknessFlux
 (LevelData<FArrayBox>& a_flux,
- const AmrIce& a_amrIce, 
+ const AmrIceBase& a_amrIce, 
  int a_level, Real a_dt)
 {
     

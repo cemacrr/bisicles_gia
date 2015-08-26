@@ -41,6 +41,8 @@
 #define tiny_vel (1.0e-3)
 #define iceconductivity 2.1
 #define ICECONDUCTIVITY 2.1
+#define moistureconductivity 0.2
+#define MOISTURECONDUCTIVITY 0.2
 #define iceheatcapacity 2009.0
 #define ICEHEATCAPACITY 2009.0
 #define icelatentheat  334.0e+3
@@ -69,6 +71,8 @@
 #define tiny_vel (1.0d-2)
 #define iceconductivity 2.1d0
 #define ICECONDUCTIVITY 2.1d0
+#define moistureconductivity 0.2d0
+#define MOSITURECONDUCTIVITY 0.2d0
 #define iceheatcapacity 2009.0d0
 #define ICEHEATCAPACITY 2009.0d0
 #define icelatentheat  334.0d+3

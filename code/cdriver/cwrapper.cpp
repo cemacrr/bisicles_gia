@@ -33,12 +33,13 @@
 #include "HumpIBC.H"
 #include "LevelDataIBC.H"
 #include "MultiLevelDataIBC.H"
-#include "IceTemperatureIBC.H"
+#include "IceInternalEnergyIBC.H"
 #include "LevelDataTemperatureIBC.H"
 #include "LevelDataBasalFriction.H"
 #include "PiecewiseLinearFlux.H"
 #include "SurfaceFlux.H"
 #include "IceConstants.H"
+#include "IceThermodynamics.H"
 #ifdef HAVE_PYTHON
 #include "PythonInterface.H"
 #endif
@@ -828,7 +829,7 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
 
   amrObject.setThicknessBC(thicknessIBC);
 
-  IceTemperatureIBC* temperatureIBC = NULL;
+  IceInternalEnergyIBC* temperatureIBC = NULL;
   ParmParse tempPP("temperature");
   std::string tempType("constant");
   tempPP.query("type",tempType);
@@ -837,14 +838,14 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
       Real T = 258.0;
       tempPP.query("value",T);
       ConstantIceTemperatureIBC* ptr = new ConstantIceTemperatureIBC(T);
-      temperatureIBC  = static_cast<IceTemperatureIBC*>(ptr);
+      temperatureIBC  = static_cast<IceInternalEnergyIBC*>(ptr);
     }
   else if (tempType == "LevelData")
     {
       ParmParse ildPP("inputLevelData");
       LevelDataTemperatureIBC* ptr = NULL;
       ptr = LevelDataTemperatureIBC::parse(ildPP); CH_assert(ptr != NULL);
-      temperatureIBC  = static_cast<IceTemperatureIBC*>(ptr);
+      temperatureIBC  = static_cast<IceInternalEnergyIBC*>(ptr);
     }
 #ifdef HAVE_PYTHON
   else if (tempType == "Python")
@@ -854,7 +855,7 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
       pyPP.get("module",module);
       std::string funcName = "temperature";
       pyPP.query("function",funcName);
-      temperatureIBC  = static_cast<IceTemperatureIBC*>
+      temperatureIBC  = static_cast<IceInternalEnergyIBC*>
 	(new PythonInterface::PythonIceTemperatureIBC(module, funcName));
     }
 #endif
@@ -863,7 +864,7 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
       MayDay::Error("bad temperature type");
     }	
 	
-  amrObject.setTemperatureBC(temperatureIBC);
+  amrObject.setInternalEnergyBC(temperatureIBC);
     
   {
     // ---------------------------------------------
@@ -878,13 +879,16 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
       {
 	//first try the in-memory interface data
 	CH_assert(a_wrapper.m_surface_heat_boundary_data != NULL);
-	amrObject.setSurfaceHeatBoundaryData(a_wrapper.m_surface_heat_boundary_data, a_wrapper.m_surface_heat_boundary_dirichlett);
+	amrObject.setSurfaceHeatBoundaryData(a_wrapper.m_surface_heat_boundary_data, 
+					     a_wrapper.m_surface_heat_boundary_dirichlett, true);
       }
     else
       {
 	//try the standalone BISICLES boundary data options
 	bool diri = true; //Dirichlett boundary data by default
 	pps.query("Dirichlett",diri);
+	bool temp = true; //Dirichlett boundary data is temperature by default
+	pps.query("Dirichlett",temp);
 	SurfaceFlux* surf_heat_boundary_data_ptr =
 	  SurfaceFlux::parseSurfaceFlux("surfaceHeatBoundaryData");
 	if ( surf_heat_boundary_data_ptr == NULL)
@@ -894,7 +898,7 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
 		surf_heat_boundary_data_ptr = new zeroFlux();
 	      }
 	  }
-	amrObject.setSurfaceHeatBoundaryData(surf_heat_boundary_data_ptr, diri);
+	amrObject.setSurfaceHeatBoundaryData(surf_heat_boundary_data_ptr, diri, temp);
 	if (surf_heat_boundary_data_ptr != NULL)
 	  {
 	    delete surf_heat_boundary_data_ptr;
@@ -1219,12 +1223,23 @@ void bisicles_get_2d_data
 	  
 	  for (int lev = 0; lev < n ; lev++)
 	    {
-	      data[lev] = const_cast<LevelData<FArrayBox>* >(amrIce.surfaceTemperature()[lev]);
+	      data[lev] = const_cast<LevelData<FArrayBox>* >(amrIce.surfaceInternalEnergy()[lev]);
 	      amrDx[lev] = amrIce.dx(lev);
 	    }
 	  
 	  flattenCellData(*ptr,dxv,data,amrDx,true);	
-	  
+	  //convert internal energy to temperature
+	  for (DataIterator dit( (*ptr).disjointBoxLayout()); dit.ok(); ++dit)
+	    {
+	      FArrayBox& T = (*ptr)[dit];
+	      FArrayBox E(T.box(),1);
+	      FArrayBox w(T.box(),1);
+	      FArrayBox p(T.box(),1);
+	      p.setVal(0.0);
+	      E.copy(T);
+	      IceThermodynamics::decomposeInternalEnergy(T,w,E,p,T.box());
+	    }
+
 	  break;
 	  
 	case BISICLES_FIELD_SURFACE_HEAT_FLUX:

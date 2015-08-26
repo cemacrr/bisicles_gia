@@ -811,7 +811,7 @@ c     this is pretty inefficient, but needed because spatial indices run fastest
          coluy(layer) = uy(CHF_AUTOIX[i], layer)
       end do
 
-      call tarmac_compute_zvel(coluz, uzs(CHF_AUTOIX[i]),
+      call column_thermodynamics_compute_zvel(coluz, uzs(CHF_AUTOIX[i]),
      &      colusig, colux, coluy, coldivuhxy,
      &     fsig, csig, dsig, nlay, H(CHF_AUTOIX[i]), 
      &     dsx(CHF_AUTOIX[i]), dhx(CHF_AUTOIX[i]), 
@@ -830,18 +830,18 @@ c     this is pretty inefficient, but needed because spatial indices run fastest
 
 
 c ---------------------------------------------------------------
-c update the mid-layer temperatures T(i,j,layer), surface temperature
+c update the mid-layer internal energies E(i,j,layer), surface temperature
 c sT(i,j) and basal temperature bT(i,j). Most of the heavy lifting
 c is done elsewhere, but the equation should be something like
 c  
-c dT / dt = (some terms) + rhs/dt
+c dE / dt = (some terms) + rhs/dt
 c
 c ---------------------------------------------------------------
 
-      subroutine UPDATETEMPERATURE(
-     &     CHF_FRA[temp],
-     &     CHF_FRA1[stemp],
-     &     CHF_FRA1[btemp],
+      subroutine UPDATEINTERNALENERGY(
+     &     CHF_FRA[energy],
+     &     CHF_FRA1[senergy],
+     &     CHF_FRA1[benergy],
      &     CHF_CONST_FRA1[sflux],
      &     CHF_CONST_FRA1[bflux],
      &     CHF_CONST_FIA1[floatingMaskOld],
@@ -861,23 +861,22 @@ c ---------------------------------------------------------------
      &     CHF_CONST_INT[sdiric],
      &     CHF_BOX[box])
           
-      Real_T coltemp(0:nlay-1), colrhs(0:nlay-1)
+      Real_T colenergy(0:nlay-1), colrhs(0:nlay-1)
       Real_T colusig(0:nlay)
 
       integer CHF_AUTODECL[i]
       integer layer
       integer mask
 
-      
-      call tarmac_set_constants( secondsperyear , 
+      call column_thermodynamics_set_constants( secondsperyear , 
      &     rhoi , rhoo, grav , iceheatcapacity, 
-     &     icelatentheat, iceconductivity , 
+     &     icelatentheat, iceconductivity , moistureconductivity,
      &     icepmeltfactor, triplepoint)
 
       CHF_AUTOMULTIDO[box; i]
 c     this is pretty inefficient, but needed because spatial indices run fastest in FABS
       do layer = 0, nlay - 1
-         coltemp(layer) = temp(CHF_AUTOIX[i], layer)
+         colenergy(layer) = energy(CHF_AUTOIX[i], layer)
          colrhs(layer) = rhs(CHF_AUTOIX[i], layer)
       end do
       do layer = 0, nlay
@@ -891,15 +890,16 @@ c     call ice floating if it is nor grounded (ie open sea or floating)
          mask = FLOATINGMASKVAL
       end if
 
-      call tarmac_update_temperature(coltemp, stemp(CHF_AUTOIX[i]),
+      call column_thermodynamics_update_internal_energy(colenergy, 
+     &     senergy(CHF_AUTOIX[i]),
      &     sflux(CHF_AUTOIX[i]), sdiric.gt.0, 
-     &     btemp(CHF_AUTOIX[i]), mask,
+     &     benergy(CHF_AUTOIX[i]), mask,
      &     bflux(CHF_AUTOIX[i]), colrhs,  
      &     thckold(CHF_AUTOIX[i]),  thcknew(CHF_AUTOIX[i]),
      &     colusig, sigma, dsigma, time, dt, nlay)   
 
       do layer = 0, nlay - 1
-         temp(CHF_AUTOIX[i], layer) = coltemp(layer)
+         energy(CHF_AUTOIX[i], layer) = colenergy(layer)
       end do
       CHF_ENDDO
 

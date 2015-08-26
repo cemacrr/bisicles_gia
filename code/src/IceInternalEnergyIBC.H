@@ -9,28 +9,27 @@
 #endif
 
 //
-//  IceTemperatureIBC.H
+//  IceInternalEnergyIBC.H
 // ============
 //
-// Implements PhysIBC for temperature transport. At some point might
-// become a virtual base instead. Also provides boundary conditions
-// needed in the treatment of temperature diffusion, which need to 
+// Virtual bases that extends PhysIBC for internal energy transport. Also provides boundary conditions
+// needed in the treatment of internal energy diffusion, which need to 
 // be handled quite differently in the layered 2D and full 3D
 // models.
 
-#ifndef _ICETEMPERATURE_H_
-#define _ICETEMPERATURE_H_
+#ifndef _ICEINTERNALENERGY_H_
+#define _ICEINTERNALENERGY_H_
 
 #include "PhysIBC.H"
 #include "LevelSigmaCS.H"
 #include "NamespaceHeader.H"
 
-class AmrIce;
-
-class IceTemperatureIBC : public PhysIBC
+class AmrIceBase;
+/// Common virtual base class for  internal energy transport IBC
+class IceInternalEnergyIBC : public PhysIBC
 {
 public:
-  virtual ~IceTemperatureIBC() {}
+  virtual ~IceInternalEnergyIBC() {}
   //Define the object
   /**
      Set the problem domain index space and the grid spacing for this
@@ -48,10 +47,10 @@ public:
      its define() must be called before it is used).
    */
   virtual PhysIBC* new_physIBC() 
-  {return static_cast<PhysIBC*>(new_temperatureIBC());}
+  {return static_cast<PhysIBC*>(new_internalEnergyIBC());}
   
-  /// same as new_physIBC, except pointer cast to an IceTemperatureIBC
-  virtual IceTemperatureIBC* new_temperatureIBC() = 0;
+  /// same as new_physIBC, except pointer cast to an IceInternalEnergyIBC
+  virtual IceInternalEnergyIBC* new_internalEnergyIBC() = 0;
   
 
   virtual void initialize(LevelData<FArrayBox>& a_U);
@@ -59,28 +58,25 @@ public:
   /// set a basal heat flux : by default set to zero. units are Joules / Year
   /// default implementation sets zero flux.
   virtual void basalHeatFlux(LevelData<FArrayBox>& a_flux,
-			     const AmrIce& a_amrIce, 
+			     const AmrIceBase& a_amrIce, 
 			     int a_level, Real a_dt)=0;
 
 
 #if BISICLES_Z == BISICLES_LAYERED
-  virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T, 
-					LevelData<FArrayBox>& a_surfaceT, 
-					LevelData<FArrayBox>& a_basalT,
-					const LevelSigmaCS& a_coordSys)=0;
+  virtual void initializeIceInternalEnergy(LevelData<FArrayBox>& a_E, 
+					   LevelData<FArrayBox>& a_surfaceE, 
+					   LevelData<FArrayBox>& a_basalE,
+					   const AmrIceBase& a_amrIce, 
+					   int a_level, Real a_dt)=0;
 
-  virtual void setIceTemperatureBC(LevelData<FArrayBox>& a_T, 
-				   LevelData<FArrayBox>& a_surfaceT, 
-				   LevelData<FArrayBox>& a_basalT,
-				   const LevelSigmaCS& a_coordSys)=0;
+  virtual void setIceInternalEnergyBC(LevelData<FArrayBox>& a_E, 
+				      LevelData<FArrayBox>& a_surfaceE, 
+				      LevelData<FArrayBox>& a_basalE,
+				      const LevelSigmaCS& a_coordSys)=0;
 
 
 #elif BISICLES_Z == BISICLES_FULLZ
-  virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T,
-					const LevelSigmaCS& a_coordSys)=0;
-  virtual void setIceTemperatureBC(LevelData<FArrayBox>& a_T,
-				   const LevelSigmaCS& a_coordSys)=0;
-
+#error BISICLES_FULLZ not implemented
 #endif
 
   /// Set boundary fluxes
@@ -108,14 +104,14 @@ public:
 			 const Real&      a_time)
   {
     //shouldn't get to here, so
-    MayDay::Error("IceTemperatureIBC::artViscBC not implemented");
+    MayDay::Error("IceInternalEnergyIBC::artViscBC not implemented");
   }
 
 
 };
 
-
-class ConstantIceTemperatureIBC : public IceTemperatureIBC
+/// Concrete IceInternalEnergyIBC that sets ice temperature to be constant
+class ConstantIceTemperatureIBC : public IceInternalEnergyIBC
 {
   Real m_T;
   
@@ -123,29 +119,28 @@ public:
   virtual ~ConstantIceTemperatureIBC(){};
   ConstantIceTemperatureIBC(Real a_T) : m_T(a_T) {}
      
-  virtual ConstantIceTemperatureIBC* new_temperatureIBC();
+  virtual ConstantIceTemperatureIBC* new_internalEnergyIBC();
 
   /// set a basal heat flux to zero. units are Joules / Year
   virtual void basalHeatFlux(LevelData<FArrayBox>& a_flux,
-			     const AmrIce& a_amrIce, 
+			     const AmrIceBase& a_amrIce, 
 			     int a_level, Real a_dt);
 
 #if BISICLES_Z == BISICLES_LAYERED
-  virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T, 
-					LevelData<FArrayBox>& a_surfaceT, 
-					LevelData<FArrayBox>& a_basalT,
-					const LevelSigmaCS& a_coordSys);
+  virtual void initializeIceInternalEnergy(LevelData<FArrayBox>& a_E, 
+					   LevelData<FArrayBox>& a_surfaceE, 
+					   LevelData<FArrayBox>& a_basalE,
+					   const AmrIceBase& a_amrIce, 
+					   int a_level, Real a_dt);
 
   
-  virtual void setIceTemperatureBC(LevelData<FArrayBox>& a_T, 
-				   LevelData<FArrayBox>& a_surfaceT, 
-				   LevelData<FArrayBox>& a_basalT,
-				   const LevelSigmaCS& a_coordSys);
+  virtual void setIceInternalEnergyBC(LevelData<FArrayBox>& a_E, 
+				     LevelData<FArrayBox>& a_surfaceT, 
+				     LevelData<FArrayBox>& a_basalT,
+				     const LevelSigmaCS& a_coordSys);
+
 #elif BISICLES_Z == BISICLES_FULLZ
-  virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T,
-					const LevelSigmaCS& a_coordSys);
-  virtual void setIceTemperatureBC(LevelData<FArrayBox>& a_T,
-				    const LevelSigmaCS& a_coordSys);
+#error BISICLES_FULLZ not implemented
 #endif
   void set(Real a_T)
   {
@@ -160,5 +155,23 @@ private:
   ConstantIceTemperatureIBC(){}
 
 };
+
+/// Partial implementation of IceInternalEnergyIBC, provides reflection (or periodic) boundary conditions
+class ReflectionIceInternalEnergyIBC : public IceInternalEnergyIBC
+{  
+  
+public:
+  
+  virtual void setIceInternalEnergyBC
+  (LevelData<FArrayBox>& a_E, 
+   LevelData<FArrayBox>& a_surfaceE, 
+   LevelData<FArrayBox>& a_basalE,
+   const LevelSigmaCS& a_coordSys);
+  
+};
+
+
+
+
 #include "NamespaceFooter.H"
 #endif

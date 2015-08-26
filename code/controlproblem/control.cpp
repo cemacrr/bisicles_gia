@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
 
     AMRIceControl amrIceControl;
     IceThicknessIBC* thicknessIBC = NULL;
-    IceTemperatureIBC* temperatureIBC = NULL;
+    IceInternalEnergyIBC* internalEnergyIBC = NULL;
     BasalFrictionRelation* basalFrictionRelationPtr = NULL;
     ConstitutiveRelation* constRelPtr = NULL;
     RateFactor*  rateFactorPtr = NULL;
@@ -381,25 +381,23 @@ int main(int argc, char* argv[]) {
 	  Real T = 258.0;
 	  tempPP.query("value",T);
 	  ConstantIceTemperatureIBC* ptr = new ConstantIceTemperatureIBC(T);
-	  temperatureIBC  = static_cast<IceTemperatureIBC*>(ptr);
+	  internalEnergyIBC  = static_cast<IceInternalEnergyIBC*>(ptr);
 	}
       else if (tempType == "LevelData")
 	{
-	
 	  ParmParse ildPP("inputLevelData");
 	  LevelDataTemperatureIBC* ptr = NULL;
-	  CH_assert( (ptr = LevelDataTemperatureIBC::parse(ildPP)) != NULL);
-	  temperatureIBC  = static_cast<IceTemperatureIBC*>(ptr);
-
+	  ptr = LevelDataTemperatureIBC::parse(ildPP); CH_assert(ptr != NULL);
+	  internalEnergyIBC  = static_cast<IceInternalEnergyIBC*>(ptr);
 	}
       else 
 	{
-	  MayDay::Error("bad temperature type");
+	  MayDay::Error("bad internalEnergy type");
 	}	
 
 
     
-      amrIceControl.define(thicknessIBC, temperatureIBC,  rateFactorPtr, constRelPtr , 
+      amrIceControl.define(thicknessIBC, internalEnergyIBC,  rateFactorPtr, constRelPtr , 
 			   basalFrictionRelationPtr,dataDx,originC,originMuCoef,velObs,
 			   velCoef,thkCoef, divUHObs,divUHCoef);
 
@@ -438,10 +436,10 @@ int main(int argc, char* argv[]) {
 	thicknessIBC = NULL;
       }
     
-    if (temperatureIBC != NULL)
+    if (internalEnergyIBC != NULL)
       {
-	delete temperatureIBC;
-	temperatureIBC = NULL;
+	delete internalEnergyIBC;
+	internalEnergyIBC = NULL;
       }
 
     if (basalFrictionRelationPtr != NULL)

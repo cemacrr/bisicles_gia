@@ -19,7 +19,7 @@
 #include "CoarseAverage.H"
 #include "BisiclesF_F.H"
 #include "ParmParse.H"
-#include "AmrIce.H"
+#include "AmrIceBase.H"
 #include "FortranInterfaceIBC.H"
 #include "FillFromReference.H"
 
@@ -42,7 +42,7 @@ zeroFlux::new_surfaceFlux()
   */
 void
 zeroFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-			       const AmrIce& a_amrIce, 
+			       const AmrIceBase& a_amrIce, 
 			       int a_level, Real a_dt)
 {
   DataIterator dit = a_flux.dataIterator();
@@ -72,7 +72,7 @@ constantFlux::new_surfaceFlux()
   */
 void
 constantFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				   const AmrIce& a_amrIce, 
+				   const AmrIceBase& a_amrIce, 
 				   int a_level, Real a_dt)
 {
   CH_assert(m_isValSet);
@@ -162,7 +162,7 @@ fortranInterfaceFlux::new_surfaceFlux()
 */
 void 
 fortranInterfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					   const AmrIce& a_amrIce, 
+					   const AmrIceBase& a_amrIce, 
 					   int a_level, Real a_dt)
 {
   CH_assert(m_isValSet);
@@ -316,7 +316,7 @@ SurfaceFlux* MaskedFlux::new_surfaceFlux()
 }
 
 void MaskedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				      const AmrIce& a_amrIce, 
+				      const AmrIceBase& a_amrIce, 
 				      int a_level, Real a_dt)
 {
 
@@ -395,7 +395,7 @@ AxbyFlux::~AxbyFlux()
 }
 
 void AxbyFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  const AmrIce& a_amrIce, 
+					  const AmrIceBase& a_amrIce, 
 					  int a_level, Real a_dt)
 {
 
@@ -442,7 +442,7 @@ CompositeFlux::~CompositeFlux()
 }
 
 void CompositeFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  const AmrIce& a_amrIce, 
+					  const AmrIceBase& a_amrIce, 
 					  int a_level, Real a_dt)
 {
   m_fluxes[0]->surfaceThicknessFlux(a_flux, a_amrIce, a_level,a_dt );
@@ -469,7 +469,7 @@ SurfaceFlux* BoxBoundedFlux::new_surfaceFlux()
 
 
 void BoxBoundedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  const AmrIce& a_amrIce, 
+					  const AmrIceBase& a_amrIce, 
 					  int a_level, Real a_dt)
 {
 
@@ -525,7 +525,7 @@ SurfaceFlux* PiecewiseLinearFlux::new_surfaceFlux()
 }
 
 void PiecewiseLinearFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					       const AmrIce& a_amrIce, 
+					       const AmrIceBase& a_amrIce, 
 					       int a_level, Real a_dt)
 {
   Vector<Real> dx(m_abscissae.size());

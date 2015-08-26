@@ -57,7 +57,7 @@ public:
   /// factory method
   /** return a pointer to a new SurfaceFlux object
    */
-  virtual SurfaceFlux* new_surfaceFlux()
+  virtual SurfaceFlux* new_surfaceFlux() 
   {
     LevelDataSurfaceFlux* ptr;
     if (m_timeFileMap != NULL)
@@ -77,7 +77,7 @@ public:
   */
 
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIce& a_amrIce, 
+				    const AmrIceBase& a_amrIce, 
 				    int a_level, Real a_dt);
   
 
@@ -150,7 +150,7 @@ public:
   */
 
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIce& a_amrIce, 
+				    const AmrIceBase& a_amrIce, 
 				    int a_level, Real a_dt);
   
 

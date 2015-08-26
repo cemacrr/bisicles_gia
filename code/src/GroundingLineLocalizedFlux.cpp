@@ -1,3 +1,4 @@
+
 #ifdef CH_LANG_CC
 /*
 *      _______              __
@@ -9,7 +10,7 @@
 #endif
 
 #include "GroundingLineLocalizedFlux.H"
-#include "AmrIce.H"
+#include "AmrIceBase.H"
 #include "BisiclesF_F.H"
 #include "NamespaceHeader.H"
 
@@ -34,7 +35,7 @@ SurfaceFlux* GroundingLineLocalizedFlux::new_surfaceFlux()
 
 void GroundingLineLocalizedFlux::surfaceThicknessFlux
 (LevelData<FArrayBox>& a_flux,
- const AmrIce& a_amrIce, 
+ const AmrIceBase& a_amrIce, 
  int a_level, Real a_dt)
 {
 

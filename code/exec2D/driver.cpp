@@ -33,8 +33,9 @@
 #include "HumpIBC.H"
 #include "LevelDataIBC.H"
 #include "MultiLevelDataIBC.H"
-#include "IceTemperatureIBC.H"
+#include "IceInternalEnergyIBC.H"
 #include "LevelDataTemperatureIBC.H"
+#include "VerticalConductionInternalEnergyIBC.H"
 #include "LevelDataBasalFriction.H"
 #include "PiecewiseLinearFlux.H"
 #include "SurfaceFlux.H"
@@ -638,44 +639,7 @@ int main(int argc, char* argv[]) {
        }
 
     amrObject.setThicknessBC(thicknessIBC);
-
-    IceTemperatureIBC* temperatureIBC = NULL;
-    ParmParse tempPP("temperature");
-    std::string tempType("constant");
-    tempPP.query("type",tempType);
-    if (tempType == "constant")
-      {
-	Real T = 258.0;
-	tempPP.query("value",T);
-	ConstantIceTemperatureIBC* ptr = new ConstantIceTemperatureIBC(T);
-	temperatureIBC  = static_cast<IceTemperatureIBC*>(ptr);
-      }
-    else if (tempType == "LevelData")
-      {
-	ParmParse ildPP("inputLevelData");
-	LevelDataTemperatureIBC* ptr = NULL;
-	ptr = LevelDataTemperatureIBC::parse(ildPP); CH_assert(ptr != NULL);
-	temperatureIBC  = static_cast<IceTemperatureIBC*>(ptr);
-      }
-#ifdef HAVE_PYTHON
-    else if (tempType == "Python")
-      {
-	ParmParse pyPP("PythonIceTemperatureIBC");
-	std::string module;
-	pyPP.get("module",module);
-	std::string funcName = "temperature";
-	pyPP.query("function",funcName);
-	temperatureIBC  = static_cast<IceTemperatureIBC*>
-	  (new PythonInterface::PythonIceTemperatureIBC(module, funcName));
-      }
-#endif
-    else 
-      {
-	MayDay::Error("bad temperature type");
-      }	
-	
-    amrObject.setTemperatureBC(temperatureIBC);
-  
+    
     {
       // ---------------------------------------------
       // set surface heat boundary data 
@@ -683,17 +647,28 @@ int main(int argc, char* argv[]) {
       
       SurfaceFlux* surf_heat_boundary_data_ptr = SurfaceFlux::parseSurfaceFlux("surfaceHeatBoundaryData");
       ParmParse pps("surfaceHeatBoundaryData");
-      bool diri = true; //Dirichlett boundary data by default
+      bool diri = false; // flux boundary data by default
       pps.query("Dirichlett",diri);
+      bool temp = true; //temperature boundary data by default
+      pps.query("Temperature",temp);
       if (surf_heat_boundary_data_ptr == NULL)
 	{
-	  if (!diri)
+	  if (diri)
 	    {
+	      const std::string err("If surfaceHeatBoundaryData.Diirchlett = true, surfaceHeatBoundaryData.type must be set");
+	      pout() << err << endl;
+	      MayDay::Error(err.c_str());
+	    }
+	  else
+	    {
+	      const std::string warn("No surfaceHeatBoundaryData.type specified, so zero flux set. Only relevant for amr.isothermal = false");
+	      pout() << warn << endl;
+	      MayDay::Warning(warn.c_str());
 	      surf_heat_boundary_data_ptr = new zeroFlux();
 	    }
 	}
       
-      amrObject.setSurfaceHeatBoundaryData(surf_heat_boundary_data_ptr, diri);
+      amrObject.setSurfaceHeatBoundaryData(surf_heat_boundary_data_ptr, diri, temp);
       if (surf_heat_boundary_data_ptr != NULL)
 	{
 	  delete surf_heat_boundary_data_ptr;
@@ -705,10 +680,10 @@ int main(int argc, char* argv[]) {
       // ---------------------------------------------
       
       SurfaceFlux* basal_heat_boundary_data_ptr = SurfaceFlux::parseSurfaceFlux("basalHeatBoundaryData");
-      // if (basal_heat_boundary_data_ptr == NULL)
-      // 	{
-      // 	  basal_heat_boundary_data_ptr = new zeroFlux();
-      // 	}
+      if (basal_heat_boundary_data_ptr == NULL)
+       	{
+       	  basal_heat_boundary_data_ptr = new zeroFlux();
+       	}
       
       amrObject.setBasalHeatBoundaryData(basal_heat_boundary_data_ptr);
       if (basal_heat_boundary_data_ptr != NULL)
@@ -718,7 +693,56 @@ int main(int argc, char* argv[]) {
 	}
       
     }
-      
+    
+    {
+      IceInternalEnergyIBC* internalEnergyIBC = NULL;
+      ParmParse tempPP("temperature");
+      std::string tempType("constant");
+      tempPP.query("type",tempType);
+      if (tempType == "constant")
+	{
+	  Real T = 258.0;
+	  tempPP.query("value",T);
+	  ConstantIceTemperatureIBC* ptr = new ConstantIceTemperatureIBC(T);
+	  internalEnergyIBC  = static_cast<IceInternalEnergyIBC*>(ptr);
+	}
+      else if (tempType == "LevelData")
+	{
+	  ParmParse ildPP("inputLevelData");
+	  LevelDataTemperatureIBC* ptr = NULL;
+	  ptr = LevelDataTemperatureIBC::parse(ildPP); CH_assert(ptr != NULL);
+	  internalEnergyIBC  = static_cast<IceInternalEnergyIBC*>(ptr);
+	}
+      else if (tempType == "VerticalConduction")
+	{
+	  VerticalConductionInternalEnergyIBC* ptr = NULL;
+	  ptr = VerticalConductionInternalEnergyIBC::parse(tempPP); 
+	  CH_assert(ptr != NULL);
+	  internalEnergyIBC  = static_cast<IceInternalEnergyIBC*>(ptr);
+	}
+#ifdef HAVE_PYTHON
+      else if (tempType == "Python")
+	{
+	  ParmParse pyPP("PythonIceTemperatureIBC");
+	  std::string module;
+	  pyPP.get("module",module);
+	  std::string funcName = "temperature";
+	  pyPP.query("function",funcName);
+	  internalEnergyIBC  = static_cast<IceInternalEnergyIBC*>
+	    (new PythonInterface::PythonIceTemperatureIBC(module, funcName));
+	}
+#endif
+      else 
+	{
+	  MayDay::Error("bad temperature/internal energy type");
+	}	
+      amrObject.setInternalEnergyBC(internalEnergyIBC);
+      if (internalEnergyIBC != NULL)
+	{
+	  delete internalEnergyIBC;
+	}
+    }
+
     amrObject.setDomainSize(domainSize);
     // set up initial grids, initialize data, etc.
     amrObject.initialize();
@@ -773,12 +797,6 @@ int main(int argc, char* argv[]) {
       {
         delete thicknessIBC;
         thicknessIBC=NULL;
-      }
-
-    if (temperatureIBC != NULL)
-      {  
-	delete temperatureIBC;
-        temperatureIBC=NULL;
       }
 
   }  // end nested scope

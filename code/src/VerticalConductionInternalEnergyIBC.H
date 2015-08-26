@@ -9,44 +9,36 @@
 #endif
 
 //
-//  LevelDataTemperatureIBC.H
+//  VerticalConductionInternalEnergyIBC.H
 // ============
 
-#ifndef _LEVELDATATEMPERATUREIBC_H_
-#define _LEVELDATATEMPERATUREIBC_H_
+#ifndef _VERTICALCONDUCTIONINTERNALENERGYIBC_H_
+#define _VERTICALCONDUCTIONINTERNALENERGYIBC_H_
 
 #include "IceInternalEnergyIBC.H"
 #include "ParmParse.H"
+#include "SurfaceFlux.H"
 #include "NamespaceHeader.H"
 
 /// Physical/domain initial and boundary conditions
 /**
-   PhysIBC-derived class which stores initial temperature data
-   and imposes either periodic or reflection boundary conditions
- */
-class LevelDataTemperatureIBC : public ReflectionIceInternalEnergyIBC
+   PhysIBC-derived class which computes an initial temperature by 
+   solving a vertical conduction problem given a surface temperature
+   and a basal heat flux, and imposes either periodic or reflection 
+   boundary conditions
+*/
+class VerticalConductionInternalEnergyIBC : public ReflectionIceInternalEnergyIBC
 {  
-  RefCountedPtr<LevelData<FArrayBox> > m_temp;
-#if BISICLES_Z == BISICLES_LAYERED
-  RefCountedPtr<LevelData<FArrayBox> > m_surfaceTemp ;
-  RefCountedPtr<LevelData<FArrayBox> > m_basalHeatFlux ;
-#endif
-  RealVect m_dx;
+  
 public:
   /// Constructor
   /**
    */
-  LevelDataTemperatureIBC(RefCountedPtr<LevelData<FArrayBox> > a_temp, 
-#if BISICLES_Z == BISICLES_LAYERED
-			  RefCountedPtr<LevelData<FArrayBox> > a_surfaceT,
-			  RefCountedPtr<LevelData<FArrayBox> > a_basalT,
-#endif
-			  const RealVect& a_dx);
-
+  VerticalConductionInternalEnergyIBC(SurfaceFlux* a_basalDissipation);
   /// Destructor
   /**
    */
-  virtual ~LevelDataTemperatureIBC();
+  virtual ~VerticalConductionInternalEnergyIBC();
 
   /// Define the object
   /**
@@ -62,7 +54,7 @@ public:
      m_isDefined = false (i.e., its define() must be called before it
      is used). 
    */
-  virtual LevelDataTemperatureIBC* new_internalEnergyIBC();
+  virtual VerticalConductionInternalEnergyIBC* new_internalEnergyIBC();
 
   /// set a basal heat flux. units are Joules / Year
   virtual void basalHeatFlux(LevelData<FArrayBox>& a_flux,
@@ -72,30 +64,39 @@ public:
 #if BISICLES_Z == BISICLES_LAYERED
   virtual void initializeIceInternalEnergy(LevelData<FArrayBox>& a_E, 
 					   LevelData<FArrayBox>& a_surfaceE, 
-					   LevelData<FArrayBox>& a_basalE, 
-					   const AmrIceBase& a_amrIce, 
+					   LevelData<FArrayBox>& a_basalE,
+					   const AmrIceBase& a_amrIce,
 					   int a_level, Real a_dt);
 
 #elif BISICLES_Z == BISICLES_FULLZ
 #error BISICLES_FULLZ not implemented
 #endif
 
-
-  static LevelDataTemperatureIBC* parse(ParmParse& a_pp);
+  static VerticalConductionInternalEnergyIBC* parse(ParmParse&);
 
 private:
   
+  SurfaceFlux* m_basalDissipation;
+
+  SurfaceFlux& basalDissipation() const
+  {
+    if (m_basalDissipation == NULL)
+      {
+	CH_assert(m_basalDissipation != NULL);
+	MayDay::Error("no basal dissipation");
+      }
+    return *m_basalDissipation;
+  }
 
 
   // Disallowed for all the usual reasons
-  void operator=(const LevelDataTemperatureIBC& a_input)
+  void operator=(const VerticalConductionInternalEnergyIBC& a_input)
   {
     MayDay::Error("invalid operator");
   }
 
   // Disallowed for all the usual reasons
-  LevelDataTemperatureIBC(const LevelDataTemperatureIBC& a_input)
-    :m_temp(a_input.m_temp)
+  VerticalConductionInternalEnergyIBC(const VerticalConductionInternalEnergyIBC& a_input)
   {
     MayDay::Error("invalid operator");
   }

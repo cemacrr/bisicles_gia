@@ -1,0 +1,65 @@
+#include "CONSTANTS.H"
+
+c-------------------------------------------
+c F = C*T + L*W
+c-------------------------------------------
+      subroutine composeinternalenergyice(
+     &     CHF_FRA[F],
+     &     CHF_CONST_FRA[T],
+     &     CHF_CONST_FRA[W],
+     &     CHF_CONST_REAL[C],
+     &     CHF_CONST_REAL[L], 
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i], ncomp, n
+      
+      ncomp = CHF_NCOMP[T]
+      CHF_AUTOMULTIDO[box; i]
+      do n = 0, ncomp-1
+         F(CHF_AUTOIX[i],n) = T(CHF_AUTOIX[i],n) * C + 
+     &        W(CHF_AUTOIX[i],n) * L 
+      end do
+      CHF_ENDDO
+
+      return 
+      end
+
+c-------------------------------------------
+c  decompose internal energy into temperature
+c  and water fraction assuming constant heat
+c  capacity 
+c  
+c  T = if(F < Fp, F/C, Tp) 
+c  W = if(F > Fpmp, (F-F0)/L, 0)
+c  where Fp = C * Tp and Tp = Tr - beta * P
+c-------------------------------------------
+      subroutine decomposeinternalenergyice(
+     &     CHF_FRA[T],
+     &     CHF_FRA[W],
+     &     CHF_CONST_FRA[F],
+     &     CHF_CONST_FRA[P],
+     &     CHF_CONST_REAL[C],
+     &     CHF_CONST_REAL[L], 
+     &     CHF_CONST_REAL[beta],
+     &     CHF_CONST_REAL[Tr],
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i], ncomp, n
+      REAL_T Tp, Fp
+      ncomp = CHF_NCOMP[T]
+      CHF_AUTOMULTIDO[box; i]
+       do n = 0, ncomp-1
+          Tp = Tr - P(CHF_AUTOIX[i],n) * beta
+          Fp = C*Tp
+          if (F(CHF_AUTOIX[i],n) > Fp) then
+             T(CHF_AUTOIX[i],n) = Tp
+             W(CHF_AUTOIX[i],n) = (F(CHF_AUTOIX[i],n) - Fp) / L
+          else
+	     T(CHF_AUTOIX[i],n) = (F(CHF_AUTOIX[i],n))/C
+             W(CHF_AUTOIX[i],n) = zero
+          end if
+       end do
+      CHF_ENDDO
+
+      return 
+      end

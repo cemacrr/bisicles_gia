@@ -17,10 +17,11 @@
 
 #include "LevelDataTemperatureIBC.H"
 #include "IceConstants.H"
+#include "IceThermodynamics.H"
 #include "FillFromReference.H"
 #include "ReflectGhostCells.H"
 #include "ReadLevelData.H"
-#include "AmrIce.H"
+#include "AmrIceBase.H"
 #include "NamespaceHeader.H"
 
 
@@ -147,7 +148,7 @@ void LevelDataTemperatureIBC::define(const ProblemDomain& a_domain,
 
 void LevelDataTemperatureIBC::basalHeatFlux
 (LevelData<FArrayBox>& a_flux,
- const AmrIce& a_amrIce, 
+ const AmrIceBase& a_amrIce, 
  int a_level, Real a_dt)
 {
   FillFromReference(a_flux,*m_basalHeatFlux,a_amrIce.dx(a_level),m_dx,true);
@@ -162,10 +163,11 @@ void LevelDataTemperatureIBC::basalHeatFlux
 
 }
 
-void LevelDataTemperatureIBC::initializeIceTemperature(LevelData<FArrayBox>& a_T, 
-			      LevelData<FArrayBox>& a_surfaceT, 
-			      LevelData<FArrayBox>& a_basalT,
-			      const LevelSigmaCS& a_coordSys)
+void LevelDataTemperatureIBC::initializeIceInternalEnergy(LevelData<FArrayBox>& a_E, 
+							  LevelData<FArrayBox>& a_surfaceE, 
+							  LevelData<FArrayBox>& a_basalE,
+							  const AmrIceBase& a_amrIce, 
+							  int a_level, Real a_dt)
 {
 
   if (true)
@@ -173,51 +175,61 @@ void LevelDataTemperatureIBC::initializeIceTemperature(LevelData<FArrayBox>& a_T
       pout() << " LevelDataIBC::initializeIceTemperature" << endl;
     }
 
-  FillFromReference(a_T,*m_temp,a_coordSys.dx(),m_dx,true);
-  FillFromReference(a_surfaceT,*m_surfaceTemp,a_coordSys.dx(),m_dx,true);
-  //FillFromReference(a_basalT,*m_basalTemp,a_coordSys.dx(),m_dx,true); \todo : get rid of this part
   
-  const ProblemDomain& domain = a_coordSys.grids().physDomain();
+  const LevelSigmaCS& coordSys = *a_amrIce.geometry(a_level); 
+  const DisjointBoxLayout dbl = coordSys.grids();
+  LevelData<FArrayBox> T(dbl, a_E.nComp(), a_E.ghostVect());
+  FillFromReference(T,*m_temp,coordSys.dx(),m_dx,true);
+  LevelData<FArrayBox> sT(a_E.disjointBoxLayout(), 1, a_E.ghostVect());
+  FillFromReference(sT,*m_surfaceTemp,coordSys.dx(),m_dx,true);
+  {
+  const ProblemDomain& domain = coordSys.grids().physDomain();
   for (int dir = 0; dir < SpaceDim; ++dir)
     {
       if (!(domain.isPeriodic(dir))){
-	ReflectGhostCells(a_T, domain, dir, Side::Lo);
-	ReflectGhostCells(a_T, domain, dir, Side::Hi);
-	ReflectGhostCells(a_surfaceT, domain, dir, Side::Lo);
-	ReflectGhostCells(a_surfaceT, domain, dir, Side::Hi);
-	//ReflectGhostCells(a_basalT, domain, dir, Side::Lo);
-	//ReflectGhostCells(a_basalT, domain, dir, Side::Hi);
+	ReflectGhostCells(T, domain, dir, Side::Lo);
+	ReflectGhostCells(T, domain, dir, Side::Hi);
+	ReflectGhostCells(sT, domain, dir, Side::Lo);
+	ReflectGhostCells(sT, domain, dir, Side::Hi);
       }
     }
-}
+  }
 
+  for (DataIterator dit(dbl);dit.ok();++dit)
+    {
+      FArrayBox w( a_E[dit].box(), a_E[dit].nComp()); //water fraction, set to zero for now
+      w.setVal(0.0);
+      IceThermodynamics::composeInternalEnergy(a_E[dit],T[dit],w, a_E[dit].box() );
+    }
 
-void LevelDataTemperatureIBC::setIceTemperatureBC
-(LevelData<FArrayBox>& a_T, 
- LevelData<FArrayBox>& a_surfaceT, 
- LevelData<FArrayBox>& a_basalT,
- const LevelSigmaCS& a_coordSys)
-{
-  const ProblemDomain& domain = a_coordSys.grids().physDomain();
-  
+ 
+   for (DataIterator dit(dbl);dit.ok();++dit)
+    {
+      FArrayBox w( a_surfaceE[dit].box(), 1); //water fraction, set to zero for now 
+      w.setVal(0.0);
+      IceThermodynamics::composeInternalEnergy(a_surfaceE[dit],sT[dit],w,a_surfaceE[dit].box() );
+    }
+   
+
+  const ProblemDomain& domain = coordSys.grids().physDomain();
   for (int dir = 0; dir < SpaceDim; ++dir)
     {
-      if (!(domain.isPeriodic(dir)))
-	{
-	  ReflectGhostCells(a_T, domain, dir, Side::Lo);
-	  ReflectGhostCells(a_T, domain, dir, Side::Hi);
-	  ReflectGhostCells(a_surfaceT, domain, dir, Side::Lo);
-	  ReflectGhostCells(a_surfaceT, domain, dir, Side::Hi);
-	  ReflectGhostCells(a_basalT, domain, dir, Side::Lo);
-	  ReflectGhostCells(a_basalT, domain, dir, Side::Hi);
-	}
+      if (!(domain.isPeriodic(dir))){
+	ReflectGhostCells(a_E, domain, dir, Side::Lo);
+	ReflectGhostCells(a_E, domain, dir, Side::Hi);
+	ReflectGhostCells(a_surfaceE, domain, dir, Side::Lo);
+	ReflectGhostCells(a_surfaceE, domain, dir, Side::Hi);
+      }
     }
-}
 
+  a_E.exchange();
+  a_surfaceE.exchange();
+
+}
 
 
 LevelDataTemperatureIBC* 
-LevelDataTemperatureIBC::new_temperatureIBC()
+LevelDataTemperatureIBC::new_internalEnergyIBC()
 {
   return new LevelDataTemperatureIBC(m_temp,m_surfaceTemp,m_basalHeatFlux,m_dx);
 }

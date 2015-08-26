@@ -27,7 +27,7 @@
     will be derived from this
 */
 
-class AmrIce;
+class AmrIceBase;
 
 class SurfaceFlux
 {
@@ -50,12 +50,12 @@ public:
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIce& a_amrIce, 
+				    const AmrIceBase& a_amrIce, 
 				    int a_level, Real a_dt) = 0;
   
   /// Sub-classes of this class turned out to be useful for various data apart from thickness fluxes...
   virtual void evaluate(LevelData<FArrayBox>& a_flux,
-			const AmrIce& a_amrIce, 
+			const AmrIceBase& a_amrIce, 
 			int a_level, Real a_dt)
   {
     surfaceThicknessFlux(a_flux,a_amrIce, a_level,a_dt);
@@ -102,7 +102,7 @@ public:
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIce& a_amrIce, 
+				    const AmrIceBase& a_amrIce, 
 				    int a_level, Real a_dt);
 
 
@@ -142,7 +142,7 @@ public:
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIce& a_amrIce, 
+				    const AmrIceBase& a_amrIce, 
 				    int a_level, Real a_dt);
 
   /// set flux value in meters/year
@@ -191,7 +191,7 @@ public:
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIce& a_amrIce, 
+				    const AmrIceBase& a_amrIce, 
 				    int a_level, Real a_dt);
 
   /// set fortran array-valued surface flux
@@ -278,7 +278,7 @@ public:
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIce& a_amrIce, 
+				    const AmrIceBase& a_amrIce, 
 				    int a_level, Real a_dt);
 
 
@@ -349,7 +349,7 @@ virtual SurfaceFlux* new_surfaceFlux();
       implementation. 
 */
 virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				  const AmrIce& a_amrIce, 
+				  const AmrIceBase& a_amrIce, 
 				  int a_level, Real a_dt);
 
 private:
@@ -390,7 +390,7 @@ public:
   virtual SurfaceFlux* new_surfaceFlux();
   
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIce& a_amrIce, 
+				    const AmrIceBase& a_amrIce, 
 				    int a_level, Real a_dt);
 
 private:
@@ -437,7 +437,7 @@ public:
     implementation. 
 */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIce& a_amrIce, 
+				    const AmrIceBase& a_amrIce, 
 				    int a_level, Real a_dt);
 
   
@@ -486,7 +486,7 @@ public:
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIce& a_amrIce, 
+				    const AmrIceBase& a_amrIce, 
 				    int a_level, Real a_dt);
   
 

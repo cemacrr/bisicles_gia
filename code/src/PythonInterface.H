@@ -14,10 +14,11 @@
 
 #include "Python.h"
 #include "IceThicknessIBC.H"
-#include "IceTemperatureIBC.H"
+#include "IceInternalEnergyIBC.H"
 #include "SurfaceFlux.H"
 #include "BasalFriction.H"
 #include "MuCoefficient.H"
+#include "IceVelocitySolver.H"
 #include "VelocityBC.H"
 #include <map>
 #include "NamespaceHeader.H"
@@ -32,13 +33,17 @@
 // a user-defined python function f(x,y) . Reflection boundary conditions are imposed on
 // each edge. 
 //
-// PythonInterface::PythonTemperatureIBC, much as PythonIBC, but provides initial / boundary conditions for the temperature
+// PythonInterface::PythonInternalEnergyIBC, much as PythonIBC, but provides initial / boundary conditions for the internalEnergy
 // field
 //
 // PythonInterface::PythonSurfaceFlux , a SurfaceFlux derived class which allows a thickness source to be set
 // by a python function f(x,y,thickness,topography)
+//
+//
+//  PythonInterface::PythonVelocitySolver , an IceVelocitySolver that allows the velocity to be set by 
+//  a python function f(x,y,thickness,topography)
 
-class AmrIce;
+class AmrIceBase;
 
 namespace PythonInterface
 {
@@ -54,7 +59,7 @@ namespace PythonInterface
      Map names to cell centered data given (a_amrIce,a_level,a_dit,a_iv)
    */
   void FillKwargs(std::map<std::string,Real>& a_kwarg,
-		  const AmrIce& a_amrIce, int a_level, 
+		  const AmrIceBase& a_amrIce, int a_level, 
 		  const DataIterator& a_dit, const IntVect& a_iv);
   //Evalue python function with positional and (optional) keyword args
   void PythonEval(PyObject* a_pyFunc, Vector<Real>& a_value, Vector<Real>& a_arg,  std::map<std::string, Real>* a_kwarg = NULL); 
@@ -288,7 +293,7 @@ namespace PythonInterface
 	implementation. 
     */
     virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				      const AmrIce& a_amrIce, 
+				      const AmrIceBase& a_amrIce, 
 				      int a_level, Real a_dt);
 
   
@@ -321,40 +326,38 @@ namespace PythonInterface
   
 
   };
-  /// PhysIBC-derived class that allows the temperature to set a a user-defined python function f(x,y,sigma,thickness,topography,surface) . 
+  /// PhysIBC-derived class that allows the internalEnergy to set a a user-defined python function f(x,y,sigma,thickness,topography,surface) . 
   /** Reflection boundary conditions are imposed on
       each edge. 
   */
-  class PythonIceTemperatureIBC : public IceTemperatureIBC
+  class PythonIceTemperatureIBC : public IceInternalEnergyIBC
   {
   public:
     virtual ~PythonIceTemperatureIBC();
     PythonIceTemperatureIBC(const std::string& a_pyModuleName,
 			    const std::string& a_pyFuncName) ;
 
-    virtual PythonIceTemperatureIBC* new_temperatureIBC();
+    virtual PythonIceTemperatureIBC* new_internalEnergyIBC();
     
     /// set basal heat flux
     virtual void basalHeatFlux(LevelData<FArrayBox>& a_flux,
-			       const AmrIce& a_amrIce, 
+			       const AmrIceBase& a_amrIce, 
 			       int a_level, Real a_dt);
 
 #if BISICLES_Z == BISICLES_LAYERED
-    virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T, 
-					  LevelData<FArrayBox>& a_surfaceT, 
-					  LevelData<FArrayBox>& a_basalT,
-					  const LevelSigmaCS& a_coordSys);
+    virtual void initializeIceInternalEnergy(LevelData<FArrayBox>& a_E, 
+					     LevelData<FArrayBox>& a_surfaceE, 
+					     LevelData<FArrayBox>& a_basalE, 
+					     const AmrIceBase& a_amrIce, 
+					     int a_level, Real a_dt);
 
-    virtual void setIceTemperatureBC(LevelData<FArrayBox>& a_T, 
-				    LevelData<FArrayBox>& a_surfaceT, 
-				    LevelData<FArrayBox>& a_basalT,
+    virtual void setIceInternalEnergyBC(LevelData<FArrayBox>& a_E, 
+				    LevelData<FArrayBox>& a_surfaceE, 
+				    LevelData<FArrayBox>& a_basalE,
 				    const LevelSigmaCS& a_coordSys);
 
 #elif BISICLES_Z == BISICLES_FULLZ
-    virtual void initializeIceTemperature(LevelData<FArrayBox>& a_T,
-					  const LevelSigmaCS& a_coordSys);
-    virtual void setIceTemperatureBC(LevelData<FArrayBox>& a_T,
-					  const LevelSigmaCS& a_coordSys);
+#error BISICLES_FULLZ not implemented
 #endif
 
 private:
@@ -464,6 +467,61 @@ private:
     }
 
   };
+
+  class PythonVelocitySolver : public IceVelocitySolver
+  {
+    PyObject*  m_pModule;
+    PyObject*  m_pFunc;
+
+  public:
+    virtual ~PythonVelocitySolver();
+
+    virtual void define(const ProblemDomain& a_coarseDomain,
+			ConstitutiveRelation* a_constRel,
+			BasalFrictionRelation* a_basalFrictionRel,
+			const Vector<DisjointBoxLayout>& a_vectGrids,
+			const Vector<int>& a_vectRefRatio,
+			const RealVect& a_dxCrse,
+			IceThicknessIBC* a_bc,
+			int a_numLevels);
+
+    //full solve
+    virtual int solve(Vector<LevelData<FArrayBox>* >& a_horizontalVel,
+		      Real& a_initialResidualNorm, Real& a_finalResidualNorm,
+		      const Real a_convergenceMetric,
+		      const Vector<LevelData<FArrayBox>* >& a_rhs,
+		      const Vector<LevelData<FArrayBox>* >& a_beta,
+		      const Vector<LevelData<FArrayBox>* >& a_beta0,
+		      const Vector<LevelData<FArrayBox>* >& a_A,
+		      const Vector<LevelData<FluxBox>* >& a_muCoef,
+		      Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+		      Real a_time,
+		      int a_lbase, int a_maxLevel);
+
+
+    PythonVelocitySolver(PyObject*  a_pModule,  PyObject*  a_pFunc)
+    {
+      m_pModule = a_pModule;
+      m_pFunc = a_pFunc;
+      Py_XINCREF(m_pModule);
+      Py_XINCREF(m_pFunc);
+    }
+    PythonVelocitySolver()
+    {
+    }
+  private:
+    
+void operator=(const PythonVelocitySolver& a_input)
+    {
+      MayDay::Error("invalid operator");
+    }
+    
+    PythonVelocitySolver(const PythonVelocitySolver& a_input)
+    {
+      MayDay::Error("invalid operator");
+    }
+  };
+
 
 }
 

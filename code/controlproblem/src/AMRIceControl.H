@@ -22,11 +22,12 @@
 #include "ConstitutiveRelation.H"
 #include "BasalFrictionRelation.H"
 #include "LevelDataIBC.H"
-#include "IceTemperatureIBC.H"
+#include "IceInternalEnergyIBC.H"
 #include "Vector.H"
 #include "AMRIO.H"
 #include "LevelDataOps.H"
 #include "SurfaceFlux.H"
+#include "AmrIceBase.H"
 #include <map>
 #include <iostream>
 #include <fstream>
@@ -36,8 +37,69 @@
 
 
 
-class AMRIceControl
+class AMRIceControl : public AmrIceBase
 {
+  
+public:
+  /// AmrIceBase implementation
+  // access to surface heat boundary data
+  virtual SurfaceFlux& surfaceHeatBoundaryData() const
+  {
+    MayDay::Error(" AMRIceControl::surfaceHeatBoundaryData() not implemented ");
+  }
+
+  // is the surface heat boundary data Dirichlett data?
+  virtual bool surfaceHeatBoundaryDirichlett()  const
+  {
+    MayDay::Error(" AMRIceControl::surfaceHeatBoundaryDataDirichlett() not implemented ");
+  }
+
+  // is the surface heat boundary data a temperature
+  virtual bool surfaceHeatBoundaryTemperature()  const
+  {
+    MayDay::Error(" AMRIceControl::surfaceHeatBoundaryTemperature() not implemented ");
+  }
+
+  // access to basal heat boundary data
+  virtual SurfaceFlux& basalHeatBoundaryData() const
+  {
+    MayDay::Error(" AMRIceControl::basalHeatBoundaryTemperature() not implemented ");
+  }
+  
+  // a field that defines proximity to the grounding line
+  virtual const LevelData<FArrayBox>* groundingLineProximity(int a_level) const
+  {
+    MayDay::Error(" AMRIceControl:: groundingLineProximity(int a_level) not implemented ");
+  }
+
+
+  virtual Real groundingLineProximityScale()  const
+  {
+    MayDay::Error(" AMRIceControl:: groundingLineProximityScale(int a_level) not implemented ");
+  }
+
+  virtual const RefCountedPtr<LevelSigmaCS> geometry(int a_level)  const
+  {
+    return m_coordSys[a_level];
+  } 
+
+  virtual const DisjointBoxLayout& grids(int a_level)  const
+  {
+    return m_grids[a_level];
+  }
+  
+  virtual const RealVect dx(int a_level) const
+  {
+    return m_dx[a_level];
+  } 
+
+  virtual Real time()  const
+  {
+    return 0.0;
+  }
+
+
+private:
 
 #define CCOMP 0
 #define MUCOMP 1
@@ -74,7 +136,7 @@ class AMRIceControl
   IceThicknessIBC* m_ibcPtr;
 
   // provide ice temperature
-  IceTemperatureIBC* m_tempIBCPtr;
+  IceInternalEnergyIBC* m_internalEnergyIBCPtr;
 
   // provide viscosity and basal friction calculation
   RateFactor* m_rateFactor; 
@@ -159,10 +221,10 @@ class AMRIceControl
   Vector<LevelData<FArrayBox>*> m_TikhonovPenalty;
   Vector<LevelData<FArrayBox>*> m_barrierPenalty;
   
-  // temperature
-  Vector<LevelData<FArrayBox>*> m_temperature; //cell / layer centers
-  Vector<LevelData<FArrayBox>*> m_bTemperature; // cell centered surface temperature
-  Vector<LevelData<FArrayBox>*> m_sTemperature; // cell centered basal temperature
+  // internalEnergy
+  Vector<LevelData<FArrayBox>*> m_internalEnergy; //cell / layer centers
+  Vector<LevelData<FArrayBox>*> m_bInternalEnergy; // cell centered surface internalEnergy
+  Vector<LevelData<FArrayBox>*> m_sInternalEnergy; // cell centered basal internalEnergy
   // A in glen's flow law
   Vector<LevelData<FArrayBox>*> m_A;
   Vector<LevelData<FluxBox>*> m_faceA;
@@ -218,7 +280,7 @@ public:
   ~AMRIceControl();
   // set up  geometry, define observations etc
   void define(IceThicknessIBC* a_ibcPtr,
-	      IceTemperatureIBC* a_tempIBCPtr,
+	      IceInternalEnergyIBC* a_tempIBCPtr,
 	      RateFactor* a_rateFactor,
 	      ConstitutiveRelation* a_constRelPtr, 
 	      BasalFrictionRelation* a_bfRelPtr,

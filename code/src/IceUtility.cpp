@@ -22,6 +22,7 @@
 #include "DivergenceF_F.H"
 #include "PiecewiseLinearFillPatch.H"
 #include "L1L2ConstitutiveRelation.H"
+#include "IceThermodynamics.H"
 #include "computeSum.H"
 #include "NamespaceHeader.H"
 
@@ -215,53 +216,45 @@ void IceUtility::applyGradSq
     }
 }
 
-//compute A(x,y,sigma) given temperature, geometry etc
+//compute A(x,y,sigma) given internal energy, geometry etc
 void IceUtility::computeA
 (LevelData<FArrayBox>& a_A,
  const Vector<Real>& a_sigma,
  const LevelSigmaCS& a_coordSys,
  const RateFactor* a_rateFactor,
- const LevelData<FArrayBox>& a_temperature)
+ const LevelData<FArrayBox>& a_internalEnergy)
 {
-
   const DisjointBoxLayout grids =  a_coordSys.grids();
-
   for (DataIterator dit(grids); dit.ok(); ++dit)
     {
       // compute A(T)
-      // need a temperature field corrected to the pressure melting point,
-      // \theta ^* = \min(\theta,\theta _r) + a * p)
-      // a is a constant, p is pressure, \thera _r is the melting point in standard pressure
-      // using p = \rho * g * \sigma * H 
-      // (used by Glimmer, even with higher order stresses)
-      // should be p = T_xx + T_yy + \rho * g * \sigma * H
-      Real Tmax = triplepoint - TINY_NORM;
-      Real fbase = a_coordSys.iceDensity() * a_coordSys.gravity() * icepmeltfactor;
       for (int layer = 0; layer < a_sigma.size(); ++layer)
 	{
-	  Real f = fbase * a_sigma[layer];
-	  FArrayBox layerA;
-	  layerA.define(Interval(layer,layer),a_A[dit]);
-	  const Box& box = layerA.box();
-	  FArrayBox thetaStar(box,1);
+	  const Box& box = a_A[dit].box();
 	  
-	  FORT_FABMINPLUS(CHF_FRA1(thetaStar,0),
-			  CHF_FRA1(a_temperature[dit],layer),
-			  CHF_FRA1(a_coordSys.getH()[dit],0),
-			  CHF_CONST_REAL(f),
-			  CHF_CONST_REAL(Tmax),
-			  CHF_BOX(box));
-	
-	  CH_assert(0.0 < thetaStar.min(box));
-	  CH_assert(thetaStar.max(box) < triplepoint); 
-
+	  //1. compute pressure, using p = \rho * g * \sigma * H (should be p = - T_xx - T_yy + \rho * g * \sigma * H)
 	  FArrayBox pressure(box,1);
 	  pressure.copy(a_coordSys.getH()[dit]);
-	  pressure *= a_coordSys.iceDensity() * a_coordSys.gravity() * a_sigma[layer] ;
-	  a_rateFactor->computeA(layerA,thetaStar,pressure,box);
+	  pressure *= a_coordSys.iceDensity() * a_coordSys.gravity() * a_sigma[layer];
+	  
+	  //2. compute temperature T (and water fraction w) from internal energy and pressure
+	  FArrayBox T(box,1);
+	  FArrayBox w(box,1);
+	  FArrayBox layerE(box,1);
+	  layerE.copy(a_internalEnergy[dit],layer,0,1); // an alias would be better?
+	  IceThermodynamics::decomposeInternalEnergy(T, w, layerE , pressure, box);
+	  
+	  //3. compute corrected temperature 
+	  FArrayBox Tpmp(box,1);
+	  Tpmp.copy(pressure); Tpmp *= -icepmeltfactor; // Tpmp += triplepoint - TINY_NORM;
+	  T -= Tpmp;
+
+	  //4. compute A
+	  FArrayBox layerA;
+	  layerA.define(Interval(layer,layer),a_A[dit]);
+	  a_rateFactor->computeA(layerA,T,pressure,box);
 	}
     }
-
 }
 
 void IceUtility::addWallDrag(FArrayBox& a_drag, 

@@ -7,14 +7,16 @@
 *    Please refer to Copyright.txt, in Chombo's root directory.
 */
 #endif
-#include "IceTemperatureIBC.H"
+#include "IceInternalEnergyIBC.H"
+#include "IceThermodynamics.H"
 #include "IceConstants.H"
 #include "BoxIterator.H"
 #include "ExtrapGhostCells.H"
+#include "ReflectGhostCells.H"
 #include "NamespaceHeader.H"
 
 ConstantIceTemperatureIBC* 
-ConstantIceTemperatureIBC::new_temperatureIBC()
+ConstantIceTemperatureIBC::new_internalEnergyIBC()
 {
   return new ConstantIceTemperatureIBC(m_T);
 }
@@ -22,7 +24,7 @@ ConstantIceTemperatureIBC::new_temperatureIBC()
 /// set a basal heat flux to zero. units are Joules / Year
 void ConstantIceTemperatureIBC::basalHeatFlux
 (LevelData<FArrayBox>& a_flux,
- const AmrIce& a_amrIce, 
+ const AmrIceBase& a_amrIce, 
  int a_level, Real a_dt)
 {
   for (DataIterator dit = a_flux.dataIterator();dit.ok();++dit)
@@ -33,69 +35,57 @@ void ConstantIceTemperatureIBC::basalHeatFlux
 
 #if BISICLES_Z == BISICLES_LAYERED
 void 
-ConstantIceTemperatureIBC::initializeIceTemperature
-(LevelData<FArrayBox>& a_T,
- LevelData<FArrayBox>& a_surfaceT, 
- LevelData<FArrayBox>& a_basalT,
- const LevelSigmaCS& a_coordSys)
+ConstantIceTemperatureIBC::initializeIceInternalEnergy
+(LevelData<FArrayBox>& a_E,
+ LevelData<FArrayBox>& a_surfaceE, 
+ LevelData<FArrayBox>& a_basalE,
+ const AmrIceBase& a_amrIce, 
+ int a_level, Real a_dt)
 {
   
-  for (DataIterator dit(a_T.disjointBoxLayout()); dit.ok() ; ++dit)
+  for (DataIterator dit(a_E.disjointBoxLayout()); dit.ok() ; ++dit)
     {
-      for (int l = 0; l < a_T[dit].nComp(); ++l)
+      FArrayBox T(a_E[dit].box(),1);
+      T.setVal(m_T);
+      FArrayBox w(a_E[dit].box(),1);
+      w.setVal(0.0);
+      FArrayBox E(a_E[dit].box(),1);
+      IceThermodynamics::composeInternalEnergy(E,T,w,a_E[dit].box());
+      for (int l = 0; l < a_E[dit].nComp(); ++l)
 	{
-	  a_T[dit].setVal(m_T, l);
+	  a_E[dit].copy(E,0,l,1);
 	}	    
-      a_surfaceT[dit].setVal(m_T);
-      a_basalT[dit].setVal(m_T);
+      a_surfaceE[dit].copy(E);
+      a_basalE[dit].copy(E);
     }
 }
 
 void 
-ConstantIceTemperatureIBC::setIceTemperatureBC
-(LevelData<FArrayBox>& a_T,
- LevelData<FArrayBox>& a_surfaceT, 
- LevelData<FArrayBox>& a_basalT,
+ConstantIceTemperatureIBC::setIceInternalEnergyBC
+(LevelData<FArrayBox>& a_E,
+ LevelData<FArrayBox>& a_surfaceE, 
+ LevelData<FArrayBox>& a_basalE,
  const LevelSigmaCS& a_coordSys)
 {
   const ProblemDomain& domain = a_coordSys.grids().physDomain();
-  ExtrapGhostCells( a_T, domain);
-  ExtrapGhostCells( a_basalT, domain);
+  ExtrapGhostCells( a_E, domain);
+  ExtrapGhostCells( a_basalE, domain);
+  ExtrapGhostCells( a_surfaceE, domain);
 }
 
 
 #elif BISICLES_Z == BISICLES_FULLZ
-void 
-ConstantIceTemperatureIBC::initializeIceTemperature
-(LevelData<FArrayBox>& a_T,
- const LevelSigmaCS& a_coordSys)
-{
-   
-  for (DataIterator dit(a_T.disjointBoxLayout()); dit.ok() ; ++dit)
-    {  
-       a_T[dit].setVal(m_T, l);
-    }
-}
-
-void 
-ConstantIceTemperatureIBC::setIceTemperatureBC
-(LevelData<FArrayBox>& a_T,
- const LevelSigmaCS& a_coordSys)
-{
-  const ProblemDomain& domain = a_coordSys.grids().physDomain();
-  ExtrapGhostCells( a_T, domain);
-}
-
+#error BISICLES_FULLZ not implemented
 #endif
 
 void 
-IceTemperatureIBC::initialize(LevelData<FArrayBox>& a_U)
+IceInternalEnergyIBC::initialize(LevelData<FArrayBox>& a_U)
 {
   //we shouldn't get here
-  MayDay::Error("IceTemperatureIBC::initialize not implemented");
+  MayDay::Error("IceInternalEnergyIBC::initialize not implemented");
 }
 
-void  IceTemperatureIBC::primBC
+void  IceInternalEnergyIBC::primBC
 (FArrayBox&            a_WGdnv,
  const FArrayBox&      a_Wextrap,
  const FArrayBox&      a_W,
@@ -111,7 +101,7 @@ void  IceTemperatureIBC::primBC
 #if CH_SPACEDIM == 2
       // 2D case : We are at either an ice divide (where u = 0)
       // or an outflow (where extrapolation is fine)
-      // \todo : support an inflow with a known temperature?
+      // \todo : support an inflow with a known internalEnergy?
    int lohisign;
    
    //find the strip of cells just inside the domain. DFM notes that 
@@ -146,6 +136,26 @@ void  IceTemperatureIBC::primBC
     }
 }
 
-
+void ReflectionIceInternalEnergyIBC::setIceInternalEnergyBC
+(LevelData<FArrayBox>& a_E, 
+ LevelData<FArrayBox>& a_surfaceE, 
+ LevelData<FArrayBox>& a_basalE,
+ const LevelSigmaCS& a_coordSys)
+{
+  const ProblemDomain& domain = a_coordSys.grids().physDomain();
+  
+  for (int dir = 0; dir < SpaceDim; ++dir)
+    {
+      if (!(domain.isPeriodic(dir)))
+	{
+	  ReflectGhostCells(a_E, domain, dir, Side::Lo);
+	  ReflectGhostCells(a_E, domain, dir, Side::Hi);
+	  ReflectGhostCells(a_surfaceE, domain, dir, Side::Lo);
+	  ReflectGhostCells(a_surfaceE, domain, dir, Side::Hi);
+	  ReflectGhostCells(a_basalE, domain, dir, Side::Lo);
+	  ReflectGhostCells(a_basalE, domain, dir, Side::Hi);
+	}
+    }
+}
 
 #include "NamespaceFooter.H"

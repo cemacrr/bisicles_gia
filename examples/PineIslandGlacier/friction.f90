@@ -15,7 +15,7 @@ module ncdump
   end subroutine nccheck
 
  subroutine ncsavebike(x,y,thck,topg,beta, uvel, vvel, velc, &
-      divuh, divuhc, temp,bheatflux, n,m,upn,file)
+      divuh, divuhc, temp,bheatflux, bdiss, n,m,upn,file)
     ! create a netcdf file on a bisicles grid
     ! given bisicles grid cell-centered data
     implicit none
@@ -24,7 +24,7 @@ module ncdump
     real(kind=8), dimension(1:n) ,intent(in):: x
     real(kind=8), dimension(1:m) ,intent(in):: y
     real(kind=8), dimension(1:n,1:m) ,intent(in):: thck, topg, beta, uvel, vvel,&
-         velc, divuh, divuhc, bheatflux
+         velc, divuh, divuhc, bheatflux, bdiss
     real(kind=8), dimension(1:n,1:m,1:upn) ,intent(in):: temp
     character(len=10) :: tempname
     real(kind=8) :: time;
@@ -64,7 +64,7 @@ module ncdump
     end do
 
     call nccheck( nf90_def_var(nc_id, "bheatflux", nf90_real8, cell_dim_id, var_id) )
-
+    call nccheck( nf90_def_var(nc_id, "bdiss", nf90_real8, cell_dim_id, var_id) )
     !end of definition section
     call nccheck( nf90_enddef(nc_id) )
 
@@ -100,6 +100,9 @@ module ncdump
 
     call nccheck( nf90_inq_varid(nc_id, "bheatflux", var_id) )
     call nccheck( nf90_put_var(nc_id, var_id , bheatflux) )
+
+    call nccheck( nf90_inq_varid(nc_id, "bdiss", var_id) )
+    call nccheck( nf90_put_var(nc_id, var_id , bdiss) )
 
     call nccheck( nf90_close(nc_id) )
   end subroutine ncsavebike
@@ -342,7 +345,7 @@ program t
        glen_n = 3.0, maxseabeta = 100.0, lambda = 4.0e+3
   
   real (kind = 8), dimension(1:ewn,1:nsn) :: topg, lsrf, usrf, thck, uvel, vvel, velc,divuh, &
-       divuhc, beta, betar, dsx, dsy, umod, umodsia, bheatflux
+       divuhc, beta, betar, dsx, dsy, umod, umodsia, bheatflux, bdiss
   
   real (kind = 8), dimension(1:ewn,1:nsn,1:upn) :: temp, flwa
 
@@ -533,8 +536,15 @@ program t
   !set basal heat flux to 100 mW m^2. Units requires are J a^-1 m^-2
   bheatflux = 100*1e-3 * 365 * 24 * 3600
 
+  !set basal dissipation to beta * (umod - 100.0)**2
+  where (typ.eq.typ_grounded)
+     bdiss = beta * (max(1.0d-6,umod - 100.0))**2
+  elsewhere
+     bdiss = 0.0d0
+  end where
+
   filename =  'pig-bisicles-1km.nc'
-  call ncsavebike(x,y,thck,topg,beta,uvel,vvel,velc,divuh,divuhc,temp,bheatflux,ewn,nsn,upn,filename)
+  call ncsavebike(x,y,thck,topg,beta,uvel,vvel,velc,divuh,divuhc,temp,bheatflux,bdiss,ewn,nsn,upn,filename)
 
   
 end program t 

@@ -85,7 +85,7 @@ namespace IceUtility
    const Vector<Real>& a_sigma,
    const LevelSigmaCS& a_coordSys,
    const RateFactor* a_rateFactor,
-   const LevelData<FArrayBox>& a_temperature);
+   const LevelData<FArrayBox>& a_internalEnergy);
 
   /// extrapolate face centered velocity field (usually derived by cell-to-face average) to the margins
   void extrapVelocityToMargin(LevelData<FluxBox>& a_faceVel, 

@@ -133,7 +133,7 @@ public:
 };
 
 void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
-			   IceTemperatureIBC* a_tempIBCPtr,
+			   IceInternalEnergyIBC* a_internalEnergyIBCPtr,
 			   RateFactor* a_rateFactor,
 			   ConstitutiveRelation* a_constRelPtr, 
 			   BasalFrictionRelation* a_bfRelPtr,
@@ -155,7 +155,7 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   m_referenceDivUHObs = a_referenceDivUHObs;
   m_referenceDivUHCoef =  a_referenceDivUHCoef;
   m_ibcPtr = a_ibcPtr;
-  m_tempIBCPtr = a_tempIBCPtr;
+  m_internalEnergyIBCPtr = a_internalEnergyIBCPtr;
   m_rateFactor = a_rateFactor;
   m_constRelPtr = a_constRelPtr;
   m_bfRelPtr = a_bfRelPtr;
@@ -349,18 +349,18 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   create(m_divUH,1,IntVect::Unit);
   create(m_faceThckFlux,1,IntVect::Unit);
   
-  create(m_temperature,m_faceSigma.size()-1,IntVect::Unit);
-  create(m_sTemperature,1,IntVect::Unit);
-  create(m_bTemperature,1,IntVect::Unit);
+  create(m_internalEnergy,m_faceSigma.size()-1,IntVect::Unit);
+  create(m_sInternalEnergy,1,IntVect::Unit);
+  create(m_bInternalEnergy,1,IntVect::Unit);
   create(m_A,m_faceSigma.size()-1,IntVect::Unit);
   create(m_faceA,m_faceSigma.size()-1,IntVect::Unit);
 
   for (int lev=0;lev<=m_finestLevel;lev++)
     {
-       m_tempIBCPtr->initializeIceTemperature
-	 (*m_temperature[lev], *m_sTemperature[lev], *m_bTemperature[lev],*m_coordSys[lev]);
+       m_internalEnergyIBCPtr->initializeIceInternalEnergy
+	 (*m_internalEnergy[lev], *m_sInternalEnergy[lev], *m_bInternalEnergy[lev],*this, lev, 0.0);
 
-      IceUtility::computeA(*m_A[lev],m_coordSys[lev]->getSigma(), *m_coordSys[lev], m_rateFactor, *m_temperature[lev]);
+      IceUtility::computeA(*m_A[lev],m_coordSys[lev]->getSigma(), *m_coordSys[lev], m_rateFactor, *m_internalEnergy[lev]);
       CellToEdge(*m_A[lev], *m_faceA[lev]);
 
       //copy initial thickness data
@@ -782,9 +782,9 @@ AMRIceControl::~AMRIceControl()
   free(m_thicknessOrigin);
   free(m_pointThicknessData);
   free(m_faceThckFlux);
-  free(m_temperature);
-  free(m_sTemperature);
-  free(m_bTemperature);
+  free(m_internalEnergy);
+  free(m_sInternalEnergy);
+  free(m_bInternalEnergy);
   free(m_A);
   free(m_faceA);
   free(m_vtFace);

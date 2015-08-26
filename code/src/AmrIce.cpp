@@ -1,11 +1,11 @@
 #ifdef CH_LANG_CC
 /*
-*      _______              __
-*     / ___/ /  ___  __ _  / /  ___
-*    / /__/ _ \/ _ \/  V \/ _ \/ _ \
-*    \___/_//_/\___/_/_/_/_.__/\___/
-*    Please refer to Copyright.txt, in Chombo's root directory.
-*/
+ *      _______              __
+ *     / ___/ /  ___  __ _  / /  ___
+ *    / /__/ _ \/ _ \/  V \/ _ \/ _ \
+ *    \___/_//_/\___/_/_/_/_.__/\___/
+ *    Please refer to Copyright.txt, in Chombo's root directory.
+ */
 #endif
 
 #include <iostream>
@@ -54,6 +54,7 @@ using std::string;
 #include "ExtrapBCF_F.H"
 #include "amrIceF_F.H"
 #include "BisiclesF_F.H"
+#include "IceThermodynamics.H"
 #include "PicardSolver.H"
 #include "JFNKSolver.H"
 #include "PetscIceSolver.H"
@@ -207,17 +208,17 @@ Real
 AmrIce::computeVolumeAboveFlotation() const
 {
 
- //Compute the total thickness above flotation
-      Vector<LevelData<FArrayBox>* > thk(m_finest_level+1, NULL);
-      for (int lev=0; lev <= m_finest_level ; lev++)
-	{
-	  const LevelSigmaCS& levelCoords = *m_vect_coordSys[lev];
-	  // need a const_cast to make things all line up right
-	  // (but still essentially const)
-	  thk[lev] = const_cast<LevelData<FArrayBox>*>(&levelCoords.getThicknessOverFlotation());
-	}
-      Real VAF = computeSum(thk, m_refinement_ratios,m_amrDx[0], Interval(0,0), 0);
-      return VAF;
+  //Compute the total thickness above flotation
+  Vector<LevelData<FArrayBox>* > thk(m_finest_level+1, NULL);
+  for (int lev=0; lev <= m_finest_level ; lev++)
+    {
+      const LevelSigmaCS& levelCoords = *m_vect_coordSys[lev];
+      // need a const_cast to make things all line up right
+      // (but still essentially const)
+      thk[lev] = const_cast<LevelData<FArrayBox>*>(&levelCoords.getThicknessOverFlotation());
+    }
+  Real VAF = computeSum(thk, m_refinement_ratios,m_amrDx[0], Interval(0,0), 0);
+  return VAF;
 }
 
 // compute crevasse depths
@@ -283,57 +284,57 @@ Real
 AmrIce::computeFluxOverIce(const Vector<LevelData<FArrayBox>* > a_flux)
 {
 
-   //compute sum of a flux component over ice
-   //construct fluxOverIce
-   Vector<LevelData<FArrayBox>* > fluxOverIce ( m_finest_level+1, NULL);
-   for (int lev = 0; lev < m_finest_level ; lev++)
-     {
-       fluxOverIce[lev] = new
-       LevelData<FArrayBox>(m_amrGrids[lev],1, IntVect::Zero);
-       const LevelData<FArrayBox>& thk = m_vect_coordSys[lev]->getH();
-       //const LevelData<FArrayBox>* flux = a_flux[lev];
+  //compute sum of a flux component over ice
+  //construct fluxOverIce
+  Vector<LevelData<FArrayBox>* > fluxOverIce ( m_finest_level+1, NULL);
+  for (int lev = 0; lev < m_finest_level ; lev++)
+    {
+      fluxOverIce[lev] = new
+	LevelData<FArrayBox>(m_amrGrids[lev],1, IntVect::Zero);
+      const LevelData<FArrayBox>& thk = m_vect_coordSys[lev]->getH();
+      //const LevelData<FArrayBox>* flux = a_flux[lev];
        
-       for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
-	   {
-	     const Box& box =  m_amrGrids[lev][dit];
-	     const FArrayBox& source = (*a_flux[lev])[dit];
-	     const FArrayBox& dit_thck = thk[dit];
-	     FArrayBox& dit_fluxOverIce = (*fluxOverIce[lev])[dit];
+      for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+	{
+	  const Box& box =  m_amrGrids[lev][dit];
+	  const FArrayBox& source = (*a_flux[lev])[dit];
+	  const FArrayBox& dit_thck = thk[dit];
+	  FArrayBox& dit_fluxOverIce = (*fluxOverIce[lev])[dit];
 	     
-	     for (BoxIterator bit(box); bit.ok(); ++bit)
-	       {
-		 const IntVect& iv = bit();
-		 // set fluxOverIce to source if thck > 0
-		 if (dit_thck(iv) < 1e-10)
-			 {
-			   dit_fluxOverIce(iv) = 0.0;
-			 }
-		 else
-		   {
-		     dit_fluxOverIce(iv) = source(iv);
-		   }
-	       }
+	  for (BoxIterator bit(box); bit.ok(); ++bit)
+	    {
+	      const IntVect& iv = bit();
+	      // set fluxOverIce to source if thck > 0
+	      if (dit_thck(iv) < 1e-10)
+		{
+		  dit_fluxOverIce(iv) = 0.0;
+		}
+	      else
+		{
+		  dit_fluxOverIce(iv) = source(iv);
+		}
+	    }
 	    
-	   }
-     }
-   // compute sum
-   Real tot_per_yer = computeSum(fluxOverIce, m_refinement_ratios,m_amrDx[0],
-Interval(0,0), 0);
+	}
+    }
+  // compute sum
+  Real tot_per_yer = computeSum(fluxOverIce, m_refinement_ratios,m_amrDx[0],
+				Interval(0,0), 0);
 
-   Real tot = tot_per_yer*m_dt;
+  Real tot = tot_per_yer*m_dt;
 
-    //free storage
-   for (int lev = 0; lev < m_finest_level ; lev++)
-     {
-        if (fluxOverIce[lev] != NULL)
-          {
-            delete fluxOverIce[lev]; fluxOverIce[lev] = NULL;
+  //free storage
+  for (int lev = 0; lev < m_finest_level ; lev++)
+    {
+      if (fluxOverIce[lev] != NULL)
+	{
+	  delete fluxOverIce[lev]; fluxOverIce[lev] = NULL;
 
 
-          }
-     }
+	}
+    }
 
-   return tot;
+  return tot;
 }
 
 /// fill flattened Fortran array of data with ice thickness
@@ -341,7 +342,7 @@ void
 AmrIce::getIceThickness(Real* a_data_ptr, int* a_dim_info, 
 			Real* a_dew, Real* a_dns) const
 {
-    // dimInfo is (SPACEDIM, nz, nx, ny)
+  // dimInfo is (SPACEDIM, nz, nx, ny)
 
   // assumption is that data_ptr is indexed using fortran 
   // ordering from (1:dimInfo[1])1,dimInfo[2])
@@ -524,9 +525,9 @@ AmrIce::setDefaults()
   m_max_box_size = 64;
   m_max_base_grid_size = -1;
   m_isothermal = true;
-  m_isothermalTemperature = 238.5;
   m_waterDepth = 0.0;
-  m_surfaceTemperatureDirichlett = true;
+  m_surfaceBoundaryHeatDataDirichlett = true;
+  m_surfaceBoundaryHeatDataTemperature = true;
   m_iceDensity = 910.0; 
   m_seaWaterDensity = 1028.0;
   m_gravity = 9.81;
@@ -548,7 +549,7 @@ AmrIce::setDefaults()
   m_write_viscousTensor = false;
   m_write_baseVel = true;
   m_write_solver_rhs = false;
-  m_write_temperature = false;
+  m_write_internal_energy = false;
   m_write_map_file = false;
   m_write_thickness_sources = false;
   m_write_layer_velocities = false;
@@ -748,13 +749,13 @@ AmrIce::~AmrIce()
 #endif
   
 
-  // clean up temperature  storage if appropriate
-  for (int lev=0; lev < m_temperature.size(); lev++)
+  // clean up internalEnergy  storage if appropriate
+  for (int lev=0; lev < m_internalEnergy.size(); lev++)
     {
-      if (m_temperature[lev] != NULL)
+      if (m_internalEnergy[lev] != NULL)
         {
-          delete m_temperature[lev];
-          m_temperature[lev] = NULL;
+          delete m_internalEnergy[lev];
+          m_internalEnergy[lev] = NULL;
         }
     }
   for (int lev=0; lev < m_A.size(); lev++)
@@ -776,12 +777,12 @@ AmrIce::~AmrIce()
         }
     }
  
-  for (int lev=0; lev < m_sTemperature.size(); lev++)
+  for (int lev=0; lev < m_sInternalEnergy.size(); lev++)
     {
-      if (m_sTemperature[lev] != NULL)
+      if (m_sInternalEnergy[lev] != NULL)
 	{
-	  delete m_sTemperature[lev];
-	  m_sTemperature[lev] = NULL;
+	  delete m_sInternalEnergy[lev];
+	  m_sInternalEnergy[lev] = NULL;
 	}
     }
   for (int lev=0; lev < m_sHeatFlux.size(); lev++)
@@ -792,12 +793,12 @@ AmrIce::~AmrIce()
 	  m_sHeatFlux[lev] = NULL;
 	}
     }
-  for (int lev=0; lev < m_bTemperature.size(); lev++)
+  for (int lev=0; lev < m_bInternalEnergy.size(); lev++)
     {
-      if (m_bTemperature[lev] != NULL)
+      if (m_bInternalEnergy[lev] != NULL)
         {
-          delete m_bTemperature[lev];
-          m_bTemperature[lev] = NULL;
+          delete m_bInternalEnergy[lev];
+          m_bInternalEnergy[lev] = NULL;
         }
     }
 
@@ -934,26 +935,11 @@ AmrIce::~AmrIce()
       m_thicknessIBCPtr = NULL;
     }
 
-  for (int lev=0; lev<m_temperaturePatchGodVect.size(); lev++)
-    {
-      if (m_temperaturePatchGodVect[lev] != NULL)
-	{
-	  delete m_temperaturePatchGodVect[lev];
-	  m_temperaturePatchGodVect[lev] = NULL;
-	}
-    }
 
-  if (m_temperaturePhysPtr != NULL)
+  if (m_internalEnergyIBCPtr != NULL)
     {
-      // this is segfaulting...
-      delete m_temperaturePhysPtr;
-      m_temperaturePhysPtr = NULL;
-    }
-
-  if (m_temperatureIBCPtr != NULL)
-    {
-      delete m_temperatureIBCPtr;
-      m_temperatureIBCPtr = NULL;
+      delete m_internalEnergyIBCPtr;
+      m_internalEnergyIBCPtr = NULL;
     }
 
   if (m_muCoefficientPtr != NULL)
@@ -1078,7 +1064,7 @@ AmrIce::initialize()
 
 
   ppAmr.query("isothermal",m_isothermal);
-  ppAmr.query("isothermalTemperature",m_isothermalTemperature);
+
   ppAmr.query("plot_interval", m_plot_interval);
   ppAmr.query("plot_time_interval", m_plot_time_interval);
   ppAmr.query("plot_prefix", m_plot_prefix);
@@ -1090,7 +1076,7 @@ AmrIce::initialize()
   ppAmr.query("write_flux_velocities", m_write_fluxVel);
   ppAmr.query("write_viscous_tensor", m_write_viscousTensor);
   ppAmr.query("write_base_velocities", m_write_baseVel);
-  ppAmr.query("write_temperature", m_write_temperature);
+  ppAmr.query("write_internal_energy", m_write_internal_energy);
   ppAmr.query("write_thickness_sources", m_write_thickness_sources);
   ppAmr.query("write_layer_velocities", m_write_layer_velocities);
 
@@ -1171,7 +1157,7 @@ AmrIce::initialize()
 
   ppAmr.query("nestingRadius", m_nesting_radius);
 
- #ifdef CH_USE_PETSC
+#ifdef CH_USE_PETSC
   // petsc solvers require nesting radius >= 3
   if (m_nesting_radius < 3)
     {
@@ -1365,7 +1351,7 @@ AmrIce::initialize()
   ppAmr.query("additional_diffusivity",m_additionalDiffusivity);
 
 
-  //option to advance thickness/temperature only on coarser levels
+  //option to advance thickness/internalEnergy only on coarser levels
   ppAmr.query("finest_timestep_level",m_finest_timestep_level);
 
   ppAmr.query("reset_floating_friction", m_reset_floating_friction_to_zero);
@@ -1640,33 +1626,8 @@ AmrIce::initialize()
         }
       
 
-      //m_temperatureIBCPtr = new IceTemperatureIBC;
-      m_temperaturePhysPtr = new AdvectPhysics;
-      m_temperaturePhysPtr->setPhysIBC(m_temperatureIBCPtr);
-      m_temperaturePatchGodVect.resize(m_max_level+1, NULL);
-      for (int lev=0; lev<=m_max_level; lev++)
-	{
-	  m_temperaturePatchGodVect[lev] = new PatchGodunov;
-	  
-	  int normalPredOrder = 2;
-	  bool useFourthOrderSlopes = true;
-	  bool usePrimLimiting = true; usePrimLimiting = false; 
-	  //when usePrimLimiting = true, I sometimes get an isolated two-cell oscillation. not sure why
-	  bool useCharLimiting = false;
-	  bool useFlattening = false;
-	  bool useArtificialViscosity = false;
-	  Real artificialViscosity = 0.0;
-	  m_temperaturePatchGodVect[lev]->define(m_amrDomains[lev],
-						 m_amrDx[lev],
-						 m_temperaturePhysPtr,
-						 normalPredOrder,
-						 useFourthOrderSlopes,
-						 usePrimLimiting,
-						 useCharLimiting,
-						 useFlattening,
-						 useArtificialViscosity,
-						 artificialViscosity);
-	}
+      //m_internalEnergyIBCPtr = new IceInternalEnergyIBC;
+     
 
     } // end if temporal accuracy < 3
   
@@ -1713,13 +1674,13 @@ AmrIce::initialize()
       m_basalThicknessSource.resize(m_max_level+1, NULL);
       m_calvedIceThickness.resize(m_max_level+1, NULL);
       m_balance.resize(m_max_level+1, NULL);
-      m_temperature.resize(m_max_level+1, NULL);
+      m_internalEnergy.resize(m_max_level+1, NULL);
       m_deltaTopography.resize(m_max_level+1, NULL);
 #if BISICLES_Z == BISICLES_LAYERED
       m_layerXYFaceXYVel.resize(m_max_level+1, NULL);
       m_layerSFaceXYVel.resize(m_max_level+1, NULL);
-      m_sTemperature.resize(m_max_level+1, NULL);
-      m_bTemperature.resize(m_max_level+1, NULL);
+      m_sInternalEnergy.resize(m_max_level+1, NULL);
+      m_bInternalEnergy.resize(m_max_level+1, NULL);
       m_sHeatFlux.resize(m_max_level+1, NULL);
       m_bHeatFlux.resize(m_max_level+1, NULL);
 #endif
@@ -1735,11 +1696,11 @@ AmrIce::initialize()
 	  m_faceMuCoef[lev] = new LevelData<FluxBox>;
 	  m_velRHS[lev] = new LevelData<FArrayBox>;
 	  m_diffusivity[lev] = new LevelData<FluxBox>;
-	  m_temperature[lev] = new LevelData<FArrayBox>;
+	  m_internalEnergy[lev] = new LevelData<FArrayBox>;
 	  m_deltaTopography[lev] = new LevelData<FArrayBox>;
 #if BISICLES_Z == BISICLES_LAYERED
-	  m_sTemperature[lev] = new LevelData<FArrayBox>;
-	  m_bTemperature[lev] = new LevelData<FArrayBox>;
+	  m_sInternalEnergy[lev] = new LevelData<FArrayBox>;
+	  m_bInternalEnergy[lev] = new LevelData<FArrayBox>;
 	  m_sHeatFlux[lev] = new LevelData<FArrayBox>;
 	  m_bHeatFlux[lev] = new LevelData<FArrayBox>;
 	  m_layerXYFaceXYVel[lev] = new LevelData<FluxBox>;
@@ -1839,11 +1800,11 @@ AmrIce::setThicknessBC( IceThicknessIBC* a_thicknessIBC)
   m_thicknessIBCPtr = a_thicknessIBC->new_thicknessIBC(); 
 }
 
-/// set BC for temperature advection
+/// set BC for internalEnergy advection
 void 
-AmrIce::setTemperatureBC( IceTemperatureIBC* a_temperatureIBC)
+AmrIce::setInternalEnergyBC( IceInternalEnergyIBC* a_internalEnergyIBC)
 {
-  m_temperatureIBCPtr = a_temperatureIBC->new_temperatureIBC();
+  m_internalEnergyIBCPtr = a_internalEnergyIBC->new_internalEnergyIBC();
 }
 
 void 
@@ -1942,7 +1903,7 @@ AmrIce::defineSolver()
 #ifdef CH_USE_PETSC
   else if (m_solverType == PetscNLSolver)
     {
-     // for now, at least, just delete any existing solvers
+      // for now, at least, just delete any existing solvers
       // and rebuild them from scratch
       if (m_velSolver != NULL)
         {
@@ -1980,7 +1941,7 @@ AmrIce::defineSolver()
 #ifdef CH_USE_FAS
   else if (m_solverType == FASMGAMR)
     {
-            // for now, at least, just delete any existing solvers
+      // for now, at least, just delete any existing solvers
       // and rebuild them from scratch
       if (m_velSolver != NULL)
         {
@@ -2015,6 +1976,27 @@ AmrIce::defineSolver()
         {
           solver->setMaxIterations( m_maxSolverIterations );
         }
+    }
+#endif
+#ifdef HAVE_PYTHON
+  else if (m_solverType == Python)
+    {
+      // for now, at least, just delete any existing solvers
+      // and rebuild them from scratch
+      if (m_velSolver != NULL)
+        {
+          delete m_velSolver;
+          m_velSolver = NULL;
+        }
+      m_velSolver = new PythonInterface::PythonVelocitySolver;
+      m_velSolver->define( m_amrDomains[0],
+			   m_constitutiveRelation,
+			   m_basalFrictionRelation,
+			   m_amrGrids,
+			   m_refinement_ratios,
+			   m_amrDx[0]*RealVect::Unit,
+			   m_thicknessIBCPtr,
+			   m_finest_level + 1 );
     }
 #endif
   else
@@ -2104,7 +2086,7 @@ AmrIce::run(Real a_max_time, int a_max_step)
 	  
 	  //Real trueDt = dt; //we will need to restore dt if we change it below
 	  if (next_plot_time - m_time + TIME_EPS < dt) 
-	   dt =  std::max(2 * TIME_EPS, next_plot_time - m_time);
+	    dt =  std::max(2 * TIME_EPS, next_plot_time - m_time);
 	  
 	  if ((m_cur_step%m_check_interval == 0) && (m_check_interval > 0)
 	      && (m_cur_step != m_restart_step))
@@ -2245,17 +2227,18 @@ AmrIce::timeStep(Real a_dt)
       // do we need to also do a coarseAverage for the vel here?
     }
   
-  // compute H_half
+  // compute face-centered thickness (H) at t + dt/2
   computeH_half(H_half, a_dt);
   
-  Vector<LevelData<FluxBox>* > layerTH_half(m_finest_level+1,NULL);
+  //  compute face- and layer- centered E*H and H  at t + dt/2 (E is internal energy)
+  Vector<LevelData<FluxBox>* > layerEH_half(m_finest_level+1,NULL);
   Vector<LevelData<FluxBox>* > layerH_half(m_finest_level+1,NULL);
   if (!m_isothermal)
-    computeTHalf(layerTH_half, layerH_half, m_layerXYFaceXYVel, a_dt, m_time);
+    computeInternalEnergyHalf(layerEH_half, layerH_half, m_layerXYFaceXYVel, a_dt, m_time);
   
-  // slc : having found H_half we can define temporary LevelSigmaCS at t + dt / 2
-  // We want this for the metric terms in  temperature advection, and also when
-  // m_temporalAccuracy == 2 to compute a new velocity field 
+  // Having found H_half we can define temporary LevelSigmaCS at t + dt / 2
+  // We want this for the metric terms that appear in the internal energy advection, 
+  // and also when m_temporalAccuracy == 2 to compute a new velocity field 
   Vector<RefCountedPtr<LevelSigmaCS> > vectCoords_half (m_finest_level+1);
   
   if (m_temporalAccuracy == 1)
@@ -2297,11 +2280,6 @@ AmrIce::timeStep(Real a_dt)
             levelCoords_half.recomputeGeometryFace(crseCoords, refRatio);
           }
         }
-      // updateSurfaceGradient(vectCoords_half, m_amrGrids, 
-      // 			m_amrDomains, m_refinement_ratios, 
-      // 			m_amrDx, m_basalSlope, m_time, m_dt,
-      // 			(m_limitVelRHS)?m_gradLimitRadius:0,
-      // 			0, m_finest_level, m_thicknessIBCPtr);
     }
   
   // do velocity solve for half-time velocity field
@@ -2348,9 +2326,7 @@ AmrIce::timeStep(Real a_dt)
   // compute thickness fluxes
   computeThicknessFluxes(vectFluxes, H_half, m_faceVelAdvection);
 
-
   // make a copy of m_vect_coordSys before it is overwritten
-  
   Vector<RefCountedPtr<LevelSigmaCS> > vectCoords_old (m_finest_level+1);
   for (int lev=0; lev<= m_finest_level; lev++)
     {
@@ -2378,9 +2354,6 @@ AmrIce::timeStep(Real a_dt)
         int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
         levelCoords_old.recomputeGeometry( crseCoords, refRatio);
       }
-      //levelCoords_old.setSurfaceHeight(levelCoords.getSurfaceHeight());
-      //levelCoords_old.setGradSurface(levelCoords.getGradSurface());
-      //levelCoords_old.setGradSurfaceFace(levelCoords.getGradSurfaceFace());
       
 #if BISICLES_Z == BISICLES_LAYERED
       levelCoords_old.setFaceSigma(levelCoords.getFaceSigma());
@@ -2391,49 +2364,39 @@ AmrIce::timeStep(Real a_dt)
   // compute div(F) and update geometry
   updateGeometry(m_vect_coordSys, vectCoords_old, vectFluxes, a_dt);
 
-  //original location
+  // update internal energy
   if (!m_isothermal)
-    updateTemperature(layerTH_half, layerH_half, m_layerXYFaceXYVel,
-                      m_layerSFaceXYVel,  a_dt, m_time,
-                      m_vect_coordSys, vectCoords_old, 
-                      m_surfaceThicknessSource, m_basalThicknessSource);
+    updateInternalEnergy(layerEH_half, layerH_half, m_layerXYFaceXYVel,
+			 m_layerSFaceXYVel,  a_dt, m_time,
+			 m_vect_coordSys, vectCoords_old, 
+			 m_surfaceThicknessSource, m_basalThicknessSource);
   
-  // clean up temp storage
+  // clean up temporary storage
   for (int lev=0; lev<=m_finest_level; lev++)
     {
-#if 0
-      if (grownVel[lev] != NULL)
-        {
-          delete grownVel[lev];
-          grownVel[lev] = NULL;
-        }
-#endif      
-      
+          
       if (H_half[lev] != NULL)
         {
           delete H_half[lev];
           H_half[lev] = NULL;
         }
       
-      if (layerTH_half[lev] != NULL)
+      if (layerEH_half[lev] != NULL)
         {
-          delete layerTH_half[lev];
-          layerTH_half[lev] = NULL;
+          delete layerEH_half[lev];
+          layerEH_half[lev] = NULL;
         }
       if (layerH_half[lev] != NULL)
         {
           delete layerH_half[lev];
           layerH_half[lev] = NULL;
         }
-      
-      
-      
+
       if (vectFluxes[lev] != NULL)
         {
           delete vectFluxes[lev];
           vectFluxes[lev] = NULL;
-        }
-      
+        }      
     }
   
   if (m_temporalAccuracy > 2)
@@ -2451,15 +2414,6 @@ AmrIce::timeStep(Real a_dt)
       solveVelocityField();
     }
 
-
-#if 0  
-  // now average to faces
-  for (int lev=0; lev<=m_finest_level; lev++)
-    {
-      CellToEdge(*m_velocity[lev], *faceVel[lev]);
-      faceVel[lev]->exchange();      
-    }
-#endif
 
   // finally, update to new time and increment current step
   m_dt = a_dt;
@@ -2712,9 +2666,9 @@ AmrIce::computeThicknessFluxes(Vector<LevelData<FluxBox>* >& a_vectFluxes,
 // update  ice thickness *and* bedrock elevation
 void
 AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new, 
-                        Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoords_old, 
-                        const Vector<LevelData<FluxBox>* >& a_vectFluxes, 
-                        Real a_dt)
+		       Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoords_old, 
+		       const Vector<LevelData<FluxBox>* >& a_vectFluxes, 
+		       Real a_dt)
 {
 
   for (int lev=0; lev <= finestTimestepLevel() ; lev++)
@@ -3028,16 +2982,16 @@ AmrIce::regrid()
 	// this is clunky, but i don't know of a better way to turn 
 	// a DisjointBoxLayout into a Vector<Box>
 	for (int lev=0; lev<= m_finest_level; lev++) 
-	    {
-	      const DisjointBoxLayout& levelDBL = m_amrGrids[lev];
-	      old_grids[lev].resize(levelDBL.size());
-	      LayoutIterator lit = levelDBL.layoutIterator();
-	      int boxIndex = 0;
-	      for (lit.begin(); lit.ok(); ++lit, ++boxIndex) 
-		{
-		  old_grids[lev][boxIndex] = levelDBL[lit()];
-		}
-	    }
+	  {
+	    const DisjointBoxLayout& levelDBL = m_amrGrids[lev];
+	    old_grids[lev].resize(levelDBL.size());
+	    LayoutIterator lit = levelDBL.layoutIterator();
+	    int boxIndex = 0;
+	    for (lit.begin(); lit.ok(); ++lit, ++boxIndex) 
+	      {
+		old_grids[lev][boxIndex] = levelDBL[lit()];
+	      }
+	  }
 	
 	int new_finest_level;
 	
@@ -3057,140 +3011,140 @@ AmrIce::regrid()
 	    Vector<int> procIDs(numGridsNew);
 	    LoadBalance(procIDs, new_grids[lev]);
 	    const DisjointBoxLayout newDBL(new_grids[lev], procIDs,
-					     m_amrDomains[lev]);
+					   m_amrDomains[lev]);
 	    const DisjointBoxLayout oldDBL = m_amrGrids[lev];
 	    gridsSame &= oldDBL.sameBoxes(newDBL);
 	  }
 	if (gridsSame)
 	  {
-	     if (s_verbosity > 3) 
-	       { 
-		 pout() << "AmrIce::regrid -- grids unchanged" << endl;
-	       }
-	     //return;
+	    if (s_verbosity > 3) 
+	      { 
+		pout() << "AmrIce::regrid -- grids unchanged" << endl;
+	      }
+	    //return;
 	  }
 
 	// now loop through levels and redefine if necessary
 	for (int lev=lbase+1; lev<= new_finest_level; ++lev)
-	    {
-	      int numGridsNew = new_grids[lev].size();
-	      Vector<int> procIDs(numGridsNew);
-	      LoadBalance(procIDs, new_grids[lev]);
+	  {
+	    int numGridsNew = new_grids[lev].size();
+	    Vector<int> procIDs(numGridsNew);
+	    LoadBalance(procIDs, new_grids[lev]);
 	      
-	      const DisjointBoxLayout newDBL(new_grids[lev], procIDs,
-					     m_amrDomains[lev]);
+	    const DisjointBoxLayout newDBL(new_grids[lev], procIDs,
+					   m_amrDomains[lev]);
 	      
-	      const DisjointBoxLayout oldDBL = m_amrGrids[lev];
+	    const DisjointBoxLayout oldDBL = m_amrGrids[lev];
 	      
-	      m_amrGrids[lev] = newDBL;
+	    m_amrGrids[lev] = newDBL;
 	      
-	      // build new storage
-	      LevelData<FArrayBox>* old_oldDataPtr = m_old_thickness[lev];
-	      LevelData<FArrayBox>* old_velDataPtr = m_velocity[lev];
-	      LevelData<FArrayBox>* old_tempDataPtr = m_temperature[lev];
-	      LevelData<FArrayBox>* old_calvDataPtr = m_calvedIceThickness[lev];
-	      LevelData<FArrayBox>* old_deltaTopographyDataPtr = m_deltaTopography[lev];
+	    // build new storage
+	    LevelData<FArrayBox>* old_oldDataPtr = m_old_thickness[lev];
+	    LevelData<FArrayBox>* old_velDataPtr = m_velocity[lev];
+	    LevelData<FArrayBox>* old_tempDataPtr = m_internalEnergy[lev];
+	    LevelData<FArrayBox>* old_calvDataPtr = m_calvedIceThickness[lev];
+	    LevelData<FArrayBox>* old_deltaTopographyDataPtr = m_deltaTopography[lev];
 	     
-	      LevelData<FArrayBox>* new_oldDataPtr = 
-		new LevelData<FArrayBox>(newDBL, 1, m_old_thickness[0]->ghostVect());
+	    LevelData<FArrayBox>* new_oldDataPtr = 
+	      new LevelData<FArrayBox>(newDBL, 1, m_old_thickness[0]->ghostVect());
 	      
-	      LevelData<FArrayBox>* new_velDataPtr = 
-		new LevelData<FArrayBox>(newDBL, SpaceDim, m_velocity[0]->ghostVect());
+	    LevelData<FArrayBox>* new_velDataPtr = 
+	      new LevelData<FArrayBox>(newDBL, SpaceDim, m_velocity[0]->ghostVect());
 
-	      LevelData<FArrayBox>* new_tempDataPtr = 
-		new LevelData<FArrayBox>(newDBL, m_temperature[0]->nComp(), 
-					 m_temperature[0]->ghostVect());
-	      //since the temperature data has changed
-	      m_A_valid = false;
+	    LevelData<FArrayBox>* new_tempDataPtr = 
+	      new LevelData<FArrayBox>(newDBL, m_internalEnergy[0]->nComp(), 
+				       m_internalEnergy[0]->ghostVect());
+	    //since the internalEnergy data has changed
+	    m_A_valid = false;
 
-	      LevelData<FArrayBox>* new_calvDataPtr = 
-		new LevelData<FArrayBox>(newDBL, m_calvedIceThickness[0]->nComp(), 
-					 m_calvedIceThickness[0]->ghostVect());
+	    LevelData<FArrayBox>* new_calvDataPtr = 
+	      new LevelData<FArrayBox>(newDBL, m_calvedIceThickness[0]->nComp(), 
+				       m_calvedIceThickness[0]->ghostVect());
 	      
-	      LevelData<FArrayBox>* new_deltaTopographyDataPtr = 
-		new LevelData<FArrayBox>(newDBL, m_deltaTopography[0]->nComp(), 
-					 m_deltaTopography[0]->ghostVect());
+	    LevelData<FArrayBox>* new_deltaTopographyDataPtr = 
+	      new LevelData<FArrayBox>(newDBL, m_deltaTopography[0]->nComp(), 
+				       m_deltaTopography[0]->ghostVect());
 
 	      
 #if BISICLES_Z == BISICLES_LAYERED
-	      LevelData<FArrayBox>* old_sTempDataPtr = m_sTemperature[lev];
-	      LevelData<FArrayBox>* old_bTempDataPtr = m_bTemperature[lev];
-	      LevelData<FArrayBox>* new_sTempDataPtr = 
-		new LevelData<FArrayBox>(newDBL, m_sTemperature[0]->nComp(),
-					 m_sTemperature[0]->ghostVect());
-	      LevelData<FArrayBox>* new_bTempDataPtr = 
-		new LevelData<FArrayBox>(newDBL, m_bTemperature[0]->nComp(),
-					 m_bTemperature[0]->ghostVect());
+	    LevelData<FArrayBox>* old_sTempDataPtr = m_sInternalEnergy[lev];
+	    LevelData<FArrayBox>* old_bTempDataPtr = m_bInternalEnergy[lev];
+	    LevelData<FArrayBox>* new_sTempDataPtr = 
+	      new LevelData<FArrayBox>(newDBL, m_sInternalEnergy[0]->nComp(),
+				       m_sInternalEnergy[0]->ghostVect());
+	    LevelData<FArrayBox>* new_bTempDataPtr = 
+	      new LevelData<FArrayBox>(newDBL, m_bInternalEnergy[0]->nComp(),
+				       m_bInternalEnergy[0]->ghostVect());
 	     
 #endif	      
 	      
-	      {
-		// first we need to regrid m_deltaTopography, it will be needed to 
-		// regrid the bedrock topography & hence LevelSigmaCS
-		// may eventually want to do post-regrid smoothing on this
-		FineInterp interpolator(newDBL,m_deltaTopography[0]->nComp(),
-					m_refinement_ratios[lev-1],
-					m_amrDomains[lev]);
-		interpolator.interpToFine(*new_deltaTopographyDataPtr, *m_deltaTopography[lev-1]);
+	    {
+	      // first we need to regrid m_deltaTopography, it will be needed to 
+	      // regrid the bedrock topography & hence LevelSigmaCS
+	      // may eventually want to do post-regrid smoothing on this
+	      FineInterp interpolator(newDBL,m_deltaTopography[0]->nComp(),
+				      m_refinement_ratios[lev-1],
+				      m_amrDomains[lev]);
+	      interpolator.interpToFine(*new_deltaTopographyDataPtr, *m_deltaTopography[lev-1]);
 
 		
-		PiecewiseLinearFillPatch ghostFiller
-		  (m_amrGrids[lev],
-		   m_amrGrids[lev-1],
-		   m_deltaTopography[lev-1]->nComp(),
-		   m_amrDomains[lev-1],
-		   m_refinement_ratios[lev-1],
-		   m_deltaTopography[lev-1]->ghostVect()[0]);
+	      PiecewiseLinearFillPatch ghostFiller
+		(m_amrGrids[lev],
+		 m_amrGrids[lev-1],
+		 m_deltaTopography[lev-1]->nComp(),
+		 m_amrDomains[lev-1],
+		 m_refinement_ratios[lev-1],
+		 m_deltaTopography[lev-1]->ghostVect()[0]);
 
-		ghostFiller.fillInterp(*new_deltaTopographyDataPtr,*m_deltaTopography[lev-1],
-				      *m_deltaTopography[lev-1],1.0,0,0,
-				      m_deltaTopography[lev-1]->nComp());
+	      ghostFiller.fillInterp(*new_deltaTopographyDataPtr,*m_deltaTopography[lev-1],
+				     *m_deltaTopography[lev-1],1.0,0,0,
+				     m_deltaTopography[lev-1]->nComp());
 
-		if (old_deltaTopographyDataPtr != NULL && oldDBL.isClosed())
-		  {
-		    old_deltaTopographyDataPtr->copyTo(*new_deltaTopographyDataPtr);
-		  }
-		delete old_deltaTopographyDataPtr;
+	      if (old_deltaTopographyDataPtr != NULL && oldDBL.isClosed())
+		{
+		  old_deltaTopographyDataPtr->copyTo(*new_deltaTopographyDataPtr);
+		}
+	      delete old_deltaTopographyDataPtr;
 		
-	      }
+	    }
 
 
 
-	      // also need to handle LevelSigmaCS 
+	    // also need to handle LevelSigmaCS 
 
-              // assume level 0 has correct ghosting
-              IntVect sigmaCSGhost = m_vect_coordSys[0]->ghostVect();
-	      {
-                RealVect dx = m_amrDx[lev]*RealVect::Unit;
-		RefCountedPtr<LevelSigmaCS > oldCoordSys = m_vect_coordSys[lev];
+	    // assume level 0 has correct ghosting
+	    IntVect sigmaCSGhost = m_vect_coordSys[0]->ghostVect();
+	    {
+	      RealVect dx = m_amrDx[lev]*RealVect::Unit;
+	      RefCountedPtr<LevelSigmaCS > oldCoordSys = m_vect_coordSys[lev];
 		
-		RefCountedPtr<LevelSigmaCS > auxCoordSys = (lev > 0)?m_vect_coordSys[lev-1]:oldCoordSys;
+	      RefCountedPtr<LevelSigmaCS > auxCoordSys = (lev > 0)?m_vect_coordSys[lev-1]:oldCoordSys;
 
-		m_vect_coordSys[lev] = RefCountedPtr<LevelSigmaCS >
-		  (new LevelSigmaCS(newDBL, dx, sigmaCSGhost));
-		m_vect_coordSys[lev]->setIceDensity(auxCoordSys->iceDensity());
-		m_vect_coordSys[lev]->setWaterDensity(auxCoordSys->waterDensity());
-		m_vect_coordSys[lev]->setGravity(auxCoordSys->gravity());
-		m_vect_coordSys[lev]->setBackgroundSlope(auxCoordSys->getBackgroundSlope());
+	      m_vect_coordSys[lev] = RefCountedPtr<LevelSigmaCS >
+		(new LevelSigmaCS(newDBL, dx, sigmaCSGhost));
+	      m_vect_coordSys[lev]->setIceDensity(auxCoordSys->iceDensity());
+	      m_vect_coordSys[lev]->setWaterDensity(auxCoordSys->waterDensity());
+	      m_vect_coordSys[lev]->setGravity(auxCoordSys->gravity());
+	      m_vect_coordSys[lev]->setBackgroundSlope(auxCoordSys->getBackgroundSlope());
 #if BISICLES_Z == BISICLES_LAYERED
-		m_vect_coordSys[lev]->setFaceSigma(auxCoordSys->getFaceSigma());
+	      m_vect_coordSys[lev]->setFaceSigma(auxCoordSys->getFaceSigma());
 #endif		
-		LevelSigmaCS* crsePtr = &(*m_vect_coordSys[lev-1]);
-		int refRatio = m_refinement_ratios[lev-1];
+	      LevelSigmaCS* crsePtr = &(*m_vect_coordSys[lev-1]);
+	      int refRatio = m_refinement_ratios[lev-1];
 
-		bool interpolate_zb = (m_interpolate_zb ||
-				       !m_thicknessIBCPtr->regridIceGeometry
-				       (*m_vect_coordSys[lev],dx,  m_domainSize, 
-					m_time,  crsePtr,refRatio ) );
+	      bool interpolate_zb = (m_interpolate_zb ||
+				     !m_thicknessIBCPtr->regridIceGeometry
+				     (*m_vect_coordSys[lev],dx,  m_domainSize, 
+				      m_time,  crsePtr,refRatio ) );
 		
-		if (!interpolate_zb)
-		  {
-		    // need to re-apply accumulated bedrock (GIA). Could be optional?
-		    for (DataIterator dit(newDBL); dit.ok(); ++dit)
-		      {
-			m_vect_coordSys[lev]->getTopography()[dit] += (*new_deltaTopographyDataPtr)[dit];
-		      }
-		  }
+	      if (!interpolate_zb)
+		{
+		  // need to re-apply accumulated bedrock (GIA). Could be optional?
+		  for (DataIterator dit(newDBL); dit.ok(); ++dit)
+		    {
+		      m_vect_coordSys[lev]->getTopography()[dit] += (*new_deltaTopographyDataPtr)[dit];
+		    }
+		}
 
 		{
 		  //interpolate thickness & (maybe) topography
@@ -3210,451 +3164,450 @@ AmrIce::regrid()
 							 m_regrid_thickness_interpolation_method);
 		}
 
+
+	      LevelData<FArrayBox>& thisLevelH = m_vect_coordSys[lev]->getH();
+	      LevelData<FArrayBox>& thisLevelB = m_vect_coordSys[lev]->getTopography();
 		
+	      // overwrite interpolated fields in valid regiopns with such valid old data as there is
+	      if (oldDBL.isClosed()){	  
+		const LevelData<FArrayBox>& oldLevelH = oldCoordSys->getH();
+		oldLevelH.copyTo(thisLevelH);
+		const LevelData<FArrayBox>& oldLevelB = oldCoordSys->getTopography();
+		oldLevelB.copyTo(thisLevelB);
+	      }
 
-		LevelData<FArrayBox>& thisLevelH = m_vect_coordSys[lev]->getH();
-		LevelData<FArrayBox>& thisLevelB = m_vect_coordSys[lev]->getTopography();
-		
-		// overwrite interpolated fields in valid regiopns with such valid old data as there is
-		if (oldDBL.isClosed()){	  
-		  const LevelData<FArrayBox>& oldLevelH = oldCoordSys->getH();
-                  oldLevelH.copyTo(thisLevelH);
-		  const LevelData<FArrayBox>& oldLevelB = oldCoordSys->getTopography();
-                  oldLevelB.copyTo(thisLevelB);
-                }
+	      //Defer to m_thicknessIBCPtr for boundary values - 
+	      //interpolation won't cut the mustard because it only fills
+	      //ghost cells overlying the valid regions.
+	      RealVect levelDx = m_amrDx[lev]*RealVect::Unit;
+	      m_thicknessIBCPtr->setGeometryBCs(*m_vect_coordSys[lev],
+						m_amrDomains[lev],levelDx, m_time, m_dt);
 
-		//Defer to m_thicknessIBCPtr for boundary values - 
-                //interpolation won't cut the mustard because it only fills
-                //ghost cells overlying the valid regions.
-		RealVect levelDx = m_amrDx[lev]*RealVect::Unit;
-		m_thicknessIBCPtr->setGeometryBCs(*m_vect_coordSys[lev],
-						    m_amrDomains[lev],levelDx, m_time, m_dt);
+	      //need to re-apply the calving model?
+	      m_calvingModelPtr->regridModifyState(thisLevelH, *this, lev);
 
-		//need to re-apply the calving model?
-		m_calvingModelPtr->regridModifyState(thisLevelH, *this, lev);
+	      // exchange is necessary to fill periodic ghost cells
+	      // which aren't filled by the copyTo from oldLevelH
+	      thisLevelH.exchange();
+	      m_vect_coordSys[lev]->exchangeTopography();
 
-		// exchange is necessary to fill periodic ghost cells
-                // which aren't filled by the copyTo from oldLevelH
-                thisLevelH.exchange();
-		m_vect_coordSys[lev]->exchangeTopography();
-
-		{
-		  LevelSigmaCS* crseCoords = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
-		  int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
-		  m_vect_coordSys[lev]->recomputeGeometry(crseCoords,refRatio);
-		}
-              }
-		
-	      // first fill with interpolated data from coarser level
-	      
 	      {
-		// may eventually want to do post-regrid smoothing on this!
-		FineInterp interpolator(newDBL, 1, 
-					m_refinement_ratios[lev-1],
-					m_amrDomains[lev]);
+		LevelSigmaCS* crseCoords = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
+		int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
+		m_vect_coordSys[lev]->recomputeGeometry(crseCoords,refRatio);
+	      }
+	    }
+		
+	    // first fill with interpolated data from coarser level
+	      
+	    {
+	      // may eventually want to do post-regrid smoothing on this!
+	      FineInterp interpolator(newDBL, 1, 
+				      m_refinement_ratios[lev-1],
+				      m_amrDomains[lev]);
 	    
-		interpolator.interpToFine(*new_oldDataPtr, *m_old_thickness[lev-1]);
+	      interpolator.interpToFine(*new_oldDataPtr, *m_old_thickness[lev-1]);
 	
-		// now copy old-grid data into new holder
-		if (old_oldDataPtr != NULL) 
-		  {
-		    if ( oldDBL.isClosed())
-		      {
-			old_oldDataPtr->copyTo(*new_oldDataPtr);
-		      }
-		    // can now delete old data 
-		    delete old_oldDataPtr;
-		  }
+	      // now copy old-grid data into new holder
+	      if (old_oldDataPtr != NULL) 
+		{
+		  if ( oldDBL.isClosed())
+		    {
+		      old_oldDataPtr->copyTo(*new_oldDataPtr);
+		    }
+		  // can now delete old data 
+		  delete old_oldDataPtr;
+		}
 		
-	      }
+	    }
 	      
-	      {
-		// may eventually want to do post-regrid smoothing on this!
-		FineInterp interpolator(newDBL, SpaceDim, 
-					m_refinement_ratios[lev-1],
-					m_amrDomains[lev]);
+	    {
+	      // may eventually want to do post-regrid smoothing on this!
+	      FineInterp interpolator(newDBL, SpaceDim, 
+				      m_refinement_ratios[lev-1],
+				      m_amrDomains[lev]);
 		
-		interpolator.interpToFine(*new_velDataPtr, *m_velocity[lev-1]);
+	      interpolator.interpToFine(*new_velDataPtr, *m_velocity[lev-1]);
 
 		
 		
-		// now copy old-grid data into new holder
-		if (old_velDataPtr != NULL)
-		  {
-		    if (oldDBL.isClosed()) 
-		      {
-			old_velDataPtr->copyTo(*new_velDataPtr);
-		      }
-		    // can now delete old data 
-		    delete old_velDataPtr;
-		  }
+	      // now copy old-grid data into new holder
+	      if (old_velDataPtr != NULL)
+		{
+		  if (oldDBL.isClosed()) 
+		    {
+		      old_velDataPtr->copyTo(*new_velDataPtr);
+		    }
+		  // can now delete old data 
+		  delete old_velDataPtr;
+		}
 
-		//handle ghost cells on the coarse-fine interface
-		QuadCFInterp qcfi(m_amrGrids[lev], &m_amrGrids[lev-1],
-				  m_amrDx[lev], m_refinement_ratios[lev-1],
-				  2, m_amrDomains[lev]);
-		qcfi.coarseFineInterp(*new_velDataPtr, *m_velocity[lev-1]);
+	      //handle ghost cells on the coarse-fine interface
+	      QuadCFInterp qcfi(m_amrGrids[lev], &m_amrGrids[lev-1],
+				m_amrDx[lev], m_refinement_ratios[lev-1],
+				2, m_amrDomains[lev]);
+	      qcfi.coarseFineInterp(*new_velDataPtr, *m_velocity[lev-1]);
 		
-		//boundary ghost cells
-		m_thicknessIBCPtr->velocityGhostBC
-		  (*new_velDataPtr, *m_vect_coordSys[lev],m_amrDomains[lev],m_time);
+	      //boundary ghost cells
+	      m_thicknessIBCPtr->velocityGhostBC
+		(*new_velDataPtr, *m_vect_coordSys[lev],m_amrDomains[lev],m_time);
 		
 
-	      }
+	    }
 
-	      {
-		// may eventually want to do post-regrid smoothing on this
-		FineInterp interpolator(newDBL,m_temperature[0]->nComp(),
-					m_refinement_ratios[lev-1],
-					m_amrDomains[lev]);
-		interpolator.interpToFine(*new_tempDataPtr, *m_temperature[lev-1]);
+	    {
+	      // may eventually want to do post-regrid smoothing on this
+	      FineInterp interpolator(newDBL,m_internalEnergy[0]->nComp(),
+				      m_refinement_ratios[lev-1],
+				      m_amrDomains[lev]);
+	      interpolator.interpToFine(*new_tempDataPtr, *m_internalEnergy[lev-1]);
 
 		
-		PiecewiseLinearFillPatch ghostFiller
-		  (m_amrGrids[lev],
-		   m_amrGrids[lev-1],
-		   m_temperature[lev-1]->nComp(),
-		   m_amrDomains[lev-1],
-		   m_refinement_ratios[lev-1],
-		   m_temperature[lev-1]->ghostVect()[0]);
+	      PiecewiseLinearFillPatch ghostFiller
+		(m_amrGrids[lev],
+		 m_amrGrids[lev-1],
+		 m_internalEnergy[lev-1]->nComp(),
+		 m_amrDomains[lev-1],
+		 m_refinement_ratios[lev-1],
+		 m_internalEnergy[lev-1]->ghostVect()[0]);
 
-		ghostFiller.fillInterp(*new_tempDataPtr,*m_temperature[lev-1],
-				      *m_temperature[lev-1],1.0,0,0,
-				      m_temperature[lev-1]->nComp());
+	      ghostFiller.fillInterp(*new_tempDataPtr,*m_internalEnergy[lev-1],
+				     *m_internalEnergy[lev-1],1.0,0,0,
+				     m_internalEnergy[lev-1]->nComp());
 
-		if (old_tempDataPtr != NULL && oldDBL.isClosed())
-		  {
-		    old_tempDataPtr->copyTo(*new_tempDataPtr);
-		  }
-		delete old_tempDataPtr;
+	      if (old_tempDataPtr != NULL && oldDBL.isClosed())
+		{
+		  old_tempDataPtr->copyTo(*new_tempDataPtr);
+		}
+	      delete old_tempDataPtr;
 		
-	      }
+	    }
 	      
 	      
-	      {
-		// may eventually want to do post-regrid smoothing on this
-		FineInterp interpolator(newDBL,m_calvedIceThickness[0]->nComp(),
-					m_refinement_ratios[lev-1],
-					m_amrDomains[lev]);
-		interpolator.interpToFine(*new_calvDataPtr, *m_calvedIceThickness[lev-1]);
+	    {
+	      // may eventually want to do post-regrid smoothing on this
+	      FineInterp interpolator(newDBL,m_calvedIceThickness[0]->nComp(),
+				      m_refinement_ratios[lev-1],
+				      m_amrDomains[lev]);
+	      interpolator.interpToFine(*new_calvDataPtr, *m_calvedIceThickness[lev-1]);
 
 		
-		PiecewiseLinearFillPatch ghostFiller
-		  (m_amrGrids[lev],
-		   m_amrGrids[lev-1],
-		   m_calvedIceThickness[lev-1]->nComp(),
-		   m_amrDomains[lev-1],
-		   m_refinement_ratios[lev-1],
-		   m_calvedIceThickness[lev-1]->ghostVect()[0]);
+	      PiecewiseLinearFillPatch ghostFiller
+		(m_amrGrids[lev],
+		 m_amrGrids[lev-1],
+		 m_calvedIceThickness[lev-1]->nComp(),
+		 m_amrDomains[lev-1],
+		 m_refinement_ratios[lev-1],
+		 m_calvedIceThickness[lev-1]->ghostVect()[0]);
 
-		ghostFiller.fillInterp(*new_calvDataPtr,*m_calvedIceThickness[lev-1],
-				      *m_calvedIceThickness[lev-1],1.0,0,0,
-				      m_calvedIceThickness[lev-1]->nComp());
+	      ghostFiller.fillInterp(*new_calvDataPtr,*m_calvedIceThickness[lev-1],
+				     *m_calvedIceThickness[lev-1],1.0,0,0,
+				     m_calvedIceThickness[lev-1]->nComp());
 
-		if (old_calvDataPtr != NULL && oldDBL.isClosed())
-		  {
-		    old_calvDataPtr->copyTo(*new_calvDataPtr);
-		  }
-		delete old_calvDataPtr;
+	      if (old_calvDataPtr != NULL && oldDBL.isClosed())
+		{
+		  old_calvDataPtr->copyTo(*new_calvDataPtr);
+		}
+	      delete old_calvDataPtr;
 		
-	      }
+	    }
 
 
 #if BISICLES_Z == BISICLES_LAYERED
-	      {
-		// may eventually want to do post-regrid smoothing on this
-		FineInterp interpolator(newDBL,m_sTemperature[0]->nComp(),
-					m_refinement_ratios[lev-1],
-					m_amrDomains[lev]);
+	    {
+	      // may eventually want to do post-regrid smoothing on this
+	      FineInterp interpolator(newDBL,m_sInternalEnergy[0]->nComp(),
+				      m_refinement_ratios[lev-1],
+				      m_amrDomains[lev]);
 
-		PiecewiseLinearFillPatch ghostFiller
-		  (m_amrGrids[lev],
-		   m_amrGrids[lev-1],
-		   m_sTemperature[lev-1]->nComp(),
-		   m_amrDomains[lev-1],
-		   m_refinement_ratios[lev-1],
-		   m_sTemperature[lev-1]->ghostVect()[0]);
+	      PiecewiseLinearFillPatch ghostFiller
+		(m_amrGrids[lev],
+		 m_amrGrids[lev-1],
+		 m_sInternalEnergy[lev-1]->nComp(),
+		 m_amrDomains[lev-1],
+		 m_refinement_ratios[lev-1],
+		 m_sInternalEnergy[lev-1]->ghostVect()[0]);
 
 	
 
-		interpolator.interpToFine(*new_sTempDataPtr, *m_sTemperature[lev-1]);
+	      interpolator.interpToFine(*new_sTempDataPtr, *m_sInternalEnergy[lev-1]);
 		
-		ghostFiller.fillInterp(*new_sTempDataPtr,*m_sTemperature[lev-1],
-				       *m_sTemperature[lev-1],1.0,0,0,
-				       m_sTemperature[lev-1]->nComp());
+	      ghostFiller.fillInterp(*new_sTempDataPtr,*m_sInternalEnergy[lev-1],
+				     *m_sInternalEnergy[lev-1],1.0,0,0,
+				     m_sInternalEnergy[lev-1]->nComp());
 
 
-		if (old_sTempDataPtr != NULL && oldDBL.isClosed())
-		  {
-		    old_sTempDataPtr->copyTo(*new_sTempDataPtr);
-		  }
-		delete old_sTempDataPtr;
+	      if (old_sTempDataPtr != NULL && oldDBL.isClosed())
+		{
+		  old_sTempDataPtr->copyTo(*new_sTempDataPtr);
+		}
+	      delete old_sTempDataPtr;
 		
-		interpolator.interpToFine(*new_bTempDataPtr, *m_bTemperature[lev-1]);
+	      interpolator.interpToFine(*new_bTempDataPtr, *m_bInternalEnergy[lev-1]);
 
-		ghostFiller.fillInterp(*new_bTempDataPtr,*m_bTemperature[lev-1],
-				       *m_bTemperature[lev-1],1.0,0,0,
-				       m_bTemperature[lev-1]->nComp());
+	      ghostFiller.fillInterp(*new_bTempDataPtr,*m_bInternalEnergy[lev-1],
+				     *m_bInternalEnergy[lev-1],1.0,0,0,
+				     m_bInternalEnergy[lev-1]->nComp());
 		
-		if (old_bTempDataPtr != NULL && oldDBL.isClosed())
-		  {
-		    old_bTempDataPtr->copyTo(*new_bTempDataPtr);
-		  }
-		delete old_bTempDataPtr;
+	      if (old_bTempDataPtr != NULL && oldDBL.isClosed())
+		{
+		  old_bTempDataPtr->copyTo(*new_bTempDataPtr);
+		}
+	      delete old_bTempDataPtr;
 
-		new_tempDataPtr->exchange();
-		new_sTempDataPtr->exchange();
-		new_bTempDataPtr->exchange();
-		//set boundary for non-periodic cases values
-		m_temperatureIBCPtr->setIceTemperatureBC
-		  (*new_tempDataPtr,*new_sTempDataPtr,*new_bTempDataPtr,
-		   *m_vect_coordSys[lev] );
+	      new_tempDataPtr->exchange();
+	      new_sTempDataPtr->exchange();
+	      new_bTempDataPtr->exchange();
+	      //set boundary for non-periodic cases values
+	      m_internalEnergyIBCPtr->setIceInternalEnergyBC
+		(*new_tempDataPtr,*new_sTempDataPtr,*new_bTempDataPtr,
+		 *m_vect_coordSys[lev] );
 
-	      }
+	    }
 #endif
 
 
-	      // now copy new holders into multilevel arrays
-	      m_old_thickness[lev] = new_oldDataPtr;
-	      m_velocity[lev] = new_velDataPtr;
-	      m_temperature[lev] = new_tempDataPtr;
-	      m_calvedIceThickness[lev] = new_calvDataPtr;
-	      m_deltaTopography[lev] = new_deltaTopographyDataPtr;
+	    // now copy new holders into multilevel arrays
+	    m_old_thickness[lev] = new_oldDataPtr;
+	    m_velocity[lev] = new_velDataPtr;
+	    m_internalEnergy[lev] = new_tempDataPtr;
+	    m_calvedIceThickness[lev] = new_calvDataPtr;
+	    m_deltaTopography[lev] = new_deltaTopographyDataPtr;
 #if BISICLES_Z == BISICLES_LAYERED
-	      m_sTemperature[lev] = new_sTempDataPtr;
-	      m_bTemperature[lev] = new_bTempDataPtr;
+	    m_sInternalEnergy[lev] = new_sTempDataPtr;
+	    m_bInternalEnergy[lev] = new_bTempDataPtr;
 #endif
 
 
-	      if (m_velBasalC[lev] != NULL)
-		{
-		  delete m_velBasalC[lev];
-		}
-	      m_velBasalC[lev] = new LevelData<FArrayBox>(newDBL, 1, IntVect::Unit);
+	    if (m_velBasalC[lev] != NULL)
+	      {
+		delete m_velBasalC[lev];
+	      }
+	    m_velBasalC[lev] = new LevelData<FArrayBox>(newDBL, 1, IntVect::Unit);
 	      
-	      if (m_cellMuCoef[lev] != NULL)
-		{
-		  delete m_cellMuCoef[lev];
-		}
-	      m_cellMuCoef[lev] = new LevelData<FArrayBox>(newDBL, 1, IntVect::Unit);
+	    if (m_cellMuCoef[lev] != NULL)
+	      {
+		delete m_cellMuCoef[lev];
+	      }
+	    m_cellMuCoef[lev] = new LevelData<FArrayBox>(newDBL, 1, IntVect::Unit);
   
-	      if (m_faceMuCoef[lev] != NULL)
-		{
-		  delete m_faceMuCoef[lev];
-		}
-	      m_faceMuCoef[lev] = new LevelData<FluxBox>(newDBL, 1, IntVect::Unit);
+	    if (m_faceMuCoef[lev] != NULL)
+	      {
+		delete m_faceMuCoef[lev];
+	      }
+	    m_faceMuCoef[lev] = new LevelData<FluxBox>(newDBL, 1, IntVect::Unit);
 	     
-	      if (m_velRHS[lev] != NULL)
-		{
-		  delete m_velRHS[lev];
-		}
-	      m_velRHS[lev] = new LevelData<FArrayBox>(newDBL, SpaceDim, 
-						       IntVect::Zero);
+	    if (m_velRHS[lev] != NULL)
+	      {
+		delete m_velRHS[lev];
+	      }
+	    m_velRHS[lev] = new LevelData<FArrayBox>(newDBL, SpaceDim, 
+						     IntVect::Zero);
 
-	      if (m_faceVelAdvection[lev] != NULL)
-		{
-		  delete m_faceVelAdvection[lev];
-		}
-	      m_faceVelAdvection[lev] = new LevelData<FluxBox>(newDBL, 1, IntVect::Unit);
+	    if (m_faceVelAdvection[lev] != NULL)
+	      {
+		delete m_faceVelAdvection[lev];
+	      }
+	    m_faceVelAdvection[lev] = new LevelData<FluxBox>(newDBL, 1, IntVect::Unit);
 
-	       if (m_faceVelTotal[lev] != NULL)
-		{
-		  delete m_faceVelTotal[lev];
-		}
-	      m_faceVelTotal[lev] = new LevelData<FluxBox>(newDBL, 1, IntVect::Unit);
-
-
-	      if (m_diffusivity[lev] != NULL)
-		{
-		  delete m_diffusivity[lev];
-		}
-	      m_diffusivity[lev] = new LevelData<FluxBox>(newDBL, 1, IntVect::Unit);
+	    if (m_faceVelTotal[lev] != NULL)
+	      {
+		delete m_faceVelTotal[lev];
+	      }
+	    m_faceVelTotal[lev] = new LevelData<FluxBox>(newDBL, 1, IntVect::Unit);
 
 
-	      if (m_surfaceThicknessSource[lev] != NULL)
-		{
-		  delete m_surfaceThicknessSource[lev];
-		}
-	      m_surfaceThicknessSource[lev] = 
-		new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
+	    if (m_diffusivity[lev] != NULL)
+	      {
+		delete m_diffusivity[lev];
+	      }
+	    m_diffusivity[lev] = new LevelData<FluxBox>(newDBL, 1, IntVect::Unit);
+
+
+	    if (m_surfaceThicknessSource[lev] != NULL)
+	      {
+		delete m_surfaceThicknessSource[lev];
+	      }
+	    m_surfaceThicknessSource[lev] = 
+	      new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
 	      
-	      if (m_basalThicknessSource[lev] != NULL)
-		{
-		  delete m_basalThicknessSource[lev];
-		}
-	      m_basalThicknessSource[lev] = 
-		new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
+	    if (m_basalThicknessSource[lev] != NULL)
+	      {
+		delete m_basalThicknessSource[lev];
+	      }
+	    m_basalThicknessSource[lev] = 
+	      new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
 	      
 
-	      if (m_balance[lev] != NULL)
-		{
-		  delete m_balance[lev];
-		}
-	      m_balance[lev] = 
-		new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
+	    if (m_balance[lev] != NULL)
+	      {
+		delete m_balance[lev];
+	      }
+	    m_balance[lev] = 
+	      new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
 
 
-	      if (m_bHeatFlux[lev] != NULL)
-		{
-		  delete m_bHeatFlux[lev];
-		}
-	      m_bHeatFlux[lev] = 
-		new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit);
+	    if (m_bHeatFlux[lev] != NULL)
+	      {
+		delete m_bHeatFlux[lev];
+	      }
+	    m_bHeatFlux[lev] = 
+	      new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit);
 
-	      if (m_sHeatFlux[lev] != NULL)
-		{
-		  delete m_sHeatFlux[lev];
-		}
-	      m_sHeatFlux[lev] = 
-		new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit);
+	    if (m_sHeatFlux[lev] != NULL)
+	      {
+		delete m_sHeatFlux[lev];
+	      }
+	    m_sHeatFlux[lev] = 
+	      new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit);
 
 
 
 #if BISICLES_Z == BISICLES_LAYERED
-	      if (m_layerXYFaceXYVel[lev] != NULL)
-		{
-		  delete m_layerXYFaceXYVel[lev];
-		}
+	    if (m_layerXYFaceXYVel[lev] != NULL)
+	      {
+		delete m_layerXYFaceXYVel[lev];
+	      }
 
-	      m_layerXYFaceXYVel[lev] = new LevelData<FluxBox>
-		(newDBL, m_nLayers, IntVect::Unit);
+	    m_layerXYFaceXYVel[lev] = new LevelData<FluxBox>
+	      (newDBL, m_nLayers, IntVect::Unit);
 	      
-	      if (m_layerSFaceXYVel[lev] != NULL)
-		{
-		  delete m_layerSFaceXYVel[lev];
-		}
+	    if (m_layerSFaceXYVel[lev] != NULL)
+	      {
+		delete m_layerSFaceXYVel[lev];
+	      }
 	      
-	      m_layerSFaceXYVel[lev] = new LevelData<FArrayBox>
-		(newDBL, SpaceDim*(m_nLayers + 1), IntVect::Unit);
+	    m_layerSFaceXYVel[lev] = new LevelData<FArrayBox>
+	      (newDBL, SpaceDim*(m_nLayers + 1), IntVect::Unit);
 #endif		
 	      
-	    } // end loop over currently defined levels
+	  } // end loop over currently defined levels
 	  
-	  // now ensure that any remaining levels are null pointers
-	  // (in case of de-refinement)
-	  for (int lev=new_finest_level+1; lev<m_old_thickness.size(); lev++)
-	    {
-	      if (m_old_thickness[lev] != NULL) 
-		{
-		  delete m_old_thickness[lev];
-		  m_old_thickness[lev] = NULL;
-		}
+	// now ensure that any remaining levels are null pointers
+	// (in case of de-refinement)
+	for (int lev=new_finest_level+1; lev<m_old_thickness.size(); lev++)
+	  {
+	    if (m_old_thickness[lev] != NULL) 
+	      {
+		delete m_old_thickness[lev];
+		m_old_thickness[lev] = NULL;
+	      }
 
 
-	      if (m_velocity[lev] != NULL) 
-		{
-		  delete m_velocity[lev];
-		  m_velocity[lev] = NULL;
-		}
+	    if (m_velocity[lev] != NULL) 
+	      {
+		delete m_velocity[lev];
+		m_velocity[lev] = NULL;
+	      }
 	      
-	      if (m_temperature[lev] != NULL) 
-		{
-		  delete m_temperature[lev];
-		  m_temperature[lev] = NULL;
-		}
+	    if (m_internalEnergy[lev] != NULL) 
+	      {
+		delete m_internalEnergy[lev];
+		m_internalEnergy[lev] = NULL;
+	      }
 #if BISICLES_Z == BISICLES_LAYERED
-	      if (m_sTemperature[lev] != NULL) 
-		{
-		  delete m_sTemperature[lev];
-		  m_sTemperature[lev] = NULL;
-		}
-	      if (m_bTemperature[lev] != NULL) 
-		{
-		  delete m_bTemperature[lev];
-		  m_bTemperature[lev] = NULL;
-		}
+	    if (m_sInternalEnergy[lev] != NULL) 
+	      {
+		delete m_sInternalEnergy[lev];
+		m_sInternalEnergy[lev] = NULL;
+	      }
+	    if (m_bInternalEnergy[lev] != NULL) 
+	      {
+		delete m_bInternalEnergy[lev];
+		m_bInternalEnergy[lev] = NULL;
+	      }
 #endif	      	      
   
-              if (m_velRHS[lev] != NULL)
-                {
-                  delete m_velRHS[lev];
-                  m_velRHS[lev] = NULL;
-                }
+	    if (m_velRHS[lev] != NULL)
+	      {
+		delete m_velRHS[lev];
+		m_velRHS[lev] = NULL;
+	      }
 	      
-	      if (m_velBasalC[lev] != NULL)
-                {
-                  delete m_velBasalC[lev];
-                  m_velBasalC[lev] = NULL;
-                }
+	    if (m_velBasalC[lev] != NULL)
+	      {
+		delete m_velBasalC[lev];
+		m_velBasalC[lev] = NULL;
+	      }
 
 	  
-	      DisjointBoxLayout emptyDBL;
-	      m_amrGrids[lev] = emptyDBL;
-	    }
+	    DisjointBoxLayout emptyDBL;
+	    m_amrGrids[lev] = emptyDBL;
+	  }
       
-	  m_finest_level = new_finest_level;
+	m_finest_level = new_finest_level;
 
 
 
-	  // set up counter of number of cells
-	  for (int lev=0; lev<=m_max_level; lev++)
-	    {
-	      m_num_cells[lev] = 0;
-	      if (lev <= m_finest_level) 
-		{
-		  const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
-		  LayoutIterator lit = levelGrids.layoutIterator();
-		  for (lit.begin(); lit.ok(); ++lit)
-		    {
-		      const Box& thisBox = levelGrids.get(lit());
-		      m_num_cells[lev] += thisBox.numPts();
-		    }
-		} 
-	    }
+	// set up counter of number of cells
+	for (int lev=0; lev<=m_max_level; lev++)
+	  {
+	    m_num_cells[lev] = 0;
+	    if (lev <= m_finest_level) 
+	      {
+		const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
+		LayoutIterator lit = levelGrids.layoutIterator();
+		for (lit.begin(); lit.ok(); ++lit)
+		  {
+		    const Box& thisBox = levelGrids.get(lit());
+		    m_num_cells[lev] += thisBox.numPts();
+		  }
+	      } 
+	  }
       
       
-	  // finally, set up covered_level flags
-	  m_covered_level.resize(m_max_level+1, 0);
-	  // note that finest level can't be covered.
-	  for (int lev=m_finest_level-1; lev>=0; lev--)
-	    {
+	// finally, set up covered_level flags
+	m_covered_level.resize(m_max_level+1, 0);
+	// note that finest level can't be covered.
+	for (int lev=m_finest_level-1; lev>=0; lev--)
+	  {
           
-	      // if the next finer level is covered, then this one is too.
-	      if (m_covered_level[lev+1] == 1)
-		{
-		  m_covered_level[lev] = 1;
-		}
-	      else
-		{
-		  // see if the grids finer than this level completely cover it
-		  IntVectSet fineUncovered(m_amrDomains[lev+1].domainBox());
-		  const DisjointBoxLayout& fineGrids = m_amrGrids[lev+1];
+	    // if the next finer level is covered, then this one is too.
+	    if (m_covered_level[lev+1] == 1)
+	      {
+		m_covered_level[lev] = 1;
+	      }
+	    else
+	      {
+		// see if the grids finer than this level completely cover it
+		IntVectSet fineUncovered(m_amrDomains[lev+1].domainBox());
+		const DisjointBoxLayout& fineGrids = m_amrGrids[lev+1];
               
-		  LayoutIterator lit = fineGrids.layoutIterator();
-		  for (lit.begin(); lit.ok(); ++lit)
-		    {
-		      const Box& thisBox = fineGrids.get(lit());
-		      fineUncovered.minus_box(thisBox);
-		    }
+		LayoutIterator lit = fineGrids.layoutIterator();
+		for (lit.begin(); lit.ok(); ++lit)
+		  {
+		    const Box& thisBox = fineGrids.get(lit());
+		    fineUncovered.minus_box(thisBox);
+		  }
               
-		  if (fineUncovered.isEmpty()) 
-		    {
-		      m_covered_level[lev] = 1;
-		    }
-		}
-	    } // end loop over levels to determine covered levels
+		if (fineUncovered.isEmpty()) 
+		  {
+		    m_covered_level[lev] = 1;
+		  }
+	      }
+	  } // end loop over levels to determine covered levels
 
-	  // this is a good time to check for remote ice
-          if ((m_eliminate_remote_ice_after_regrid) 
-              && !(m_eliminate_remote_ice))
-            eliminateRemoteIce();
+	// this is a good time to check for remote ice
+	if ((m_eliminate_remote_ice_after_regrid) 
+	    && !(m_eliminate_remote_ice))
+	  eliminateRemoteIce();
 	
-	  if (m_evolve_velocity)
-	    {
-	      //velocity solver needs to be re-defined
-	      defineSolver();
-	      //solve velocity field, but use the previous initial residual norm in place of this one
-	      //and force a solve even if other conditions (e.g the timestep interval condition) are not met
-	      solveVelocityField(true, m_velocitySolveInitialResidualNorm);
-	    }
-	  else
-	    {
-	      CH_assert(m_evolve_velocity);
-	      MayDay::Error("AmrIce::regrid() not implemented for !m_evolve_velocity");
-	    }
+	if (m_evolve_velocity)
+	  {
+	    //velocity solver needs to be re-defined
+	    defineSolver();
+	    //solve velocity field, but use the previous initial residual norm in place of this one
+	    //and force a solve even if other conditions (e.g the timestep interval condition) are not met
+	    solveVelocityField(true, m_velocitySolveInitialResidualNorm);
+	  }
+	else
+	  {
+	    CH_assert(m_evolve_velocity);
+	    MayDay::Error("AmrIce::regrid() not implemented for !m_evolve_velocity");
+	  }
          
 	  
-	} // end if tags changed
+      } // end if tags changed
     } // end if max level > 0 in the first place
   
   Real volumeAfter = computeTotalIce();
@@ -3847,36 +3800,36 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
 	      const IntVect& iv = bit();
 	      for (int dir = 0; dir < SpaceDim; ++dir)
 		{
-		 int  tdir = (dir + 1)%SpaceDim;
-		 const IntVect& ivm = iv - BASISV(dir);
-		 const IntVect& ivp = iv + BASISV(dir);
+		  int  tdir = (dir + 1)%SpaceDim;
+		  const IntVect& ivm = iv - BASISV(dir);
+		  const IntVect& ivp = iv + BASISV(dir);
 		 
-		 if (mask(iv) == GROUNDEDMASKVAL &&  levelC[dit](iv) <  m_groundingLineTaggingMaxBasalFrictionCoef)
-		   {
-		     if (mask(ivm) == FLOATINGMASKVAL || mask(ivm) == OPENSEAMASKVAL )
-		       {
-			 if (std::abs(levelVel[dit](iv,dir)) > m_groundingLineTaggingMinVel
-			     || std::abs(levelVel[dit](ivm,dir)) > m_groundingLineTaggingMinVel
-			     || std::abs(levelVel[dit](iv,tdir)) > m_groundingLineTaggingMinVel
-			     || std::abs(levelVel[dit](ivm,tdir)) > m_groundingLineTaggingMinVel)
-			   {
-			     local_tags |= iv;  
-			     local_tags |= ivm;
-			   }   
-		       }
+		  if (mask(iv) == GROUNDEDMASKVAL &&  levelC[dit](iv) <  m_groundingLineTaggingMaxBasalFrictionCoef)
+		    {
+		      if (mask(ivm) == FLOATINGMASKVAL || mask(ivm) == OPENSEAMASKVAL )
+			{
+			  if (std::abs(levelVel[dit](iv,dir)) > m_groundingLineTaggingMinVel
+			      || std::abs(levelVel[dit](ivm,dir)) > m_groundingLineTaggingMinVel
+			      || std::abs(levelVel[dit](iv,tdir)) > m_groundingLineTaggingMinVel
+			      || std::abs(levelVel[dit](ivm,tdir)) > m_groundingLineTaggingMinVel)
+			    {
+			      local_tags |= iv;  
+			      local_tags |= ivm;
+			    }   
+			}
 			 
-		     if ( mask(ivp) == FLOATINGMASKVAL || mask(ivp) == OPENSEAMASKVAL)
-		       {
-			 if (std::abs(levelVel[dit](iv,dir)) > m_groundingLineTaggingMinVel
-			     || std::abs(levelVel[dit](ivp,dir)) > m_groundingLineTaggingMinVel
-			     || std::abs(levelVel[dit](iv,tdir)) > m_groundingLineTaggingMinVel
-			     || std::abs(levelVel[dit](ivp,tdir)) > m_groundingLineTaggingMinVel)
-			   {
-			     local_tags |= iv;  
-			     local_tags |= ivp;
-			   } 
-		       }
-		   }
+		      if ( mask(ivp) == FLOATINGMASKVAL || mask(ivp) == OPENSEAMASKVAL)
+			{
+			  if (std::abs(levelVel[dit](iv,dir)) > m_groundingLineTaggingMinVel
+			      || std::abs(levelVel[dit](ivp,dir)) > m_groundingLineTaggingMinVel
+			      || std::abs(levelVel[dit](iv,tdir)) > m_groundingLineTaggingMinVel
+			      || std::abs(levelVel[dit](ivp,tdir)) > m_groundingLineTaggingMinVel)
+			    {
+			      local_tags |= iv;  
+			      local_tags |= ivp;
+			    } 
+			}
+		    }
 		}
 	    }
 	}
@@ -3922,28 +3875,28 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
 	  const FArrayBox& vel = levelVel[dit];
 	  BoxIterator bit(levelGrids[dit()]);
 	  for (bit.begin(); bit.ok(); ++bit)
-	  {
-	    const IntVect& iv = bit();
-	    for (int comp=0; comp < vel.nComp() ; comp++)
-	      {
-		Real t = 0.0;
-		for (int dir=0; dir < SpaceDim ; dir++)
-		  {		  
-		    IntVect ivp = iv + BASISV(dir);
-		    IntVect ivm = iv - BASISV(dir);
+	    {
+	      const IntVect& iv = bit();
+	      for (int comp=0; comp < vel.nComp() ; comp++)
+		{
+		  Real t = 0.0;
+		  for (int dir=0; dir < SpaceDim ; dir++)
+		    {		  
+		      IntVect ivp = iv + BASISV(dir);
+		      IntVect ivm = iv - BASISV(dir);
 		  
-		    t += faceH[dir](iv) * (vel(iv,comp)-vel(ivm,comp))
-		      - faceH[dir](ivp) * (vel(ivp,comp)-vel(iv,comp));
+		      t += faceH[dir](iv) * (vel(iv,comp)-vel(ivm,comp))
+			- faceH[dir](ivp) * (vel(ivp,comp)-vel(iv,comp));
 		      
-		  }
+		    }
 	
-		if (abs(t) > m_divHGradVel_tagVal)
-		  {
+		  if (abs(t) > m_divHGradVel_tagVal)
+		    {
 		   
-		    local_tags |= iv;
-		  }
-	      }
-	  }// end loop over cells
+		      local_tags |= iv;
+		    }
+		}
+	    }// end loop over cells
         } // end loop over grids
     } // end if tag on div(H grad (vel)) 
   
@@ -4491,24 +4444,24 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
   IntVect sigmaCSGhost = thicknessGhostVect;
   m_vect_coordSys.resize(m_max_level+1);
   m_vect_coordSys[a_level] = RefCountedPtr<LevelSigmaCS >(new LevelSigmaCS(a_grids, 
-                                                                     dx,
-                                                                     sigmaCSGhost));
+									   dx,
+									   sigmaCSGhost));
   m_vect_coordSys[a_level]->setIceDensity(m_iceDensity);
   m_vect_coordSys[a_level]->setWaterDensity(m_seaWaterDensity);
   m_vect_coordSys[a_level]->setGravity(m_gravity);
 
 #if BISICLES_Z == BISICLES_LAYERED
   //in poor-man's multidim mode, use one FArrayBox component per layer
-  //to hold the 3D temperature field
-  levelAllocate(&m_temperature[a_level],a_grids, m_nLayers,thicknessGhostVect);
-  levelAllocate(&m_sTemperature[a_level], a_grids, 1, thicknessGhostVect);
-  levelAllocate(&m_bTemperature[a_level], a_grids, 1, thicknessGhostVect);
+  //to hold the 3D internalEnergy field
+  levelAllocate(&m_internalEnergy[a_level],a_grids, m_nLayers,thicknessGhostVect);
+  levelAllocate(&m_sInternalEnergy[a_level], a_grids, 1, thicknessGhostVect);
+  levelAllocate(&m_bInternalEnergy[a_level], a_grids, 1, thicknessGhostVect);
   levelAllocate(&m_sHeatFlux[a_level], a_grids, 1, thicknessGhostVect);
   levelAllocate(&m_bHeatFlux[a_level], a_grids, 1, thicknessGhostVect);
   m_vect_coordSys[a_level]->setFaceSigma(getFaceSigma());
 
 #elif BISICLES_Z == BISICLES_FULLZ
-  levelAllocate(&m_temperature[a_level],a_grids, 1, thicknessGhostVect);
+  levelAllocate(&m_internalEnergy[a_level],a_grids, 1, thicknessGhostVect);
 #endif
 
 
@@ -4560,11 +4513,11 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
       currentH.copyTo(*m_old_thickness[lev]);
 
 #if BISICLES_Z == BISICLES_LAYERED
-      m_temperatureIBCPtr->initializeIceTemperature
-	(*m_temperature[lev], *m_sTemperature[lev], *m_bTemperature[lev],*a_vectCoordSys[lev] );
+      m_internalEnergyIBCPtr->initializeIceInternalEnergy
+	(*m_internalEnergy[lev], *m_sInternalEnergy[lev], *m_bInternalEnergy[lev], *this, lev, 0.0);
 
 #elif BISICLES_Z == BISICLES_FULLZ
-      m_temperatureIBCPtr->initializeIceTemperature(*m_temperature[lev],*a_vectCoordSys[lev]);
+      m_internalEnergyIBCPtr->initializeIceInternalEnergy(*m_temperature[lev],*this, lev, 0.0);
 #endif
     }
 
@@ -4614,11 +4567,11 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
   //ensure A is up to date
 #if BISICLES_Z == BISICLES_LAYERED
   if (!m_A_valid)
-	  {
-	    computeA(m_A,m_sA,m_bA,m_temperature,m_sTemperature,m_bTemperature,
-		     m_vect_coordSys);
-	    m_A_valid = true;
-	  }
+    {
+      computeA(m_A,m_sA,m_bA,m_internalEnergy,m_sInternalEnergy,m_bInternalEnergy,
+	       m_vect_coordSys);
+      m_A_valid = true;
+    }
 #else
   MayDay::Error("AmrIce::SolveVelocityField full z calculation of A not done"); 
 #endif
@@ -4767,8 +4720,8 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 		  m_velSolver->setMaxIterations(tol);
 
 		  rc = m_velSolver->solve(m_velocity, initialNorm,finalNorm,convergenceMetric,
-				     m_velRHS, m_velBasalC, vectC0, m_A, muCoef,
-				     m_vect_coordSys, m_time, 0, m_finest_level);
+					  m_velRHS, m_velBasalC, vectC0, m_A, muCoef,
+					  m_vect_coordSys, m_time, 0, m_finest_level);
 		}
 	      else
 		{
@@ -4853,17 +4806,7 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
     
 
       int solverRetVal; 
-      // if (m_isothermal)
-      // 	{
-      // 	  // no need to recompute A
-      // 	  solverRetVal = m_velSolver->solve(m_velocity,
-      // 					    m_velRHS, m_velBasalC,
-      // 					    m_A,
-      // 					    m_vect_coordSys,
-      // 					    m_time,
-      // 					    0, m_finest_level);
-      // 	}
-      // else
+    
       {
 	//Vector<LevelData<FluxBox>* > muCoef(m_finest_level + 1,NULL);
 	{
@@ -5177,7 +5120,6 @@ void AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs)
 // 				     thisH, levelCS.getTopography()[dit], thisC, m_wallDragExtra,
 // 				     RealVect::Unit*m_amrDx[lev], gridBox);
 // 	  }
-	  
 
 // 	    // set friction on open land and open sea to 100. Set friction on floating ice to 0
 //           if(anyFloating && m_reset_floating_friction_to_zero)
@@ -5238,7 +5180,7 @@ AmrIce::setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef,
       a_cellMuCoef[lev]->exchange();
       CellToEdge(*m_cellMuCoef[lev], *m_faceMuCoef[lev]);
     }
- }
+}
 
 
 /// set basal friction coefficients C,C0 prior to velocity solve
@@ -5259,7 +5201,7 @@ AmrIce::setBasalFriction(Vector<LevelData<FArrayBox>* >& a_vectC,Vector<LevelDat
 	  Vector<Real> bSigma(1,1.0);
 	  LevelData<FArrayBox> A(C.disjointBoxLayout(),1,C.ghostVect());
 	  IceUtility::computeA(A, bSigma,*m_vect_coordSys[lev],  
-			       m_basalRateFactor, *m_bTemperature[lev]);
+			       m_basalRateFactor, *m_bInternalEnergy[lev]);
 	  for (DataIterator dit = C.dataIterator(); dit.ok(); ++dit)
 	    {
 	      C[dit] /= A[dit];
@@ -5340,7 +5282,7 @@ AmrIce::computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVelAdvection,
       CH_assert(m_sA[lev] != NULL);
       CH_assert(m_bA[lev] != NULL);
       
-       IceUtility::computeFaceVelocity
+      IceUtility::computeFaceVelocity
        	(*a_faceVelAdvection[lev], *a_faceVelTotal[lev], *a_diffusivity[lev],
 	 *cellDiffusivity,*a_layerXYFaceXYVel[lev], *a_layerSFaceXYVel[lev],
 	 *m_velocity[lev],*m_vect_coordSys[lev], m_thicknessIBCPtr, 
@@ -5348,8 +5290,8 @@ AmrIce::computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVelAdvection,
 	 crseVelPtr,crseCellDiffusivityPtr, nRefCrse, 
 	 m_constitutiveRelation, m_additionalVelocity);
 
-       if (crseCellDiffusivityPtr != NULL)
-	 delete crseCellDiffusivityPtr;
+      if (crseCellDiffusivityPtr != NULL)
+	delete crseCellDiffusivityPtr;
 
     }
 
@@ -5547,17 +5489,17 @@ AmrIce::computeDt()
       const LevelData<FluxBox>& levelVel = *m_faceVelAdvection[lev]; 
       DataIterator levelDit = levelVel.dataIterator();
       for (levelDit.reset(); levelDit.ok(); ++levelDit)
-      {
-	for (int dir = 0; dir < SpaceDim; dir++)
-	  {
-	    int p = 0;
-	    Box faceBox = levelGrids[levelDit];
-	    faceBox.surroundingNodes(dir);
-	    Real maxVel = 1.0 + levelVel[levelDit][dir].norm(faceBox,p, 0, 1);
-	    Real localDt = m_amrDx[lev]/maxVel;
-	    dtLev = min(dtLev, localDt);
-	  }
-      }
+	{
+	  for (int dir = 0; dir < SpaceDim; dir++)
+	    {
+	      int p = 0;
+	      Box faceBox = levelGrids[levelDit];
+	      faceBox.surroundingNodes(dir);
+	      Real maxVel = 1.0 + levelVel[levelDit][dir].norm(faceBox,p, 0, 1);
+	      Real localDt = m_amrDx[lev]/maxVel;
+	      dtLev = min(dtLev, localDt);
+	    }
+	}
       
       if (m_diffusionTreatment == EXPLICIT){
 	MayDay::Error("diffusion_treatment == explicit not supported now : use none");
@@ -5566,14 +5508,14 @@ AmrIce::computeDt()
     }
 
 #ifdef CH_MPI
-      Real tmp = 1.;
-      int result = MPI_Allreduce(&dt, &tmp, 1, MPI_CH_REAL,
-                                 MPI_MIN, Chombo_MPI::comm);
-      if (result != MPI_SUCCESS)
-        {
-          MayDay::Error("communication error on norm");
-        }
-      dt = tmp;
+  Real tmp = 1.;
+  int result = MPI_Allreduce(&dt, &tmp, 1, MPI_CH_REAL,
+			     MPI_MIN, Chombo_MPI::comm);
+  if (result != MPI_SUCCESS)
+    {
+      MayDay::Error("communication error on norm");
+    }
+  dt = tmp;
 #endif
 
   if (m_cur_step == 0)
@@ -5626,12 +5568,12 @@ AmrIce::computeInitialDt()
 /**
 
    Solves the elliptic problem 
-      a * phi - b* grad^2 phi = 0;
+   a * phi - b* grad^2 phi = 0;
    with natural boundary conditions.
 
    for grounded ice, a = 10^5 and b = 1
    for floating ice, s = 0 and b = 1
- */
+*/
 void AmrIce::updateGroundingLineProximity() const
 {
 
@@ -5954,10 +5896,10 @@ void AmrIce::updateViscousTensor() const
 
   int numLevels = m_finest_level + 1;
   IceNonlinearViscousTensor state(m_amrGrids, m_refinement_ratios, m_amrDomains, vdx, m_vect_coordSys, 
-		     m_velocity, m_velBasalC, C0, numLevels-1, 
-		     *m_constitutiveRelation,  *m_basalFrictionRelation, *m_thicknessIBCPtr,  
-		     m_A, faceA, m_time, vtopSafety, vtopRelaxMinIter, vtopRelaxTol, 
-		     muMin, muMax);
+				  m_velocity, m_velBasalC, C0, numLevels-1, 
+				  *m_constitutiveRelation,  *m_basalFrictionRelation, *m_thicknessIBCPtr,  
+				  m_A, faceA, m_time, vtopSafety, vtopRelaxMinIter, vtopRelaxTol, 
+				  muMin, muMax);
   state.setState(m_velocity);
   viscosityCoef = state.mu();
   dragCoef = state.alpha();
@@ -6095,11 +6037,11 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 				    )
 {
 
-   CH_TIME("AmrIce::implicitThicknessCorrection");
-   if (s_verbosity > 3)
-     {
-       pout() << "AmrIce::implicitThicknessCorrection" << std::endl;
-     }
+  CH_TIME("AmrIce::implicitThicknessCorrection");
+  if (s_verbosity > 3)
+    {
+      pout() << "AmrIce::implicitThicknessCorrection" << std::endl;
+    }
 
   if  (m_temporalAccuracy == 1)
     {  
@@ -6258,11 +6200,11 @@ AmrIce::writePlotFile()
   if (m_write_dHDt) numPlotComps += 1;
   if (m_write_solver_rhs) numPlotComps += (SpaceDim+2);
 
-  if (m_write_temperature) 
-    numPlotComps += m_temperature[0]->nComp();
+  if (m_write_internal_energy) 
+    numPlotComps += m_internalEnergy[0]->nComp();
 #if BISICLES_Z == BISICLES_LAYERED
-  if (m_write_temperature)
-    numPlotComps += 4;// surface and basal temperatures and heat fluxes
+  if (m_write_internal_energy)
+    numPlotComps += 4;// surface and basal internalEnergys and heat fluxes
 
   //layer velocities
   if (m_write_layer_velocities)
@@ -6305,7 +6247,7 @@ AmrIce::writePlotFile()
   string ybVelName("ybVel");
   string zbVelName("zbVel");
 
-  string temperatureName("temperature");
+  string internalEnergyName("internalEnergy");
   string heatFluxName("heatflux");
 #if BISICLES_Z == BISICLES_LAYERED
   string xlayerVelName("xlayerVel");
@@ -6430,26 +6372,26 @@ AmrIce::writePlotFile()
         }
     }
 
-  if (m_write_temperature)
+  if (m_write_internal_energy)
     {
 #if BISICLES_Z == BISICLES_LAYERED
-  vectName[comp] = temperatureName + string("Surface");
-  comp++;
+      vectName[comp] = internalEnergyName + string("Surface");
+      comp++;
 #endif    
-      for (int l = 0; l < m_temperature[0]->nComp(); ++l)
+      for (int l = 0; l < m_internalEnergy[0]->nComp(); ++l)
 	{
 	  char idx[8]; sprintf(idx, "%04d", l);
-	  vectName[comp] = temperatureName + string(idx);
+	  vectName[comp] = internalEnergyName + string(idx);
 	  comp++;
 	}
     
 #if BISICLES_Z == BISICLES_LAYERED
-  vectName[comp] = temperatureName + string("Base");
-  comp++;
-  vectName[comp] = heatFluxName + string("Surface");
-  comp++;
-  vectName[comp] = heatFluxName + string("Base");
-  comp++;
+      vectName[comp] = internalEnergyName + string("Base");
+      comp++;
+      vectName[comp] = heatFluxName + string("Surface");
+      comp++;
+      vectName[comp] = heatFluxName + string("Base");
+      comp++;
 #endif 
     }
 
@@ -6722,23 +6664,23 @@ AmrIce::writePlotFile()
                   ++comp;
                 }	  
             }
-	  if (m_write_temperature)
+	  if (m_write_internal_energy)
 	    {
 #if BISICLES_Z == BISICLES_LAYERED
 	      {
-		const FArrayBox& thisTemp = (*m_sTemperature[lev])[dit];
+		const FArrayBox& thisTemp = (*m_sInternalEnergy[lev])[dit];
 		thisPlotData.copy(thisTemp, 0, comp, thisTemp.nComp());
 		comp++;
 	      }
 #endif
 	      {
-		const FArrayBox& thisTemp = (*m_temperature[lev])[dit];
+		const FArrayBox& thisTemp = (*m_internalEnergy[lev])[dit];
 		thisPlotData.copy(thisTemp, 0, comp, thisTemp.nComp());
 		comp += thisTemp.nComp();
 	      }
 #if BISICLES_Z == BISICLES_LAYERED
 	      {
-		const FArrayBox& thisTemp = (*m_bTemperature[lev])[dit];
+		const FArrayBox& thisTemp = (*m_bInternalEnergy[lev])[dit];
 		thisPlotData.copy(thisTemp, 0, comp, thisTemp.nComp());
 		comp++;
 		thisPlotData.copy((*m_sHeatFlux[lev])[dit], 0, comp, 1);
@@ -6760,12 +6702,12 @@ AmrIce::writePlotFile()
 		  comp+= SpaceDim;
 		  // end loop over components
 		  if (writeZvel) 
-		{
-		  // use zVel = zero for the moment
-		  Real zVel = 0.0;
-		  thisPlotData.setVal(zVel, comp);
-		  ++comp;
-		} 
+		    {
+		      // use zVel = zero for the moment
+		      Real zVel = 0.0;
+		      thisPlotData.setVal(zVel, comp);
+		      ++comp;
+		    } 
 	      
 		} // end loop over layers
 	    }
@@ -6979,12 +6921,12 @@ AmrIce::writeCheckpointFile(const string& a_file)
   header.m_real["time"] = m_time;
   header.m_real["dt"] = m_dt;
   header.m_int["num_comps"] = 2 +  m_velocity[0]->nComp() 
-    + m_temperature[0]->nComp() + m_deltaTopography[0]->nComp();
+    + m_internalEnergy[0]->nComp() + m_deltaTopography[0]->nComp();
 #if BISICLES_Z == BISICLES_LAYERED
 
 
 
-  header.m_int["num_comps"] +=2; // surface and base temperatures
+  header.m_int["num_comps"] +=2; // surface and base internalEnergys
 #endif
   // at the moment, save cfl, but it can be changed by the inputs
   // file if desired.
@@ -6993,19 +6935,19 @@ AmrIce::writeCheckpointFile(const string& a_file)
   // periodicity info
   D_TERM(
          if (m_amrDomains[0].isPeriodic(0))
-         header.m_int["is_periodic_0"] = 1;
+	   header.m_int["is_periodic_0"] = 1;
          else
-         header.m_int["is_periodic_0"] = 0; ,
+	   header.m_int["is_periodic_0"] = 0; ,
 
          if (m_amrDomains[0].isPeriodic(1))
-         header.m_int["is_periodic_1"] = 1;
+	   header.m_int["is_periodic_1"] = 1;
          else
-         header.m_int["is_periodic_1"] = 0; ,
+	   header.m_int["is_periodic_1"] = 0; ,
 
          if (m_amrDomains[0].isPeriodic(2))
-         header.m_int["is_periodic_2"] = 1;
+	   header.m_int["is_periodic_2"] = 1;
          else
-         header.m_int["is_periodic_2"] = 0; 
+	   header.m_int["is_periodic_2"] = 0; 
          );
          
 
@@ -7061,25 +7003,25 @@ AmrIce::writeCheckpointFile(const string& a_file)
     }
   nComp += m_velocity[0]->nComp() ;
 
-  string temperatureName("temperature");
-  for (int comp=0; comp < m_temperature[0]->nComp() ; comp++) 
+  string internalEnergyName("internalEnergy");
+  for (int comp=0; comp < m_internalEnergy[0]->nComp() ; comp++) 
     {
       char idx[5]; sprintf(idx, "%04d", comp);
-      compName = temperatureName + string(idx);
+      compName = internalEnergyName + string(idx);
       sprintf(compStr, "component_%04d", comp + nComp);
       header.m_string[compStr] = compName;
     }
   
-  nComp += m_temperature[0]->nComp() ;
+  nComp += m_internalEnergy[0]->nComp() ;
 
 #if BISICLES_Z == BISICLES_LAYERED
   {
     sprintf(compStr, "component_%04d", nComp);
-    compName = "sTemperature";
+    compName = "sInternalEnergy";
     header.m_string[compStr] = compName;
     nComp += 1;
     sprintf(compStr, "component_%04d", nComp);
-    compName = "bTemperature";
+    compName = "bInternalEnergy";
     header.m_string[compStr] = compName;
     nComp += 1;
     //layer data
@@ -7138,14 +7080,14 @@ AmrIce::writeCheckpointFile(const string& a_file)
 	  write(handle, *m_velocity[lev], "velocityData", 
 		m_velocity[lev]->ghostVect());
 
-	  write(handle, *m_temperature[lev], "temperatureData", 
-		m_temperature[lev]->ghostVect());
+	  write(handle, *m_internalEnergy[lev], "internalEnergyData", 
+		m_internalEnergy[lev]->ghostVect());
 
 #if BISICLES_Z == BISICLES_LAYERED
-	  write(handle, *m_sTemperature[lev], "sTemperatureData", 
-		m_sTemperature[lev]->ghostVect());
-	  write(handle, *m_bTemperature[lev], "bTemperatureData", 
-		m_bTemperature[lev]->ghostVect());
+	  write(handle, *m_sInternalEnergy[lev], "sInternalEnergyData", 
+		m_sInternalEnergy[lev]->ghostVect());
+	  write(handle, *m_bInternalEnergy[lev], "bInternalEnergyData", 
+		m_bInternalEnergy[lev]->ghostVect());
 #endif
 
         }
@@ -7175,6 +7117,29 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
  
   HDF5HeaderData& header = m_headerData;
   header.readFromFile(a_handle);
+
+  //check for various components. Maybe rethink this when HDF5::SetGroup
+  //is fixed...
+  bool containsDeltaBedHeight(false);
+  bool containsInternalEnergy(false);
+  bool containsTemperature(false);
+   
+  map<std::string, std::string>::const_iterator i;
+  for (i = header.m_string.begin(); i!= header.m_string.end(); ++i)
+    {
+      if (i->second == "deltaBedHeight0000")
+	{
+	  containsDeltaBedHeight = true;
+	}
+      if (i->second == "temperature0000")
+	{
+	  containsTemperature = true;
+	}
+      if (i->second == "internalEnergy0000")
+	{
+	  containsInternalEnergy = true;
+	}
+    }
 
   if (s_verbosity >= 3)
     {
@@ -7260,26 +7225,26 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   Real check_cfl = header.m_real["cfl"];
   ParmParse ppCheck("amr");
 
-    if (ppCheck.contains("cfl"))
-      { 
-        // check for consistency and warn if different
-        if (check_cfl != m_cfl)
-          {
-            if (s_verbosity > 0)
-              {
-                pout() << "CFL in checkpoint file different from inputs file" 
-                       << endl;
-                pout() << "     cfl in inputs file = " << m_cfl << endl;
-                pout() << "     cfl in checkpoint file = " << check_cfl 
-                       << endl;
-                pout() << "Using cfl from inputs file" << endl;                
-              }
-          }  // end if cfl numbers differ
-      } // end if cfl present in inputs file
-    else
-      {
-        m_cfl = check_cfl;
-      }          
+  if (ppCheck.contains("cfl"))
+    { 
+      // check for consistency and warn if different
+      if (check_cfl != m_cfl)
+	{
+	  if (s_verbosity > 0)
+	    {
+	      pout() << "CFL in checkpoint file different from inputs file" 
+		     << endl;
+	      pout() << "     cfl in inputs file = " << m_cfl << endl;
+	      pout() << "     cfl in checkpoint file = " << check_cfl 
+		     << endl;
+	      pout() << "Using cfl from inputs file" << endl;                
+	    }
+	}  // end if cfl numbers differ
+    } // end if cfl present in inputs file
+  else
+    {
+      m_cfl = check_cfl;
+    }          
 
   // read periodicity info
   // Get the periodicity info -- this is more complicated than it really
@@ -7338,10 +7303,10 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   m_faceMuCoef.resize(m_max_level+1,NULL);
   m_faceVelAdvection.resize(m_max_level+1,NULL);
   m_faceVelTotal.resize(m_max_level+1,NULL);
-  m_temperature.resize(m_max_level+1,NULL);
+  m_internalEnergy.resize(m_max_level+1,NULL);
 #if BISICLES_Z == BISICLES_LAYERED
-  m_sTemperature.resize(m_max_level+1,NULL);
-  m_bTemperature.resize(m_max_level+1,NULL);
+  m_sInternalEnergy.resize(m_max_level+1,NULL);
+  m_bInternalEnergy.resize(m_max_level+1,NULL);
   m_sHeatFlux.resize(m_max_level+1,NULL);
   m_bHeatFlux.resize(m_max_level+1,NULL);
   m_layerSFaceXYVel.resize(m_max_level+1,NULL);
@@ -7370,7 +7335,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
           pout() << header << endl;
         }
 
-  // Get the refinement ratio
+      // Get the refinement ratio
       if (lev < m_max_level)
         {
           int checkRefRatio;
@@ -7433,18 +7398,18 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
           m_old_thickness[lev] = new LevelData<FArrayBox>
 	    (levelDBL, 1, m_num_thickness_ghost*IntVect::Unit);
 #if BISICLES_Z == BISICLES_LAYERED
-	  m_temperature[lev] =  new LevelData<FArrayBox>
+	  m_internalEnergy[lev] =  new LevelData<FArrayBox>
 	    (levelDBL, m_nLayers, m_num_thickness_ghost*IntVect::Unit);
-	  m_sTemperature[lev] =  new LevelData<FArrayBox>
+	  m_sInternalEnergy[lev] =  new LevelData<FArrayBox>
 	    (levelDBL, 1, m_num_thickness_ghost*IntVect::Unit);
-	  m_bTemperature[lev] =  new LevelData<FArrayBox>
+	  m_bInternalEnergy[lev] =  new LevelData<FArrayBox>
 	    (levelDBL, 1, m_num_thickness_ghost*IntVect::Unit);
 	  m_sHeatFlux[lev] =  new LevelData<FArrayBox>
 	    (levelDBL, 1, m_num_thickness_ghost*IntVect::Unit);
 	  m_bHeatFlux[lev] =  new LevelData<FArrayBox>
 	    (levelDBL, 1, m_num_thickness_ghost*IntVect::Unit);
 #elif BISICLES_Z == BISICLES_FULLZ
-	  m_temperature[lev] =  new LevelData<FArrayBox>
+	  m_internalEnergy[lev] =  new LevelData<FArrayBox>
 	    (levelDBL, 1, m_num_thickness_ghost*IntVect::Unit);
 #endif
 	  // other quantities need only one;
@@ -7473,17 +7438,11 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	  m_diffusivity[lev] = new LevelData<FluxBox>(levelDBL, 1, IntVect::Zero);
 
           // read this level's data
-	  
           LevelData<FArrayBox>& old_thickness = *m_old_thickness[lev];  
-	  //IntVect ghost = old_thickness.ghostVect();
 	  LevelData<FArrayBox> tmpThickness;
 	  tmpThickness.define(old_thickness);
 
-          int dataStatus = read<FArrayBox>(a_handle,
-                                           tmpThickness,
-                                           "thicknessData",
-                                           levelDBL);
-	  //CH_assert( old_thickness.ghostVect() == ghost);
+          int dataStatus = read<FArrayBox>(a_handle, tmpThickness, "thicknessData", levelDBL);
 	  for (DataIterator dit(levelDBL);dit.ok();++dit)
 	    {
 	      old_thickness[dit].copy(tmpThickness[dit]);
@@ -7494,13 +7453,9 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
               MayDay::Error("checkpoint file does not contain thickness data");
             }
 
-
 	  LevelData<FArrayBox> bedHeight;
 	  bedHeight.define(old_thickness);
-	  dataStatus = read<FArrayBox>(a_handle,
-				       bedHeight,
-				       "bedHeightData",
-				       levelDBL);
+	  dataStatus = read<FArrayBox>(a_handle, bedHeight, "bedHeightData", levelDBL);
 
 	  if (dataStatus != 0)
             {
@@ -7508,25 +7463,16 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
             }
 	  
 	  LevelData<FArrayBox> deltaBedHeight;
-	  int deltaBedHeightComp = 2 + m_velocity[0]->nComp() + m_temperature[0]->nComp();
-#if BISICLES_Z == BISICLES_LAYERED
-	  deltaBedHeightComp +=2;
-#endif
-
 	  deltaBedHeight.define(old_thickness);
-
-	  if (numComps > deltaBedHeightComp)
-	      {
-		//TODO, think of a better test
-		dataStatus = read<FArrayBox>(a_handle,
-					     deltaBedHeight,
-					     "deltaBedHeightData",
-					     levelDBL);
-		if (dataStatus != 0)
-		  {
-		    MayDay::Error("checkpoint file does not contain delta bed height data");
-		  }
-	      }
+	  
+	  if (containsDeltaBedHeight)
+	    {
+	      dataStatus = read<FArrayBox>(a_handle,deltaBedHeight,"deltaBedHeightData",levelDBL);
+	      if (dataStatus != 0)
+		{
+		  MayDay::Error("checkpoint file does not contain delta bed height data");
+		}
+	    }
 	  else
 	    {
 	      for (DataIterator dit = deltaBedHeight.disjointBoxLayout(); dit.ok();++dit)
@@ -7535,11 +7481,8 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 		}
 	    }
 	  
-	  
-
 	  //having read thickness and base data, we can define
           //the co-ordinate system 
-
 	  RealVect dx = m_amrDx[lev]*RealVect::Unit;
           m_vect_coordSys[lev] = RefCountedPtr<LevelSigmaCS >
             (new LevelSigmaCS(m_amrGrids[lev], dx, sigmaCSGhost));
@@ -7571,20 +7514,20 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	    levelCS.recomputeGeometry(crseCoords, refRatio);
 	  }
           LevelData<FArrayBox>& velData = *m_velocity[lev];
-           dataStatus = read<FArrayBox>(a_handle,
+	  dataStatus = read<FArrayBox>(a_handle,
                                        velData,
                                        "velocityData",
 				       levelDBL);
-	   m_velocitySolveInitialResidualNorm = 1.0e+6; //\todo fix this
-	   // dit.reset();
-	   // for (dit.begin(); dit.ok(); ++dit)
-	   //   {
-	   //     (*m_velocity[lev])[dit].setVal(0.0);
-	   //   }
+	  m_velocitySolveInitialResidualNorm = 1.0e+6; //\todo fix this
+	  // dit.reset();
+	  // for (dit.begin(); dit.ok(); ++dit)
+	  //   {
+	  //     (*m_velocity[lev])[dit].setVal(0.0);
+	  //   }
 	  
-	   //this check doesn't work, because HDF5::SetGroup attempts
-	   //to create a group if it doesn't exist. And since the file has been
-	   // opened readonly, the previous call generates an exception
+	  //this check doesn't work, because HDF5::SetGroup attempts
+	  //to create a group if it doesn't exist. And since the file has been
+	  // opened readonly, the previous call generates an exception
  			       
           if (dataStatus != 0)
             {
@@ -7592,49 +7535,75 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	      
             }
 
-	  LevelData<FArrayBox>& temperatureData = *m_temperature[lev];
-	  dataStatus = read<FArrayBox>(a_handle,
-				       temperatureData,
-                                       "temperatureData",
-				       levelDBL);
+	  {
+	    // read internal energy , or read temperature and convert to internal energy
+ 	    std::string dataName, sDataName, bDataName;
 
-	  if (dataStatus != 0)
-	    {
-	      MayDay::Error("checkpoint file does not contain temperature data"); 
-            }
+	    if (containsInternalEnergy)
+	      {
+		dataName = "internalEnergyData";
+		sDataName = "sInternalEnergyData";
+		bDataName = "bInternalEnergyData";
+	      }
+	    else if (containsTemperature)
+	      {
+		dataName = "temperatureData";
+		sDataName = "sTemperatureData";
+		bDataName = "bTemperatureData";	
+	      }
+	    else
+	      {
+		MayDay::Error("checkpoint file does not contain internal energy or temperature data"); 
+	      }
+	    
 
-#if BISICLES_Z == BISICLES_LAYERED
-	  
-	  CH_assert(m_temperature[lev]->nComp() == sigma.size() -1);
-	  
-	  LevelData<FArrayBox>& sTemperatureData = *m_sTemperature[lev];
-	  dataStatus = read<FArrayBox>(a_handle,
-				       sTemperatureData,
-                                       "sTemperatureData",
-				       levelDBL);
+	    LevelData<FArrayBox>& internalEnergyData = *m_internalEnergy[lev];
+	    dataStatus = read<FArrayBox>(a_handle, internalEnergyData, dataName,levelDBL);
+	    if (dataStatus != 0)
+	      {
+		MayDay::Error("checkpoint file does not contain internal energy data"); 
+	      }
 
-	  if (dataStatus != 0)
-	    {
-	      MayDay::Error("checkpoint file does not contain sTemperature data"); 
-            }
-
-	  
-	  LevelData<FArrayBox>& bTemperatureData = *m_bTemperature[lev];
-	  dataStatus = read<FArrayBox>(a_handle,
-				       bTemperatureData,
-                                       "bTemperatureData",
-				       levelDBL);
-
-	  if (dataStatus != 0)
-	    {
-	      MayDay::Error("checkpoint file does not contain bTemperature data"); 
-	    }
-
-
-  
+#if BISICLES_Z == BISICLES_LAYERED	  
+	    LevelData<FArrayBox>& sInternalEnergyData = *m_sInternalEnergy[lev];
+	    dataStatus = read<FArrayBox>(a_handle,  sInternalEnergyData, sDataName,levelDBL);	  
+	    if (dataStatus != 0)
+	      {
+		MayDay::Error("checkpoint file does not contain surface internal energy data"); 
+	      }
+	    
+	    LevelData<FArrayBox>& bInternalEnergyData = *m_bInternalEnergy[lev];
+	    dataStatus = read<FArrayBox>(a_handle, bInternalEnergyData, bDataName, levelDBL);	  
+	    if (dataStatus != 0)
+	      {
+		MayDay::Error("checkpoint file does not contain basal internal energy data"); 
+	      }
 #endif
+	  
+	    if (containsTemperature)
+	      {
+		// need to covert tempearture to internal energy
+		for (DataIterator dit(levelDBL);dit.ok();++dit)
+		  {
+		    FArrayBox& E = (*m_internalEnergy[lev])[dit];
+		    FArrayBox T(E.box(),E.nComp()); T.copy(E);
+		    IceThermodynamics::composeInternalEnergy(E,T,E.box() );
+#if BISICLES_Z == BISICLES_LAYERED
+		    FArrayBox& sE = (*m_sInternalEnergy[lev])[dit];
+		    FArrayBox sT(sE.box(),sE.nComp()); sT.copy(sE);
+		    IceThermodynamics::composeInternalEnergy(sE,sT,sE.box() );
+		    FArrayBox& bE = (*m_bInternalEnergy[lev])[dit];
+		    FArrayBox bT(bE.box(),bE.nComp()); bT.copy(bE);
+		    IceThermodynamics::composeInternalEnergy(bE,bT,bE.box(),false); 
+		    // it is possible for bT to be meaningless, so avoid test 
+#endif	    
+		  }
+	      }
+	    CH_assert(m_internalEnergy[lev]->nComp() == sigma.size() -1);
+	  }
 
-        } // end if this level is defined
+
+	} // end if this level is defined
     } // end loop over levels                                    
           
   
@@ -7689,7 +7658,7 @@ Real AmrIce::computeTotalGroundedIce() const
       const LevelData<FArrayBox>& levelThickness = m_vect_coordSys[lev]->getH();
       // temporary with only ungrounded ice
       vectGroundedThickness[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1,
-                                                            IntVect::Zero);
+							    IntVect::Zero);
 
       LevelData<FArrayBox>& levelGroundedThickness = *vectGroundedThickness[lev];
       // now copy thickness to       
@@ -7700,19 +7669,19 @@ Real AmrIce::computeTotalGroundedIce() const
       // do this the slow way, for now
       DataIterator dit=levelGroundedThickness.dataIterator();
       for (dit.begin(); dit.ok(); ++dit)
-        {
-          const BaseFab<int>& thisMask = levelMask[dit];
-          FArrayBox& thisThick = levelGroundedThickness[dit];
-          BoxIterator bit(thisThick.box());
-          for (bit.begin(); bit.ok(); ++bit)
-            {
-              IntVect iv = bit();
-              if (thisMask(iv,0) != GROUNDEDMASKVAL)
-                {
-                  thisThick(iv,0) = 0.0;
-                }
-            }
-        }
+	{
+	  const BaseFab<int>& thisMask = levelMask[dit];
+	  FArrayBox& thisThick = levelGroundedThickness[dit];
+	  BoxIterator bit(thisThick.box());
+	  for (bit.begin(); bit.ok(); ++bit)
+	    {
+	      IntVect iv = bit();
+	      if (thisMask(iv,0) != GROUNDEDMASKVAL)
+		{
+		  thisThick(iv,0) = 0.0;
+		}
+	    }
+	}
     
 
     }
@@ -7720,17 +7689,17 @@ Real AmrIce::computeTotalGroundedIce() const
   // now compute sum
   Interval thicknessInt(0,0);
   totalGroundedIce = computeSum(vectGroundedThickness, m_refinement_ratios,
-                                m_amrDx[0], thicknessInt, 0);
+				m_amrDx[0], thicknessInt, 0);
 
   
   // clean up temp storage
   for (int lev=0; lev<vectGroundedThickness.size(); lev++)
     {
       if (vectGroundedThickness[lev] != NULL)
-        {
-          delete vectGroundedThickness[lev];
-          vectGroundedThickness[lev] = NULL;
-        }
+	{
+	  delete vectGroundedThickness[lev];
+	  vectGroundedThickness[lev] = NULL;
+	}
     }
 
   return totalGroundedIce;
@@ -7772,7 +7741,7 @@ void AmrIce::helmholtzSolve
 	  levelRhs.copyTo(Interval(icomp,icomp),*rhs[lev], Interval(0,0));
 	  rhs[lev]->exchange();
       
-    }
+	}
 
 
       //Natural boundary conditions
@@ -7828,13 +7797,13 @@ void AmrIce::helmholtzSolve
  
   helmholtzSolve(a_phi, rhs, a_alpha, a_beta);
 
-   for (int lev=0; lev < m_finest_level + 1; ++lev)
-     {
-       if (rhs[lev] != NULL){
-	 delete rhs[lev];
-	 rhs[lev] = NULL;
-       }
-     }
+  for (int lev=0; lev < m_finest_level + 1; ++lev)
+    {
+      if (rhs[lev] != NULL){
+	delete rhs[lev];
+	rhs[lev] = NULL;
+      }
+    }
 
 }
 
@@ -7845,9 +7814,9 @@ void AmrIce::helmholtzSolve
 void AmrIce::computeA(Vector<LevelData<FArrayBox>* >& a_A, 
 		      Vector<LevelData<FArrayBox>* >& a_sA,
 		      Vector<LevelData<FArrayBox>* >& a_bA,
-		      const Vector<LevelData<FArrayBox>* >& a_temperature, 
-		      const Vector<LevelData<FArrayBox>* >& a_sTemperature,
-		      const Vector<LevelData<FArrayBox>* >& a_bTemperature,
+		      const Vector<LevelData<FArrayBox>* >& a_internalEnergy, 
+		      const Vector<LevelData<FArrayBox>* >& a_sInternalEnergy,
+		      const Vector<LevelData<FArrayBox>* >& a_bInternalEnergy,
 		      const Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSys) const
 		      
 {
@@ -7884,17 +7853,16 @@ void AmrIce::computeA(Vector<LevelData<FArrayBox>* >& a_A,
       
       const Vector<Real>& sigma = levelCoords.getSigma();
       a_A[lev] = new LevelData<FArrayBox>(m_amrGrids[lev], m_nLayers, IntVect::Unit);
-      IceUtility::computeA(*a_A[lev], sigma, levelCoords, 
-			    m_rateFactor, *a_temperature[lev]);
+      IceUtility::computeA(*a_A[lev], sigma, levelCoords,  m_rateFactor, *a_internalEnergy[lev] );
       
       Vector<Real> sSigma(1,0.0);
       a_sA[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1, IntVect::Unit);
       IceUtility::computeA(*a_sA[lev], sSigma, levelCoords,  
-			    m_rateFactor, *a_sTemperature[lev]);
+			   m_rateFactor, *a_sInternalEnergy[lev]);
       Vector<Real> bSigma(1,1.0);
       a_bA[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1, IntVect::Unit);
       IceUtility::computeA(*a_bA[lev], bSigma, levelCoords,  
-			    m_rateFactor, *a_bTemperature[lev]);
+			   m_rateFactor, *a_bInternalEnergy[lev]);
    
     }//end loop over AMR levels
 
@@ -7908,72 +7876,98 @@ void AmrIce::computeA(Vector<LevelData<FArrayBox>* >& a_A,
 }
 
 
-//compute the temperature field and the bulk dissipation at the half-time step
-void AmrIce::computeTHalf(Vector<LevelData<FluxBox>* >& a_layerTH_half,
-			  Vector<LevelData<FluxBox>* >& a_layerH_half,
-			  const Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel, 
-			  const Real a_dt, const Real a_time)
+//compute the face- and layer- centered internal energy (a_layerEH_half)
+//and thickness (a_layerH_half) at time a_time + 1/2 * a_dt
+void AmrIce::computeInternalEnergyHalf(Vector<LevelData<FluxBox>* >& a_layerEH_half,
+				       Vector<LevelData<FluxBox>* >& a_layerH_half,
+				       const Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel, 
+				       const Real a_dt, const Real a_time)
 {
 
-  
-  //first fill the ghost regions of m_temperature
-  for (int lev = 1 ; lev <= m_finest_level; lev++)
+  //delete and re-create storage for a_layerEH_half and a_layerH_half.
+  for (int lev = 0 ; lev <= m_finest_level; lev++)
     {
-      PiecewiseLinearFillPatch tempFiller(m_amrGrids[lev],
-					  m_amrGrids[lev-1],
-					  m_temperature[lev]->nComp(),
-					  m_amrDomains[lev-1],
-					  m_refinement_ratios[lev-1],
-					  m_temperature[lev]->ghostVect()[0]);
-      tempFiller.fillInterp(*m_temperature[lev],*m_temperature[lev-1],
-			    *m_temperature[lev-1],1.0,0,0,m_temperature[lev]->nComp());
-			    
+      
+      if (a_layerEH_half[lev] != NULL)
+	delete(a_layerEH_half[lev]);
+
+      a_layerEH_half[lev] = new LevelData<FluxBox>(m_amrGrids[lev], 
+						   m_internalEnergy[lev]->nComp(), 
+						   IntVect::Unit);
+      if (a_layerH_half[lev] != NULL)
+	delete(a_layerH_half[lev]);
+      
+      a_layerH_half[lev] = new LevelData<FluxBox>(m_amrGrids[lev], 
+						  m_internalEnergy[lev]->nComp(), 
+						  IntVect::Unit);
     }
 
 
-  //in the 2D case (with poor man's multidim) this
-  //is a little pained using AdvectPhysics, but for the time being
-  //we need to construct a single component thisLayerT_Half for each layer, 
-  //given a temperature and horizontal velocity and then copy it into 
-  //the multicomponent T_half[lev]
+  //assume the ghost regions of m_internalEnergy are not correct
   for (int lev = 0 ; lev <= m_finest_level; lev++)
     {
-
-      if (a_layerTH_half[lev] != NULL)
-	delete(a_layerTH_half[lev]);
-
-      a_layerTH_half[lev] = new LevelData<FluxBox>(m_amrGrids[lev], 
-					     m_temperature[lev]->nComp(), 
-					     IntVect::Unit);
-
-      if (a_layerH_half[lev] != NULL)
-	delete(a_layerH_half[lev]);
-      a_layerH_half[lev] = new LevelData<FluxBox>(m_amrGrids[lev], 
-					     m_temperature[lev]->nComp(), 
-					     IntVect::Unit);
-
-      
-      PatchGodunov* patchGoduTPtr = m_temperaturePatchGodVect[lev];
-      AdvectPhysics* advectPhysTPtr = dynamic_cast<AdvectPhysics*>(patchGoduTPtr->getGodunovPhysicsPtr());
-      if (advectPhysTPtr == NULL)
+      if (lev > 0)
 	{
-	  MayDay::Error("AmrIce::timestep -- unable to upcast GodunovPhysics to AdvectPhysics");
+	  PiecewiseLinearFillPatch pwl(m_amrGrids[lev],
+				       m_amrGrids[lev-1],
+				       m_internalEnergy[lev]->nComp(),
+				       m_amrDomains[lev-1],
+				       m_refinement_ratios[lev-1],
+				       m_internalEnergy[lev]->ghostVect()[0]);
+	  pwl.fillInterp(*m_internalEnergy[lev],*m_internalEnergy[lev-1],
+			 *m_internalEnergy[lev-1],1.0,0,0,m_internalEnergy[lev]->nComp());
 	}
-      patchGoduTPtr->setCurrentTime(m_time);
+      m_internalEnergy[lev]->exchange();
+    }
+   
+  for (int lev = 0 ; lev <= m_finest_level; lev++)
+    {
+      //in the 2D case (with poor man's multidim) this
+      //is a little pained using AdvectPhysics, but for the time being
+      //we need to construct a single component thisLayerEH_Half for each layer, 
+      //given a internalEnergy and horizontal velocity and then copy it into 
+      //the multicomponent EH_half[lev]
+     
+      // PatchGodunov object for layer thickness/energy advection
+      PatchGodunov patchGodunov;
+      {
+	int normalPredOrder = 1;
+	bool useFourthOrderSlopes = false;
+	bool usePrimLimiting = false;
+	bool useCharLimiting = false;
+	bool useFlattening = false;
+	bool useArtificialViscosity = false;
+	Real artificialViscosity = 0.0;
+	AdvectPhysics advectPhys;
+	advectPhys.setPhysIBC(m_internalEnergyIBCPtr);
+
+	patchGodunov.define(m_amrDomains[lev], m_amrDx[lev],
+			    &advectPhys, normalPredOrder,
+			    useFourthOrderSlopes,usePrimLimiting,
+			    useCharLimiting,useFlattening,
+			    useArtificialViscosity,artificialViscosity);
+	patchGodunov.setCurrentTime(m_time);
+      }
       
-      const LevelData<FArrayBox>& levelTemperature = *m_temperature[lev]; 
+      AdvectPhysics* advectPhysPtr = dynamic_cast<AdvectPhysics*>(patchGodunov.getGodunovPhysicsPtr());
+      if (advectPhysPtr == NULL)
+	{
+	  MayDay::Error("AmrIce::computeInternalEnergyHalf -- unable to upcast GodunovPhysics to AdvectPhysics");
+	}
+
+      const LevelData<FArrayBox>& levelInternalEnergy = *m_internalEnergy[lev]; 
       const LevelData<FArrayBox>& levelOldThickness = *m_old_thickness[lev]; 
       const LevelData<FluxBox>& levelLayerXYFaceXYVel = *a_layerXYFaceXYVel[lev]; 
       const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
 
       for (int layer = 0; layer < m_nLayers; ++layer)
 	{
-
 	  for (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	    {
-	      const Box& box = levelTemperature[dit].box(); // grid box plus ghost cells
+	      const Box& box = levelInternalEnergy[dit].box(); // grid box plus ghost cells
 	      
-	      FluxBox layerXYFaceXYVel(box,1);layerXYFaceXYVel.setVal(0.0);
+	      FluxBox layerXYFaceXYVel(box,1);
+	      layerXYFaceXYVel.setVal(0.0);
 	      for (int dir = 0; dir < SpaceDim; ++dir){
 		layerXYFaceXYVel[dir].copy(levelLayerXYFaceXYVel[dit][dir],layer,0,1);
 		Box faceBox = levelGrids[dit].surroundingNodes(dir);
@@ -7986,31 +7980,29 @@ void AmrIce::computeTHalf(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	      //\todo compute bulk heat sources
 	      FArrayBox heatSource(levelGrids[dit], 1);
 	      heatSource.setVal(0.0);
-	      patchGoduTPtr->setCurrentBox(levelGrids[dit]);
-	      
 
-	      advectPhysTPtr->setVelocities(&layerCellXYVel,&layerXYFaceXYVel);
+	      patchGodunov.setCurrentBox(levelGrids[dit]);
+	      advectPhysPtr->setVelocities(&layerCellXYVel,&layerXYFaceXYVel);
+
 	      FArrayBox WGdnv(box,1);
 
-	      //HT at half time and cell faces
-	      WGdnv.copy(levelTemperature[dit],layer,0,1);
+	      //HE at half time and cell faces
+	      WGdnv.copy(levelInternalEnergy[dit],layer,0,1);
 	      WGdnv *= levelOldThickness[dit];
-	      //CH_assert(0.0 < WGdnv.min(levelGrids[dit]));
-	      //CH_assert(WGdnv.max(levelGrids[dit]) < levelOldThickness[dit].max()*triplepoint);
 	      Box grownBox = levelGrids[dit];
 	      grownBox.grow(1);
-	      FluxBox HThalf(grownBox,1);
-	      patchGoduTPtr->computeWHalf(HThalf,
-					  WGdnv,
-					  heatSource,
-					  a_dt,
-					  levelGrids[dit]);
+	      FluxBox HEhalf(grownBox,1);
+	      patchGodunov.computeWHalf(HEhalf,
+					WGdnv,
+					heatSource,
+					a_dt,
+					levelGrids[dit]);
 	      for (int dir = 0; dir < SpaceDim; ++dir)
 		{
 		  Box faceBox(levelGrids[dit]);
 		  faceBox.surroundingNodes(dir);
-		  CH_assert(HThalf[dir].norm(faceBox,0) < HUGE_NORM);
-		  (*a_layerTH_half[lev])[dit][dir].copy(HThalf[dir],0,layer,1);
+		  CH_assert(HEhalf[dir].norm(faceBox,0) < HUGE_NORM);
+		  (*a_layerEH_half[lev])[dit][dir].copy(HEhalf[dir],0,layer,1);
 		}
 	      
 	      //H at half time and cell faces
@@ -8019,11 +8011,11 @@ void AmrIce::computeTHalf(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	      //\todo compute layer thickness sources
 	      FArrayBox HSource(levelGrids[dit], 1);
 	      HSource.setVal(0.0);
-	      patchGoduTPtr->computeWHalf(Hhalf,
-					  WGdnv,
-					  HSource,
-					  a_dt,
-					  levelGrids[dit]);
+	      patchGodunov.computeWHalf(Hhalf,
+					WGdnv,
+					HSource,
+					a_dt,
+					levelGrids[dit]);
 	      for (int dir = 0; dir < SpaceDim; ++dir)
 		{
 		  Box faceBox(levelGrids[dit]);
@@ -8037,30 +8029,28 @@ void AmrIce::computeTHalf(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	}
     }
       
-  // coarse average new T-Half to covered regions
+  // coarse average new EH-Half to covered regions
   for (int lev=m_finest_level; lev>0; lev--)
     {
-      CoarseAverageFace faceAverager(m_amrGrids[lev],
-				     a_layerTH_half[lev]->nComp(), m_refinement_ratios[lev-1]);
-      faceAverager.averageToCoarse(*a_layerTH_half[lev-1], *a_layerTH_half[lev]);
+      CoarseAverageFace faceAverager(m_amrGrids[lev],a_layerEH_half[lev]->nComp(), m_refinement_ratios[lev-1]);
+      faceAverager.averageToCoarse(*a_layerEH_half[lev-1], *a_layerEH_half[lev]);
       faceAverager.averageToCoarse(*a_layerH_half[lev-1], *a_layerH_half[lev]);
     }
 
 }
 
-void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half, 
-			       Vector<LevelData<FluxBox>* >& a_layerH_half,
-			       const Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel,
-			       const Vector<LevelData<FArrayBox>* >& a_layerSFaceXYVel,
-			       const Real a_dt, const Real a_time,
-			       Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSysNew,
-			       Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSysOld,
-			       const Vector<LevelData<FArrayBox>*>& a_surfaceThicknessSource,
-			       const Vector<LevelData<FArrayBox>*>& a_basalThicknessSource)
+void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half, 
+				  Vector<LevelData<FluxBox>* >& a_layerH_half,
+				  const Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel,
+				  const Vector<LevelData<FArrayBox>* >& a_layerSFaceXYVel,
+				  const Real a_dt, const Real a_time,
+				  Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSysNew,
+				  Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSysOld,
+				  const Vector<LevelData<FArrayBox>*>& a_surfaceThicknessSource,
+				  const Vector<LevelData<FArrayBox>*>& a_basalThicknessSource)
 {
 
-  //update the temperature fields, 2D case
-  //#ifdef TARMAC
+  //update the internalEnergy fields, 2D case
   Vector<LevelData<FluxBox>* > vectLayerFluxes(m_finest_level+1, NULL);
   Vector<LevelData<FluxBox>* > vectLayerThicknessFluxes(m_finest_level+1, NULL);
   Vector<LevelData<FArrayBox>* > vectUSigma(m_finest_level+1, NULL);
@@ -8069,7 +8059,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
   for (int lev=0; lev<=m_finest_level; lev++)
     {
       LevelData<FluxBox>& levelXYFaceXYVel = *a_layerXYFaceXYVel[lev];
-      LevelData<FluxBox>& levelFaceTH = *a_layerTH_half[lev];
+      LevelData<FluxBox>& levelFaceEH = *a_layerEH_half[lev];
       LevelData<FluxBox>& levelFaceH = *a_layerH_half[lev];
       IntVect ghostVect = IntVect::Unit;//CoarseAverageFace requires a ghost cell
 
@@ -8089,7 +8079,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
       for (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	{
 	  FluxBox& faceVel = levelXYFaceXYVel[dit];
-	  FluxBox& faceTH = levelFaceTH[dit];
+	  FluxBox& faceEH = levelFaceEH[dit];
 	  FluxBox& faceH = levelFaceH[dit];
 	  FluxBox& flux = (*vectLayerFluxes[lev])[dit];
 	  FluxBox& thicknessFlux = (*vectLayerThicknessFluxes[lev])[dit];
@@ -8099,7 +8089,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	    {
 	      Box faceBox(gridBox);
 	      faceBox.surroundingNodes(dir);
-	      flux[dir].copy(faceTH[dir], faceBox);
+	      flux[dir].copy(faceEH[dir], faceBox);
 	      flux[dir].mult(faceVel[dir], faceBox, 0, 0, faceVel[dir].nComp());
 
 	      
@@ -8107,8 +8097,8 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	      thicknessFlux[dir].copy(faceH[dir],faceBox);
 	      thicknessFlux[dir].mult(faceVel[dir], faceBox, 0, 0, faceVel[dir].nComp());
 	        
-	      CH_assert(flux[dir].norm(faceBox,0,0,flux[dir].nComp()) < HUGE_NORM);
-	      CH_assert(thicknessFlux[dir].norm(faceBox,0,0,thicknessFlux[dir].nComp()) < HUGE_NORM);
+	      // CH_assert(flux[dir].norm(faceBox,0,0,flux[dir].nComp()) < HUGE_NORM);
+	      // CH_assert(thicknessFlux[dir].norm(faceBox,0,0,thicknessFlux[dir].nComp()) < HUGE_NORM);
 		
 	    }
 	}
@@ -8175,7 +8165,7 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  gradS.copy(levelCoordsOld.getGradSurface()[dit]);
 	  gradS.plus(levelCoordsNew.getGradSurface()[dit]);
 	  gradS*=0.5;
-	   //horizontal contribution to div(Hu) at cell centres, 
+	  //horizontal contribution to div(Hu) at cell centres, 
 	  // viz d(Hu_x)/dx' + d(Hu_y)/dy'
 	  FArrayBox divUHxy(box, m_nLayers);
 	  {
@@ -8221,24 +8211,24 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  uSigma.setVal(0.0);
 
 	  FORT_COMPUTEZVEL(CHF_FRA(uZ),
-	  		   CHF_FRA1(uZs,0),
-	  		   CHF_FRA(uSigma),
-	  		   CHF_CONST_FRA(uX),
-	  		   CHF_CONST_FRA(uY),
-	  		   CHF_CONST_FRA(divUHxy),
-	  		   CHF_CONST_VR(levelCoordsNew.getFaceSigma()),
-	  		   CHF_CONST_VR(levelCoordsNew.getSigma()),
-	  		   CHF_CONST_VR(dSigma),
-	  		   CHF_CONST_FRA1(Hhalf,0),
-	  		   CHF_CONST_FRA1(gradS,0), 
-	  		   CHF_CONST_FRA1(gradH,0),
-	  		   CHF_CONST_FRA1(gradS,1), 
-	  		   CHF_CONST_FRA1(gradH,1),
-	  		   CHF_CONST_FRA1(dSdt,0), 
-	  		   CHF_CONST_FRA1(dHdt,0),
-	  		   CHF_CONST_FRA1(sts,0),
-	  		   CHF_CONST_FRA1(bts,0),
-	  		   CHF_CONST_INT(nLayers),
+			   CHF_FRA1(uZs,0),
+			   CHF_FRA(uSigma),
+			   CHF_CONST_FRA(uX),
+			   CHF_CONST_FRA(uY),
+			   CHF_CONST_FRA(divUHxy),
+			   CHF_CONST_VR(levelCoordsNew.getFaceSigma()),
+			   CHF_CONST_VR(levelCoordsNew.getSigma()),
+			   CHF_CONST_VR(dSigma),
+			   CHF_CONST_FRA1(Hhalf,0),
+			   CHF_CONST_FRA1(gradS,0), 
+			   CHF_CONST_FRA1(gradH,0),
+			   CHF_CONST_FRA1(gradS,1), 
+			   CHF_CONST_FRA1(gradH,1),
+			   CHF_CONST_FRA1(dSdt,0), 
+			   CHF_CONST_FRA1(dHdt,0),
+			   CHF_CONST_FRA1(sts,0),
+			   CHF_CONST_FRA1(bts,0),
+			   CHF_CONST_INT(nLayers),
 			   CHF_BOX(box));
 
 	  CH_assert(uSigma.norm(0) < HUGE_NORM);
@@ -8277,11 +8267,21 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
       }
       
       LevelData<FArrayBox>& surfaceHeatFlux = *m_sHeatFlux[lev];
-      if (m_surfaceTemperatureDirichlett)
+      if (surfaceHeatBoundaryDirichlett())
 	{
-	  if (m_surfaceHeatBoundaryDataPtr != NULL)
+	  surfaceHeatBoundaryData().evaluate(*m_sInternalEnergy[lev], *this, lev, a_dt);
+	  if (surfaceHeatBoundaryTemperature())
 	    {
-	      m_surfaceHeatBoundaryDataPtr->evaluate(*m_sTemperature[lev], *this, lev, a_dt);
+	      //convert surface temperature to internal energy
+	      for (DataIterator dit(levelGrids); dit.ok(); ++dit)
+		{
+		  FArrayBox& E = (*m_sInternalEnergy[lev])[dit];
+		  FArrayBox T(E.box(),1);
+		  T.copy(E);
+		  FArrayBox W(E.box(),1);
+		  W.setVal(0.0);
+		  IceThermodynamics::composeInternalEnergy(E, T, W, E.box());
+		}
 	    }
 	}
       else
@@ -8290,29 +8290,16 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	}
       
       LevelData<FArrayBox>& basalHeatFlux = *m_bHeatFlux[lev];
-      if (m_basalHeatBoundaryDataPtr != NULL)
-	{
-	  m_basalHeatBoundaryDataPtr->evaluate(basalHeatFlux, *this, lev, a_dt);
-	}      
-      else if (m_temperatureIBCPtr != NULL)
-	{
-	  //backward compatibility : boundary data included in with m_temperatureIBCPtr,
-	  m_temperatureIBCPtr->basalHeatFlux(basalHeatFlux, *this, lev, a_dt);
-	}
-      else
-	{
-	  CH_assert(m_basalHeatBoundaryDataPtr != NULL || m_temperatureIBCPtr != NULL);
-	  MayDay::Error("no basal heat flux");
-	}
+      basalHeatBoundaryData().evaluate(basalHeatFlux, *this, lev, a_dt);
 
       for (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	{
 	  const Box& box = levelGrids[dit];
 	  const FArrayBox& oldH = levelCoordsOld.getH()[dit];
 	  const FArrayBox& newH = levelCoordsNew.getH()[dit];
-	  FArrayBox& T = (*m_temperature[lev])[dit];
-	  FArrayBox& sT = (*m_sTemperature[lev])[dit];	
-	  FArrayBox& bT = (*m_bTemperature[lev])[dit];
+	  FArrayBox& E = (*m_internalEnergy[lev])[dit];
+	  FArrayBox& sT = (*m_sInternalEnergy[lev])[dit];	
+	  FArrayBox& bT = (*m_bInternalEnergy[lev])[dit];
 	  
 
 	  // first, do the ordinary fluxes : if we just had
@@ -8338,11 +8325,10 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	      dissipation[dit].mult(newH,0,layer,1);
 	      
 	    } 
-	  dissipation[dit].mult(1.0/(iceheatcapacity * levelCoordsOld.iceDensity()));
+	  dissipation[dit] /= levelCoordsOld.iceDensity();
 	  rhs -= dissipation[dit]; 
 	  rhs *= -a_dt;
 
-	  
 	  //compute heat flux across base due to basal dissipation
 	  FArrayBox basalDissipation(rhs.box(),1);
 	  m_basalFrictionRelation->computeDissipation
@@ -8363,18 +8349,18 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 		}
 	    }
 	  
-	  //basalHeatFlux[dit] /= (iceheatcapacity * levelCoordsNew.iceDensity()); // scale conversion
+	  //basalHeatFlux[dit] /= levelCoordsNew.iceDensity()); // scale conversion
 	  FArrayBox scaledBasalHeatFlux(basalHeatFlux[dit].box(),basalHeatFlux[dit].nComp());
 	  scaledBasalHeatFlux.copy(basalHeatFlux[dit]);
-	  scaledBasalHeatFlux /= (iceheatcapacity * levelCoordsNew.iceDensity());
+	  scaledBasalHeatFlux /=  levelCoordsNew.iceDensity();
 
-	  //surfaceHeatFlux[dit] /= (iceheatcapacity * levelCoordsNew.iceDensity()); // scale conversion
+	  //surfaceHeatFlux[dit] /= (levelCoordsNew.iceDensity()); // scale conversion
 	  FArrayBox scaledSurfaceHeatFlux(surfaceHeatFlux[dit].box(),surfaceHeatFlux[dit].nComp());
 	  scaledSurfaceHeatFlux.copy(surfaceHeatFlux[dit]);
-	  scaledSurfaceHeatFlux /= (iceheatcapacity * levelCoordsNew.iceDensity());
+	  scaledSurfaceHeatFlux /= levelCoordsNew.iceDensity();
 
-	  //solve H(t+dt)T(t+dt) + vertical transport terms = H(t)T(t) - rhs(t+/dt)
-          //with either a Dirichlett or flux boundary condition at the upper surface and a flux condition at base
+	  //solve H(t+dt)E(t+dt) + vertical transport terms = H(t)E(t) - rhs(t+/dt)
+	  //with either a Dirichlett or flux boundary condition at the upper surface and a flux condition at base
 	 
 	  Real halftime = time() + 0.5*a_dt;
 	  int nLayers = m_nLayers;
@@ -8382,94 +8368,67 @@ void AmrIce::updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half,
 	  const Real& rhoo = levelCoordsNew.waterDensity();
 	  const Real& gravity = levelCoordsNew.gravity();
 	 
-	  bT.copy(T,T.nComp()-1,0,1);
-	  CH_assert(bT.min() > 0.0);
-
-#ifndef NDEBUG	  
-	  for (int layer = 0; layer < nLayers; layer++)
-	    {
-	      CH_assert(T.min(layer) > 0.0);
-	      CH_assert(T.max(layer) < triplepoint);
-	    }
-#endif
+	  int surfaceTempDirichlett = surfaceHeatBoundaryDirichlett()?1:0;
 	  
-	  int surfaceTempDirichlett = (m_surfaceTemperatureDirichlett)?1:0;
+	  FORT_UPDATEINTERNALENERGY
+	    (CHF_FRA(E), 
+	     CHF_FRA1(sT,0), 
+	     CHF_FRA1(bT,0),
+	     CHF_CONST_FRA1(scaledSurfaceHeatFlux,0),
+	     CHF_CONST_FRA1(scaledBasalHeatFlux,0),
+	     CHF_CONST_FIA1(levelCoordsOld.getFloatingMask()[dit],0),
+	     CHF_CONST_FIA1(levelCoordsNew.getFloatingMask()[dit],0),
+	     CHF_CONST_FRA(rhs),
+	     CHF_CONST_FRA1(oldH,0),
+	     CHF_CONST_FRA1(newH,0),
+	     CHF_CONST_FRA((*vectUSigma[lev])[dit]),
+	     CHF_CONST_VR(levelCoordsOld.getFaceSigma()),
+	     CHF_CONST_VR(dSigma),
+	     CHF_CONST_REAL(halftime), 
+	     CHF_CONST_REAL(a_dt),
+	     CHF_CONST_REAL(rhoi),
+	     CHF_CONST_REAL(rhoo),
+	     CHF_CONST_REAL(gravity),
+	     CHF_CONST_INT(nLayers),
+	     CHF_CONST_INT(surfaceTempDirichlett),
+	     CHF_BOX(box));
 
-	  FORT_UPDATETEMPERATURE
-	       (CHF_FRA(T), 
-		CHF_FRA1(sT,0), 
-		CHF_FRA1(bT,0),
-		CHF_CONST_FRA1(scaledSurfaceHeatFlux,0),
-		CHF_CONST_FRA1(scaledBasalHeatFlux,0),
-		CHF_CONST_FIA1(levelCoordsOld.getFloatingMask()[dit],0),
-		CHF_CONST_FIA1(levelCoordsNew.getFloatingMask()[dit],0),
-		CHF_CONST_FRA(rhs),
-		CHF_CONST_FRA1(oldH,0),
-		CHF_CONST_FRA1(newH,0),
-		CHF_CONST_FRA((*vectUSigma[lev])[dit]),
-		CHF_CONST_VR(levelCoordsOld.getFaceSigma()),
-		CHF_CONST_VR(dSigma),
-		CHF_CONST_REAL(halftime), 
-		CHF_CONST_REAL(a_dt),
-		CHF_CONST_REAL(rhoi),
-		CHF_CONST_REAL(rhoo),
-		CHF_CONST_REAL(gravity),
-		CHF_CONST_INT(nLayers),
-		CHF_CONST_INT(surfaceTempDirichlett),
-		CHF_BOX(box));
-
-	  scaledBasalHeatFlux *= (iceheatcapacity * levelCoordsNew.iceDensity());
+	  scaledBasalHeatFlux *= (levelCoordsNew.iceDensity());
 	  basalHeatFlux[dit].copy(scaledBasalHeatFlux);
-	  scaledSurfaceHeatFlux *= (iceheatcapacity * levelCoordsNew.iceDensity());
+	  scaledSurfaceHeatFlux *= (levelCoordsNew.iceDensity());
 	  surfaceHeatFlux[dit].copy(scaledSurfaceHeatFlux);
-	  
-#ifndef NDEBUG	  
-	  for (int layer = 0; layer < nLayers; layer++)
-	    {
-	      CH_assert(T.min(layer) > 0.0);
-	      CH_assert(T.max(layer) <= triplepoint);
-	    }
-#endif
-	  
-	} // end update temperature loop over grids
-    } // end update temperature loop over levels
-  
+	    
+	} // end update internal energy loop over grids
+    } // end update internal energy loop over levels
 
-  
-  if ( m_basalLengthScale > TINY_NORM ){
-    //smoothing...
-    helmholtzSolve(m_temperature,Real(1.0),std::pow(m_basalLengthScale,2));
-  }
-     
-   //coarse average from finer levels & exhange
+  //coarse average from finer levels & exchange
   for (int lev = m_finest_level; lev >= 0 ; --lev)
     {
       if (lev > 0)
 	{
 	  CoarseAverage avN(m_amrGrids[lev],
 			    m_amrGrids[lev-1],
-			    m_temperature[lev]->nComp(),
+			    m_internalEnergy[lev]->nComp(),
 			    m_refinement_ratios[lev-1], 
 			    IntVect::Zero);
 	  
 	  
 	  
-	  avN.averageToCoarse(*m_temperature[lev-1], *m_temperature[lev]);
+	  avN.averageToCoarse(*m_internalEnergy[lev-1], *m_internalEnergy[lev]);
 	
 	  
 	  CoarseAverage avOne(m_amrGrids[lev],m_amrGrids[lev-1],
 			      1,m_refinement_ratios[lev-1], IntVect::Zero);
 	  
-	  avOne.averageToCoarse(*m_sTemperature[lev-1], *m_sTemperature[lev]);
-	  avOne.averageToCoarse(*m_bTemperature[lev-1], *m_bTemperature[lev]);
+	  avOne.averageToCoarse(*m_sInternalEnergy[lev-1], *m_sInternalEnergy[lev]);
+	  avOne.averageToCoarse(*m_bInternalEnergy[lev-1], *m_bInternalEnergy[lev]);
 	  avOne.averageToCoarse(*m_sHeatFlux[lev-1], *m_sHeatFlux[lev]);
 	  avOne.averageToCoarse(*m_bHeatFlux[lev-1], *m_bHeatFlux[lev]);
 	}
       
-      
-      m_temperature[lev]->exchange();
-      m_sTemperature[lev]->exchange();
-      m_bTemperature[lev]->exchange();
+      m_internalEnergy[lev]->exchange();
+      m_sInternalEnergy[lev]->exchange();
+      m_bInternalEnergy[lev]->exchange();
       m_sHeatFlux[lev]->exchange();
       m_bHeatFlux[lev]->exchange();
     }

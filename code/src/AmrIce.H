@@ -21,10 +21,11 @@
 #include "SurfaceFlux.H"
 #include "BasalFriction.H"
 #include "IceThicknessIBC.H"
-#include "IceTemperatureIBC.H"
+#include "IceInternalEnergyIBC.H"
 #include "CalvingModel.H"
 #include "MuCoefficient.H"
 #include "CH_HDF5.H"
+#include "AmrIceBase.H"
 #include <sstream>
 #ifdef HAVE_PYTHON
 #include "PythonInterface.H"
@@ -34,7 +35,7 @@
 /// class to manage non-subcycled AMR ice-sheet model
 /**
  */
-class AmrIce
+class AmrIce : public AmrIceBase
 {
 
 public:
@@ -94,8 +95,8 @@ public:
   /// set BC for thickness advection
   void setThicknessBC( IceThicknessIBC* a_thicknessIBC);
   
-  /// set BC for temperature advection
-  void setTemperatureBC( IceTemperatureIBC* a_temperatureIBC);
+  /// set BC for internalEnergy advection
+  void setInternalEnergyBC( IceInternalEnergyIBC* a_internalEnergyIBC);
 
   /// set surfact flux for ice sheet
   void setSurfaceFlux(SurfaceFlux* a_surfaceFluxPtr)
@@ -120,25 +121,26 @@ public:
   }
 
   /// set surface Heat flux for ice sheet
-  void setSurfaceHeatBoundaryData(SurfaceFlux* a_surfaceHeatBoundaryDataPtr, bool a_dirichlett)
+  void setSurfaceHeatBoundaryData(SurfaceFlux* a_surfaceHeatBoundaryDataPtr, bool a_dirichlett, bool a_temperature)
   {
     if (m_surfaceHeatBoundaryDataPtr != NULL)
       {
 	delete(m_surfaceHeatBoundaryDataPtr);
 	m_surfaceHeatBoundaryDataPtr = NULL;
       }
-    
-    //special case for backward compatibility : allow a NULL m_surfaceHeatBoundaryDataPtr
-    //with the Dirichlett boundary condition. Data will then be determined by the TemperatureIBC
-    CH_assert(a_dirichlett | (a_surfaceHeatBoundaryDataPtr != NULL));
-    m_surfaceTemperatureDirichlett = a_dirichlett;
+   
+    m_surfaceBoundaryHeatDataDirichlett = a_dirichlett;
+    m_surfaceBoundaryHeatDataTemperature = a_temperature;
+
     if (a_surfaceHeatBoundaryDataPtr != NULL)
       {
 	m_surfaceHeatBoundaryDataPtr = a_surfaceHeatBoundaryDataPtr->new_surfaceFlux(); 
       }
   }
   
-  /// set basal Heat flux for ice sheet
+
+
+  /// set basal Heat flux for ice sheet. Does not include the heat flux due to sliding friction
   void setBasalHeatBoundaryData(SurfaceFlux* a_basalHeatBoundaryDataPtr)
   {
     if (m_basalHeatBoundaryDataPtr != NULL)
@@ -146,12 +148,15 @@ public:
 	delete(m_basalHeatBoundaryDataPtr);
 	m_basalHeatBoundaryDataPtr = NULL;
       }
-    //special case for backward compatibility : allow a NULL m_basalHeatBoundaryDataPtr and determine the flux from m_temperatureIBCPtr
     if (a_basalHeatBoundaryDataPtr != NULL)
       {
-	m_basalHeatBoundaryDataPtr = a_basalHeatBoundaryDataPtr->new_surfaceFlux(); }
+	m_basalHeatBoundaryDataPtr = a_basalHeatBoundaryDataPtr->new_surfaceFlux(); 
+      }
   }
   
+  
+
+
   /// set bedrock flux for ice sheet
   void setTopographyFlux(SurfaceFlux* a_topographyFluxPtr)
   {
@@ -293,6 +298,7 @@ public:
 			KnownVelocity = 2,
 			PetscNLSolver = 3,
 			FASMGAMR = 4,
+			Python = 5,
                         NUM_SOLVER_TYPES};
 
   void setTime(Real a_time)
@@ -300,7 +306,7 @@ public:
     m_time = a_time - m_offsetTime;
   }
 
-  /// read only access members
+  /// read only access members implementing AMRIceBase
   Real time() const
   {
     return m_time + m_offsetTime;
@@ -347,13 +353,43 @@ public:
     return m_velocity;
   }
 
+  SurfaceFlux& surfaceHeatBoundaryData() const
+  {
+    if (m_surfaceHeatBoundaryDataPtr == NULL)
+      {
+	CH_assert(m_surfaceHeatBoundaryDataPtr != NULL);
+	MayDay::Error("no surface heat boundary data");
+      }
+    return *m_surfaceHeatBoundaryDataPtr;
+  }
+
+  bool surfaceHeatBoundaryDirichlett() const
+  {
+    return m_surfaceBoundaryHeatDataDirichlett;
+  }
+
+  bool surfaceHeatBoundaryTemperature() const
+  {
+    return m_surfaceBoundaryHeatDataTemperature;
+  }
+
+  SurfaceFlux& basalHeatBoundaryData() const
+  {
+    if (m_basalHeatBoundaryDataPtr == NULL)
+      {
+	CH_assert(m_basalHeatBoundaryDataPtr != NULL);
+	MayDay::Error("no surface heat boundary data");
+      }
+    return *m_basalHeatBoundaryDataPtr;
+  }
 
   const LevelData<FArrayBox>* groundingLineProximity(int a_level) const;
+
   Real groundingLineProximityScale() const
   {
     return m_groundingLineProximityScale;
   }
-  enum viscousTensorComponent{xx,xy,yx,yy,max};
+  
 
   const LevelData<FArrayBox>* viscousTensor(int a_level) const;
   const LevelData<FArrayBox>* dragCoefficient(int a_level) const;
@@ -369,7 +405,7 @@ public:
   const  Vector<LevelData<FArrayBox>* >& calvedIceThickness() const {return m_calvedIceThickness; }
   
   /// access function for surface temperature
-  const  Vector<LevelData<FArrayBox>* >& surfaceTemperature() const {return m_sTemperature; }
+  const  Vector<LevelData<FArrayBox>* >& surfaceInternalEnergy() const {return m_sInternalEnergy; }
 
   /// access function for surface heat flux
   const  Vector<LevelData<FArrayBox>* >& surfaceHeatFlux() const {return m_sHeatFlux; }
@@ -480,31 +516,27 @@ protected:
   }
 
 
-
-
-
-
 #if BISICLES_Z == BISICLES_LAYERED
  
 
-  /// compute the flow rate coefficient A given temperature & geometry
+  /// compute the flow rate coefficient A given bulk internal energy & geometry
   void computeA(Vector<LevelData<FArrayBox>* >& a_A, 
 			Vector<LevelData<FArrayBox>* >& a_sA,
 			Vector<LevelData<FArrayBox>* >& a_bA,
-			const Vector<LevelData<FArrayBox>* >& a_temperature, 
-			const Vector<LevelData<FArrayBox>* >& a_sTemperature,
-			const Vector<LevelData<FArrayBox>* >& a_bTemperature,
+			const Vector<LevelData<FArrayBox>* >& a_internalEnergy, 
+			const Vector<LevelData<FArrayBox>* >& a_sInternalEnergy,
+			const Vector<LevelData<FArrayBox>* >& a_bInternalEnergy,
 			 const Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSys) const;
 
+  //compute the face- and layer- centered internal energy (a_layerEH_half)
+  //and thickness (a_layerH_half) at time a_time + 1/2 * a_dt
+  void computeInternalEnergyHalf(Vector<LevelData<FluxBox>* >& a_layerEH_half, 
+				 Vector<LevelData<FluxBox>* >& a_layerH_half,
+				 const Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel, 
+				 const Real a_dt, const Real a_time);
 
-  //compute the face temperature at t + dt/2
-  void computeTHalf(Vector<LevelData<FluxBox>* >& a_layerTH_half, 
-		    Vector<LevelData<FluxBox>* >& a_layerH_half,
-		    const Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel, 
-		    const Real a_dt, const Real a_time);
-
-  //update the temperature fields
-  void updateTemperature(Vector<LevelData<FluxBox>* >& a_layerTH_half, 
+  //update the internalEnergy fields
+  void updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerTH_half, 
 			 Vector<LevelData<FluxBox>* >& a_layerH_half,
 			 const Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel,
 			 const Vector<LevelData<FArrayBox>* >& a_layerSFaceXYVel,
@@ -515,17 +547,7 @@ protected:
 			 const Vector<LevelData<FArrayBox>*>& a_basalThicknessSource);
 
 #endif
-  // /// update the surface gradient in level lmin to lmax of a_vectCoordsys
-  // void updateSurfaceGradient(Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSys,
-  // 				    const Vector<DisjointBoxLayout>& a_grids,
-  // 				    const Vector<ProblemDomain>&  a_domains,
-  // 				    const Vector<int>& a_refinementRatios,
-  // 				    const Vector<Real>& a_dx, 
-  // 				    const RealVect a_basalSlope,
-  // 				    Real a_time, Real a_dt,
-  // 				    int a_clipRadius,
-  // 				    const int a_lmin, const int a_lmax,
-  // 				    IceThicknessIBC* a_thicknessIBCPtr);
+
 
   static void postInterpolationReFloat(LevelData<FArrayBox>& a_H,
 				       const LevelData<FArrayBox>& a_coarseH,
@@ -538,10 +560,6 @@ protected:
 				       Real a_iceDensity);
 
 
-#if 0
-  /// set up BC's based on parmparse inputs
-  void setupBCs();
-#endif
 
   /// temporal accuracy 
   /** 1 = 1st-order (use old-time velocity for flux computation)
@@ -613,15 +631,9 @@ protected:
 
   /// IBC for thickness advection
   IceThicknessIBC* m_thicknessIBCPtr;
-
-  /// pointer to a GodunovPhysics for temperature advection
-  GodunovPhysics* m_temperaturePhysPtr;
-
-  /// PatchGodunov used for horizontal temperature advection -- one for each level
-  Vector<PatchGodunov*> m_temperaturePatchGodVect;
-  
-  /// IBC for temperature advection
-  IceTemperatureIBC* m_temperatureIBCPtr;
+ 
+  /// IBC for internalEnergy advection
+  IceInternalEnergyIBC* m_internalEnergyIBCPtr;
 
   /// Calving model
   CalvingModel* m_calvingModelPtr;
@@ -631,7 +643,7 @@ protected:
   /// sets basal flux for ice sheet
   SurfaceFlux* m_basalFluxPtr;
   
-   /// sets surface heat flux or temperature for ice sheet
+   /// sets surface heat flux or internalEnergy for ice sheet
   SurfaceFlux* m_surfaceHeatBoundaryDataPtr;
   /// sets basal heat flux or temperature for ice sheet
   SurfaceFlux* m_basalHeatBoundaryDataPtr;
@@ -865,15 +877,14 @@ protected:
 
   // isothermal model ?
   bool m_isothermal;
-  
-  // isothermal temperature
-  Real m_isothermalTemperature;
-
+ 
   //depth of water in surface crevasses
   Real m_waterDepth;
 
-  /// should a Dirichlett condition be imposed at the upper surface?
-  bool m_surfaceTemperatureDirichlett;
+  /// should a Dirichlett internal energy condition be imposed at the upper surface?
+  bool m_surfaceBoundaryHeatDataDirichlett;
+  /// is the  Dirichlett data a temperature (rather than an internal energy)?
+  bool m_surfaceBoundaryHeatDataTemperature;
 
   //ice density
   Real m_iceDensity;
@@ -920,17 +931,17 @@ protected:
   Vector<RefCountedPtr<LevelSigmaCS > > m_vect_coordSys;
   
 
-  // Cell-centered temperature field
-  Vector<LevelData<FArrayBox>* > m_temperature;
+  // Cell-centered internalEnergy field
+  Vector<LevelData<FArrayBox>* > m_internalEnergy;
   // Cell-centered A field
   Vector<LevelData<FArrayBox>* > m_A;
-  // used to decide whether A needs updating (after a regrid, or a temperature update)
+  // used to decide whether A needs updating (after a regrid, or a internalEnergy update)
   mutable bool m_A_valid;
 #if BISICLES_Z == BISICLES_LAYERED
-  // Temperature and A at the top and bottom surfaces of 
+  // InternalEnergy and A at the top and bottom surfaces of 
   // the ice, horizontally cell centred (but at vertical faces)
-  Vector<LevelData<FArrayBox>* > m_sTemperature;
-  Vector<LevelData<FArrayBox>* > m_bTemperature;
+  Vector<LevelData<FArrayBox>* > m_sInternalEnergy;
+  Vector<LevelData<FArrayBox>* > m_bInternalEnergy;
   Vector<LevelData<FArrayBox>* > m_sHeatFlux;
   Vector<LevelData<FArrayBox>* > m_bHeatFlux;
   Vector<LevelData<FArrayBox>* > m_sA;
@@ -941,7 +952,7 @@ protected:
 #endif
   //the thickness source will have two components, from the surface and base.
   //Although they are combined for thickness evolution, they must
-  //be kept seperate for the temperature calculation. 
+  //be kept seperate for the internalEnergy calculation. 
   Vector<LevelData<FArrayBox>* > m_surfaceThicknessSource;
   Vector<LevelData<FArrayBox>* > m_basalThicknessSource;
   
@@ -1069,8 +1080,8 @@ protected:
   /// if true, include velocity solver RHS in plotfiles
   bool m_write_solver_rhs;
 
-  //if true, include temperature in plot files
-  bool m_write_temperature;
+  //if true, include internalEnergy in plot files
+  bool m_write_internal_energy;
 
   //if true, include thickness source terms in plot files
   bool m_write_thickness_sources;
@@ -1129,8 +1140,13 @@ protected:
   }
 
   bool m_sigmaSet;
+  
+  // Number layers within the ice sheet 
   unsigned int m_nLayers;
+
+  //arrangment of layers within the bedrock
   Vector<Real> m_faceSigma;
+  
   //if true, include layer velocities in plot files
   bool m_write_layer_velocities;
   bool m_additionalVelocity;
@@ -1149,7 +1165,6 @@ private:
 
 };  
   
-
 #include "NamespaceFooter.H"
 
 #endif

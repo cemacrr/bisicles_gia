@@ -18,10 +18,11 @@
 #include "FillFromReference.H"
 #include "CoarseAverage.H"
 #include "IceConstants.H"
-#include "AmrIce.H"
+#include "AmrIceBase.H"
 #include "ParmParse.H"
 #include "signal.h"
 #include "VelocityBC.H"
+#include "IceThermodynamics.H"
 #include "NamespaceHeader.H"
 
 void PythonInterface::PythonEval(PyObject* a_pFunc, 
@@ -635,12 +636,12 @@ SurfaceFlux* PythonInterface::PythonSurfaceFlux::new_surfaceFlux()
    Silently sets a_value[i] to 0.0 if a_name[i] is not known
 */
 void  PythonInterface::FillKwargs(std::map<std::string,Real>& a_kwarg,
-				       const AmrIce& a_amrIce, int a_level, 
+				       const AmrIceBase& a_amrIce, int a_level, 
 				       const DataIterator& a_dit, const IntVect& a_iv)
 {
   //\todo : clumsy, since it does a series of string matches on a cell-by-cell basis, 
   // Might want to carry this on a FAB-by-FAB basis,
-  // but on a grander scale a standard 'look-up-by-name' addition to AmrIce itself
+  // but on a grander scale a standard 'look-up-by-name' addition to AmrIceBase itself
   // might be useful. For now, this function is not widely used
   
   for (std::map<std::string,Real>::iterator i = a_kwarg.begin(); i!= a_kwarg.end(); ++i)
@@ -662,7 +663,7 @@ void  PythonInterface::FillKwargs(std::map<std::string,Real>& a_kwarg,
 
 
 void PythonInterface::PythonSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-							      const AmrIce& a_amrIce, 
+							      const AmrIceBase& a_amrIce, 
 							      int a_level, Real a_dt)
 {
    CH_TIME("PythonInterface::PythonSurfaceFlux::surfaceThicknessFlux");
@@ -712,7 +713,7 @@ PythonInterface::PythonIceTemperatureIBC::~PythonIceTemperatureIBC()
 }
 
 PythonInterface::PythonIceTemperatureIBC* 
-PythonInterface::PythonIceTemperatureIBC::new_temperatureIBC()
+PythonInterface::PythonIceTemperatureIBC::new_internalEnergyIBC()
 {
   PythonInterface::PythonIceTemperatureIBC* ptr = 
     new PythonInterface::PythonIceTemperatureIBC(m_pModule, m_pFunc);
@@ -722,63 +723,76 @@ PythonInterface::PythonIceTemperatureIBC::new_temperatureIBC()
 void
 PythonInterface::PythonIceTemperatureIBC::basalHeatFlux
 (LevelData<FArrayBox>& a_flux,
- const AmrIce& a_amrIce, 
+ const AmrIceBase& a_amrIce, 
  int a_level, Real a_dt)
 {
   MayDay::Error("PythonInterface::PythonIceTemperatureIBC::basalHeatFlux not implemented");
 }
 
 #if BISICLES_Z == BISICLES_LAYERED
-void PythonInterface::PythonIceTemperatureIBC::initializeIceTemperature
-(LevelData<FArrayBox>& a_T, 
- LevelData<FArrayBox>& a_surfaceT, 
- LevelData<FArrayBox>& a_basalT,
- const LevelSigmaCS& a_coordSys)
+void PythonInterface::PythonIceTemperatureIBC::initializeIceInternalEnergy
+(LevelData<FArrayBox>& a_E, 
+ LevelData<FArrayBox>& a_surfaceE, 
+ LevelData<FArrayBox>& a_basalE,
+ const AmrIceBase& a_amrIce, 
+ int a_level, Real a_dt)
 {
  CH_TIME("PythonInterface::PythonIceTemperatureIBC::initializeIceTemperature");
  //function args are (x,[y,],thickness,topography,sigma)
  Vector<Real> args(SpaceDim + 3);
  Vector<Real> rval;
   
- const DisjointBoxLayout& grids = a_T.disjointBoxLayout();
+ const DisjointBoxLayout& grids = a_E.disjointBoxLayout();
+ const LevelSigmaCS& coordSys = *a_amrIce.geometry(a_level); 
  for (DataIterator dit(grids);dit.ok();++dit)
    {
-     a_T[dit].setVal(0.0);
-     a_surfaceT[dit].setVal(0.0);
-     a_basalT[dit].setVal(0.0);
-     const Box& b = a_T[dit].box();//grids[dit];
+     
+     FArrayBox T( a_E[dit].box(), a_E[dit].nComp()); //temperature
+     FArrayBox w( a_E[dit].box(), a_E[dit].nComp()); //water fraction, set to zero for now
+     w.setVal(0.0);
+     FArrayBox sT( a_surfaceE[dit].box(), 1); //surface temperature
+     FArrayBox sw( a_surfaceE[dit].box(), 1); //surface water fraction, set to zero for now
+     sw.setVal(0.0);
+     FArrayBox bT( a_basalE[dit].box(), 1); //basal temperature
+     FArrayBox bw( a_basalE[dit].box(), 1); //basal water fraction, set to zero for now
+     bw.setVal(0.0);
+     const Box& b = a_E[dit].box();//grids[dit];
      for (BoxIterator bit(b);bit.ok();++bit)
        {
 	 const IntVect& iv = bit();
 	 int i = 0;
 	 for (int dir=0; dir < SpaceDim; dir++)
 	   {
-	     args[i] = (Real(iv[dir]) + 0.5)*a_coordSys.dx()[dir];
+	     args[i] = (Real(iv[dir]) + 0.5)*coordSys.dx()[dir];
 	     i++;
 	   }
-	 args[i] = a_coordSys.getH()[dit](iv);i++;
-	 args[i] = a_coordSys.getTopography()[dit](iv);i++;
+	 args[i] = coordSys.getH()[dit](iv);i++;
+	 args[i] = coordSys.getTopography()[dit](iv);i++;
 	 //layer midpoint temperatures
-	 for (int layer = 0; layer < a_T[dit].nComp(); layer++)
+	 for (int layer = 0; layer < T.nComp(); layer++)
 	   {
-	     args[i] = a_coordSys.getSigma()[layer];
+	     args[i] = coordSys.getSigma()[layer];
 	     PythonEval(m_pFunc, rval,  args);
-	     a_T[dit](iv,layer) =  rval[0];
+	     T(iv,layer) =  rval[0];
 	   }
 	 //surface temperature
 	 args[i] = 0.0;
 	 PythonEval(m_pFunc, rval,  args);
-	 a_surfaceT[dit](iv) =  rval[0];
+	 sT(iv) =  rval[0];
 	 //basal temperature
 	 args[i] = 1.0;
 	 PythonEval(m_pFunc, rval,  args);
-	 a_basalT[dit](iv) =  rval[0];
+	 bT(iv) =  rval[0];
        }
+     IceThermodynamics::composeInternalEnergy(a_E[dit],T,w,a_E[dit].box());
+     IceThermodynamics::composeInternalEnergy(a_surfaceE[dit],sT,w,a_E[dit].box());
+     IceThermodynamics::composeInternalEnergy(a_basalE[dit],bT,w,a_E[dit].box());
    }
+ 
 }
 
-void PythonInterface::PythonIceTemperatureIBC::setIceTemperatureBC
-(LevelData<FArrayBox>& a_T, 
+void PythonInterface::PythonIceTemperatureIBC::setIceInternalEnergyBC
+(LevelData<FArrayBox>& a_E, 
  LevelData<FArrayBox>& a_surfaceT, 
  LevelData<FArrayBox>& a_basalT,
  const LevelSigmaCS& a_coordSys)
@@ -789,8 +803,8 @@ void PythonInterface::PythonIceTemperatureIBC::setIceTemperatureBC
     {
       if (!(domain.isPeriodic(dir)))
 	{
-	  ReflectGhostCells(a_T, domain, dir, Side::Lo);
-	  ReflectGhostCells(a_T, domain, dir, Side::Hi);
+	  ReflectGhostCells(a_E, domain, dir, Side::Lo);
+	  ReflectGhostCells(a_E, domain, dir, Side::Hi);
 	  ReflectGhostCells(a_surfaceT, domain, dir, Side::Lo);
 	  ReflectGhostCells(a_surfaceT, domain, dir, Side::Hi);
 	  ReflectGhostCells(a_basalT, domain, dir, Side::Lo);
@@ -939,7 +953,77 @@ void PythonInterface::PythonMuCoefficient::setMuCoefficient
     }
 }
 
+void PythonInterface::PythonVelocitySolver::define
+(const ProblemDomain& a_coarseDomain,
+ ConstitutiveRelation* a_constRel,
+ BasalFrictionRelation* a_basalFrictionRel,
+ const Vector<DisjointBoxLayout>& a_vectGrids,
+ const Vector<int>& a_vectRefRatio,
+ const RealVect& a_dxCrse,
+ IceThicknessIBC* a_bc,
+ int a_numLevels)
+{
+  ParmParse pp("PythonVelocitySolver");
+  std::string module;
+  pp.get("module",module);
+  InitializePythonModule(&m_pModule,  module);
+  std::string function;
+  pp.get("function",function);
+  InitializePythonFunction(&m_pFunc, m_pModule,  function);
+}
 
+int PythonInterface::PythonVelocitySolver::solve
+(Vector<LevelData<FArrayBox>* >& a_horizontalVel,
+ Real& a_initialResidualNorm, Real& a_finalResidualNorm,
+ const Real a_convergenceMetric,
+ const Vector<LevelData<FArrayBox>* >& a_rhs,
+ const Vector<LevelData<FArrayBox>* >& a_beta,
+ const Vector<LevelData<FArrayBox>* >& a_beta0,
+ const Vector<LevelData<FArrayBox>* >& a_A,
+ const Vector<LevelData<FluxBox>* >& a_muCoef,
+ Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+ Real a_time,
+ int a_lbase, int a_maxLevel)
+{
+  CH_TIME("PythonInterface::PythonVelocitySolver::solve");
+
+  for (int lev =0; lev <= a_maxLevel; lev++)
+    { 
+      LevelData<FArrayBox>& vel = *a_horizontalVel[lev];
+      const DisjointBoxLayout& grids = vel.disjointBoxLayout();
+      const LevelSigmaCS& coordSys = *a_coordSys[lev];
+      for (DataIterator dit(grids);dit.ok();++dit)
+	{
+	  Vector<Real> args(SpaceDim + 3);
+	  Vector<Real> rval;
+	  const Box& b = vel[dit].box();
+	  for (BoxIterator bit(b);bit.ok();++bit)
+	    {
+	      const IntVect& iv = bit();
+	      int i = 0;
+	      for (int dir=0; dir < SpaceDim; dir++)
+		{
+		  args[i] = (Real(iv[dir]) + 0.5)*coordSys.dx()[dir];
+		  i++;
+		}
+	      args[i] = a_time;i++;
+	      args[i] = coordSys.getH()[dit](iv);i++;
+	      args[i] = coordSys.getTopography()[dit](iv);i++;
+	      PythonEval(m_pFunc, rval,  args);
+	      vel[dit](iv,0) =  rval[0];
+	      vel[dit](iv,1) = 0.0;
+	    }
+	  
+	}
+      
+    }
+}
+
+PythonInterface::PythonVelocitySolver::~PythonVelocitySolver()
+{
+  Py_DECREF(m_pFunc);
+  Py_DECREF(m_pModule);
+}
 
 #include "NamespaceFooter.H"
 
