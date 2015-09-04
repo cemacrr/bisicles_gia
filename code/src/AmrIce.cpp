@@ -7591,7 +7591,8 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 #if BISICLES_Z == BISICLES_LAYERED
 		    FArrayBox& sE = (*m_sInternalEnergy[lev])[dit];
 		    FArrayBox sT(sE.box(),sE.nComp()); sT.copy(sE);
-		    IceThermodynamics::composeInternalEnergy(sE,sT,sE.box() );
+		    IceThermodynamics::composeInternalEnergy(sE,sT,sE.box(),false );
+		    // it is possible for sT to be meaningless, so avoid test 
 		    FArrayBox& bE = (*m_bInternalEnergy[lev])[dit];
 		    FArrayBox bT(bE.box(),bE.nComp()); bT.copy(bE);
 		    IceThermodynamics::composeInternalEnergy(bE,bT,bE.box(),false); 
