@@ -11,8 +11,8 @@
 <ol>
   <li><a href='#uob'>University of Bristol</a></li>
   <li><a href='#nersc'>NERSC</a></li>
+  <li><a href='#archer'>ARCHER,</li>
   <li><a href='#monsoon'>Monsoon at the UK Met Office</a></li>
-  
 </ol>
 
 
@@ -230,39 +230,35 @@ We have used <a href='http://www.nersc.gov/systems/hopper-cray-xe6/'> hopper.ner
 <p> To build on Hopper, first load the appropriate modules. The following are the modules we currently use (as of August 24, 2012) in conjunction with BISICLES: 
 
 <pre>
-d/dmartin> module list
-Currently Loaded Modulefiles:
-  1) modules/3.2.6.6
-  2) xtpe-network-gemini
-  3) cray-mpich2/5.5.2
-  4) atp/1.5.0
-  5) xt-asyncpe/5.12
-  6) xe-sysroot/4.0.46
-  7) xpmem/0.1-2.0400.31280.3.1.gem
-  8) gni-headers/2.1-1.0400.4351.3.1.gem
-  9) dmapp/3.2.1-1.0400.4255.2.159.gem
- 10) pmi/3.0.1-1.0000.9101.2.26.gem
- 11) ugni/2.3-1.0400.4374.4.88.gem
- 12) udreg/2.3.1-1.0400.4264.3.1.gem
- 13) cray-libsci/11.1.00
- 14) gcc/4.7.1
- 15) eswrap/1.0.10
- 16) xtpe-mc12
- 17) cray-shmem/5.5.2
- 18) torque/2.5.9
- 19) moab/6.1.8
- 20) PrgEnv-gnu/4.0.46
- 21) hdf5-parallel/1.8.8
+cornford@hopper11:~> module list                                                                                                            
+Currently Loaded Modulefiles:                                                                                       
+  1) modules/3.2.10.2                      14) ugni/5.0-1.0502.9685.4.24.gem                                        
+  2) nsg/1.2.0                             15) pmi/5.0.6-1.0000.10439.140.3.gem                                     
+  3) craype-network-gemini                 16) dmapp/7.0.1-1.0502.9501.5.211.gem                                    
+  4) craype/2.2.1                          17) gni-headers/3.0-1.0502.9684.5.2.gem                                  
+  5) eswrap/1.1.0-1.020200.1133.0          18) xpmem/0.1-2.0502.55507.3.2.gem                                       
+  6) craype-mc12                           19) dvs/2.5_0.9.0-1.0502.1873.1.142.gem                                  
+  7) cray-shmem/7.1.1                      20) alps/5.2.1-2.0502.9041.11.6.gem                                      
+  8) cray-mpich/7.1.1                      21) rca/1.0.0-2.0502.53711.3.125.gem                                     
+  9) torque/5.0.1                          22) atp/1.7.5                                                            
+ 10) moab/8.0.1-2014110616-5c7a394-sles11  23) PrgEnv-gnu/5.2.40                                                    
+ 11) gcc/4.9.2                             24) cray-hdf5-parallel/1.8.13                                            
+ 12) cray-libsci/13.0.1                    25) usg-default-modules/1.2                                              
+ 13) udreg/2.3.2-1.0502.9275.1.25.gem  
 </pre>
-
-Then, use the <pre>Make.defs.hopper.gnu</pre> file included in the Chombo release:
+which we get from:
+<pre>
+>module unload PrgEnv-pgi
+>module load PrgEnv-gnu cray-hdf5-parallel
+</pre>
+Then, use the <pre>Make.defs.hopper</pre> file included in the Chombo release:
 
 <pre>
 cd Chombo/lib/mk/
-ln -s local/Make.defs.hopper.gnu Make.defs.local
+ln -s local/Make.defs.hopper Make.defs.local
 </pre>
 
-(note that we recommend using symbolic links in this case to ensure that any changes to the released version of Make.defs.hopper.gnu (due to changes in hopper's configuration) are seamlessly included in your build process.
+(note that we recommend using symbolic links in this case to ensure that any changes to the released version of Make.defs.hopper (due to changes in hopper's configuration) are seamlessly included in your build process.
 
 Finally, build the BISICLES driver:
 <pre>
@@ -270,7 +266,82 @@ cd BISICLES/code/exec2D
 gmake driver MPI=TRUE OPT=TRUE DEBUG=FALSE
 </pre>
 
+<h2><a name='archer'>ARCHER</a></h2>
+<strong> In progress: for now are testing with  GNU only, if that
+does not work out or there is some demand we will try intel and/or cray</strong>
+
+<p>
+The Cray XC30 at ARCHER (UK National HPC) offers Cray, GNU, and Intel compilers.
+Cray is the default (but doesn't seem to work for now). All three compilers can be supported with a single
+Make.def.locals. Use the file Make.defs.archer included in BISICLES/docs
+(until we get it into the Chombo release)
+</p>
+<pre>
+cp $BISICLES_HOME/BISICLES/docs/Make.defs.archer $BISICLES_HOME
+ln -s $BISICLES_HOME/Make.defs.archer $BISICLES_HOME/Chombo/lib/mk/Make.defs.local
+</pre>
+
+
+<h3>GNU compilers </h3>
+<p>
+To compile with GNU, switch to the correct PrgEnv and load an hdf5 module
+</p>
+<pre>
+> module swap PrgEnv-cray PrgEnv-gnu
+> module load cray-hdf5-parallel 
+</pre>
+
+If you want the python interface, make sure that  $BISICLES_HOME/BISICLES/code/mk/Make.defs includes 
+the following
+<pre>           
+ifneq ($(PYTHONHOME),)                                                                               
+PYTHON_INC=$(PYTHONHOME)/include                                                                       
+PYTHON_LIBS=-L$(PYTHONHOME)/lib -lpython2.7                                                            
+endif 
+</pre>
+<p>
+Then compile 
+</p>
+<pre>
+cd BISICLES/code/exec2D
+make all OPT=TRUE MPI=TRUE DEBUG=FALSE # are all default 
+</pre>
+<p>
+the exectable will be driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex
+</p>
+
+<p> ARCHER's compute nodes do not have access to the /home mount point (and therefore your home directory, which
+is the most obvious place to compile BISICLES. It;s not obvious where login scripts come from in that
+case, either. This can all be dealt with inside the submission script
+(the MOM nodes do have access to home...). A minimal script would look something like
+<pre>
+#PBS -l walltime=00:10:00 
+#PBS -j oe 
+#PBS -l select=1
+#PBS -A /your allocation/  
+
+export PBS_O_WORKDIR=$(readlink -f $PBS_O_WORKDIR)
+
+#load modules needed to get GLIBCXX, HDF5, python where the compute nodes can see them
+module swap PrgEnv-cray PrgEnv-gnu
+module load cray-hdf5-parallel
+module swap anaconda python-compute
+
+cd $PBS_O_WORKDIR
+#copy the binary. might not be needed.
+cp /path/to/driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex $PWD
+EXE=$PWD/driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex
+aprun -n 24 $EXE inputs.whatever
+</pre>
+
+
+
+
+
+
 <h2><a name='monsoon'>Monsoon at the UK Met Office</a></h2>
+<strong>Monsoon has been replaced. These instructions will be updated once we try out BISICLES
+working on the new machine </strong>
 <p>
 Monsoon is an IBM AIX  system with the xl compilers installed. It is somewhat more
 awkward to build with than the other clusters described: the xlf FORTRAN compiler doesn't distuingish between f77 and
