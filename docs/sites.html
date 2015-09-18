@@ -258,7 +258,8 @@ cd Chombo/lib/mk/
 ln -s local/Make.defs.hopper Make.defs.local
 </pre>
 
-(note that we recommend using symbolic links in this case to ensure that any changes to the released version of Make.defs.hopper (due to changes in hopper's configuration) are seamlessly included in your build process.
+(note that we recommend using symbolic links in this case to ensure that any changes to the 
+released version of Make.defs.hopper (due to changes in hopper's configuration) are seamlessly included in your build process.
 
 Finally, build the BISICLES driver:
 <pre>
@@ -267,13 +268,14 @@ gmake driver MPI=TRUE OPT=TRUE DEBUG=FALSE
 </pre>
 
 <h2><a name='archer'>ARCHER</a></h2>
-<strong> In progress: for now are testing with  GNU only, if that
-does not work out or there is some demand we will try intel and/or cray</strong>
+<strong> In progress: for now are testing with  GNU and Intel, if that
+does not work out or there is some demand we will try to fix cray</strong>
 
 <p>
 The Cray XC30 at ARCHER (UK National HPC) offers Cray, GNU, and Intel compilers.
 Cray is the default (but doesn't seem to work for now). All three compilers can be supported with a single
-Make.def.locals. Use the file Make.defs.archer included in BISICLES/docs
+Make.def.locals, it only only necessary to load the correct PrgEnv module and the cray-hdf5-parallel. 
+Use the file <a href='Make.defs.archer'>Make.defs.archer</a> included in BISICLES/docs
 (until we get it into the Chombo release)
 </p>
 <pre>
@@ -310,10 +312,9 @@ make all OPT=TRUE MPI=TRUE DEBUG=FALSE # are all default
 the exectable will be driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex
 </p>
 
-<p> ARCHER's compute nodes do not have access to the /home mount point (and therefore your home directory, which
-is the most obvious place to compile BISICLES. It;s not obvious where login scripts come from in that
-case, either. This can all be dealt with inside the submission script
-(the MOM nodes do have access to home...). A minimal script would look something like
+<p> ARCHER's compute nodes do not have access to the /home mount point (and therefore your home directory) 
+It's not obvious where login scripts come from in that case, either. This can all be dealt with inside the submission script
+(the MOM nodes do have access to home...). A minimal script (run from somewhere in /work) would look something like
 <pre>
 #PBS -l walltime=00:10:00 
 #PBS -j oe 
@@ -328,20 +329,32 @@ module load cray-hdf5-parallel
 module swap anaconda python-compute
 
 cd $PBS_O_WORKDIR
-#copy the binary. might not be needed.
-cp /path/to/driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex $PWD
-EXE=$PWD/driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex
+
+EXE=/path/to/driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex 
 aprun -n 24 $EXE inputs.whatever
 </pre>
 
 
+<h3>Intel compilers </h3>
 
-
+Compiling with Intel is essentially the same as with GNU. It's just a case of running
+<pre>
+> module swap PrgEnv-cray PrgEnv-intel
+> module load cray-hdf5-parallel 
+</pre>
+instead of
+<pre>
+> module swap PrgEnv-cray PrgEnv-gnu
+> module load cray-hdf5-parallel 
+</pre>
+The binary will be called driver2d.Linux.64.CC.ftn.OPT.MPI.INTEL.ex. Just as with GNU, 
+the submission scripts needs to account for the fact that /home is not visible
+on the compute nodes.
 
 
 <h2><a name='monsoon'>Monsoon at the UK Met Office</a></h2>
-<strong>Monsoon has been replaced. These instructions will be updated once we try out BISICLES
-working on the new machine </strong>
+<strong>Monsoon has been replaced, with a Cray of some sort. These instructions will be updated once we try out BISICLES
+on the new machine. The instructions below are left just in case anyone trying to work with a similar system </strong>
 <p>
 Monsoon is an IBM AIX  system with the xl compilers installed. It is somewhat more
 awkward to build with than the other clusters described: the xlf FORTRAN compiler doesn't distuingish between f77 and

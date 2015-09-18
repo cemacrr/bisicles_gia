@@ -29,10 +29,15 @@ XTRACONFIG=.GNU
 cxxoptflags += -march=ivybridge -O2 -mavx -ftree-vectorize -ffast-math -funroll-loops
 foptflags += -march=ivybridge -O2 -mavx -ftree-vectorize -ffast-math -funroll-loops
 
+else ifeq ($(PE_ENV),INTEL)
+
+CH_CPP=$(CXX) -EP -C
+XTRACONFIG=.INTEL
+cxxoptflags += -O2 -xAVX
+foptflags += -O2 -xAVX
+
 else
-
 $(ECHO) "UNKNOWN PROGRAMMING ENVIRONMENT!"
-
 endif
 
 # The appropriate module (cray-hdf5-parallel) must be loaded for this to work.
