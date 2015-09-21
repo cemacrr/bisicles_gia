@@ -653,8 +653,8 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	  //When du is a JFNK step, allow w < 1 and w = 0 if ||f(u + minW * du)|| > ||f(u)||
 	  Real minW = (mode == JFNK_LINEARIZATION_MODE)?m_minStepFactor:1.0;
 	  bool resetOnFail = (mode == JFNK_LINEARIZATION_MODE);
-	  resNorm = lineSearch(localU, residual, localRhs,  du, 
-			       current, minW, resetOnFail, a_linear);
+	  resNorm = lineSearch(localU, residual, localRhs,  du, J, 
+			       current, minW, resetOnFail);
 	  
 	  //test the state and decide whether to switch modes
 	  if (mode == PICARD_LINEARIZATION_MODE)
@@ -852,66 +852,54 @@ Real JFNKSolver::lineSearch(Vector<LevelData<FArrayBox>* >& a_u,
 			    Vector<LevelData<FArrayBox>* >& a_residual,
 			    const Vector<LevelData<FArrayBox>* >& a_rhs,
 			    const Vector<LevelData<FArrayBox>* >& a_du, 
+			    LinearizedVTOp& a_op,
 			    NonlinearViscousTensor& a_nvt, Real a_minW, 
-			    bool a_resetOnFail, bool a_linear)
+			    bool a_resetOnFail)
 {
   CH_TIME("JFNKSolver::lineSearch");
   //try u + du, and if the residual is not reduced try a sequence
   //of smaller steps u + w*du, halving w until either the residual
   // is reduced or w < a_minW
   Real w = 1.0; 
-  LinearizedVTOp op(&a_nvt, a_u, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
-		    m_refRatios, m_domains, m_dxs, 0, 
-		    m_numMGSmooth, m_numMGIter, PICARD_LINEARIZATION_MODE);
-
-  a_nvt.setState(a_u);
-  Real oldResNorm = op.norm(a_residual, m_normType);
+  Real oldResNorm = a_op.norm(a_residual, m_normType);
   Real resNorm = oldResNorm;
-  op.incr(a_u,a_du,w);
+  a_op.incr(a_u,a_du,w);
 
-  do 
-    {
-      if (!a_linear)
-	{
-	  a_nvt.setState(a_u);
-	}      
-      LinearizedVTOp testOp (&a_nvt, a_u, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
-			     m_refRatios, m_domains, m_dxs, 0, 
-			     m_numMGSmooth, m_numMGIter,PICARD_LINEARIZATION_MODE );
-      testOp.m_writeResiduals = m_writeResiduals;
-      testOp.outerResidual(a_residual,a_u,a_rhs);
-      resNorm = testOp.norm(a_residual, m_normType);
-      if (resNorm >= oldResNorm)
-	{
-	   if (m_verbosity > 0)
-	     pout()  << "JFNKSolver::lineSearch residual norm = " << resNorm << std::endl;
-	   w *= 0.5;
-	   
-	   
-	  if (w >= a_minW)
-	    {
-	      if (m_verbosity > 0)
-		pout()  << "JFNKSolver::lineSearch halving step length, w =   " << w << std::endl; 
-	      //step halfway back to the last U
-	      testOp.incr(a_u,a_du,-1.0*w);	
-	    }
-	  else if (a_resetOnFail)
-	    {
-	      //give up, return to the last U
-	      testOp.incr(a_u,a_du,-2.0*w); 
-	      if (!a_linear)
-		{
-		  a_nvt.setState(a_u);
-		} 
-	      testOp.outerResidual(a_residual,a_u,a_rhs);
-	      resNorm = testOp.norm(a_residual, m_normType);
-	    } 
-	}
-    }
-  while ( resNorm >= oldResNorm && w >= a_minW);
 
-  return resNorm;
-
+  do {
+    
+    LinearizedVTOp testOp (&a_nvt, a_u, m_h, m_err, m_umin, m_hAdaptive, m_grids, 
+			   m_refRatios, m_domains, m_dxs, 0, 
+			   m_numMGSmooth, m_numMGIter,PICARD_LINEARIZATION_MODE );
+    testOp.m_writeResiduals = m_writeResiduals;
+    testOp.outerResidual(a_residual,a_u,a_rhs);
+    resNorm = testOp.norm(a_residual, m_normType);
+    if (resNorm >= oldResNorm )
+      {
+	if (m_verbosity > 0)
+	  pout()  << "JFNKSolver::lineSearch residual norm = " << resNorm << std::endl;
+	w *= 0.5;
+	
+	if (w >= a_minW)
+	  {
+	    if (m_verbosity > 0)
+	      pout()  << "JFNKSolver::lineSearch halving step length, w =   " << w << std::endl; 
+	    //step halfway back to the last U
+	    testOp.incr(a_u,a_du,-1.0*w);	
+	    a_nvt.setState(a_u); 
+	  }
+	else if (a_resetOnFail)
+	  {
+	    //give up, return to the last U
+	    testOp.incr(a_u,a_du,-2.0*w); 
+	    a_nvt.setState(a_u);  
+	    testOp.outerResidual(a_residual,a_u,a_rhs);
+	    resNorm = testOp.norm(a_residual, m_normType);
+	  } 
+      }
+  } while ( resNorm >= oldResNorm && w >= a_minW);
+  
+return resNorm;
 }
 
 void 

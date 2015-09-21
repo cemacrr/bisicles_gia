@@ -267,9 +267,11 @@ class JFNKSolver : public IceVelocitySolver
   Real lineSearch(Vector<LevelData<FArrayBox>* >& a_u, 
 		  Vector<LevelData<FArrayBox>* >& a_residual,
 		  const Vector<LevelData<FArrayBox>* >& a_rhs,
-		  const Vector<LevelData<FArrayBox>* >& a_du, 
-		  NonlinearViscousTensor& a_nvt, Real a_minW, 
-		  bool a_resetOnFail, bool a_linear);
+		  const Vector<LevelData<FArrayBox>* >& a_du,
+		  LinearizedVTOp& a_op,
+		  NonlinearViscousTensor& a_nvt,
+		  Real a_minW, 
+		  bool a_resetOnFail);
 
   ///set up and solve the linear system a_op * a_u = a_rhs
   void linearSolve(LinearizedVTOp& a_op,
