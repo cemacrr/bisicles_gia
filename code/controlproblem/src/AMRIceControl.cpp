@@ -2429,8 +2429,27 @@ void AMRIceControl::readState(const std::string& a_file, int& a_counter,
       j+=2;
       //restartData[lev]->copyTo(Interval(j,j),*(m_velCoef[lev]),Interval(0,0));
       j++;
+      //restartData[lev]->copyTo(Interval(j,j),*(m_thkCoef[lev]),Interval(0,0));
+      j++;
       //restartData[lev]->copyTo(Interval(j,j),*(m_divUHCoef[lev]),Interval(0,0));
       j++;
+      // topography from restart file
+      restartData[lev]->copyTo(Interval(j,j),m_coordSys[lev]->getTopography(),Interval(0,0));
+      j++;
+      // thickness from restart file
+      restartData[lev]->copyTo(Interval(j,j),m_coordSys[lev]->getH(),Interval(0,0));    
+      j++;
+      //upper surface from restart file
+      //restartData[lev]->copyTo(Interval(j,j),*(m_divUHCoef[lev]),Interval(0,0));    
+      
+      if (lev > 0)
+        {
+          m_coordSys[lev]->recomputeGeometry(m_coordSys[lev-1], m_refRatio[lev-1]);
+        }
+      else
+        {
+          m_coordSys[lev]->recomputeGeometry(NULL,0);
+        }
     }
     
   
