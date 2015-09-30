@@ -228,7 +228,7 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 	}
 
       CellToEdge(*ccVel[lev], *fcVel[lev]);
-      
+
       //modification to fluxes at the margins, that is where mask changes to open sea or land.
       for (DataIterator dit(grids); dit.ok(); ++dit)
 	{
@@ -239,6 +239,7 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 	  
 	  FArrayBox usrf(topg.box(),1);
 	  Real seaLevel = 0.0;
+
 	  FORT_SURFACEHEIGHT(CHF_FRA1(usrf,0),
 			     CHF_CONST_FRA1(thck,0),
 			     CHF_CONST_FRA1(topg,0),
@@ -249,6 +250,7 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 
 	  BaseFab<int>& mask = (*ccMask[lev])[dit];
 	  int any = 0;
+
 	  FORT_SETFLOATINGMASK(CHF_FIA1(mask,0),
 			       CHF_CONST_FRA1(usrf,0),
 			       CHF_CONST_FRA1(topg,0),
@@ -260,25 +262,26 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 			       CHF_BOX(mask.box()));
     
 
-	  
 	    for (int dir = 0; dir < SpaceDim; ++dir)
 	      {
 		Box faceBox = grids[dit];
 		faceBox.surroundingNodes(dir);
-		
 		FArrayBox& faceVel = (*fcVel[lev])[dit][dir];
+	  Box grownFaceBox = faceBox;
+	  CH_assert(faceVel.box().contains(grownFaceBox));
+	  FArrayBox vface(faceBox,1);
+
 		const FArrayBox& cellVel = (*ccVel[lev])[dit];
-		
 		BaseFab<int> mask(grids[dit],1) ;
+
 		FORT_EXTRAPTOMARGIN(CHF_FRA1(faceVel,0),
-                                    CHF_FRA1(faceVel,1),
+                                    CHF_FRA1(vface,0),
 				    CHF_CONST_FRA1(cellVel,dir),
 				    CHF_CONST_FRA1(usrf,0),
 				    CHF_CONST_FRA1(topg,0),
 				    CHF_CONST_FRA1(thck,0),
 				    CHF_CONST_INT(dir),
 				    CHF_BOX(faceBox));
-		
 	      }
 	}
 
@@ -332,7 +335,6 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 
 	}
 
-      
       //work out (dh/dt)_c = smb - bmb + div(uh) and discharge across boundary. 
       for (DataIterator dit(grids);dit.ok();++dit)
     	{
@@ -388,7 +390,7 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
     	    } // end loop over direction
     	} // end loop over grids
     } //end loop over levels
-  
+
   Real sumDischarge = computeSum(ccDischarge, ratio, dx[0], Interval(0,0), 0);
   pout() << " discharge = " << sumDischarge << " ";
   
