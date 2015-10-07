@@ -377,11 +377,11 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 		      dhc(iv) = 0.0;
 		      smb(iv) = 0.0;
 		      bmb(iv) = 0.0;
-		      if (thck(iv + BASISV(dir)) > epsThck) 
+		      if (thck(iv + BASISV(dir)) > epsThck & (mask(iv + BASISV(dir)) == GROUNDEDMASKVAL) ) 
 			{
 			  discharge(iv) += -flux(iv + BASISV(dir)) / dx[lev];
 			}
-		      if (thck(iv - BASISV(dir)) > epsThck)
+		      if (thck(iv - BASISV(dir)) > epsThck & (mask(iv - BASISV(dir)) == GROUNDEDMASKVAL) )
 			{
 			  discharge(iv) += flux(iv) / dx[lev];
 			}
