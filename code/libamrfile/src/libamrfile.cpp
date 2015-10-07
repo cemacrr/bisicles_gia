@@ -824,6 +824,7 @@ int upFill(LevelData<FArrayBox>& a_destData, const LevelData<FArrayBox>&  a_srcD
   bool coarsenable = destGrids.coarsenable(a_nRef);
   if ( coarsenable) 
     {
+ 
       const ProblemDomain& fineDomain = destGrids.physDomain();
       FineInterp interpolator(destGrids, a_destData.nComp(), a_nRef, fineDomain);
       if (a_order == 0)
@@ -849,6 +850,7 @@ int upFill(LevelData<FArrayBox>& a_destData, const LevelData<FArrayBox>&  a_srcD
     {
       err =  LIBAMRFILE_ERR_BAD_REFINEMENT_RATIO;
     }
+  return err;
 }
 
 
@@ -864,7 +866,6 @@ void amr_read_box_data_2d(int *status,
 			      const int* interp_order)
 {
 
-  
   if (!status)
     return;
 
@@ -896,7 +897,6 @@ void amr_read_box_data_2d(int *status,
       *status =  LIBAMRFILE_ERR_BAD_INTERPOLATION_ORDER;
       return;
     }
-
   if (comp_data && x_data && y_data && amr_id && level_id && lo && hi && comp_id )
     {
 
