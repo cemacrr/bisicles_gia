@@ -28,6 +28,7 @@ NETCDF_LIBS= -lnetcdff -lnetcdf -lhdf5_hl
 
 ifeq ($(UNAMEN),martin)
 NETCDF_HOME = /usr/local/netcdf
+NETCDF_LIBS=  -lnetcdf -lhdf5_hl
 endif
 
 ifeq ($(UNAMEN),loren)
