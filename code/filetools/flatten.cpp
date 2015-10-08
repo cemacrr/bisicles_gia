@@ -19,6 +19,8 @@
 #include "FineInterp.H"
 #include "CoarseAverage.H"
 #include "fabncio.H"
+#include "BRMeshRefine.H"
+#include "LoadBalance.H"sssss
 #include "NamespaceHeader.H"
 
 bool verbose = true;
@@ -132,8 +134,31 @@ int main(int argc, char* argv[]) {
       }
 
     ProblemDomain pd(flatBox);
-    Vector<Box> boxes(1,flatBox);
-    Vector<int> procAssign(1,uniqueProc(SerialTask::compute));
+    Vector<Box> boxes;
+    Vector<int> procAssign;
+
+    // serial case
+    if (number_procs == 1)
+      {
+        boxes.push_back(flatBox);
+        procAssign.push_back(SerialTask::compute);
+      }
+    else
+      {
+        // see if we can distribute flatten domain
+        int num_boxes_on_a_side = sqrt(number_procs);
+        // special case where num_procs < 4
+        if (num_boxes_on_a_side < 2)
+          {
+            num_boxes_on_a_side = 2;
+          }
+        int maxBoxSize = flatBox.size(0)/num_boxes_on_a_side;
+        // try blockingFactor = 2, since that's most likely to work
+        int blockFactor = 2;
+        domainSplit(flatBox, boxes, maxBoxSize, blockFactor);
+        LoadBalance(procAssign, boxes);
+      }
+
     DisjointBoxLayout flatDBL(boxes, procAssign, pd);
     LevelData<FArrayBox> flatLevelData(flatDBL,names.size(),IntVect::Unit);
     LevelData<FArrayBox> fiData;
