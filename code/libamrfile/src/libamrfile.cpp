@@ -541,7 +541,7 @@ void amr_query_domain_corners(int *status, int *lo, int* hi, const int *amr_id, 
 	{
 	  if (lo && hi && level)
 	    {
-	      if ( (*level < 0) || (*level > i->second->nLevel()))
+	      if ( (*level < 0) || (*level >= i->second->nLevel()))
 		{
 		  *status = LIBAMRFILE_ERR_NO_SUCH_LEVEL ;
 		}
@@ -897,6 +897,13 @@ void amr_read_box_data_2d(int *status,
       *status =  LIBAMRFILE_ERR_BAD_INTERPOLATION_ORDER;
       return;
     }
+  if (!comp_id)
+    {
+      *status =  LIBAMRFILE_ERR_NULL_POINTER  ;
+      return;
+    }
+
+
   if (comp_data && x_data && y_data && amr_id && level_id && lo && hi && comp_id )
     {
 
