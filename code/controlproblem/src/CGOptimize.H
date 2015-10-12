@@ -65,7 +65,11 @@ int CGOptimize(O& a_F, X& a_x,
   Real deltaNew = a_F.dotProduct(r,s);
   Real deltaZero = deltaNew;
   int iter = a_iter; int k = 0;
+  // if we're restarting, we likely want to drop out every 
+  // 
+  int modIter = iter % a_maxIter;
   while (   (iter - a_iter < a_maxIter) 
+            && (modIter > 0)
 	    && (deltaNew > sqr(a_tol) * deltaZero) 
 	    && (fm > 1.0e-16) 
 	    && ( (iter - a_iter < 1  ) || (fm/fmOld < a_hang) ) )
