@@ -120,8 +120,6 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
   Vector<LevelData<FluxBox>* > fcVel(numLevels, NULL);
   Vector<LevelData<FluxBox>* > fcThck(numLevels, NULL);
   Vector<LevelData<BaseFab<int> >* > ccMask(numLevels, NULL);
-  Vector<LevelData<FArrayBox>* > ccDH(numLevels, NULL);
-  Vector<LevelData<FArrayBox>* > ccDHCons(numLevels, NULL);
   Vector<LevelData<FArrayBox>* > ccSMB(numLevels, NULL);
   Vector<LevelData<FArrayBox>* > ccBMB(numLevels, NULL);
   Vector<LevelData<FArrayBox>* > ccDischarge(numLevels, NULL);
@@ -133,9 +131,7 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
       ccVel[lev] = new LevelData<FArrayBox>(grids,SpaceDim,IntVect::Unit);
       fcVel[lev] = new LevelData<FluxBox>(grids,1,IntVect::Unit);
       fcThck[lev] = new LevelData<FluxBox>(grids,1,IntVect::Unit);
-      ccDH[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
       ccMask[lev] = new LevelData<BaseFab<int> >(grids,1,IntVect::Unit);
-      ccDHCons[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
       ccSMB[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
       ccBMB[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
       for (DataIterator dit(grids);dit.ok();++dit)
@@ -160,11 +156,6 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 	      data[lev]->copyTo(Interval(j,j),*ccVel[lev],Interval(1,1));
 	      comp++;
 	    }
-	  else if (name[j] == "dThickness/dt")
-	    {
-	      data[lev]->copyTo(Interval(j,j),*ccDH[lev],Interval(0,0));
-	      comp++;
-	    }
 	  else if (name[j] == "surfaceThicknessSource")
 	    {
 	      data[lev]->copyTo(Interval(j,j),*ccSMB[lev],Interval(0,0));
@@ -176,7 +167,7 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 	      comp++;
 	    }
 	}
-      CH_assert(comp == 5);
+      CH_assert(comp == 4);
 
       ccVel[lev]->exchange();
       if (lev > 0)
@@ -299,32 +290,15 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 
       LevelData<FArrayBox> levelSectorMask(grids,1,IntVect::Zero);
       FillFromReference(levelSectorMask, *mdata[0], RealVect::Unit*dx[lev], RealVect::Unit*mcrseDx,true);
-      //work out (dh/dt)_c = smb - bmb + div(uh) and discharge across boundary. 
+      //work out discharge across boundary. 
       for (DataIterator dit(grids);dit.ok();++dit)
     	{
     	  FArrayBox& discharge = (*ccDischarge[lev])[dit];
     	  discharge.setVal(0.0);
-    	  FArrayBox& smb = (*ccSMB[lev])[dit];
-    	  FArrayBox& bmb = (*ccBMB[lev])[dit];
-    	  FArrayBox& dh = (*ccDH[lev])[dit];
-	  FArrayBox& dhc = (*ccDHCons[lev])[dit];
     	  BaseFab<int>& mask = (*ccMask[lev])[dit];
     	  const FArrayBox& thck = (*thickness[lev])[dit];
     	  const Box& b = grids[dit];
 	  
-	  for (BoxIterator bit(b);bit.ok();++bit)
-	    {
-	      const IntVect& iv = bit();
-	      if ( std::abs ( levelSectorMask[dit](iv) - maskNo) < 1.0e-6 | maskNo == -1)
-		{
-		  dhc(iv) = smb(iv) + bmb(iv);
-		}
-	      else
-		{
-		  dhc(iv)=0.0;
-		}
-	    }
-
 	  for (int dir =0; dir < SpaceDim; dir++)
 	    {
 	      const FArrayBox& vel = (*fcVel[lev])[dit][dir];
@@ -341,15 +315,10 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 		  const IntVect& iv = bit();
 		  if ( std::abs ( levelSectorMask[dit](iv) - maskNo) < 1.0e-6 | maskNo == -1)
 		    {
-		      dhc(iv) += (flux(iv) - flux(iv + BASISV(dir)))/dx[lev]; // flux divergence
 		  
 		      Real epsThck = 10.0;// TODO fix magic number
 		      if ((thck(iv) < epsThck) | (mask(iv) != GROUNDEDMASKVAL))
 			{
-			  dh(iv) = 0.0;
-			  dhc(iv) = 0.0;
-			  smb(iv) = 0.0;
-			  bmb(iv) = 0.0;
 			  if (thck(iv + BASISV(dir)) > epsThck & (mask(iv + BASISV(dir)) == GROUNDEDMASKVAL) ) 
 			    {
 			      discharge(iv) += -flux(iv + BASISV(dir)) / dx[lev];
@@ -360,14 +329,7 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 			    }
 			} //end if (thck(iv) < epsThck)
 		    }
-		  else
-		    {
-		      dh(iv) = 0.0;
-		      dhc(iv) = 0.0;
-		      smb(iv) = 0.0;
-		      bmb(iv) = 0.0;
-		      discharge(iv) = 0.0;
-		    } 
+
     		} //end loop over cells
     	    } // end loop over direction
     	} // end loop over grids
@@ -376,22 +338,6 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
   Real sumDischarge = computeSum(ccDischarge, ratio, dx[0], Interval(0,0), 0);
   pout() << " discharge = " << sumDischarge << " ";
   
-  Real sumDH = computeSum(ccDH, ratio, dx[0], Interval(0,0), 0);
-  pout() << " dhdt = " << sumDH << " ";
-
-  Real sumSMB = computeSum(ccSMB, ratio, dx[0], Interval(0,0), 0);
-  pout() << " smb = " << sumSMB << " ";
-
-  Real sumBMB = computeSum(ccBMB, ratio, dx[0], Interval(0,0), 0);
-  pout() << " bmb = " << sumBMB << " ";
-
-  Real sumDHC = computeSum(ccDHCons, ratio, dx[0], Interval(0,0), 0);
-  pout() << " dhdtc = " << sumDH << " ";
-
-  Real err = sumSMB + sumBMB - sumDHC -   sumDischarge;
-  pout() << " (smb+bmb-dhtc-discharge) = " << err << " ";
-
-
   for (int lev = 0; lev < numLevels; lev++)
     {
       if (ccVel[lev] != NULL)
@@ -410,17 +356,9 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 	{
 	  delete ccDischarge[lev];ccDischarge[lev]= NULL;
 	}
-      if (ccDH[lev] != NULL)
-	{
-	  delete ccDH[lev];ccDH[lev]= NULL;
-	}
       if (ccMask[lev] != NULL)
 	{
 	  delete ccMask[lev];ccMask[lev]= NULL;
-	}
-      if (ccDHCons[lev] != NULL)
-	{
-	  delete ccDHCons[lev];ccDHCons[lev]= NULL;
 	}
        if (ccSMB[lev] != NULL)
 	{
@@ -548,7 +486,7 @@ int main(int argc, char* argv[]) {
 	pout() << " time = " << time  ;
 	if (maskFile)
 	  {
-	    pout() << " sector = " << maskNo;
+	    pout() << " sector = " << maskNo << endl;
 	  }
 	computeDischarge(topography, thickness, dx, ratio, name, data, mdata, iceDensity, waterDensity,gravity,mcrseDx,maskNo);
 	pout() << endl;
@@ -560,7 +498,7 @@ int main(int argc, char* argv[]) {
 	pout() << " time = " << time  ;
 	if (maskFile)
 	  {
-	    pout() << " all sectors ";
+	    pout() << " all sectors " << endl;
 	  }
 	computeDischarge(topography, thickness, dx, ratio, name, data, mdata, iceDensity, waterDensity,gravity,mcrseDx,-1);
 	pout() << endl;
