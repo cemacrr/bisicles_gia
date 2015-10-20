@@ -108,7 +108,7 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 		      Vector<Real>& dx, Vector<int>& ratio, 
 		      Vector<std::string>& name, 
 		      Vector<LevelData<FArrayBox>* >& data, 
-		      Vector<LevelData<FArrayBox>* >& mdata, 
+		      Vector<LevelData<FArrayBox>* >& sectorMask, 
 		      Real a_iceDensity, Real a_waterDensity, Real a_gravity,
 		      Real mcrseDx, 
 		      int maskNo)
@@ -288,8 +288,6 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 
 	}
 
-      LevelData<FArrayBox> levelSectorMask(grids,1,IntVect::Zero);
-      FillFromReference(levelSectorMask, *mdata[0], RealVect::Unit*dx[lev], RealVect::Unit*mcrseDx,true);
       //work out discharge across boundary. 
       for (DataIterator dit(grids);dit.ok();++dit)
     	{
@@ -313,7 +311,7 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 	      for (BoxIterator bit(b);bit.ok();++bit)
 		{
 		  const IntVect& iv = bit();
-		  if ( std::abs ( levelSectorMask[dit](iv) - maskNo) < 1.0e-6 | maskNo == -1)
+		  if ( std::abs ( (*sectorMask[lev])[dit](iv) - maskNo) < 1.0e-6 | maskNo == -1)
 		    {
 		  
 		      Real epsThck = 10.0;// TODO fix magic number
@@ -456,6 +454,13 @@ int main(int argc, char* argv[]) {
     
     CH_STOP(tp);
 
+    Vector<LevelData<FArrayBox>* > sectorMask(numLevels,NULL);
+    for (int lev=0;lev<numLevels;++lev)
+      {
+	sectorMask[lev] = new LevelData<FArrayBox>(grids[lev],1,4*IntVect::Unit);
+	FillFromReference(*sectorMask[lev], *mdata[0], RealVect::Unit*dx[lev], RealVect::Unit*mcrseDx,true);
+      }
+
     Vector<LevelData<FArrayBox>* > thickness(numLevels,NULL);
     Vector<LevelData<FArrayBox>* > topography(numLevels,NULL);
     Vector<LevelData<FArrayBox>* > basalThicknessSrc(numLevels,NULL);
@@ -486,9 +491,9 @@ int main(int argc, char* argv[]) {
 	pout() << " time = " << time  ;
 	if (maskFile)
 	  {
-	    pout() << " sector = " << maskNo << endl;
+	    pout() << " sector = " << maskNo ;
 	  }
-	computeDischarge(topography, thickness, dx, ratio, name, data, mdata, iceDensity, waterDensity,gravity,mcrseDx,maskNo);
+	computeDischarge(topography, thickness, dx, ratio, name, data, sectorMask, iceDensity, waterDensity,gravity,mcrseDx,maskNo);
 	pout() << endl;
       }
 
@@ -500,7 +505,7 @@ int main(int argc, char* argv[]) {
 	  {
 	    pout() << " all sectors " << endl;
 	  }
-	computeDischarge(topography, thickness, dx, ratio, name, data, mdata, iceDensity, waterDensity,gravity,mcrseDx,-1);
+	computeDischarge(topography, thickness, dx, ratio, name, data, sectorMask, iceDensity, waterDensity,gravity,mcrseDx,-1);
 	pout() << endl;
       }
     
@@ -509,6 +514,7 @@ int main(int argc, char* argv[]) {
 	if (thickness[lev] != NULL) delete thickness[lev];
 	if (topography[lev] != NULL) delete topography[lev];
 	if (basalThicknessSrc[lev] != NULL) delete basalThicknessSrc[lev];
+	if (sectorMask[lev] != NULL) delete sectorMask[lev];
       }
 
 		  
