@@ -198,7 +198,7 @@ namespace PythonInterface
     /// return boundary condition for Ice velocity solve
     /** 
      */
-    virtual BCHolder velocitySolveBC();
+    virtual RefCountedPtr<CompGridVTOBC> velocitySolveBC();
 
     
 

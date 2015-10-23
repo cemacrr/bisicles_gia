@@ -38,19 +38,54 @@ public:
   Real operator()(const T&){return m_value;}
 };
 
+// simple compact-support constant
+class CompactSupportConstantRealFunction : public RealFunction<RealVect>
+{
+  Real m_value;
+  RealVect m_loBound;
+  RealVect m_hiBound;
+public:
+  CompactSupportConstantRealFunction(Real a_value, RealVect a_loBound, RealVect a_hiBound) : m_value(a_value), m_loBound(a_loBound), m_hiBound(a_hiBound)
+  {;}
+  Real operator()(const RealVect& a_loc)
+  {
+    Real retVal = 0.0;
+    if ((a_loc >= m_loBound) && (a_loc <= m_hiBound)) 
+      {
+        retVal = m_value;
+      }      
+    return retVal;}
+};
+
+
+
+// step: if x < cutoff, leftVal, else rightval
+class StepRealFunction : public RealFunction<RealVect>
+{
+  Real m_leftval;
+  Real m_rightval;
+  Real m_cutoff;
+  int m_dir;
+public:
+  StepRealFunction(Real a_leftval, Real a_rightval, Real a_cutoff, int a_dir) : m_leftval(a_leftval), m_rightval(a_rightval), m_cutoff(a_cutoff), m_dir(a_dir)
+  {;}
+  Real operator()(const RealVect& x){return ( (x[m_dir]<m_cutoff)?m_leftval:m_rightval);}
+};
+
+
 //linear function of a realVect
 class LinearRealFunction : public RealFunction<RealVect>
 {
   Real m_originValue;
   RealVect m_gradient;
-
+  
 public:
-
+  
   Real operator()(const RealVect& x)
   {
     return m_originValue + (m_gradient * x).sum();
   }
-
+  
 };
 
 
@@ -62,18 +97,43 @@ public:
   InclinedPlaneFunction(Real a_origin, const RealVect& a_slope)
     : m_origin(a_origin),m_slope(a_slope)
   {;}
-
+  
   Real operator()(const RealVect& x)
   {
-     Real r =  m_origin + 
-       D_TERM(x[0]*m_slope[0],+x[1]*m_slope[1],+x[2]*m_slope[2]);
-
-     return r;
-
+    Real r =  m_origin + 
+      D_TERM(x[0]*m_slope[0],+x[1]*m_slope[1],+x[2]*m_slope[2]);
+    
+    return r;
+    
   }
-
 };
 
+// blinear function with compact support
+class CompactSupportInclinedPlaneFunction : public RealFunction<RealVect>
+{
+  Real m_origin;
+  RealVect m_slope;
+  RealVect m_loBound;
+  RealVect m_hiBound;
+public:
+  CompactSupportInclinedPlaneFunction(Real a_origin, const RealVect& a_slope,
+                                      const RealVect& a_loBound, 
+                                      const RealVect& a_hiBound)
+    : m_origin(a_origin),m_slope(a_slope),m_loBound(a_loBound), m_hiBound(a_hiBound)
+  {;}
+  
+  Real operator()(const RealVect& x)
+  {
+    Real r =  0;
+    if ((x >= m_loBound) && (x <= m_hiBound)) 
+      {
+        r = m_origin + 
+          D_TERM(x[0]*m_slope[0],+x[1]*m_slope[1],+x[2]*m_slope[2]);
+      }        
+    return r;      
+  }
+  
+};
 
 class SymmetricInclinedPlaneFunction : public RealFunction<RealVect>
 {
@@ -82,7 +142,7 @@ class SymmetricInclinedPlaneFunction : public RealFunction<RealVect>
   RealVect m_symmetryPoint;
 public:
   SymmetricInclinedPlaneFunction(Real a_origin, const RealVect& a_slope, 
-                        const RealVect& a_symmetryPoint)
+                                 const RealVect& a_symmetryPoint)
     : m_origin(a_origin),m_slope(a_slope), m_symmetryPoint(a_symmetryPoint)
   {;}
 
@@ -93,7 +153,6 @@ public:
     D_TERM(local_x[0] = abs(local_x[0]);,
            local_x[1] = abs(local_x[1]);,
            local_x[2] = abs(local_x[2]);)
-
 
      Real r =  m_origin + 
        D_TERM(local_x[0]*m_slope[0],+x[1]*m_slope[1],+x[2]*m_slope[2]);

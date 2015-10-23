@@ -163,7 +163,7 @@ public:
   /// return boundary condition for Ice velocity solve
   /** 
    */
-  virtual BCHolder velocitySolveBC();
+  virtual RefCountedPtr<CompGridVTOBC> velocitySolveBC();
 
   /// fill ghost cells on velocity
   virtual void velocityGhostBC(LevelData<FArrayBox>& a_velocity,
@@ -228,7 +228,7 @@ protected:
   /// set up bc's based on parmparse inputs
   void setupBCs();
 
-  BCHolder m_velBCs;
+  RefCountedPtr<CompGridVTOBC> m_velBCs;
   RefCountedPtr<VieliPayneBCFunction> m_BCfunction;
 
 

@@ -28,18 +28,21 @@ LevelDataIBC::LevelDataIBC( RefCountedPtr<LevelData<FArrayBox> > a_thck,
   :m_thck(a_thck),m_topg(a_topg),m_dx(a_dx),m_isBCsetUp(false),m_verbose(true)
 {
   // Construction means nothing to me. It's a lot like Vienna.
-  for (DataIterator dit( m_thck->disjointBoxLayout());dit.ok();++dit)
+  if (!m_thck.isNull())
     {
-      //CH_assert( (*m_thck)[dit].min() >= 0.0);
-      FArrayBox& thck = (*m_thck)[dit];
-      for (BoxIterator bit(thck.box());bit.ok();++bit)
-	{
-	  if (thck(bit()) < 0.0)
-	    {
-	      thck(bit()) = 0.0;
-	    }
-	}
-
+      for (DataIterator dit( m_thck->disjointBoxLayout());dit.ok();++dit)
+        {
+          //CH_assert( (*m_thck)[dit].min() >= 0.0);
+          FArrayBox& thck = (*m_thck)[dit];
+          for (BoxIterator bit(thck.box());bit.ok();++bit)
+            {
+              if (thck(bit()) < 0.0)
+                {
+                  thck(bit()) = 0.0;
+                }
+            }
+          
+        }
     }
 }
 
@@ -128,7 +131,7 @@ void LevelDataIBC::artViscBC(FArrayBox&       a_F,
 /// return boundary condition for Ice velocity solve
 /** eventually would like this to be a BCHolder
  */
-BCHolder LevelDataIBC::velocitySolveBC()
+RefCountedPtr<CompGridVTOBC> LevelDataIBC::velocitySolveBC()
 {
   
   if (!m_isBCsetUp)
@@ -215,7 +218,7 @@ void LevelDataIBC::setupBCs()
 {
   
 
-  m_velBCs = iceDivideIIBC_LDBC;
+  m_velBCs = RefCountedPtr<CompGridVTOBC>(new IceBCFuncWrapper(iceDivideIIBC_LDBC));
   //m_velBCs = iceDivideBC_LDBC;
   m_isBCsetUp = true;
 }
@@ -271,7 +274,7 @@ void LevelDataIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
   Real refRatio = m_dx[0]/a_dx[0];
   //sanity check
   Real testDx = a_dx[0]*refRatio;
-  if (abs(testDx - m_dx[0])/m_dx[0] > TINY_NORM)
+  if (Abs(testDx - m_dx[0])/m_dx[0] > TINY_NORM)
     {
       MayDay::Error("LevelDataIBC::initializeIceGeometry incompatible a_dx and m_dx");
     }
@@ -343,7 +346,7 @@ bool LevelDataIBC::regridIceGeometry(LevelSigmaCS& a_coords,
   //sanity check
   Real testDx = a_dx[0]*refRatio;
 
-  if (abs(testDx - m_dx[0])/m_dx[0] > TINY_NORM)
+  if (Abs(testDx - m_dx[0])/m_dx[0] > TINY_NORM)
     {
       MayDay::Error("LevelDataIBC::regridIceGeometry incompatibe a_dx and m_dx");
     }

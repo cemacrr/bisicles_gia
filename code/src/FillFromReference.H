@@ -54,12 +54,41 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 
 
 // fill a single LevelData wth a flattened AMR hierarchy's worth of data
+/** This version does not perserve const-ness of the src data -- data in 
+    covered regions is replaced by averaged-down data.
+ */
 void
 flattenCellData(LevelData<FArrayBox>& a_destData,
                 const RealVect& a_destDx,
-                const Vector<LevelData<FArrayBox>* >& a_srcData,
+                Vector<LevelData<FArrayBox>* >& a_srcData,
                 const Vector<RealVect>& a_srcDx,
                 const bool a_verbose);
+
+
+// fill a single LevelData wth a flattened AMR hierarchy's worth of data
+/** This version does not perserve const-ness of the src data -- data in 
+    covered regions is replaced by averaged-down data. Version to use 
+    refcountedPtrs
+ */
+void
+flattenCellData(LevelData<FArrayBox>& a_destData,
+                const RealVect& a_destDx,
+                Vector<RefCountedPtr<LevelData<FArrayBox> >  >& a_srcData,
+                const Vector<RealVect>& a_srcDx,
+                const bool a_verbose);
+
+
+// fill a single LevelData wth a flattened AMR hierarchy's worth of data
+/** This version perserves const-ness of the src data, but requires some 
+    constraints on the fine meshes (grids on all levels must be coarsenable
+    to the destination resolution.
+ */
+void
+flattenCellDataConst(LevelData<FArrayBox>& a_destData,
+                     const RealVect& a_destDx,
+                     const Vector<LevelData<FArrayBox>* >& a_srcData,
+                     const Vector<RealVect>& a_srcDx,
+                     const bool a_verbose);
 
 #include "NamespaceFooter.H"
 

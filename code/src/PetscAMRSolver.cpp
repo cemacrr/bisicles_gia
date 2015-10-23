@@ -71,7 +71,7 @@ PetscAMRSolver::solve_mfree( Vector<LevelData<FArrayBox>*>& a_phi,
   a_op->create( m_phi_mfree , a_phi);
   a_op->create( m_Lphi_mfree , a_rhs);
 
-  ierr = MatGetVecs(A,&x,&b); CHKERRQ(ierr);
+  ierr = MatCreateVecs(A,&x,&b); CHKERRQ(ierr);
   ierr = m_petscCompMat.putChomboInPetsc(a_rhs,b);CHKERRQ(ierr);
   ierr = KSPCreate(wcomm, &ksp); CHKERRQ(ierr);
 #if PETSC_VERSION_LT(3,5,0)
@@ -137,7 +137,7 @@ PetscAMRSolver::solve( Vector<LevelData<FArrayBox>*>& a_phi,
   A = m_petscCompMat.getMatrix();
   
   //create an operator matrix shell with same dimensions as m_mat
-  ierr = MatGetVecs(A,&x,&b); CHKERRQ(ierr);
+  ierr = MatCreateVecs(A,&x,&b); CHKERRQ(ierr);
   ierr = m_petscCompMat.putChomboInPetsc(a_rhs,b); CHKERRQ(ierr);
   ierr = KSPCreate(wcomm, &ksp); CHKERRQ(ierr);
 #if PETSC_VERSION_LT(3,5,0)
@@ -191,6 +191,7 @@ void PetscAMRSolver::plot(const string a_fname, const Vector<LevelData<FArrayBox
       grids[i] = a_phi[i]->getBoxes();
       if(i!=0) refrat[i-1] = 2;	
     }
+#ifdef CH_USE_HDF5
   WriteAMRHierarchyHDF5( a_fname,
 			 grids,
 			 a_phi,
@@ -201,6 +202,7 @@ void PetscAMRSolver::plot(const string a_fname, const Vector<LevelData<FArrayBox
 			 bogusVal,
 			 refrat,
 			 nlevel);
+#endif
 }
 
 #undef __FUNCT__

@@ -99,7 +99,7 @@ class IceNonlinearViscousTensor : public NonlinearViscousTensor
   Real m_muMin, m_muMax;
   
   // BCHolder
-  BCHolder m_velSolveBC;
+  RefCountedPtr<BCFunction> m_velSolveBC;
 
   //coefficient storage. 
   Vector<RefCountedPtr<LevelData<FluxBox> > > m_mu;
@@ -150,8 +150,8 @@ public:
       {
 	for (DataIterator dit(m_grids[lev]); dit.ok(); ++dit)
 	  {
-	    m_velSolveBC((*a_phi[lev])[dit], m_grids[lev][dit], m_domains[lev], 
-			 m_dxs[lev][0], false, dit());
+	    (*m_velSolveBC)((*a_phi[lev])[dit], m_grids[lev][dit], m_domains[lev], 
+                            m_dxs[lev][0], dit(), false);
 	  }
       }
   }

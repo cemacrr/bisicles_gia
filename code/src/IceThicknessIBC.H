@@ -21,9 +21,59 @@
 
 #include "PhysIBC.H"
 #include "LevelSigmaCS.H"
+#include "PetscCompGridVTO.H"
 #include "BCFunc.H"
 
 #include "NamespaceHeader.H"
+
+
+/// this BCFunction simply wraps a BCFunc
+class IceBCFuncWrapper: public CompGridVTOBC
+{
+public:
+  IceBCFuncWrapper():m_funcptr(NULL) 
+  {
+  }
+
+  IceBCFuncWrapper(BCFunc funcptr):m_funcptr(funcptr)
+  {
+  }
+
+  ///
+  virtual ~IceBCFuncWrapper() 
+  {
+  }
+
+  /// simply calls through to bcFunc
+  virtual void operator()(FArrayBox&           a_state,
+                          const Box&           a_valid,
+                          const ProblemDomain& a_domain,
+                          Real                 a_dx,
+                          bool                 a_homogeneous)
+  {
+    CH_assert(m_funcptr != NULL);
+    m_funcptr(a_state, a_valid, a_domain, a_dx, a_homogeneous);
+  }
+    
+  //explictly allow copy and assignment operators
+  IceBCFuncWrapper(const IceBCFuncWrapper& src):m_funcptr(src.m_funcptr)
+  {
+  }
+
+  virtual IceBCFuncWrapper& operator=(const IceBCFuncWrapper& src)
+  {
+    m_funcptr = src.m_funcptr;
+    return *this;
+  }
+
+  protected:
+  BCFunc m_funcptr;
+
+};
+
+
+
+
 
 /// Physical/domain initial and boundary conditions for ice-sheet problems
 /**
@@ -129,33 +179,33 @@ public:
   /// return boundary condition for Ice velocity solve
   /** 
    */
-  virtual BCHolder velocitySolveBC() = 0;
+  virtual RefCountedPtr<CompGridVTOBC> velocitySolveBC() = 0;
 
 
   /// fill ghost cells on velocity
-  /** this is a separate function from the BCHolder returned by 
+  /** this is a separate function from the BCFunction returned by 
       the velocitySolveBC function to take into account the case 
       where the boundary condition used in the solve is different 
       from the one used when working with the velocity. One example 
       of this is the case where we incorporate the normal-stress boundary 
       condition into the RHS for the velocity solve; in that case, the 
-      BCHolder will be a homogeneous BC. However we want to use the 
+      BCFunction will be a homogeneous BC. However we want to use the 
       non-homogeneous form of the BC's when we do things like compute 
       derivatives of the velocity at physical domain boundaries 
       (say, for example, when computing the strain invariant in order 
       to compute the viscosity).  This function fills ghost cells on the 
       boundary in the generic case. Default implementation simply calls 
-      the BCHolder implementation... */             
+      the BCFunction implementation... */             
   virtual void velocityGhostBC(LevelData<FArrayBox>& a_velocity,
                                const LevelSigmaCS& a_coords,
                                const ProblemDomain& a_domain,
                                Real a_time)
   {
-    BCHolder velBC = velocitySolveBC();
+    RefCountedPtr<CompGridVTOBC> velBC = velocitySolveBC();
     const RealVect& dx = a_coords.dx();
     for (DataIterator dit=a_velocity.dataIterator(); dit.ok(); ++dit)
-      velBC(a_velocity[dit],a_velocity.getBoxes()[dit],
-            a_domain, dx[0], false, dit());
+      (*velBC)(a_velocity[dit],a_velocity.getBoxes()[dit],
+               a_domain, dx[0], dit(), false);
   }
 
       
@@ -234,7 +284,7 @@ private:
 /** in particular, this BCFunction contains the 
     Vector<LevelSigmaCS* > which we need to define the marine boundary 
     condition */
-class  IceVelBCFunction : public BCFunction
+class  IceVelBCFunction : public CompGridVTOBC
 {
 public:
   IceVelBCFunction() {;}  

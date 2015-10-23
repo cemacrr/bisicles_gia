@@ -23,8 +23,48 @@
 
 #include "IceThicknessIBC.H"
 #include "RealFunction.H"
+#include "BCFunc.H"
 #include "NamespaceHeader.H"
 
+
+class MISOMIPBedrockElevation : public RealFunction<RealVect>
+{
+  //shallow parameters
+  Real B0; 
+  Real B2;
+  Real B4;
+  Real B6;
+
+public:
+  MISOMIPBedrockElevation() :  B0(-150.0), B2(-728.8), B4(343.91), B6(-50.57)
+  {;}
+
+  Real operator()(const RealVect& x)
+  {
+    Real y = x[1] - 40e3;
+    Real topography = Bx(x[0]) + By(y,4.0e+3,5.0e+2,24.0e+3);
+    topography = max(topography, -720.0);
+    return topography;
+  }
+
+protected:
+  Real Bx(const Real x)
+  {
+    Real xx = x/300.0e3;
+    Real xx2 = xx*xx;
+    Real xx4 = xx2*xx2;
+    Real xx6 = xx4*xx2;
+    return B0 + B2*xx2 + B4*xx4 + B6*xx6;
+  }
+
+  Real By(const Real y, const Real fc, const Real dc, const Real wc)
+  {
+    return dc/(1.0+exp(-2.0*(y-wc)/fc)) + dc/(1.0+exp(2.0*(y+wc)/fc));
+  }
+        
+
+
+};
 
 
 class SchoofBedrockElevation : public RealFunction<RealVect>
@@ -35,7 +75,7 @@ class SchoofBedrockElevation : public RealFunction<RealVect>
 public:
 
   SchoofBedrockElevation(Real a_lengthScale, Real a_originElevation, 
-		       Real a_coeff2, Real a_coeff4, Real a_coeff6)
+                         Real a_coeff2, Real a_coeff4, Real a_coeff6)
   : m_lengthScale(a_lengthScale),m_originElevation(a_originElevation),
     m_coeff2(a_coeff2),m_coeff4(a_coeff4),m_coeff6(a_coeff6)
   {;}
@@ -216,7 +256,7 @@ public:
   /// return boundary condition for Ice velocity solve
   /** 
    */
-  virtual BCHolder velocitySolveBC();
+  virtual RefCountedPtr<CompGridVTOBC> velocitySolveBC();
 
   /// if appropriate, modify velocity solve RHS in a problem-dependent way. 
   /** 
@@ -278,7 +318,7 @@ protected:
   /// set up bc's based on parmparse inputs
   void setupBCs();
 
-  BCFunc m_velBCs;
+  RefCountedPtr<CompGridVTOBC> m_velBCs;
 
 
 private:

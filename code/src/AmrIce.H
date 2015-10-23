@@ -813,6 +813,10 @@ protected:
   /// tag any cell with ice in it
   bool m_tagAllIce;
 
+  /// tag all cells for refinement (refine entire domain)
+  bool m_tagEntireDomain;
+
+
   //attempt to eliminate floating ice that is unconnected to grounded ice 
   bool m_eliminate_remote_ice;
   int m_eliminate_remote_ice_max_iter;

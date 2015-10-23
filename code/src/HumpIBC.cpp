@@ -309,7 +309,7 @@ HumpIBC::artViscBC(FArrayBox&       a_F,
 /// return boundary condition for Ice velocity solve
 /** eventually would like this to be a BCHolder
  */
-BCHolder
+RefCountedPtr<CompGridVTOBC>
 HumpIBC::velocitySolveBC()
 {
   
@@ -527,7 +527,7 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 void 
 HumpIBC::setupBCs()
 {
-  m_velBCs = HumpVelBC;
+  m_velBCs = RefCountedPtr<CompGridVTOBC>(new IceBCFuncWrapper(HumpVelBC));
 
   m_isBCsetUp = true;
 }

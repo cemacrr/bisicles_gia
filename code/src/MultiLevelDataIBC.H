@@ -107,7 +107,7 @@ public:
   /// return boundary condition for Ice velocity solve
   /** 
    */
-  virtual BCHolder velocitySolveBC();
+  virtual RefCountedPtr<CompGridVTOBC> velocitySolveBC();
 
   /// if appropriate, modify velocity solve RHS in a problem-dependent way. 
   virtual void modifyVelocityRHS(LevelData<FArrayBox>& a_rhs,
@@ -144,7 +144,7 @@ private:
   }
 
 private:
-  BCFunc m_velBCs;
+  RefCountedPtr<CompGridVTOBC> m_velBCs;
   bool m_isBCsetUp, m_verbose;
   //levels of thickness data
   Vector<RefCountedPtr<LevelData<FArrayBox> > > m_thck;

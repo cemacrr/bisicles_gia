@@ -807,7 +807,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	  varNames[1] = "phi-y";
 	  
 	  Real bogusVal = 1.0;
-	  
+#ifdef CH_USE_HDF5
 	  WriteAMRHierarchyHDF5(fname,
 				m_grids,
 				res,
@@ -818,6 +818,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 				bogusVal,
 				m_refRatios,
 				numLevels);
+#endif
 	  // clean up
 	  for (ilev=0; ilev<plotData.size(); ilev++)
 	    {
@@ -841,7 +842,7 @@ void PetscIceSolver::defineOpFactory( RealVect a_Crsdx,
       if (SpaceDim == 2)
 	{
 	  Real alpha, beta;
-	  BCHolder velSolveBC = m_bc->velocitySolveBC();
+	  BCHolder velSolveBC(m_bc->velocitySolveBC());
   	  
 	  for (int ilev=0;ilev<a_numLevels;ilev++)
 	    {

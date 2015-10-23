@@ -1053,7 +1053,7 @@ WriteSigmaMappedAMRHierarchyHDF5(const string& a_fileRoot,
   string dataFileName(iter_str);
 
   RealVect dx = (*a_vectCoordSys[0]).dx();
-
+#ifdef CH_USE_HDF5
   WriteAMRHierarchyHDF5(dataFileName,
                         a_vectGrids,
                         a_vectData,
@@ -1064,7 +1064,7 @@ WriteSigmaMappedAMRHierarchyHDF5(const string& a_fileRoot,
                         a_time,
                         a_vectRatio,
                         a_numLevels);
-
+#endif
 
   // now create node-centered data for geometric info
   Vector<LevelData<NodeFArrayBox>* > vectNodeLoc(a_numLevels, NULL);
@@ -1157,7 +1157,7 @@ WriteSigmaMappedAMRHierarchyHDF5(const string& a_fileRoot,
 
   sprintf(iter_str, "%s%dd.map.hdf5", a_fileRoot.c_str(), SpaceDim);
   string gridInfoFileName(iter_str);
-
+#ifdef CH_USE_HDF5
   // now call nodal WriteAMRHierarchy function...
   WriteAMRHierarchyHDF5(gridInfoFileName,
                         a_vectGrids,
@@ -1169,7 +1169,7 @@ WriteSigmaMappedAMRHierarchyHDF5(const string& a_fileRoot,
                         a_time,
                         a_vectRatio,
                         a_numLevels);
-
+#endif
   // clean up after ourselves here
   for (int level=0; level<a_numLevels; level++)
     {

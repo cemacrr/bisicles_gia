@@ -46,6 +46,7 @@
 //#include "LevelDataSurfaceFlux.H"
 #include "LoadBalance.H"
 #include "BRMeshRefine.H"
+#include "FineInterp.H"
 #include "ReadLevelData.H"
 #ifdef CH_USE_PETSC
 #include "petsc.h"
@@ -79,6 +80,7 @@ int main(int argc, char* argv[]) {
 #endif 
 #endif // end petsc conditional
 
+  FineInterp::s_default_boundary_limit_type = 0;
 
   { // Begin nested scope
 
@@ -295,6 +297,49 @@ int main(int argc, char* argv[]) {
 	    Real thickness;
 	    mPP.get("thickness", thickness);
 	    RefCountedPtr<RealFunction<RealVect> > ptr(new ConstantRealFunction<RealVect>(thickness));
+	    thicknessFunction =ptr;
+	  }
+        else if (thicknessType == "compactSupportConstant")
+          {
+	    Real thickness;
+            Vector<Real> tmpIntVect(SpaceDim,0); 
+	    mPP.get("thickness", thickness);
+            mPP.getarr("loBound", tmpIntVect, 0, SpaceDim);
+            RealVect loBound(D_DECL(tmpIntVect[0], tmpIntVect[1], tmpIntVect[2]));
+            mPP.getarr("hiBound", tmpIntVect, 0, SpaceDim);
+            RealVect hiBound(D_DECL(tmpIntVect[0], tmpIntVect[1], tmpIntVect[2]));
+
+	    RefCountedPtr<RealFunction<RealVect> > ptr(new CompactSupportConstantRealFunction(thickness,loBound, hiBound));
+	    thicknessFunction =ptr;
+
+          }
+        else if (thicknessType == "compactSupportInclinedPlane")
+          {
+	    Real originThickness;
+            Vector<Real> tmpIntVect(SpaceDim,0); 
+	    mPP.get("origin_thickness", originThickness);
+            mPP.getarr("loBound", tmpIntVect, 0, SpaceDim);
+            RealVect loBound(D_DECL(tmpIntVect[0], tmpIntVect[1], tmpIntVect[2]));
+            mPP.getarr("hiBound", tmpIntVect, 0, SpaceDim);
+            RealVect hiBound(D_DECL(tmpIntVect[0], tmpIntVect[1], tmpIntVect[2]));
+            RealVect thicknessSlope;
+            Vector<Real> vect(SpaceDim);
+            mPP.getarr("thickness_slope", vect, 0, SpaceDim);
+            thicknessSlope = RealVect(D_DECL(vect[0], vect[1], vect[2]));
+            RefCountedPtr<RealFunction<RealVect> > ptr(new CompactSupportInclinedPlaneFunction(originThickness, thicknessSlope,loBound, hiBound));
+	    thicknessFunction =ptr;
+            
+          }
+	else if (thicknessType == "step")
+	  {
+            int dir=0;
+	    Real leftThickness, rightThickness, cutoff;
+	    mPP.get("left_thickness", leftThickness);
+	    mPP.get("right_thickness", rightThickness);
+	    mPP.get("x_cutoff", cutoff);
+            mPP.query("dir", dir);
+
+	    RefCountedPtr<RealFunction<RealVect> > ptr(new StepRealFunction(leftThickness, rightThickness, cutoff, dir));
 	    thicknessFunction =ptr;
 	  }
 	else if (thicknessType == "flowline")
@@ -644,7 +689,7 @@ int main(int argc, char* argv[]) {
       // ---------------------------------------------
       // set surface heat boundary data 
       // ---------------------------------------------
-      
+
       SurfaceFlux* surf_heat_boundary_data_ptr = SurfaceFlux::parseSurfaceFlux("surfaceHeatBoundaryData");
       ParmParse pps("surfaceHeatBoundaryData");
       bool diri = false; // flux boundary data by default
@@ -667,7 +712,7 @@ int main(int argc, char* argv[]) {
 	      surf_heat_boundary_data_ptr = new zeroFlux();
 	    }
 	}
-      
+
       amrObject.setSurfaceHeatBoundaryData(surf_heat_boundary_data_ptr, diri, temp);
       if (surf_heat_boundary_data_ptr != NULL)
 	{
@@ -744,6 +789,7 @@ int main(int argc, char* argv[]) {
     }
 
     amrObject.setDomainSize(domainSize);
+
     // set up initial grids, initialize data, etc.
     amrObject.initialize();
   

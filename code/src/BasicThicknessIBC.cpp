@@ -246,7 +246,7 @@ BasicThicknessIBC::artViscBC(FArrayBox&       a_F,
 /// return boundary condition for Ice velocity solve
 /** eventually would like this to be a BCHolder
  */
-BCHolder
+RefCountedPtr<CompGridVTOBC>
 BasicThicknessIBC::velocitySolveBC()
 {
   
@@ -406,11 +406,12 @@ BasicThicknessIBC::setupBCs()
 
   if (loBCvect[0] == 0)
     {
-      m_velBCs = iceDirichletBC;
+      //BCFuncWrapper* newBCPtr = new BCFuncWrapper(iceDirichletBC);
+      m_velBCs = RefCountedPtr<CompGridVTOBC>(new IceBCFuncWrapper(iceDirichletBC));
     }
   else if (loBCvect[0] == 1)
     {
-      m_velBCs = iceNeumannBC;
+      m_velBCs = RefCountedPtr<CompGridVTOBC>(new IceBCFuncWrapper(iceNeumannBC));
     }
   else
     {

@@ -26,6 +26,13 @@
 
 class AmrIce;
 
+enum FIBC_types {FIBC_Dirichlet = 0,
+                 FIBC_Neumann,
+                 FIBC_iceDivide,
+                 FIBC_iceStreamXBC,
+                 NUM_FIBC_TYPES};
+
+
 /// Physical/domain initial and boundary conditions
 /**
    
@@ -236,7 +243,7 @@ public:
   /// return boundary condition for Ice velocity solve
   /** 
    */
-  virtual BCHolder velocitySolveBC();
+  virtual RefCountedPtr<CompGridVTOBC> velocitySolveBC();
 
   void setVerbose(bool a_verbose) {m_verbose = a_verbose;}
 
@@ -293,7 +300,7 @@ protected:
 
   bool m_extrapBoundary; //extrapolate the boundary geoemtry? or reflect it?
 
-  BCFunc m_velBCs;
+  RefCountedPtr<CompGridVTOBC> m_velBCs;
 
   DisjointBoxLayout m_grids;
   bool m_gridsSet;

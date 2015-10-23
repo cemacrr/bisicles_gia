@@ -12,10 +12,12 @@
 #define _PETSCAMRSOLVERSOLVER_H_
 
 #include "PetscCompGridVTO.H"
+#ifdef CH_USE_PETSC
 #include "petsc.h"
 #include "petscmat.h"
 #include "petscksp.h"
 #include "petscviewer.h"
+#endif 
 
 #include "NamespaceHeader.H"
 
@@ -31,6 +33,8 @@ class PetscAMRSolver
 
 public:
   PetscAMRSolver(int a_verb=0);
+
+  virtual ~PetscAMRSolver() {;}
   ///
   /**
      Solve a_op*a_phi = a_rhs using the PETSC matrix free functions

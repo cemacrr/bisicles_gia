@@ -189,7 +189,7 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
     }
 
   // tolerance used when converting refinement ratio from Real -> integer 
-  Real tolerance = 1.0e-6;
+  Real tolerance = 1.0e-4;
   // refinement ratio
   Real refRatio = a_srcDx[0]/a_destDx[0];
   // reality check
@@ -230,10 +230,6 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 	   
 	   const ProblemDomain& fineDomain = destGrids.physDomain();
 	   FineInterp interpolator(destGrids, a_destData.nComp(), nRef, fineDomain);
-           // (dfm -- 4/16/13) need this version of the function for flattening
-           // back to CISM, but it currently only exists in the Chombo trunk
-           // Until I manage to push it out to the release, assume that 
-           // we're building the CISM interface against t           
 	   interpolator.interpToFine(a_destData, a_srcData, true);
 	   
 	   // now fill in ghost cells, using PiecewiseLinearFillPatch
@@ -292,8 +288,9 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
                      << nRef << endl;
             }
 	}
-	CoarseAverage averager(srcGrids,destGrids,
-			       a_destData.nComp(), nRef, a_destData.ghostVect());
+	CoarseAverage averager(srcGrids, destGrids, a_destData.nComp(), 
+                               nRef, a_destData.ghostVect());
+			       
 	averager.averageToCoarse(a_destData, a_srcData);
     }
   else
@@ -320,12 +317,129 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 void
 flattenCellData(LevelData<FArrayBox>& a_destData,
                 const RealVect& a_destDx,
-                const Vector<LevelData<FArrayBox>* >& a_srcData,
+                Vector<LevelData<FArrayBox>* >& a_srcData,
                 const Vector<RealVect>& a_srcDx,
                 const bool a_verbose)
 {
 
   int numLevels = a_srcData.size();
+  // figure out which level corresponds with dest
+  int destLev = -1;
+  Real eps = 1.0e-6;
+  for (int lev=0; lev < numLevels; lev++)
+    {
+      RealVect levelDx = a_srcDx[lev];
+      Real refRatio = a_destDx[0]/levelDx[0];
+      if (Abs(refRatio - 1.0) < eps)
+        {
+          destLev = lev;
+        }
+    }
+
+  // check for cases where entire hierarchy is either coarser 
+  // or finer than dest 
+  if (destLev < 0) 
+    {
+      if (a_srcDx[0][0] < a_destDx[0])
+      {
+        // entire hierarchy is finer than dest 
+        // (so work with level 0 and then fill down to dest)
+        destLev = 0;
+      }
+      else if (a_srcDx[numLevels-1][0] > a_destDx[0])
+        { 
+          // entire hierarchy is coarser than dest
+          destLev = numLevels-1;
+        }
+      else 
+        {
+          // something is wrong somewhere...
+          MayDay::Error("failed to find destination level for flattening");
+        }
+    }
+
+  // first fill from coarse (interpolating coarse src data onto dest)
+  for (int lev=0; lev<destLev; lev++)
+    {
+      RealVect levelDx = a_srcDx[lev];
+      FillFromReference(a_destData, *a_srcData[lev],
+                        a_destDx, levelDx,
+                        a_verbose);
+    }
+
+  // now loop from finer levels down to this one, averaging each src
+  // level onto the next coarser level
+  for (int lev=numLevels-2; lev>=destLev; lev--)
+    {
+      RealVect fineLevelDx = a_srcDx[lev+1];
+      RealVect crseLevelDx = a_srcDx[lev];
+      FillFromReference(*a_srcData[lev],*a_srcData[lev+1],
+                        crseLevelDx, fineLevelDx,
+                        a_verbose);
+    }
+
+  // now fill from src data on the same level as dest
+  RealVect levelDx = a_srcDx[destLev];
+  FillFromReference(a_destData, *a_srcData[destLev],
+                    a_destDx, levelDx,
+                    a_verbose);
+  
+}
+
+// fill a single LevelData wth a flattened AMR hierarchy's worth of data
+/** This version does not perserve const-ness of the src data -- data in 
+    covered regions is replaced by averaged-down data. Version to use 
+    refcountedPtrs
+*/
+void
+flattenCellData(LevelData<FArrayBox>& a_destData,
+                const RealVect& a_destDx,
+                Vector<RefCountedPtr<LevelData<FArrayBox> >  >& a_srcData,
+                const Vector<RealVect>& a_srcDx,
+                const bool a_verbose)
+{
+ 
+  Vector<LevelData<FArrayBox>* > srcData(a_srcData.size(),NULL);
+  for (int lev=0; lev<srcData.size(); lev++)
+    {
+      srcData[lev] = &(*a_srcData[lev]);
+    }
+
+  flattenCellData(a_destData,
+                  a_destDx,
+                  srcData,
+                  a_srcDx,
+                  a_verbose);
+
+}
+
+
+
+// fill a single LevelData wth a flattened AMR hierarchy's worth of data
+/** keeps src data constant
+ */
+void
+flattenCellDataConst(LevelData<FArrayBox>& a_destData,
+                     const RealVect& a_destDx,
+                     const Vector<LevelData<FArrayBox>* >& a_srcData,
+                     const Vector<RealVect>& a_srcDx,
+                     const bool a_verbose)
+{
+
+  int numLevels = a_srcData.size();
+  // check for case where not all levels are actually defined
+  for (int lev=numLevels-1; lev>0; lev--)
+    {
+      if (a_srcData[lev] == NULL)
+        {
+          numLevels = lev;
+        }
+      else if (a_srcData[lev]->nComp() == 0)
+        {
+          numLevels = lev;
+        }
+    }
+
   for (int lev=0; lev<numLevels; lev++)
     {
       RealVect levelDx = a_srcDx[lev];

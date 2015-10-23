@@ -356,7 +356,7 @@ VieliPayneIBC::artViscBC(FArrayBox&       a_F,
 /// return boundary condition for Ice velocity solve
 /** eventually would like this to be a BCHolder
  */
-BCHolder
+RefCountedPtr<CompGridVTOBC>
 VieliPayneIBC::velocitySolveBC()
 {
   
@@ -635,7 +635,7 @@ VieliPayneIBC::setupBCs()
 {
   //RefCountedPtr<VieliPayneBCFunction> thisBC(new VieliPayneBCFunction());
   m_BCfunction = RefCountedPtr<VieliPayneBCFunction>(new VieliPayneBCFunction);
-  m_velBCs = BCHolder(m_BCfunction);
+  m_velBCs = m_BCfunction;
 
   m_isBCsetUp = true;
 }

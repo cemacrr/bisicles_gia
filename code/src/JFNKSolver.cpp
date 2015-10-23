@@ -267,10 +267,10 @@ void LinearizedVTOp::writeResidual
   sprintf(file,"jfnkopres.%06d.2d.hdf5",m_residualID);
   Real dt(1.0); Real time(m_residualID);
   pout() << "writing " << file << std::endl;
-
+#ifdef CH_USE_HDF5
   WriteAMRHierarchyHDF5(file ,m_grids, data ,names, m_domains[0].domainBox(),
 			m_dxs[0][0], dt, time, m_refRatio, data.size());
-
+#endif
 
   for (int lev = 0; lev < a_u.size(); lev++)
     {
@@ -435,6 +435,15 @@ void JFNKSolver::define(const ProblemDomain& a_coarseDomain,
   
   int bs_type = LinearizedVTOp::m_bottom_solver_type;
   pp.query("bottom_solver_type", bs_type);
+  // if petsc not compiled in but petsc specified, then fall back to default
+#ifndef CH_USE_PETSC  
+  if (bs_type == PETSC)
+    {
+      bs_type = LinearizedVTOp::m_bottom_solver_type;
+    }
+#endif
+
+
   LinearizedVTOp::m_bottom_solver_type = bs_type;
 
   int mg_depth = LinearizedVTOp::m_MG_solver_depth;
@@ -919,8 +928,7 @@ JFNKSolver::linearSolve(LinearizedVTOp& a_op,
 	  m_petscSolver = new PetscAMRSolver(m_verbosity);
 	  m_petscSolver->m_petscCompMat.setVerbose(m_verbosity-1);
 	}
-      RefCountedPtr<ConstDiriBC> bcfunc = RefCountedPtr<ConstDiriBC>
-	(new ConstDiriBC(1,m_petscSolver->m_petscCompMat.getGhostVect()));
+      RefCountedPtr<CompBC> bcfunc = RefCountedPtr<CompBC>(m_bcPtr->velocitySolveBC());
       BCHolder bc(bcfunc);
       Real opAlpha, opBeta;
       opAlpha = -1.0;

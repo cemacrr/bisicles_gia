@@ -34,8 +34,8 @@ convenient to use.
 
 /// compute cell-centered derivatives
 /** it's assumed that any ghost-cell boundary conditions have already
-    been set . optionally (a_mask = true), switch to one-sided differences  next 
-    to fluid free cells
+    been set . optionally (a_mask = true), switch to one-sided differences  
+    next to fluid free cells
 */
 void 
 computeCCDerivatives(LevelData<FArrayBox>& a_ccDeriv,

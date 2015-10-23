@@ -367,7 +367,7 @@ void FASIceViscouseTensorOpFactory::define( const ProblemDomain& a_coarseDomain,
     }
   // complete define for VTO factory
   CH_assert(m_VTOFactory == NULL);
-  BCHolder bc = m_bc->velocitySolveBC();
+  BCFunction bc = m_bc->velocitySolveBC();
 
   m_VTOFactory = new ViscousTensorOpFactory( a_grids,
 					     eta,

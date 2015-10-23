@@ -12,6 +12,7 @@
 #include "ParmParse.H"
 #include "BoxIterator.H"
 #include "ExtrapBCF_F.H"
+#include "PetscCompGridVTO.H"
 #include "IceConstants.H"
 #include "ReflectGhostCells.H"
 
@@ -31,10 +32,10 @@ void zeroBCValueMarine(Real* pos,
 
 
 void MarineVelBC(FArrayBox& a_state,
-                     const Box& a_valid,
-                     const ProblemDomain& a_domain,
-                     Real a_dx,
-                     bool a_homogeneous)
+                 const Box& a_valid,
+                 const ProblemDomain& a_domain,
+                 Real a_dx,
+                 bool a_homogeneous)
 {
   if(!a_domain.domainBox().contains(a_state.box()))
     {
@@ -376,7 +377,7 @@ MarineIBC::artViscBC(FArrayBox&       a_F,
 /// return boundary condition for Ice velocity solve
 /** eventually would like this to be a BCHolder
  */
-BCHolder
+RefCountedPtr<CompGridVTOBC>
 MarineIBC::velocitySolveBC()
 {
   
@@ -385,6 +386,7 @@ MarineIBC::velocitySolveBC()
       setupBCs();
     }
   
+  //  BCFunction* thisBC = dynamic_cast<BCFunction*>(&(*(m_velBCs)));
   return m_velBCs;
 }
 
@@ -576,7 +578,90 @@ MarineIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 void 
 MarineIBC::setupBCs()
 {
-  m_velBCs = MarineVelBC;
+  int dirichletBCs = true;
+  int freeShearBCs = true;
+  ParmParse ppBC("bc");
+  Vector<int> loBCvect(SpaceDim);
+  Vector<int> hiBCvect(SpaceDim);
+  ppBC.getarr("lo_bc", loBCvect, 0, SpaceDim);
+  ppBC.getarr("hi_bc", hiBCvect, 0, SpaceDim);
+  bool new_bc = false;
+  ppBC.query("new_bc", new_bc);
+
+  if (new_bc)
+    {
+      m_velBCs = RefCountedPtr<BCFunction>(dynamic_cast<BCFunction*>(new CompGridVTOBC));
+      // now specifically set bcs (default is dirichlet)
+      for (int dir=0; dir<SpaceDim; dir++)
+        {
+          // first do low-side...
+          // dirichlet case
+          if (loBCvect[dir] == 0)
+            {
+              for (int comp=0; comp<SpaceDim; comp++)
+                {
+                  m_velBCs->m_bcDiri[dir][0][comp] = true;
+                }
+            }
+          // neumann case
+          else if (loBCvect[dir] == 1)
+            {
+              for (int comp=0; comp<SpaceDim; comp++)
+                {
+                  m_velBCs->m_bcDiri[dir][0][comp] = false;
+                }
+            }
+          // slip-wall case -- Dirichlet in normal direction, free-slip otherwise
+          else if (loBCvect[dir] == 2)
+            {
+              for (int comp=0; comp<SpaceDim; comp++)
+                {
+                  m_velBCs->m_bcDiri[dir][0][comp] = false;
+                }
+              m_velBCs->m_bcDiri[dir][0][dir] = true;
+            }
+          else
+            {
+              MayDay::Error("Unknown BC type in MarineIBC::setupBCs");
+            }
+
+          // then do high side...
+          // dirichlet case
+          if (hiBCvect[dir] == 0)
+            {
+              for (int comp=0; comp<SpaceDim; comp++)
+                {
+                  m_velBCs->m_bcDiri[dir][1][comp] = true;
+                }
+            }
+          // neumann case
+          else if (hiBCvect[dir] == 1)
+            {
+              for (int comp=0; comp<SpaceDim; comp++)
+                {
+                  m_velBCs->m_bcDiri[dir][1][comp] = false;
+                }
+            }
+          // slip-wall case -- Dirichlet in normal direction, free-slip otherwise
+          else if (hiBCvect[dir] == 2)
+            {
+              for (int comp=0; comp<SpaceDim; comp++)
+                {
+                  m_velBCs->m_bcDiri[dir][1][comp] = false;
+                }
+              m_velBCs->m_bcDiri[dir][1][dir] = true;
+            }
+          else
+            {
+              MayDay::Error("Unknown BC type in MarineIBC::setupBCs");
+            }
+
+        } // end loop over directions    
+    } // end if new BCs
+  else
+    {
+      m_velBCs = RefCountedPtr<CompGridVTOBC>(new IceBCFuncWrapper(MarineVelBC));
+    }
 
   m_isBCsetUp = true;
 }

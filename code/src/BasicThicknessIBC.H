@@ -24,6 +24,7 @@
 
 #include "NamespaceHeader.H"
 
+
 /// Physical/domain initial and boundary conditions
 /**
    
@@ -115,7 +116,7 @@ public:
   /// return boundary condition for Ice velocity solve
   /** 
    */
-  virtual BCHolder velocitySolveBC();
+  virtual RefCountedPtr<CompGridVTOBC> velocitySolveBC();
 
 protected:
 
@@ -130,7 +131,7 @@ protected:
   /// set up bc's based on parmparse inputs
   void setupBCs();
 
-  BCFunc m_velBCs;
+  RefCountedPtr<CompGridVTOBC> m_velBCs;
 
 private:
   // Disallowed for all the usual reasons
@@ -145,6 +146,8 @@ private:
     MayDay::Error("invalid operator");
   }
 };
+
+
 
 #include "NamespaceFooter.H"
 #endif

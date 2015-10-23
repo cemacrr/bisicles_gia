@@ -117,7 +117,7 @@ public:
   /// return boundary condition for Ice velocity solve
   /** 
    */
-  virtual BCHolder velocitySolveBC();
+  virtual RefCountedPtr<CompGridVTOBC> velocitySolveBC();
 
   /// if appropriate, modify velocity solve RHS in a problem-dependent way. 
   /** 
@@ -175,7 +175,7 @@ protected:
   /// set up bc's based on parmparse inputs
   void setupBCs();
 
-  BCFunc m_velBCs;
+  RefCountedPtr<CompGridVTOBC> m_velBCs;
 
   // do higher-order averaged initial condition (for convergence testing)
   bool m_doHOinit;

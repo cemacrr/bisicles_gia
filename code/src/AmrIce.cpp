@@ -508,6 +508,7 @@ AmrIce::setDefaults()
   m_tagMargin  = false;
   m_margin_tagVal_finestLevel = -1;
   m_tagAllIce  = false;
+  m_tagEntireDomain = false;
   m_groundingLineTaggingMinVel = 200.0;
   m_groundingLineTaggingMaxBasalFrictionCoef = 1.2345678e+300;
 #ifdef HAVE_PYTHON
@@ -1253,6 +1254,10 @@ AmrIce::initialize()
   isThereATaggingCriterion |= m_tagAllIce;
 
 
+  ppAmr.query("tag_entire_domain", m_tagEntireDomain);
+  isThereATaggingCriterion |= m_tagEntireDomain;
+
+
   ppAmr.query("tag_on_div_H_grad_vel",m_tagOndivHgradVel);
   isThereATaggingCriterion |= m_tagOndivHgradVel;
 
@@ -1731,8 +1736,26 @@ AmrIce::initialize()
       string restart_file;
       ppAmr.get("restart_file", restart_file);
       m_do_restart = true;
+#ifdef CH_USE_HDF5
       restart(restart_file);
-      
+      // once we've set up everything, this lets us over-ride the
+      // time and step number in the restart checkpoint file with
+      // one specified in the inputs
+      if (ppAmr.contains("restart_time") )
+        {
+          Real restart_time;
+          ppAmr.get("restart_time", restart_time);
+          m_time = restart_time;
+        }
+
+      if (ppAmr.contains("restart_step") )
+        {
+          int restart_step;
+          ppAmr.get("restart_step", restart_step);
+          m_cur_step = restart_step;
+          m_restart_step = restart_step;
+        }
+#endif // hdf5
     }
 
 
@@ -2070,7 +2093,9 @@ AmrIce::run(Real a_max_time, int a_max_step)
 	  // dump plotfile before regridding
 	  if ( (m_cur_step%m_plot_interval == 0) && m_plot_interval > 0)
 	    {
+#ifdef CH_USE_HDF5
 	      writePlotFile();
+#endif
 	    }
 	  
 	  if ((m_cur_step != 0) && (m_cur_step%m_regrid_interval ==0))
@@ -2091,7 +2116,9 @@ AmrIce::run(Real a_max_time, int a_max_step)
 	  if ((m_cur_step%m_check_interval == 0) && (m_check_interval > 0)
 	      && (m_cur_step != m_restart_step))
 	    {
+#ifdef CH_USE_HDF5
 	      writeCheckpointFile();
+#endif
 	      if (m_cur_step > 0 && m_check_exit)
 		{
 		  if (s_verbosity > 2)
@@ -2110,17 +2137,26 @@ AmrIce::run(Real a_max_time, int a_max_step)
 	  // restores the correct timestep in cases where it was chosen just to reach a plot file
 	  
 	} // end of plot_time_interval
+#ifdef CH_USE_HDF5
       if (m_plot_interval >= 0)
 	writePlotFile();
-
+#endif
     } // end timestepping loop
 
   // dump out final plotfile, if appropriate
+#ifdef CH_USE_HDF5
+
   if (m_plot_interval >= 0)
     {
       writePlotFile();
     }
-    
+  
+  // dump out final checkpoint file, if appropriate
+  if (m_check_interval >= 0)
+    {
+      writeCheckpointFile();
+    }
+#endif    
 	  
   if (s_verbosity > 2)
     {
@@ -4014,6 +4050,17 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
         } // end loop over boxes
     } // end if tag all ice
 
+  // tag anywhere and everywhere
+  if (m_tagEntireDomain)
+    {
+      // this is super-simple...
+      Box domainBox = m_amrDomains[a_level].domainBox();
+      local_tags |= domainBox;
+          
+    } // end if tag entire domain
+
+
+
 #ifdef HAVE_PYTHON
   if (m_tagPython)
     {
@@ -4546,7 +4593,9 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
 #ifdef  writePlotsImmediately
   if (m_plot_interval >= 0)
     {
+#ifdef CH_USE_HDF5
       writePlotFile();
+#endif
     }
 #endif
 
@@ -4792,7 +4841,7 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 	      MayDay::Error("AmrIce::SolveVelocityField unknown initial guess type");
 	    }
 	}
-     
+#ifdef CH_USE_HDF5
       if (m_write_presolve_plotfiles)
         {
           string save_prefix = m_plot_prefix;
@@ -4803,7 +4852,7 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
           m_write_fluxVel = t_write_fluxVel;
 	  m_plot_prefix = save_prefix;
         }
-    
+#endif
 
       int solverRetVal; 
     
@@ -6849,6 +6898,13 @@ AmrIce::writePlotFile()
 void 
 AmrIce::writeCheckpointFile() 
 {
+  if (s_verbosity > 3) 
+    { 
+      pout() << "AmrIce::writeCheckpointfile" << endl;
+    }
+
+  CH_TIME("AmrIce::writeCheckpointFile");
+
   // generate checkpointfile name
   char* iter_str;
   if (m_check_overwrite)

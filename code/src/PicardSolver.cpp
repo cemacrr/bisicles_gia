@@ -306,12 +306,13 @@ int PicardSolver::solve(Vector<LevelData<FArrayBox>* >       & a_horizontalVel,
       char suffix[100];
       sprintf(suffix,"%06d.%dd.hdf5", numIter, SpaceDim);
       filename.append(suffix);
-      
+#ifdef CH_USE_HDF5
       WriteAMRHierarchyHDF5(filename, m_vectGrids, plotData, vectName, 
                             m_coarseDomain.domainBox(), m_dxCrse[0], 
                             bogusDt, a_time, 
                             m_vectRefRatio, 
                             numLevels);
+#endif
     } 
     else
       {
@@ -443,12 +444,13 @@ int PicardSolver::solve(Vector<LevelData<FArrayBox>* >       & a_horizontalVel,
                                        rhsComps);
                   }
                   
-                  
+#ifdef CH_USE_HDF5
                 WriteAMRHierarchyHDF5(filename, m_vectGrids, plotData, vectName, 
                                       m_coarseDomain.domainBox(), m_dxCrse[0], 
                                       bogusDt, a_time, 
                                       m_vectRefRatio, 
                                       numLevels);
+#endif
               }
             else
               {          
@@ -946,7 +948,7 @@ void PicardSolver::defineOpFactory()
       
      
 
-      BCHolder velSolveBC = m_bc->velocitySolveBC();
+      BCHolder velSolveBC(m_bc->velocitySolveBC());
       m_opFactoryPtr = 
         RefCountedPtr<AMRLevelOpFactory<LevelData<FArrayBox> > >
 	(new ViscousTensorOpFactory(m_vectGrids, m_vectMu, m_vectLambda, m_vectC, alpha, 

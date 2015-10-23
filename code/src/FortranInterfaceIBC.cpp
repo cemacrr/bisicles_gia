@@ -861,7 +861,7 @@ FortranInterfaceIBC::artViscBC(FArrayBox&       a_F,
 /// return boundary condition for Ice velocity solve
 /** eventually would like this to be a BCHolder
  */
-BCHolder
+RefCountedPtr<CompGridVTOBC>
 FortranInterfaceIBC::velocitySolveBC()
 {
   
@@ -1281,6 +1281,8 @@ FortranInterfaceIBC::regridIceGeometry(LevelSigmaCS& a_coords,
        pout() << "leaving FortranInterfaceIBC::regridIceGeometry" << endl;
      }
    
+   // we shouldn't ever be in here anyway on this branch
+   return false;
 }
 
 /*
@@ -1647,7 +1649,8 @@ FortranInterfaceIBC::flattenVelocity(Real* a_uVelPtr, Real* a_vVelPtr,
       realVectDx[i] = a_amrDx[i]*RealVect::Unit;
     }
 
-  flattenCellData(ldf, dx, a_amrVel, realVectDx, m_verbose);
+  MayDay::Error("FortranInterfaceIBC::flattenVelocity not fully implemented");
+  //flattenCellData(ldf, dx, a_amrVel, realVectDx, m_verbose);
   
   if (m_verbose)  pout () << "before exchange" << endl;
   ldf.exchange();
@@ -1750,34 +1753,113 @@ FortranInterfaceIBC::setupBCs()
   Vector<int> loBCvect(SpaceDim), hiBCvect(SpaceDim);
   ppBC.getarr("lo_bc", loBCvect, 0, SpaceDim);
   ppBC.getarr("hi_bc", hiBCvect, 0, SpaceDim);
+  bool new_bc = false;
+  ppBC.query("new_bc", new_bc);
 
-  // this is a placeholder until I can get a BCHolder to work...
-  // require all directions to have the same BC for now
-  CH_assert(loBCvect[0] == loBCvect[1]);
-  CH_assert(hiBCvect[0] == hiBCvect[1]);
-  CH_assert(loBCvect[0] == hiBCvect[0]);
+  if (new_bc)
+    {
+      m_velBCs = RefCountedPtr<BCFunction>(dynamic_cast<BCFunction*>(new CompGridVTOBC));
+      // now specifically set bcs (default is dirichlet)
+      for (int dir=0; dir<SpaceDim; dir++)
+        {
+          // first do low-side...
+          // dirichlet case
+          if (loBCvect[dir] == 0)
+            {
+              for (int comp=0; comp<SpaceDim; comp++)
+                {
+                  m_velBCs->m_bcDiri[dir][0][comp] = true;
+                }
+            }
+          // neumann case
+          else if (loBCvect[dir] == 1)
+            {
+              for (int comp=0; comp<SpaceDim; comp++)
+                {
+                  m_velBCs->m_bcDiri[dir][0][comp] = false;
+                }
+            }
+          // slip-wall -- Dirichlet in normal direction, free-slip otherwise
+          else if (loBCvect[dir] == 2)
+            {
+              for (int comp=0; comp<SpaceDim; comp++)
+                {
+                  m_velBCs->m_bcDiri[dir][0][comp] = false;
+                }
+              m_velBCs->m_bcDiri[dir][0][dir] = true;
+            }
+          else
+            {
+              MayDay::Error("Unknown BC type in MarineIBC::setupBCs");
+            }
 
-  if (loBCvect[0] == 0)
-    {
-      m_velBCs = iceDirichletBC_FIBC;
-    }
-  else if (loBCvect[0] == 1)
-    {
-      m_velBCs = iceNeumannBC_FIBC;
-    }
-  else if (loBCvect[0] == 2)
-    {
-      m_velBCs = iceDivideBC_FIBC;
-    }
-  else if (loBCvect[0] == 3)
-    {
-      m_velBCs = iceStreamXBC_FIBC;
-    }
+          // then do high side...
+          // dirichlet case
+          if (hiBCvect[dir] == 0)
+            {
+              for (int comp=0; comp<SpaceDim; comp++)
+                {
+                  m_velBCs->m_bcDiri[dir][1][comp] = true;
+                }
+            }
+          // neumann case
+          else if (hiBCvect[dir] == 1)
+            {
+              for (int comp=0; comp<SpaceDim; comp++)
+                {
+                  m_velBCs->m_bcDiri[dir][1][comp] = false;
+                }
+            }
+          // slip-wall case -- Dirichlet in normal direction, free-slip otherwis
+          else if (hiBCvect[dir] == 2)
+            {
+              for (int comp=0; comp<SpaceDim; comp++)
+                {
+                  m_velBCs->m_bcDiri[dir][1][comp] = false;
+                }
+              m_velBCs->m_bcDiri[dir][1][dir] = true;
+            }
+          else
+            {
+              MayDay::Error("Unknown BC type in FortranInterfaceIBC::setupBCs");
+            }
+        } // end loop over directions    
 
+    } // end if using new bcs
   else
     {
-      MayDay::Error("bad BC type");
-    }
+      // if all BCs are the same, calll the basic BC functions
+      if ((loBCvect[0] == loBCvect[1]) &&
+          (hiBCvect[0] == hiBCvect[1]) &&
+          (loBCvect[0] == hiBCvect[0]))
+        {
+          if (loBCvect[0] == FIBC_Dirichlet)
+            {
+              m_velBCs = RefCountedPtr<CompGridVTOBC>(new IceBCFuncWrapper(iceDirichletBC_FIBC));
+            }
+          else if (loBCvect[0] == FIBC_Neumann)
+            {
+              m_velBCs = RefCountedPtr<CompGridVTOBC>(new IceBCFuncWrapper(iceNeumannBC_FIBC));
+            }
+          else if (loBCvect[0] == FIBC_iceDivide)
+            {
+              m_velBCs = RefCountedPtr<BCFunction>(new BCFuncWrapper(iceDivideBC_FIBC));
+            }
+          else if (loBCvect[0] == FIBC_iceStreamXBC)
+            {
+              m_velBCs = RefCountedPtr<BCFunction>(new BCFuncWrapper(iceStreamXBC_FIBC));
+            }
+          else
+            {
+              MayDay::Error("bad BC type");
+            }
+        }
+      else
+        {
+          MayDay::Error("FortranInterfaceIBC::setupBC -- bad BC type");
+          
+        }
+    } // end if not new bc
   m_isBCsetUp = true;
 }
       

@@ -285,7 +285,7 @@ void PythonInterface::PythonIBC::artViscBC(FArrayBox&       a_F,
 /// return boundary condition for Ice velocity solve
 /** eventually would like this to be a BCHolder
  */
-BCHolder PythonInterface::PythonIBC::velocitySolveBC()
+RefCountedPtr<CompGridVTOBC> PythonInterface::PythonIBC::velocitySolveBC()
 {
   
   if (!m_isBCsetUp)

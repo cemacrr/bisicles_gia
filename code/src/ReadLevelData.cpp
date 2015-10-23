@@ -39,14 +39,14 @@ void readLevelData(Vector<RefCountedPtr<LevelData<FArrayBox> > >& a_data,
   int numLevels;
 
   pout() << " attempting to open file  " << a_file << std::endl;
-
+#ifdef CH_USE_HDF5
   int status = ReadAMRHierarchyHDF5
     (a_file,vectGrids,vectData,names,domBox,a_dx,dt,time,
      vectRatio,numLevels);
-
- CH_assert(status == 0);
+  CH_assert(status == 0);
  if (status != 0)
    MayDay::Error("failed to read file");
+#endif
  CH_assert(vectData.size() == 1);
  if (vectData.size() != 1)
    MayDay::Error("bad data");
@@ -125,15 +125,15 @@ void readMultiLevelData
   int numLevels;
 
   pout() << " attempting to open file  " << a_file << std::endl;
-
+#ifdef CH_USE_HDF5
   int status = ReadAMRHierarchyHDF5
     (a_file,vectGrids,vectData,names,domBox,a_crseDx,dt,time,
      a_refRatio,numLevels);
-
  CH_assert(status == 0);
+
  if (status != 0)
    MayDay::Error("failed to read file");
- 
+#endif 
  //We probably don't want to use the load balancing provided
  //given in the file, e.g that might lead to all the data being
  //stored on a single processor.

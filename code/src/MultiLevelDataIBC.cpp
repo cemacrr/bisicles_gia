@@ -80,11 +80,12 @@ void  reflectionBC_MLDIBC(FArrayBox& a_vel,
 }
 
 
-BCHolder MultiLevelDataIBC::velocitySolveBC()
+RefCountedPtr<CompGridVTOBC> 
+MultiLevelDataIBC::velocitySolveBC()
 {
   if (!m_isBCsetUp)
     {
-      m_velBCs = reflectionBC_MLDIBC;
+      m_velBCs = RefCountedPtr<CompGridVTOBC>(new IceBCFuncWrapper(reflectionBC_MLDIBC));
       m_isBCsetUp = true;
     }
   return m_velBCs;

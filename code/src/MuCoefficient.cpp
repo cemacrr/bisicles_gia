@@ -224,32 +224,20 @@ void MultiLevelDataMuCoefficient::setMuCoefficient
  Real a_dt)
 {
 
-
-  RealVect dx(m_dxCrse);
-  for (int refDataLev = 0; refDataLev < m_muCoef.size(); refDataLev++)
+  
+  Vector<RealVect> refDx (m_muCoef.size(), -1.0*RealVect::Unit);
+  refDx[0] = m_dxCrse;
+  for (int lev=1; lev<refDx.size(); lev++)
     {
-      
-      if (a_dx[0] < dx[0] && refDataLev > 0)
-	{
-	  //We need a LevelData<FArrayBox> whose DisjointBoxLayout covers
-	  //a_muCoef's, but m_muCoef[refDataLev] doesn't necessarily provide one. Since we secretly
-	  //want to be lisp programmers, we turn to recursion to build one,
-	  //throwing performance worries to the wind.
-	  //\todo consider modifying the BasalFriction interface to avoid recompuing levels 1 to n-1
-	  const int& nRef = int(dx[0]/a_dx[0]);
-	  DisjointBoxLayout crseDBL;
-	  coarsen(crseDBL, a_cellMuCoef.disjointBoxLayout(), nRef);
-	  LevelData<FArrayBox> crseMuCoef(crseDBL, 1 , IntVect::Unit);
-	  this->setMuCoefficient(crseMuCoef , dx, a_time, a_dt);
-	  FillFromReference(a_cellMuCoef, crseMuCoef , a_dx, dx ,m_verbose);
-	  
-	}
-      else
-	{
-	  FillFromReference(a_cellMuCoef, *m_muCoef[refDataLev], a_dx, dx ,m_verbose);
-	}
-      dx /= Real(m_ratio[refDataLev]);
+      refDx[lev] = refDx[lev-1]/m_ratio[lev-1];
     }
+
+  flattenCellData(a_cellMuCoef,
+                  a_dx,
+                  m_muCoef,
+                  refDx,
+                  m_verbose);
+  
 
   for (int dir = 0; dir < SpaceDim; ++dir)
     {
