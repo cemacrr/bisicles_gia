@@ -274,16 +274,11 @@ If we're planning to use the PETSc solver interface, it's a good idea to install
 git clone -b maint https://bitbucket.org/petsc/petsc petsc
 </pre>
 
-<li>  Configure petsc. This is the configure command that I used (this builds a parallel version):
+<li>  Configure petsc. This is the configure command that I used (this builds a parallel version and installs it in /usr/local/petsc/petsc-maint-mpi):
 <pre>
 cd petsc
-./configure --download-f-blas-lapack=yes --download-hypre=yes -with-x=0
---with-c++-support=yes --with-mpi=yes --with-hypre=yes
---prefix=/usr/local/petsc/petsc-maint-mpi --with-c2html=0
+./configure --download-fblaslapack=yes --download-hypre=yes -with-x=0 --with-c++support=yes --with-mpi=yes --with-hypre=yes --prefix=/usr/local/petsc/petsc-maint-mpi --with-c2html=0 --with-ssl=0
 </pre> 
-
-<strong>The current (3.5.0 in July 2014) PETSc needs --download-fblaslapack=yes rather than --download-f-blas-lapack=yes. 
-Chombo 3.2 will not compile against 3.5.0+ without some modifications (pending)</strong>
 
 
 The petsc install system is pretty helpful and will tell you what to do
@@ -301,8 +296,6 @@ if using bash
 export PETSC_DIR=/usr/local/petsc/petsc-maint-mpi
 export PETSC_ARCH=arch-linux2-c-debug
 </pre>
-
-<strong>The current (3.5.0 in July 2014) PETSc no longer needs PETSC_ARCH</strong>
 </ol>
 
 
