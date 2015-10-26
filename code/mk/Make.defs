@@ -12,7 +12,7 @@ WHO := $(shell whoami)
 # make this a relative path so it will find the Chombo 
 # on same level as BISICLES
 ifeq ($(BISICLES_HOME),)
-BISICLES_HOME=../../../../
+BISICLES_HOME=../../../
 endif
 
 ifeq ($(CHOMBO_HOME),)
