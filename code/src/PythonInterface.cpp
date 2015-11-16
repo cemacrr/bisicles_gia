@@ -334,11 +334,11 @@ void  iceDivideBC_PyBC(FArrayBox& a_vel,
 }
 
 
+
 void  PythonInterface::PythonIBC::setupBCs()
 {
-  m_velBCs = iceDivideBC_PyBC;
-  Vector<RefCountedPtr<BCFunction> > loBC;
-  Vector<RefCountedPtr<BCFunction> > hiBC;
+  Vector<RefCountedPtr<CompGridVTOBC> > loBC;
+  Vector<RefCountedPtr<CompGridVTOBC> > hiBC;
 
   loBC.resize(SpaceDim);
   hiBC.resize(SpaceDim);
@@ -360,7 +360,7 @@ void  PythonInterface::PythonIBC::setupBCs()
       loBC[dir] = BCFactory(BCType(loBCType[dir]),dir,Side::Lo);
       hiBC[dir] = BCFactory(BCType(hiBCType[dir]),dir,Side::Hi);
     }
-  m_velBC = RefCountedPtr<BCFunction>(new PerBoundaryBCFunction(loBC, hiBC));
+  m_velBC = RefCountedPtr<CompGridVTOBC>(new PerEdgeCompGridVTOBC(loBC, hiBC));
   m_isBCsetUp = true;
 
 }

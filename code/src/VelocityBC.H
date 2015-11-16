@@ -9,12 +9,12 @@
 #endif
 // VelocityBC.H
 // ============
-// Collection of BCFunction classes
+// Collection of  CompGridVTOBC classes
 
 #ifndef _VELOCITYBC_H_
 #define _VELOCITYBC_H_
 
-#include "BCFunc.H"
+#include "PetscCompGridVTO.H"
 #include "ReflectGhostCells.H"
 #include "ExtrapGhostCells.H"
 #include "NamespaceHeader.H"
@@ -24,15 +24,19 @@
    Normal velocity component = 0
    Tangent velocity component = 0
 */
-class NoSlipBCFunction : public BCFunction
+class NoSlipCompGridVTOBC : public CompGridVTOBC
 {
 
 public:
 
-  NoSlipBCFunction(int a_dir, Side::LoHiSide a_side)
+  NoSlipCompGridVTOBC(int a_dir, Side::LoHiSide a_side)
   {
     m_dir = a_dir;
     m_side = a_side;
+    for (int comp = 0; comp < SpaceDim; comp++)
+      {
+	CompGridVTOBC::setDiri(m_dir,m_side,comp,true);
+      }
   }
 
   virtual void operator()(FArrayBox&           a_vel,
@@ -58,15 +62,15 @@ public:
 private:
   int m_dir;
   Side::LoHiSide m_side;
-  NoSlipBCFunction(){;}
-  NoSlipBCFunction(const NoSlipBCFunction&)
+  NoSlipCompGridVTOBC(){;}
+  NoSlipCompGridVTOBC(const NoSlipCompGridVTOBC&)
   {
-    MayDay::Error(" NoSlipBCFunction(const NoSlipBCFunction&) not implemented");
+    MayDay::Error(" NoSlipCompGridVTOBC(const NoSlipCompGridVTOBC&) not implemented");
   }
 
-  NoSlipBCFunction& operator=(const NoSlipBCFunction&)
+  NoSlipCompGridVTOBC& operator=(const NoSlipCompGridVTOBC&)
   {
-    MayDay::Error(" NoSlipBCFunction& operator= (const NoSlipBCFunction&) not implemented");
+    MayDay::Error(" NoSlipCompGridVTOBC& operator= (const NoSlipCompGridVTOBC&) not implemented");
     return *this;
   }
 };
@@ -76,15 +80,20 @@ private:
    Normal velocity component = 0
    Tangent velocity component normal gradient = 0
 */
-class IceDivideBCFunction : public BCFunction
+class IceDivideCompGridVTOBC : public CompGridVTOBC
 {
 
 public:
 
-  IceDivideBCFunction(int a_dir, Side::LoHiSide a_side)
+  IceDivideCompGridVTOBC(int a_dir, Side::LoHiSide a_side)
   {
     m_dir = a_dir;
     m_side = a_side;
+    
+    CompGridVTOBC::setDiri(m_dir,m_side,m_dir,true);
+    for (int i = 1; i < SpaceDim; i++) 
+      CompGridVTOBC::setDiri(m_dir,m_side,(m_dir+i)%SpaceDim,false);
+
   }
 
   virtual void operator()(FArrayBox&           a_vel,
@@ -110,15 +119,15 @@ public:
 private:
   int m_dir;
   Side::LoHiSide m_side;
-  IceDivideBCFunction(){;}
-  IceDivideBCFunction(const IceDivideBCFunction&)
+  IceDivideCompGridVTOBC(){;}
+  IceDivideCompGridVTOBC(const IceDivideCompGridVTOBC&)
   {
-    MayDay::Error(" IceDivideBCFunction(const IceDivideBCFunction&) not implemented");
+    MayDay::Error(" IceDivideCompGridVTOBC(const IceDivideCompGridVTOBC&) not implemented");
   }
 
-  IceDivideBCFunction& operator=(const IceDivideBCFunction&)
+  IceDivideCompGridVTOBC& operator=(const IceDivideCompGridVTOBC&)
   {
-    MayDay::Error(" IceDivideBCFunction& operator= (const IceDivideBCFunction&) not implemented");
+    MayDay::Error(" IceDivideCompGridVTOBC& operator= (const IceDivideCompGridVTOBC&) not implemented");
     return *this;
   }
 };
@@ -129,15 +138,19 @@ private:
    Normal velocity component normal gradient = 0
    Tangent velocity component normal gradient = 0
 */
-class NaturalBCFunction : public BCFunction
+class NaturalCompGridVTOBC : public CompGridVTOBC
 {
 
 public:
 
-  NaturalBCFunction(int a_dir, Side::LoHiSide a_side)
+  NaturalCompGridVTOBC(int a_dir, Side::LoHiSide a_side)
   {
     m_dir = a_dir;
     m_side = a_side;
+    for (int comp = 0; comp < SpaceDim; comp++)
+      {
+	CompGridVTOBC::setDiri(m_dir,m_side,comp,false);
+      }
   }
 
   virtual void operator()(FArrayBox&           a_vel,
@@ -157,56 +170,56 @@ public:
 private:
   int m_dir;
   Side::LoHiSide m_side;
-  NaturalBCFunction(){;}
-  NaturalBCFunction(const NaturalBCFunction&)
+  NaturalCompGridVTOBC(){;}
+  NaturalCompGridVTOBC(const NaturalCompGridVTOBC&)
   {
-    MayDay::Error(" NaturalBCFunction(const NaturalBCFunction&) not implemented");
+    MayDay::Error(" NaturalCompGridVTOBC(const NaturalCompGridVTOBC&) not implemented");
   }
 
-  NaturalBCFunction& operator=(const NaturalBCFunction&)
+  NaturalCompGridVTOBC& operator=(const NaturalCompGridVTOBC&)
   {
-    MayDay::Error(" NaturalBCFunction& operator= (const NaturalBCFunction&) not implemented");
+    MayDay::Error(" NaturalCompGridVTOBC& operator= (const NaturalCompGridVTOBC&) not implemented");
     return *this;
   }
 };
 
 
-
-
-/// Apply a different BCFunction along each boundary 
-class PerBoundaryBCFunction : public BCFunction
+/// Apply a different CompGridVTOBC along each boundary 
+class PerEdgeCompGridVTOBC : public CompGridVTOBC
 {
-  Vector<RefCountedPtr<BCFunction> > m_loBC;
-  Vector<RefCountedPtr<BCFunction> > m_hiBC;
+  Vector<RefCountedPtr<CompGridVTOBC> > m_loBC;
+  Vector<RefCountedPtr<CompGridVTOBC> > m_hiBC;
 
 public:
 
-  PerBoundaryBCFunction(Vector<RefCountedPtr<BCFunction> > a_loBC,
-			Vector<RefCountedPtr<BCFunction> > a_hiBC)
+  PerEdgeCompGridVTOBC(Vector<RefCountedPtr<CompGridVTOBC> > a_loBC,
+		       Vector<RefCountedPtr<CompGridVTOBC> > a_hiBC)
     :m_loBC(a_loBC), m_hiBC(a_hiBC)
   {
     CH_assert(m_loBC.size() == SpaceDim);
     CH_assert(m_hiBC.size() == SpaceDim);
     for (int dir = 0; dir < SpaceDim; dir++)
       {
-	CH_assert(m_loBC[dir] != NULL);
-	CH_assert(m_hiBC[dir] != NULL);
+	for (int comp = 0; comp < SpaceDim; comp++)
+	  {	
+	    CompGridVTOBC::setDiri(dir,Side::Lo,comp,a_loBC[dir]->isDiri(dir,Side::Lo,comp));
+	    CompGridVTOBC::setDiri(dir,Side::Hi,comp,a_hiBC[dir]->isDiri(dir,Side::Hi,comp));
+	  }
       }
   }
 
-  
-  PerBoundaryBCFunction()
+  PerEdgeCompGridVTOBC()
   {
   }
 
-  PerBoundaryBCFunction(const PerBoundaryBCFunction&)
+  PerEdgeCompGridVTOBC(const PerEdgeCompGridVTOBC&)
   {
-    MayDay::Error(" PerBoundaryBCFunction(const PerBoundaryBCFunction&) not implemented");
+    MayDay::Error(" PerEdgeCompGridVTOBC(const PerEdgeCompGridVTOBC&) not implemented");
   }
 
-  PerBoundaryBCFunction& operator=(const PerBoundaryBCFunction&)
+  PerEdgeCompGridVTOBC& operator=(const PerEdgeCompGridVTOBC&)
   {
-    MayDay::Error(" PerBoundaryBCFunction& operator= (const PerBoundaryBCFunction&) not implemented");
+    MayDay::Error(" PerEdgeCompGridVTOBC& operator= (const PerEdgeCompGridVTOBC&) not implemented");
     return *this;
   }
 
@@ -224,12 +237,11 @@ public:
       }
   }
 
-private:
-  int m_dir;
-  Side::LoHiSide m_side;
 
-  
 };
+
+
+
 
 #include "NamespaceFooter.H"
 

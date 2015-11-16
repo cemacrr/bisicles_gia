@@ -78,24 +78,24 @@ namespace PythonInterface
     
     enum BCType {IceDivide, NoSlip, Natural, MaxBCType};
     
-    RefCountedPtr<BCFunction> BCFactory(BCType a_type, 
-					int a_dir, 
-					Side::LoHiSide a_side)
+    RefCountedPtr<CompGridVTOBC> BCFactory(BCType a_type, 
+					   int a_dir, 
+					   Side::LoHiSide a_side)
     {
       if (a_type == IceDivide)
-	{
-	  return RefCountedPtr<BCFunction>(new IceDivideBCFunction(a_dir, a_side));
-	}
+    	{
+    	  return RefCountedPtr<CompGridVTOBC>(new IceDivideCompGridVTOBC(a_dir, a_side));
+    	}
       else if (a_type == NoSlip)
-	{
-	  return RefCountedPtr<BCFunction>(new NoSlipBCFunction(a_dir, a_side));
-	}
+    	{
+    	  return RefCountedPtr<CompGridVTOBC>(new NoSlipCompGridVTOBC(a_dir, a_side));
+    	}
       else if (a_type == Natural)
-	{
-	  return RefCountedPtr<BCFunction>(new NaturalBCFunction(a_dir, a_side));
-	}
+    	{
+    	  return RefCountedPtr<CompGridVTOBC>(new NaturalCompGridVTOBC(a_dir, a_side));
+    	}
       CH_assert(a_type < MaxBCType && a_type > 0);
-      return RefCountedPtr<BCFunction>(new IceDivideBCFunction(a_dir, a_side));
+      return RefCountedPtr<CompGridVTOBC>(new IceDivideCompGridVTOBC(a_dir, a_side));
     }
 
   public:
@@ -218,8 +218,7 @@ namespace PythonInterface
   private:
 
     RealVect m_dx;
-    BCFunc m_velBCs;
-    RefCountedPtr<BCFunction> m_velBC;
+    RefCountedPtr<CompGridVTOBC> m_velBC;
     bool m_isBCsetUp;
     bool m_verbose;
     void setupBCs();
