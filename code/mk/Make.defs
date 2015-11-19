@@ -58,7 +58,8 @@ ifeq ($(UNAMEN),athos.ggy.bris.ac.uk)
 PYTHON_VERSION=2.4
 endif
 ifeq ($(UNAMEN),porthos.ggy.bris.ac.uk)
-PYTHON_VERSION=2.4
+PYTHON_VERSION=2.7
+NETCDF_HOME=/home/glacio-shared/netcdf/
 endif
 ifeq ($(UNAMEN),dartagnan.ggy.bris.ac.uk)
 #PYTHON_INC=/data/ggslc/opt/python27/include/python2.7/
