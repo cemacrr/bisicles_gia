@@ -1011,6 +1011,9 @@ protected:
   /// diagnostic quantity -- sum(ice over flotation) at last timestepa
   Real m_lastVolumeAboveFlotation;
  
+  /// if true, report area of grounded ice and area of floating ice
+  bool m_report_area;
+
   /// if true, report sum(basal flux) and sum(surface flux)
   bool m_report_total_flux;
 

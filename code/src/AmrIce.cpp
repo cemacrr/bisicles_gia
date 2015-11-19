@@ -535,6 +535,7 @@ AmrIce::setDefaults()
 
   m_report_total_flux = false;
   m_report_grounded_ice = false;
+  m_report_area = false;
   m_eliminate_remote_ice = false;
   m_eliminate_remote_ice_max_iter = 10;
   m_eliminate_remote_ice_tol = 1.0;
@@ -1296,6 +1297,8 @@ AmrIce::initialize()
     }
 
   ppAmr.query("report_sum_grounded_ice",   m_report_grounded_ice);
+
+  ppAmr.query("report_ice_area",   m_report_area);
 
   ppAmr.query("report_total_flux", m_report_total_flux);
   
@@ -2463,6 +2466,7 @@ AmrIce::timeStep(Real a_dt)
   
   Real sumGroundedIce = 0.0, diffSumGrounded = 0.0, totalDiffGrounded = 0.0;
   Real VAF=0.0, diffVAF = 0.0, totalDiffVAF = 0.0;
+  Real groundedArea = 0.0, floatingArea = 0.0;
   Real sumBasalFlux = 0.0;
   Real sumSurfaceFlux = 0.0;
   if (m_report_grounded_ice)
@@ -2476,6 +2480,12 @@ AmrIce::timeStep(Real a_dt)
       diffVAF = VAF -  m_lastVolumeAboveFlotation;
       totalDiffVAF = VAF - m_initialVolumeAboveFlotation;
       m_lastVolumeAboveFlotation = VAF;
+    }
+
+ if (m_report_area)
+    {
+      //      groundedArea = computeGroundedArea();
+      //floatingArea = computeFloatingArea();
     }
 
   if (m_report_total_flux)
@@ -2507,6 +2517,16 @@ AmrIce::timeStep(Real a_dt)
                  << " " << totalDiffVAF
                  << ")" << endl;
         } 
+      if (m_report_area)
+        {
+          pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+                 << ": GroundedArea = " << groundedArea << " m2 " << endl;
+
+          pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+                 << ": FloatingArea = " << floatingArea << " m2 " << endl;
+
+        } 
+
       if (m_report_total_flux)
 	{
 	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
