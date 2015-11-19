@@ -191,6 +191,9 @@ public:
                               const Vector<LevelData<FluxBox>* >& a_H_half,
                               const Vector<LevelData<FluxBox>* >& a_faceVelAdvection);
 
+  // disagnostic routine -- compute discharge
+  void computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes);
+
   // update ice thickness *and* bedrock elevation
   void updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new, 
                        Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoords_old, 
@@ -1022,6 +1025,9 @@ protected:
 
   /// if true, report sum(basal flux) and sum(surface flux)
   bool m_report_total_flux;
+
+  /// if true, report discharge of solid ice from the ice edge
+  bool m_report_discharge;
 
   /// type of basal friction distribution
   int m_beta_type;

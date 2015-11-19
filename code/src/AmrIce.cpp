@@ -536,6 +536,7 @@ AmrIce::setDefaults()
   m_report_total_flux = false;
   m_report_grounded_ice = false;
   m_report_area = false;
+  m_report_discharge = false;
   m_eliminate_remote_ice = false;
   m_eliminate_remote_ice_max_iter = 10;
   m_eliminate_remote_ice_tol = 1.0;
@@ -1301,6 +1302,8 @@ AmrIce::initialize()
   ppAmr.query("report_ice_area",   m_report_area);
 
   ppAmr.query("report_total_flux", m_report_total_flux);
+
+  ppAmr.query("report_discharge", m_report_discharge);
   
   ppAmr.query("eliminate_remote_ice", m_eliminate_remote_ice);
   ppAmr.query("eliminate_remote_ice_max_iter", m_eliminate_remote_ice_max_iter);
@@ -2364,6 +2367,11 @@ AmrIce::timeStep(Real a_dt)
 
   // compute thickness fluxes
   computeThicknessFluxes(vectFluxes, H_half, m_faceVelAdvection);
+ 
+  if (m_report_discharge)
+    {
+      computeDischarge(vectFluxes);
+    }
 
   // make a copy of m_vect_coordSys before it is overwritten
   Vector<RefCountedPtr<LevelSigmaCS> > vectCoords_old (m_finest_level+1);
@@ -2719,6 +2727,117 @@ AmrIce::computeThicknessFluxes(Vector<LevelData<FluxBox>* >& a_vectFluxes,
     }
   
 }
+
+// Diagnostic routine -- compute discharge
+void 
+AmrIce::computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes)
+{
+
+  Real sumDischarge = 0.0;
+  Real sumGroundedDischarge = 0.0;
+
+  Vector<LevelData<FArrayBox>* > vectDischarge ( m_finest_level+1, NULL);
+  Vector<LevelData<FArrayBox>* > vectGroundedDischarge ( m_finest_level+1, NULL);
+
+  for (int lev=0; lev<=m_finest_level; lev++)
+    {
+      vectDischarge[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1,
+							    IntVect::Zero);
+      LevelData<FArrayBox>& levelDischarge = *vectDischarge[lev];
+      vectGroundedDischarge[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1,
+							    IntVect::Zero);
+      LevelData<FArrayBox>& levelGroundedDischarge = *vectGroundedDischarge[lev];
+
+      const LevelData<FArrayBox>& levelThickness =  m_vect_coordSys[lev]->getH();
+      const LevelData<BaseFab<int> >& levelMask = m_vect_coordSys[lev]->getFloatingMask();
+
+      DataIterator dit=levelDischarge.dataIterator();
+      for (dit.begin(); dit.ok(); ++dit)
+	{
+	  const FluxBox& vflux = (*a_vectFluxes[lev])[dit];
+	  const BaseFab<int>& mask = levelMask[dit];
+	  const FArrayBox& thk = levelThickness[dit];
+
+	  FArrayBox& discharge = levelDischarge[dit];
+	  FArrayBox& groundedDischarge = levelGroundedDischarge[dit];
+
+	  for (int dir=0; dir<SpaceDim; dir++)
+	    {
+
+	      const FArrayBox& flux = vflux[dir];
+	      BoxIterator bit(discharge.box());
+	      for (bit.begin(); bit.ok(); ++bit)
+		{
+		  IntVect iv = bit();
+		  Real smallThk = 10.0;
+		  if ((thk(iv) < smallThk) | (mask(iv) != GROUNDEDMASKVAL))
+		    {
+		      if (thk(iv + BASISV(dir)) > smallThk & (mask(iv + BASISV(dir)) == GROUNDEDMASKVAL) ) 
+			{
+			  groundedDischarge(iv) += -flux(iv + BASISV(dir)) / m_amrDx[lev];
+			}
+		      if (thk(iv - BASISV(dir)) > smallThk & (mask(iv - BASISV(dir)) == GROUNDEDMASKVAL) )
+			{
+			  groundedDischarge(iv) += flux(iv) / m_amrDx[lev];
+			}
+
+		    }		  
+		  smallThk = 0.1;
+		  if (thk(iv) < smallThk) 
+		    {
+		      if (thk(iv + BASISV(dir)) > smallThk)
+			{
+			  discharge(iv) += -flux(iv + BASISV(dir)) / m_amrDx[lev];
+			}
+		      if (thk(iv - BASISV(dir)) > smallThk)
+			{
+			  discharge(iv) += flux(iv) / m_amrDx[lev];
+			}
+
+		    }
+
+		}
+	    } // end direction 
+	}
+
+    } // end loop over levels
+  
+  // now compute sum
+    sumDischarge = computeSum(vectDischarge, m_refinement_ratios,
+  				m_amrDx[0], Interval(0,0), 0);
+    sumGroundedDischarge = computeSum(vectGroundedDischarge, m_refinement_ratios,
+  				m_amrDx[0], Interval(0,0), 0);
+
+  if (s_verbosity > 0) 
+    {
+      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+	     << ": DischargeFromIceEdge = " << sumDischarge << " m3/y " << endl;
+
+      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+	     << ": DischargeFromGroundedIce = " << sumGroundedDischarge << " m3/y " << endl;
+
+    }  
+
+  // clean up temp storage
+  for (int lev=0; lev<vectDischarge.size(); lev++)
+    {
+      if (vectDischarge[lev] != NULL)
+	{
+	  delete vectDischarge[lev];
+	  vectDischarge[lev] = NULL;
+	}
+    }
+  for (int lev=0; lev<vectGroundedDischarge.size(); lev++)
+    {
+      if (vectGroundedDischarge[lev] != NULL)
+	{
+	  delete vectGroundedDischarge[lev];
+	  vectGroundedDischarge[lev] = NULL;
+	}
+    }
+
+}
+
 // update  ice thickness *and* bedrock elevation
 void
 AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new, 
