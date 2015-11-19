@@ -700,7 +700,7 @@ int main(int argc, char* argv[]) {
 	{
 	  if (diri)
 	    {
-	      const std::string err("If surfaceHeatBoundaryData.Diirchlett = true, surfaceHeatBoundaryData.type must be set");
+	      const std::string err("If surfaceHeatBoundaryData.Dirichlett = true, surfaceHeatBoundaryData.type must be set");
 	      pout() << err << endl;
 	      MayDay::Error(err.c_str());
 	    }
@@ -708,7 +708,12 @@ int main(int argc, char* argv[]) {
 	    {
 	      const std::string warn("No surfaceHeatBoundaryData.type specified, so zero flux set. Only relevant for amr.isothermal = false");
 	      pout() << warn << endl;
-	      MayDay::Warning(warn.c_str());
+	      // only warn if we're on processor 0, otherwise we get 
+	      // nproc copies of this warning to stderr
+	      if (procID() == uniqueProc(SerialTask::compute))
+		{
+		  MayDay::Warning(warn.c_str());
+		}
 	      surf_heat_boundary_data_ptr = new zeroFlux();
 	    }
 	}
