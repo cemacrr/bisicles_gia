@@ -285,6 +285,12 @@ public:
   /// compute volume over flotation
   Real computeVolumeAboveFlotation() const;
 
+  /// compute area of grounded ice.
+  Real computeGroundedArea() const;
+
+  /// compute area of floating ice.
+  Real computeFloatingArea() const;
+
   /// compute total flux over ice
   Real computeFluxOverIce(const Vector<LevelData<FArrayBox>*> a_flux);
 

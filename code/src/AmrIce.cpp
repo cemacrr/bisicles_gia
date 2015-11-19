@@ -2484,8 +2484,8 @@ AmrIce::timeStep(Real a_dt)
 
  if (m_report_area)
     {
-      //      groundedArea = computeGroundedArea();
-      //floatingArea = computeFloatingArea();
+      groundedArea = computeGroundedArea();
+      floatingArea = computeFloatingArea();
     }
 
   if (m_report_total_flux)
@@ -7780,6 +7780,114 @@ Real AmrIce::computeTotalGroundedIce() const
     }
 
   return totalGroundedIce;
+
+}
+
+Real AmrIce::computeGroundedArea() const
+{
+  
+  Real groundedArea = 0.0;
+
+  Vector<LevelData<FArrayBox>* > vectGroundedIce(m_finest_level+1, NULL);
+
+  for (int lev=0; lev<=m_finest_level; lev++)
+    {
+      vectGroundedIce[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1,
+							    IntVect::Zero);
+
+      LevelData<FArrayBox>& levelGroundedIce = *vectGroundedIce[lev];
+
+      const LevelData<BaseFab<int> >& levelMask = m_vect_coordSys[lev]->getFloatingMask();
+      // now loop through and set to one where we have grounded ice
+      DataIterator dit=levelGroundedIce.dataIterator();
+      for (dit.begin(); dit.ok(); ++dit)
+	{
+	  const BaseFab<int>& thisMask = levelMask[dit];
+	  FArrayBox& thisIce = levelGroundedIce[dit];
+	  BoxIterator bit(thisIce.box());
+	  for (bit.begin(); bit.ok(); ++bit)
+	    {
+	      IntVect iv = bit();
+	      if (thisMask(iv,0) == GROUNDEDMASKVAL)
+		{
+		  thisIce(iv,0) = 1.0;
+		}
+	    }
+	}
+    
+
+    }
+
+  // now compute sum
+  groundedArea = computeSum(vectGroundedIce, m_refinement_ratios,
+				m_amrDx[0], Interval(0,0), 0);
+
+  
+  // clean up temp storage
+  for (int lev=0; lev<vectGroundedIce.size(); lev++)
+    {
+      if (vectGroundedIce[lev] != NULL)
+	{
+	  delete vectGroundedIce[lev];
+	  vectGroundedIce[lev] = NULL;
+	}
+    }
+
+  return groundedArea;
+
+}
+
+Real AmrIce::computeFloatingArea() const
+{
+  
+  Real floatingArea = 0.0;
+
+  Vector<LevelData<FArrayBox>* > vectFloatingIce(m_finest_level+1, NULL);
+
+  for (int lev=0; lev<=m_finest_level; lev++)
+    {
+      vectFloatingIce[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1,
+							    IntVect::Zero);
+
+      LevelData<FArrayBox>& levelFloatingIce = *vectFloatingIce[lev];
+
+      const LevelData<BaseFab<int> >& levelMask = m_vect_coordSys[lev]->getFloatingMask();
+      // now loop through and set to one where we have floating ice
+      DataIterator dit=levelFloatingIce.dataIterator();
+      for (dit.begin(); dit.ok(); ++dit)
+	{
+	  const BaseFab<int>& thisMask = levelMask[dit];
+	  FArrayBox& thisIce = levelFloatingIce[dit];
+	  BoxIterator bit(thisIce.box());
+	  for (bit.begin(); bit.ok(); ++bit)
+	    {
+	      IntVect iv = bit();
+	      if (thisMask(iv,0) == FLOATINGMASKVAL)
+		{
+		  thisIce(iv,0) = 1.0;
+		}
+	    }
+	}
+    
+
+    }
+
+  // now compute sum
+  floatingArea = computeSum(vectFloatingIce, m_refinement_ratios,
+				m_amrDx[0], Interval(0,0), 0);
+
+  
+  // clean up temp storage
+  for (int lev=0; lev<vectFloatingIce.size(); lev++)
+    {
+      if (vectFloatingIce[lev] != NULL)
+	{
+	  delete vectFloatingIce[lev];
+	  vectFloatingIce[lev] = NULL;
+	}
+    }
+
+  return floatingArea;
 
 }
 
