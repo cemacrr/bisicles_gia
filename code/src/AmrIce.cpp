@@ -2760,6 +2760,8 @@ AmrIce::computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes)
 
 	  FArrayBox& discharge = levelDischarge[dit];
 	  FArrayBox& groundedDischarge = levelGroundedDischarge[dit];
+	  discharge.setVal(0.0);
+	  groundedDischarge.setVal(0.0);
 
 	  for (int dir=0; dir<SpaceDim; dir++)
 	    {
@@ -2782,14 +2784,13 @@ AmrIce::computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes)
 			}
 
 		    }		  
-		  smallThk = 0.1;
-		  if (thk(iv) < smallThk) 
+		  if (thk(iv) < tiny_thickness) 
 		    {
-		      if (thk(iv + BASISV(dir)) > smallThk)
+		      if (thk(iv + BASISV(dir)) > tiny_thickness)
 			{
 			  discharge(iv) += -flux(iv + BASISV(dir)) / m_amrDx[lev];
 			}
-		      if (thk(iv - BASISV(dir)) > smallThk)
+		      if (thk(iv - BASISV(dir)) > tiny_thickness)
 			{
 			  discharge(iv) += flux(iv) / m_amrDx[lev];
 			}
@@ -7923,6 +7924,7 @@ Real AmrIce::computeGroundedArea() const
 	{
 	  const BaseFab<int>& thisMask = levelMask[dit];
 	  FArrayBox& thisIce = levelGroundedIce[dit];
+	  thisIce.setVal(0.0);
 	  BoxIterator bit(thisIce.box());
 	  for (bit.begin(); bit.ok(); ++bit)
 	    {
@@ -7937,11 +7939,11 @@ Real AmrIce::computeGroundedArea() const
 
     }
 
+
   // now compute sum
   groundedArea = computeSum(vectGroundedIce, m_refinement_ratios,
 				m_amrDx[0], Interval(0,0), 0);
 
-  
   // clean up temp storage
   for (int lev=0; lev<vectGroundedIce.size(); lev++)
     {
@@ -7977,6 +7979,7 @@ Real AmrIce::computeFloatingArea() const
 	{
 	  const BaseFab<int>& thisMask = levelMask[dit];
 	  FArrayBox& thisIce = levelFloatingIce[dit];
+	  thisIce.setVal(0.0);
 	  BoxIterator bit(thisIce.box());
 	  for (bit.begin(); bit.ok(); ++bit)
 	    {
