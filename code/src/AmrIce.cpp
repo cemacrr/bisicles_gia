@@ -2477,6 +2477,7 @@ AmrIce::timeStep(Real a_dt)
   Real groundedArea = 0.0, floatingArea = 0.0;
   Real sumBasalFlux = 0.0;
   Real sumSurfaceFlux = 0.0;
+  Real sumBalance = 0.0;
   if (m_report_grounded_ice)
     {
       sumGroundedIce = computeTotalGroundedIce();
@@ -2501,6 +2502,7 @@ AmrIce::timeStep(Real a_dt)
     {
       sumBasalFlux = computeFluxOverIce(m_basalThicknessSource);
       sumSurfaceFlux = computeFluxOverIce(m_surfaceThicknessSource);
+      sumBalance = computeFluxOverIce(m_balance);
     }
 
   if (s_verbosity > 0) 
@@ -2537,11 +2539,20 @@ AmrIce::timeStep(Real a_dt)
 
       if (m_report_total_flux)
 	{
-	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-		 << ": TotalBasalFlux = " << sumBasalFlux << " m3 " << endl;
+	  if (m_dt > 0)
+	    {
+	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+		     << ": TotalBasalFlux = " << sumBasalFlux << " m3 " 
+		     << " ( " << sumBasalFlux/m_dt << " m3/yr ) " << endl;
 
-	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-		 << ": TotalSurfaceFlux = " << sumSurfaceFlux << " m3 " << endl;
+	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+		     << ": TotalSurfaceFlux = " << sumSurfaceFlux << " m3 "
+		     << " ( " << sumSurfaceFlux/m_dt << " m3/yr ) " << endl;
+
+	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+		     << ": TotalBalance = " << sumBalance << " m3 "
+		     << " ( " << sumBalance/m_dt << " m3/yr ) " << endl;
+	    }
 	}
     }
   
