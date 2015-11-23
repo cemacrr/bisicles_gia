@@ -2114,20 +2114,21 @@ void AMRIceControl::computeObjectiveAndGradient
   Real vobj = computeSum(m_velocityMisfit, m_refRatio, m_dx[0][0]);
   Real sumGradCSq = computeSum(m_gradCSq,m_refRatio, m_dx[0][0]);
   Real sumGradMuSq = computeSum(m_gradMuCoefSq,m_refRatio, m_dx[0][0]);
-  Real sumGradX0Sq = computeSum(m_gradXSq,m_refRatio, m_dx[0][0], Interval(0,0));
-  Real sumGradX1Sq = computeSum(m_gradXSq,m_refRatio, m_dx[0][0], Interval(1,1));
   Real normX0 = computeNorm(a_x,m_refRatio, m_dx[0][0], Interval(0,0));
   Real normX1 = computeNorm(a_x,m_refRatio, m_dx[0][0], Interval(1,1));
 
   a_fm = vobj  ;
   a_fp =  m_gradCsqRegularization * sumGradCSq
     + m_gradMuCoefsqRegularization * sumGradMuSq
-    + m_gradX0sqRegularization * sumGradX0Sq
-    + m_gradX1sqRegularization * sumGradX1Sq
     + m_X0Regularization * normX0*normX0
     + m_X1Regularization * normX1*normX1;
-  pout() << " ||velocity misfit||^2 = " << vobj
+  pout() << " ||velocity misfit||^2 = " << vobj 
+	 << " || grad C ||^2 = " << sumGradCSq
+         << " || grad muCoef ||^2 = " << sumGradMuSq
+	 << " || X0 ||^2 = " << normX0*normX0
+	 << " || X1 ||^2 = " << normX1*normX1
 	 << std::endl;
+  
   //solve the adjoint problem
   pout() << " solving adjoint equations... " << std::endl;
   solveForwardProblem(m_adjVel,true,m_adjRhs,m_C,m_C0,m_A,m_faceMuCoef);
