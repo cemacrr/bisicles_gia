@@ -2739,16 +2739,19 @@ AmrIce::computeThicknessFluxes(Vector<LevelData<FluxBox>* >& a_vectFluxes,
   
 }
 
-// Diagnostic routine -- compute discharge
+// Diagnostic routine -- compute discharge and calving flux
+// Calving flux defined as flux of ice from the ice sheet directly into the ocean. 
 void 
 AmrIce::computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes)
 {
 
   Real sumDischarge = 0.0;
   Real sumGroundedDischarge = 0.0;
+  Real sumCalvingFlux = 0.0;
 
   Vector<LevelData<FArrayBox>* > vectDischarge ( m_finest_level+1, NULL);
   Vector<LevelData<FArrayBox>* > vectGroundedDischarge ( m_finest_level+1, NULL);
+  Vector<LevelData<FArrayBox>* > vectCalvingFlux ( m_finest_level+1, NULL);
 
   for (int lev=0; lev<=m_finest_level; lev++)
     {
@@ -2758,6 +2761,9 @@ AmrIce::computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes)
       vectGroundedDischarge[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1,
 							    IntVect::Zero);
       LevelData<FArrayBox>& levelGroundedDischarge = *vectGroundedDischarge[lev];
+      vectCalvingFlux[lev] = new LevelData<FArrayBox>(m_amrGrids[lev],1,
+							    IntVect::Zero);
+      LevelData<FArrayBox>& levelCalvingFlux = *vectCalvingFlux[lev];
 
       const LevelData<FArrayBox>& levelThickness =  m_vect_coordSys[lev]->getH();
       const LevelData<BaseFab<int> >& levelMask = m_vect_coordSys[lev]->getFloatingMask();
@@ -2771,8 +2777,10 @@ AmrIce::computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes)
 
 	  FArrayBox& discharge = levelDischarge[dit];
 	  FArrayBox& groundedDischarge = levelGroundedDischarge[dit];
+	  FArrayBox& calvingFlux = levelCalvingFlux[dit];
 	  discharge.setVal(0.0);
 	  groundedDischarge.setVal(0.0);
+	  calvingFlux.setVal(0.0);
 
 	  for (int dir=0; dir<SpaceDim; dir++)
 	    {
@@ -2807,6 +2815,18 @@ AmrIce::computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes)
 			}
 
 		    }
+		  if ((thk(iv) < tiny_thickness) & (mask(iv) == OPENSEAMASKVAL)) 
+		    {
+		      if (thk(iv + BASISV(dir)) > tiny_thickness)
+			{
+			  calvingFlux(iv) += -flux(iv + BASISV(dir)) / m_amrDx[lev];
+			}
+		      if (thk(iv - BASISV(dir)) > tiny_thickness)
+			{
+			  calvingFlux(iv) += flux(iv) / m_amrDx[lev];
+			}
+
+		    }
 
 		}
 	    } // end direction 
@@ -2819,6 +2839,8 @@ AmrIce::computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes)
   				m_amrDx[0], Interval(0,0), 0);
     sumGroundedDischarge = computeSum(vectGroundedDischarge, m_refinement_ratios,
   				m_amrDx[0], Interval(0,0), 0);
+    sumCalvingFlux = computeSum(vectCalvingFlux, m_refinement_ratios,
+  				m_amrDx[0], Interval(0,0), 0);
 
   if (s_verbosity > 0) 
     {
@@ -2827,6 +2849,9 @@ AmrIce::computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes)
 
       pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
 	     << ": DischargeFromGroundedIce = " << sumGroundedDischarge << " m3/y " << endl;
+      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+	     << ": CalvingFlux = " << sumCalvingFlux << " m3/y " << endl;
+
 
     }  
 
@@ -2845,6 +2870,14 @@ AmrIce::computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes)
 	{
 	  delete vectGroundedDischarge[lev];
 	  vectGroundedDischarge[lev] = NULL;
+	}
+    }
+  for (int lev=0; lev<vectCalvingFlux.size(); lev++)
+    {
+      if (vectCalvingFlux[lev] != NULL)
+	{
+	  delete vectCalvingFlux[lev];
+	  vectCalvingFlux[lev] = NULL;
 	}
     }
 
