@@ -65,14 +65,14 @@ int CGOptimize(O& a_F, X& a_x,
   Real deltaNew = a_F.dotProduct(r,s);
   Real deltaZero = deltaNew;
   int iter = a_iter; int k = 0;
-  // if we're restarting, we likely want to drop out every 
-  // 
-  int modIter = iter % a_maxIter;
-  while (   (iter - a_iter < a_maxIter) 
-            && ((iter >0) && (modIter > 0))
-	    && (deltaNew > sqr(a_tol) * deltaZero) 
-	    && (fm > 1.0e-16) 
-	    && ( (iter - a_iter < 1  ) || (fm/fmOld < a_hang) ) )
+
+  // if we have a_iter > a_maxIter, we have presumably restarted
+  int niter = a_maxIter + (iter/a_maxIter) * a_maxIter;
+  
+  while ( (iter < niter)
+	  && (deltaNew > sqr(a_tol) * deltaZero) 
+	  && (fm > 1.0e-16) 
+	  && ( (iter - a_iter < 1  ) || (fm/fmOld < a_hang) ) )
     {
       
       pout() << "CGOptimize iteration " << iter 
