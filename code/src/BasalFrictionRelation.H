@@ -1,3 +1,4 @@
+
 #ifdef CH_LANG_CC
 /*
 *      _______              __
@@ -130,7 +131,12 @@ private:
 class PressureLimitedBasalFrictionRelation : public BasalFrictionRelation
 {
 
-  Real m_a;
+public:
+  enum Model {Tsai,Leguy,MAX_MODEL};
+
+private:
+  Real m_a, m_p;
+  Model m_model;
   BasalFrictionRelation* m_bfr; 
   
 public:
@@ -143,8 +149,10 @@ public:
 			    const Box& a_box) const;
 
 
-  PressureLimitedBasalFrictionRelation(Real a_a, BasalFrictionRelation* a_bfr)
-    : m_a(a_a), m_bfr(a_bfr->getNewBasalFrictionRelation())
+  PressureLimitedBasalFrictionRelation(Real a_a, Real a_p, Model a_model, 
+				       BasalFrictionRelation* a_bfr)
+    : m_a(a_a), m_p(a_p), m_model(a_model),  
+      m_bfr(a_bfr->getNewBasalFrictionRelation())
   {
 
   }
@@ -153,7 +161,7 @@ public:
   virtual BasalFrictionRelation* getNewBasalFrictionRelation() const
   {
     PressureLimitedBasalFrictionRelation* ptr = 
-      new PressureLimitedBasalFrictionRelation(m_a, m_bfr);
+      new PressureLimitedBasalFrictionRelation(m_a, m_p, m_model, m_bfr);
 
     return static_cast<BasalFrictionRelation*>(ptr);
   }

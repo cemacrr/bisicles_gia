@@ -85,16 +85,47 @@ PressureLimitedBasalFrictionRelation::computeAlpha
 {
   m_bfr->computeAlpha(a_alpha, a_basalVel,  a_C, a_coords,  a_dit, a_box);
 
-  //a * hydrostatic pressure - generalize?
-  FArrayBox limit(a_box,1);
+  FArrayBox effectivePressure(a_box,1);
   const FArrayBox& thckOverFlotation = a_coords.getThicknessOverFlotation()[a_dit];
-  limit.copy( thckOverFlotation );
-  limit *= (m_a * a_coords.iceDensity() * a_coords.gravity());
+  const FArrayBox& thck = a_coords.getH()[a_dit];
+  const Real eps = 1.0e-6;
+  if ( Abs( m_p - 1.0) < eps)
+    {
+      // p == 1;  effective pressure = rho * g * (h-hf)
+      effectivePressure.copy( thckOverFlotation );
+      effectivePressure *= a_coords.iceDensity() * a_coords.gravity();
+    }
+  else
+    {
+      // p != 1 : effective pressure formula from Leguy 2014 (could use this for p = too, but
+      // since there are extra calculations and we think p == 1 is a common case, don't
+      Real rhog = a_coords.iceDensity() * a_coords.gravity();
+      FORT_BFRICTIONLEGUYEFFPRES(CHF_FRA1(effectivePressure,0),
+				 CHF_CONST_FRA1(thckOverFlotation,0),
+				 CHF_CONST_FRA1(thck,0),
+				 CHF_CONST_REAL(m_p),
+				 CHF_CONST_REAL(rhog),
+				 CHF_BOX(a_box));
+    }
 
-  FORT_BFRICTIONPLIMIT(CHF_FRA1(a_alpha,0),
-		       CHF_CONST_FRA(a_basalVel),
-		       CHF_CONST_FRA1(limit,0),
-		       CHF_BOX(a_box));
+  if (m_model == Tsai)
+    {
+      FORT_BFRICTIONPLIMITTSAI(CHF_FRA1(a_alpha,0),
+			       CHF_CONST_FRA(a_basalVel),
+			       CHF_CONST_FRA1(effectivePressure,0),
+			       CHF_CONST_REAL(m_a),
+			       CHF_BOX(a_box));
+    }
+  else if (m_model == Leguy)
+    {
+      Real n = 1.0 / power();
+      FORT_BFRICTIONPLIMITLEGUY(CHF_FRA1(a_alpha,0),
+				CHF_CONST_FRA(a_basalVel),
+				CHF_CONST_FRA1(effectivePressure,0),
+				CHF_CONST_REAL(m_a),
+				CHF_CONST_REAL(n),
+				CHF_BOX(a_box));
+    }
     
 }
 
@@ -125,13 +156,37 @@ BasalFrictionRelation::parseBasalFrictionRelation(const char* a_prefix, int a_re
      
       std::string prefix("BasalFrictionPressureLimitedLaw");
       ParmParse ppPLL(prefix.c_str());
+     
+     
+      std::string models = "Tsai";
+      ppPLL.query("model",models);
+
+      PressureLimitedBasalFrictionRelation::Model model = 
+	PressureLimitedBasalFrictionRelation::MAX_MODEL;
+      
+      if (models == "Tsai")
+	{
+	  model = PressureLimitedBasalFrictionRelation::Tsai;
+	}
+      else if (models == "Leguy")
+	{
+	  model = PressureLimitedBasalFrictionRelation::Leguy;
+	}  
+      else
+	{
+	  MayDay::Error("undefined BasalFrictionPressureLimitedLaw.model in inputs");
+	}
+
       Real a = 1.0;
       ppPLL.query("coefficient",a);
-
+      Real p = 1.0;
+      ppPLL.query("power",p);
+       
       BasalFrictionRelation* innerLaw = parseBasalFrictionRelation(prefix.c_str(), a_recursion + 1);
-      PressureLimitedBasalFrictionRelation* p = 
-	new PressureLimitedBasalFrictionRelation(a, innerLaw);
-      basalFrictionRelationPtr = static_cast<BasalFrictionRelation*>(p);
+      PressureLimitedBasalFrictionRelation* ptr = 
+	new PressureLimitedBasalFrictionRelation(a, p, model, innerLaw);
+
+      basalFrictionRelationPtr = static_cast<BasalFrictionRelation*>(ptr);
     }
   else
     {

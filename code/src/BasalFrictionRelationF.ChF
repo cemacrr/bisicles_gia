@@ -67,10 +67,10 @@ c-----------------------------------
       end
       
 c------------------------------------
-c alpha <- min(alpha, p*|u|**(-1))
+c alpha <- min(alpha, a*p*|u|**(-1))
 c-----------------------------------
-      subroutine BFRICTIONPLIMIT(CHF_FRA1[alpha],
-     &     CHF_CONST_FRA[u],CHF_CONST_FRA1[p],
+      subroutine BFRICTIONPLIMITTSAI(CHF_FRA1[alpha],
+     &     CHF_CONST_FRA[u],CHF_CONST_FRA1[p],CHF_CONST_REAL[a],
      &     CHF_BOX[box])
 
       integer CHF_AUTODECL[i]
@@ -85,8 +85,59 @@ c-----------------------------------
      &     + u(CHF_AUTOIX[i],2)**2]
       
       alpha(CHF_AUTOIX[i]) = min(alpha(CHF_AUTOIX[i]),
-     &     p(CHF_AUTOIX[i]) * usq**(-half))
+     &     a * p(CHF_AUTOIX[i]) * usq**(-half))
       
+      CHF_ENDDO
+
+      return
+      end
+c------------------------------------
+c alpha <- alpha * ( p^n / (a * |u| + p*n))^(1/n)
+c-----------------------------------
+      subroutine BFRICTIONPLIMITLEGUY(CHF_FRA1[alpha],
+     &     CHF_CONST_FRA[u],CHF_CONST_FRA1[p],
+     &     CHF_CONST_REAL[a],CHF_CONST_REAL[n],
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      REAL_T usq, usq0, pn, oneOnN
+
+      usq0 = TINY_VEL**2
+      oneOnN = one / n
+
+      CHF_AUTOMULTIDO[box;i]
+      CHF_DTERM[
+      usq = usq0 + u(CHF_AUTOIX[i],0)**2;
+     &     + u(CHF_AUTOIX[i],1)**2;
+     &     + u(CHF_AUTOIX[i],2)**2]
+      
+      pn = p(CHF_AUTOIX[i])**n
+
+      alpha(CHF_AUTOIX[i]) = alpha(CHF_AUTOIX[i])
+     &     * ((pn) / (a*usq**(half) + pn))**oneOnN
+
+      CHF_ENDDO
+
+      return
+      end
+c------------------------------------
+c N = rhog * h * ( 1- hf/h)^p = rhog * h^(1-p) * (h - hf)^p
+c-----------------------------------
+      subroutine BFRICTIONLEGUYEFFPRES(CHF_FRA1[N],
+     &     CHF_CONST_FRA1[hab],CHF_CONST_FRA1[h],
+     &     CHF_CONST_REAL[p],CHF_CONST_REAL[rhog],
+     &     CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      REAL_T pp
+      
+      pp = one - p
+      CHF_AUTOMULTIDO[box;i]
+
+      N(CHF_AUTOIX[i]) = rhog 
+     &     * h(CHF_AUTOIX[i])**pp
+     &     * hab(CHF_AUTOIX[i])**p
+
       CHF_ENDDO
 
       return
