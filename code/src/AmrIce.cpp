@@ -537,6 +537,7 @@ AmrIce::setDefaults()
   m_report_grounded_ice = false;
   m_report_area = false;
   m_report_discharge = false;
+  m_report_time_interval = 0.01;
   m_eliminate_remote_ice = false;
   m_eliminate_remote_ice_max_iter = 10;
   m_eliminate_remote_ice_tol = 1.0;
@@ -1304,6 +1305,8 @@ AmrIce::initialize()
   ppAmr.query("report_total_flux", m_report_total_flux);
 
   ppAmr.query("report_discharge", m_report_discharge);
+
+  ppAmr.query("report_time_interval", m_report_time_interval);
   
   ppAmr.query("eliminate_remote_ice", m_eliminate_remote_ice);
   ppAmr.query("eliminate_remote_ice_max_iter", m_eliminate_remote_ice_max_iter);
@@ -2080,6 +2083,7 @@ AmrIce::run(Real a_max_time, int a_max_step)
   
   // advance solution until done
   if ( !(m_plot_time_interval > TIME_EPS) || m_plot_time_interval > a_max_time) m_plot_time_interval = a_max_time;
+  if ( !(m_report_time_interval > TIME_EPS) || m_report_time_interval > a_max_time) m_report_time_interval = a_max_time;
   while ( a_max_time > m_time && (m_cur_step < a_max_step))
     {
       Real next_plot_time = m_plot_time_interval * (1.0 + Real(int((m_time/m_plot_time_interval))));
@@ -2092,6 +2096,12 @@ AmrIce::run(Real a_max_time, int a_max_step)
 
       next_plot_time = std::min(next_plot_time, a_max_time); 
 
+      m_next_report_time = m_time;
+      m_next_report_time = std::min(m_next_report_time, a_max_time); 
+      pout() << "Report interval  " 
+	     << m_report_time_interval << "  Next report time  " 
+	     << m_next_report_time << endl;
+ 
       while ( (next_plot_time > m_time) && (m_cur_step < a_max_step)
 	      && (dt > TIME_EPS))
 	{
@@ -2368,7 +2378,7 @@ AmrIce::timeStep(Real a_dt)
   // compute thickness fluxes
   computeThicknessFluxes(vectFluxes, H_half, m_faceVelAdvection);
  
-  if (m_report_discharge)
+  if (m_report_discharge && (m_next_report_time - m_time) < (a_dt + TIME_EPS))
     {
       computeDischarge(vectFluxes);
     }
@@ -2468,96 +2478,111 @@ AmrIce::timeStep(Real a_dt)
   m_cur_step += 1;
   
   // write diagnostic info, like sum of ice
-  Real sumIce = computeTotalIce();
-  Real diffSum = sumIce - m_lastSumIce;
-  Real totalDiffSum = sumIce - m_initialSumIce;
+  if ((m_next_report_time - m_time) < (a_dt + TIME_EPS) && !(m_time < m_next_report_time))
+    {
+      Real sumIce = computeTotalIce();
+      Real diffSum = sumIce - m_lastSumIce;
+      Real totalDiffSum = sumIce - m_initialSumIce;
   
-  Real sumGroundedIce = 0.0, diffSumGrounded = 0.0, totalDiffGrounded = 0.0;
-  Real VAF=0.0, diffVAF = 0.0, totalDiffVAF = 0.0;
-  Real groundedArea = 0.0, floatingArea = 0.0;
-  Real sumBasalFlux = 0.0;
-  Real sumSurfaceFlux = 0.0;
-  Real sumBalance = 0.0;
-  if (m_report_grounded_ice)
-    {
-      sumGroundedIce = computeTotalGroundedIce();
-      diffSumGrounded = sumGroundedIce - m_lastSumGroundedIce;
-      totalDiffGrounded = sumGroundedIce - m_initialSumGroundedIce;      
-      m_lastSumGroundedIce = sumGroundedIce;
-      
-      VAF = computeVolumeAboveFlotation();
-      diffVAF = VAF -  m_lastVolumeAboveFlotation;
-      totalDiffVAF = VAF - m_initialVolumeAboveFlotation;
-      m_lastVolumeAboveFlotation = VAF;
-    }
-
- if (m_report_area)
-    {
-      groundedArea = computeGroundedArea();
-      floatingArea = computeFloatingArea();
-    }
-
-  if (m_report_total_flux)
-
-    {
-      sumBasalFlux = computeFluxOverIce(m_basalThicknessSource);
-      sumSurfaceFlux = computeFluxOverIce(m_surfaceThicknessSource);
-      sumBalance = computeFluxOverIce(m_balance);
-    }
-
-  if (s_verbosity > 0) 
-    {
-      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) " 
-             << ": sum(ice) = " << sumIce 
-             << " (" << diffSum
-             << " " << totalDiffSum
-             << ")" << endl;
-      
+      Real sumGroundedIce = 0.0, diffSumGrounded = 0.0, totalDiffGrounded = 0.0;
+      Real VAF=0.0, diffVAF = 0.0, totalDiffVAF = 0.0;
+      Real groundedArea = 0.0, floatingArea = 0.0;
+      Real sumBasalFlux = 0.0;
+      Real sumSurfaceFlux = 0.0;
+      Real sumBalance = 0.0;
       if (m_report_grounded_ice)
-        {
-          pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-                 << ": sum(grounded ice) = " << sumGroundedIce 
-                 << " (" << diffSumGrounded
-                 << " " << totalDiffGrounded
-                 << ")" << endl;
+	{
+	  sumGroundedIce = computeTotalGroundedIce();
+	  diffSumGrounded = sumGroundedIce - m_lastSumGroundedIce;
+	  totalDiffGrounded = sumGroundedIce - m_initialSumGroundedIce;      
+	  m_lastSumGroundedIce = sumGroundedIce;
+      
+	  VAF = computeVolumeAboveFlotation();
+	  diffVAF = VAF -  m_lastVolumeAboveFlotation;
+	  totalDiffVAF = VAF - m_initialVolumeAboveFlotation;
+	  m_lastVolumeAboveFlotation = VAF;
+	}
 
-	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-                 << ": VolumeAboveFlotation = " << VAF
-                 << " (" << diffVAF
-                 << " " << totalDiffVAF
-                 << ")" << endl;
-        } 
       if (m_report_area)
-        {
-          pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-                 << ": GroundedArea = " << groundedArea << " m2 " << endl;
-
-          pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-                 << ": FloatingArea = " << floatingArea << " m2 " << endl;
-
-        } 
+	{
+	  groundedArea = computeGroundedArea();
+	  floatingArea = computeFloatingArea();
+	}
 
       if (m_report_total_flux)
+
 	{
-	  if (m_dt > 0)
+	  sumBasalFlux = computeFluxOverIce(m_basalThicknessSource);
+	  sumSurfaceFlux = computeFluxOverIce(m_surfaceThicknessSource);
+	  sumBalance = computeFluxOverIce(m_balance);
+	}
+
+      if (s_verbosity > 0) 
+	{
+	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) " 
+		 << ": sum(ice) = " << sumIce 
+		 << " (" << diffSum
+		 << " " << totalDiffSum
+		 << ")" << endl;
+      
+	  if (m_report_grounded_ice)
 	    {
 	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-		     << ": TotalBasalFlux = " << sumBasalFlux << " m3 " 
-		     << " ( " << sumBasalFlux/m_dt << " m3/yr ) " << endl;
+		     << ": sum(grounded ice) = " << sumGroundedIce 
+		     << " (" << diffSumGrounded
+		     << " " << totalDiffGrounded
+		     << ")" << endl;
 
 	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-		     << ": TotalSurfaceFlux = " << sumSurfaceFlux << " m3 "
-		     << " ( " << sumSurfaceFlux/m_dt << " m3/yr ) " << endl;
+		     << ": VolumeAboveFlotation = " << VAF
+		     << " (" << diffVAF
+		     << " " << totalDiffVAF
+		     << ")" << endl;
+	    } 
+	  if (m_report_area)
+	    {
+	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+		     << ": GroundedArea = " << groundedArea << " m2 " << endl;
 
 	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-		     << ": TotalBalance = " << sumBalance << " m3 "
-		     << " ( " << sumBalance/m_dt << " m3/yr ) " << endl;
+		     << ": FloatingArea = " << floatingArea << " m2 " << endl;
+
+	    } 
+
+	  if (m_report_total_flux)
+	    {
+	      if (m_dt > 0)
+		{
+		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+			 << ": TotalBasalFlux = " << sumBasalFlux << " m3 " 
+			 << " ( " << sumBasalFlux/m_dt << " m3/yr ) " << endl;
+
+		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+			 << ": TotalSurfaceFlux = " << sumSurfaceFlux << " m3 "
+			 << " ( " << sumSurfaceFlux/m_dt << " m3/yr ) " << endl;
+
+		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+			 << ": TotalBalance = " << sumBalance << " m3 "
+			 << " ( " << sumBalance/m_dt << " m3/yr ) " << endl;
+		}
 	    }
 	}
-    }
-  
 
-  m_lastSumIce = sumIce;
+      Real old_report_time=m_next_report_time;
+      m_next_report_time = m_report_time_interval * (1.0 + Real(int((m_time/m_report_time_interval))));
+      pout() << "  Old report time " << old_report_time << "  New report time " 
+	     << m_next_report_time << endl;
+      if (!(m_next_report_time > old_report_time))
+	{ 
+	  m_next_report_time += m_report_time_interval;
+	}
+
+      pout() << "  Next report time will be " 
+	     << m_next_report_time << endl;
+
+      m_lastSumIce = sumIce;
+
+    }
 
   if (s_verbosity > 0) 
     {

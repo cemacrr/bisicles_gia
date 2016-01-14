@@ -1029,6 +1029,10 @@ protected:
   /// if true, report discharge of solid ice from the ice edge
   bool m_report_discharge;
 
+  /// report diagnostic every m_report_time_interval years (rather than every time step)
+  Real m_report_time_interval;
+  Real m_next_report_time;
+
   /// type of basal friction distribution
   int m_beta_type;
 
