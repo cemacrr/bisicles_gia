@@ -60,6 +60,7 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 	  const FArrayBox& thck = levelCoords.getH()[dit];
 	  const FArrayBox& VT = vt[dit];
 	  const FArrayBox& usrf = levelCoords.getSurfaceHeight()[dit];
+	  const FArrayBox& topg = levelCoords.getTopography()[dit];
 	  const FArrayBox& vel = levelVel[dit];
 	  const FArrayBox& Hab = levelCoords.getThicknessOverFlotation()[dit];
 	  BaseFab<int>& selected = (*m_selected[a_level])[dit];
@@ -104,7 +105,7 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 	      else
 		{
 		  //assume basal crevasse reaches water level if surface crevasses do 
-		  remnant(iv) = std::min(thck(iv),usrf(iv)-(Ds + noise));
+		  remnant(iv) = std::min(thck(iv),std::max(topg(iv),usrf(iv)-(Ds + noise)));
 		}
 	      remnant(iv) = std::max(-0.0, remnant(iv));
 	    }
@@ -137,20 +138,23 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 		    }
 		}
 	      // set mask to 1 to indicate calving event
-	      if ((m_setZeroThck == true) && (upwRemnant < 5.0))
+	      if (topg(iv) < 0.0)
 		{
-		  selected(iv) = 1;
-		}
-	      else if (m_oldMeltRate == true) // use a_dt melt rate
-		{
-		  const Real decay = 3.0e+2;
-		  source(iv) -= 10.0 * thck(iv)/a_dt * std::min(upwThck,1.0) 
-		    * std::min(1.0, std::exp( - decay * upwRemnant/(upwThck)));
-		}
-	      else // use decay and ts melt rate
-		{
-		  source(iv) -=  thck(iv)/m_timescale * std::min(upwThck,1.0) 
-		    * std::min(1.0, std::exp( - m_decay * upwRemnant/(upwThck)));
+		  if ((m_setZeroThck == true) && (upwRemnant < 5.0))
+		    {
+		      selected(iv) = 1;
+		    }
+		  else if (m_oldMeltRate == true) // use a_dt melt rate
+		    {
+		      const Real decay = 3.0e+2;
+		      source(iv) -= 10.0 * thck(iv)/a_dt * std::min(upwThck,1.0) 
+			* std::min(1.0, std::exp( - decay * upwRemnant/(upwThck)));
+		    }
+		  else // use decay and ts melt rate
+		    {
+		      source(iv) -=  thck(iv)/m_timescale * std::min(upwThck,1.0) 
+			* std::min(1.0, std::exp( - m_decay * upwRemnant/(upwThck)));
+		    }
 		  
 		}
 	    }  
