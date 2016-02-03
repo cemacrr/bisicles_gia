@@ -21,6 +21,7 @@
 #include <ctime>
 
 void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+						  LevelData<FArrayBox>& a_calvingMelt,
 						  const AmrIce& a_amrIce,
 						  int a_level,
 						  Real a_dt)
@@ -57,6 +58,7 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
       for (DataIterator dit (levelCoords.grids()); dit.ok(); ++dit)
 	{
 	  FArrayBox& source = a_flux[dit];
+	  FArrayBox& melt = a_calvingMelt[dit];
 	  const FArrayBox& thck = levelCoords.getH()[dit];
 	  const FArrayBox& VT = vt[dit];
 	  const FArrayBox& usrf = levelCoords.getSurfaceHeight()[dit];
@@ -138,6 +140,7 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 		    }
 		}
 	      // set mask to 1 to indicate calving event
+	      Real extraMelt=0.0;
 	      if (topg(iv) < 0.0)
 		{
 		  if ((m_setZeroThck == true) && (upwRemnant < 5.0))
@@ -147,16 +150,25 @@ void BennCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 		  else if (m_oldMeltRate == true) // use a_dt melt rate
 		    {
 		      const Real decay = 3.0e+2;
-		      source(iv) -= 10.0 * thck(iv)/a_dt * std::min(upwThck,1.0) 
+		      /*		      source(iv) -= 10.0 * thck(iv)/a_dt * std::min(upwThck,1.0) 
 			* std::min(1.0, std::exp( - decay * upwRemnant/(upwThck)));
+			*/
+		      extraMelt = 10.0 * thck(iv)/a_dt * std::min(upwThck,1.0) 
+			* std::min(1.0, std::exp( - decay * upwRemnant/(upwThck)));
+			source(iv) -= extraMelt;
 		    }
 		  else // use decay and ts melt rate
 		    {
-		      source(iv) -=  thck(iv)/m_timescale * std::min(upwThck,1.0) 
+		      /*		      source(iv) -=  thck(iv)/m_timescale * std::min(upwThck,1.0) 
 			* std::min(1.0, std::exp( - m_decay * upwRemnant/(upwThck)));
+			*/
+		      extraMelt = thck(iv)/m_timescale * std::min(upwThck,1.0) 
+			* std::min(1.0, std::exp( - m_decay * upwRemnant/(upwThck)));
+			source(iv) -= extraMelt;
 		    }
 		  
 		}
+	      melt(iv)=extraMelt;
 	    }  
 	}
     }

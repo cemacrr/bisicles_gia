@@ -42,6 +42,7 @@ public:
 
   //modify a thickness flux
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  LevelData<FArrayBox>& a_calvingMelt,
 					  const AmrIce& a_amrIce,
 					  int a_level,
 					  Real a_dt) =0;
@@ -83,6 +84,7 @@ public:
 
   }
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  LevelData<FArrayBox>& a_calvingMelt,
 					  const AmrIce& a_amrIce,
 					  int a_level,
 					  Real a_dt)
@@ -132,6 +134,7 @@ public:
 
   //modify a thickness flux
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  LevelData<FArrayBox>& a_calvingMelt,
 					  const AmrIce& a_amrIce,
 					  int a_level,
 					  Real a_dt)
@@ -192,6 +195,7 @@ public:
 
   //modify a thickness flux
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  LevelData<FArrayBox>& a_calvingMelt,
 					  const AmrIce& a_amrIce,
 					  int a_level,
 					  Real a_dt)
@@ -259,6 +263,7 @@ public:
 
 
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  LevelData<FArrayBox>& a_calvingMelt,
 					  const AmrIce& a_amrIce,
 					  int a_level,
 					  Real a_dt);
@@ -305,6 +310,7 @@ public:
   
   //modify a thickness flux
   virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  LevelData<FArrayBox>& a_calvingMelt,
 					  const AmrIce& a_amrIce,
 					  int a_level,
 					  Real a_dt)

@@ -972,6 +972,7 @@ protected:
   Vector<LevelData<FArrayBox>* > m_balance; // set to -dH/dt
   //(accumulated) thickness of calved ice 
   Vector<LevelData<FArrayBox>* > m_calvedIceThickness;
+  Vector<LevelData<FArrayBox>* > m_calvedThicknessSource;
 
   //cell centered storage for the stress-balance equation coefficients
   mutable Vector<LevelData<FArrayBox>* > m_dragCoef;
@@ -1025,6 +1026,9 @@ protected:
 
   /// if true, report sum(basal flux) and sum(surface flux)
   bool m_report_total_flux;
+
+  /// if true, report sum(melt from calving model) and sum(calved ice)
+  bool m_report_calving;
 
   /// if true, report discharge of solid ice from the ice edge
   bool m_report_discharge;
@@ -1108,6 +1112,9 @@ protected:
 
   //if true, include thickness source terms in plot files
   bool m_write_thickness_sources;
+
+  //if true, include melting from calving model and calved ice thickness in plot files 
+  bool m_write_calved;
 
   /// if true, write out .map.hdf5 file
   bool m_write_map_file;

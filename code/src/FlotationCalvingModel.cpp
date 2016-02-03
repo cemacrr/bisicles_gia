@@ -22,6 +22,7 @@
 //#include <ctime>
 
 void FlotationCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+						       LevelData<FArrayBox>& a_calvingMelt,
 						       const AmrIce& a_amrIce,
 						       int a_level,
 						       Real a_dt) 
@@ -30,17 +31,22 @@ void FlotationCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_f
   for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
     {
       FArrayBox& source = a_flux[dit];
+      FArrayBox& melt = a_calvingMelt[dit];
       const FArrayBox& thck = levelCoords.getH()[dit];
       const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
       const Box& b = levelCoords.grids()[dit];
       for (BoxIterator bit(b); bit.ok(); ++bit)
 	{
 	  const IntVect& iv = bit();
+	  Real extraMelt = 0.0;
 	  if (mask(iv) == FLOATINGMASKVAL)
 	    {
 	      //thck(iv) = 0.0;
-	      source(iv) -= 5.0*thck(iv)/a_dt;
+	      //source(iv) -= 5.0*thck(iv)/a_dt;
+	      extraMelt = 5.0*thck(iv)/a_dt;
+	      source(iv) -= extraMelt;
 	    }
+	  melt(iv) = extraMelt;
 	}
     }
 }

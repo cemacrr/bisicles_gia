@@ -534,6 +534,7 @@ AmrIce::setDefaults()
   m_gravity = 9.81;
 
   m_report_total_flux = false;
+  m_report_calving = false;
   m_report_grounded_ice = false;
   m_report_area = false;
   m_report_discharge = false;
@@ -556,6 +557,7 @@ AmrIce::setDefaults()
   m_write_internal_energy = false;
   m_write_map_file = false;
   m_write_thickness_sources = false;
+  m_write_calved = false;
   m_write_layer_velocities = false;
   m_write_mask = false;
 
@@ -714,6 +716,11 @@ AmrIce::~AmrIce()
 	{
 	  delete m_basalThicknessSource[lev];
 	  m_basalThicknessSource[lev] = NULL;
+	}
+      if (m_calvedThicknessSource[lev] != NULL)
+	{
+	  delete m_calvedThicknessSource[lev];
+	  m_calvedThicknessSource[lev] = NULL;
 	}
       if (m_calvedIceThickness[lev] != NULL)
 	{
@@ -1082,6 +1089,7 @@ AmrIce::initialize()
   ppAmr.query("write_base_velocities", m_write_baseVel);
   ppAmr.query("write_internal_energy", m_write_internal_energy);
   ppAmr.query("write_thickness_sources", m_write_thickness_sources);
+  ppAmr.query("write_calved", m_write_calved);
   ppAmr.query("write_layer_velocities", m_write_layer_velocities);
 
   ppAmr.query("evolve_thickness", m_evolve_thickness);
@@ -1303,6 +1311,8 @@ AmrIce::initialize()
   ppAmr.query("report_ice_area",   m_report_area);
 
   ppAmr.query("report_total_flux", m_report_total_flux);
+
+  ppAmr.query("report_calving", m_report_calving);
 
   ppAmr.query("report_discharge", m_report_discharge);
 
@@ -1686,6 +1696,7 @@ AmrIce::initialize()
       m_velRHS.resize(m_max_level+1, NULL);
       m_surfaceThicknessSource.resize(m_max_level+1, NULL);
       m_basalThicknessSource.resize(m_max_level+1, NULL);
+      m_calvedThicknessSource.resize(m_max_level+1, NULL);
       m_calvedIceThickness.resize(m_max_level+1, NULL);
       m_balance.resize(m_max_level+1, NULL);
       m_internalEnergy.resize(m_max_level+1, NULL);
@@ -1722,6 +1733,8 @@ AmrIce::initialize()
 #endif
 
         }
+
+      setToZero(m_calvedIceThickness);
 
       int finest_level = -1;
       if (usePredefinedGrids)
@@ -2068,7 +2081,6 @@ AmrIce::run(Real a_max_time, int a_max_step)
              << ", max_step = " << a_max_step << endl;
     }
 
-  setToZero(m_calvedIceThickness);
   Real dt;
   // only call computeInitialDt if we're not doing restart
   if (!m_do_restart)
@@ -2098,9 +2110,6 @@ AmrIce::run(Real a_max_time, int a_max_step)
 
       m_next_report_time = m_time;
       m_next_report_time = std::min(m_next_report_time, a_max_time); 
-      pout() << "Report interval  " 
-	     << m_report_time_interval << "  Next report time  " 
-	     << m_next_report_time << endl;
  
       while ( (next_plot_time > m_time) && (m_cur_step < a_max_step)
 	      && (dt > TIME_EPS))
@@ -2488,6 +2497,8 @@ AmrIce::timeStep(Real a_dt)
       Real VAF=0.0, diffVAF = 0.0, totalDiffVAF = 0.0;
       Real groundedArea = 0.0, floatingArea = 0.0;
       Real sumBasalFlux = 0.0;
+      Real sumCalvedBasalFlux = 0.0;
+      Real sumCalvedIce = 0.0;
       Real sumSurfaceFlux = 0.0;
       Real sumBalance = 0.0;
       if (m_report_grounded_ice)
@@ -2515,6 +2526,14 @@ AmrIce::timeStep(Real a_dt)
 	  sumBasalFlux = computeFluxOverIce(m_basalThicknessSource);
 	  sumSurfaceFlux = computeFluxOverIce(m_surfaceThicknessSource);
 	  sumBalance = computeFluxOverIce(m_balance);
+	}
+
+      if (m_report_calving)
+
+	{
+	  sumCalvedBasalFlux = computeFluxOverIce(m_calvedThicknessSource);
+	  sumCalvedIce = computeSum(m_calvedIceThickness, m_refinement_ratios,m_amrDx[0],
+				Interval(0,0), 0);
 	}
 
       if (s_verbosity > 0) 
@@ -2566,12 +2585,23 @@ AmrIce::timeStep(Real a_dt)
 			 << " ( " << sumBalance/m_dt << " m3/yr ) " << endl;
 		}
 	    }
+
+	  if (m_report_calving)
+	    {
+	      if (m_dt > 0)
+		{
+		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+			 << ": TotalCalvedBasalFlux = " << sumCalvedBasalFlux << " m3 " 
+			 << " ( " << sumCalvedBasalFlux/m_dt << " m3/yr ) " << endl;
+
+		}
+	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+		     << ": CalvedIce = " << sumCalvedIce << " m3 " << endl;
+	    }
 	}
 
       Real old_report_time=m_next_report_time;
       m_next_report_time = m_report_time_interval * (1.0 + Real(int((m_time/m_report_time_interval))));
-      pout() << "  Old report time " << old_report_time << "  New report time " 
-	     << m_next_report_time << endl;
       if (!(m_next_report_time > old_report_time))
 	{ 
 	  m_next_report_time += m_report_time_interval;
@@ -2648,6 +2678,7 @@ AmrIce::computeH_half(Vector<LevelData<FluxBox>* >& a_H_half, Real a_dt)
       
       LevelData<FArrayBox>& levelSTS = *m_surfaceThicknessSource[lev];
       LevelData<FArrayBox>& levelBTS = *m_basalThicknessSource[lev];
+      LevelData<FArrayBox>& levelCTS = *m_calvedThicknessSource[lev];
       CH_assert(m_surfaceFluxPtr != NULL);
       
       // set surface thickness source
@@ -2656,7 +2687,7 @@ AmrIce::computeH_half(Vector<LevelData<FluxBox>* >& a_H_half, Real a_dt)
       // set basal thickness source
       m_basalFluxPtr->surfaceThicknessFlux(levelBTS, *this, lev, a_dt);
       
-      m_calvingModelPtr->modifySurfaceThicknessFlux(levelBTS, *this, lev, a_dt);
+      m_calvingModelPtr->modifySurfaceThicknessFlux(levelBTS, levelCTS, *this, lev, a_dt);
       
       LevelData<FArrayBox> levelCCVel(levelGrids, SpaceDim, IntVect::Unit);
       EdgeToCell( levelFaceVel, levelCCVel);
@@ -2668,8 +2699,6 @@ AmrIce::computeH_half(Vector<LevelData<FluxBox>* >& a_H_half, Real a_dt)
           advectPhysPtr->setVelocities(&(levelCCVel[dit]), 
                                        &(levelFaceVel[dit]));
           
-	  
-	  
           FArrayBox advectiveSource(levelSTS[dit].box(),1);
           advectiveSource.copy(levelSTS[dit]);
           advectiveSource.plus(levelBTS[dit]);
@@ -2816,7 +2845,7 @@ AmrIce::computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes)
 		{
 		  IntVect iv = bit();
 		  Real smallThk = 10.0;
-		  if ((thk(iv) < smallThk) | (mask(iv) != GROUNDEDMASKVAL))
+		  if ((thk(iv) < smallThk) || (mask(iv) != GROUNDEDMASKVAL))
 		    {
 		      if (thk(iv + BASISV(dir)) > smallThk & (mask(iv + BASISV(dir)) == GROUNDEDMASKVAL) ) 
 			{
@@ -3681,6 +3710,13 @@ AmrIce::regrid()
 		delete m_basalThicknessSource[lev];
 	      }
 	    m_basalThicknessSource[lev] = 
+	      new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
+
+	    if (m_calvedThicknessSource[lev] != NULL)
+	      {
+		delete m_calvedThicknessSource[lev];
+	      }
+	    m_calvedThicknessSource[lev] = 
 	      new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
 	      
 
@@ -4690,6 +4726,7 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
   levelAllocate(&m_velRHS[a_level],a_grids, SpaceDim,  IntVect::Zero);
   levelAllocate(&m_surfaceThicknessSource[a_level], a_grids,   1, IntVect::Unit) ;
   levelAllocate(&m_basalThicknessSource[a_level], a_grids,  1, IntVect::Unit) ;
+  levelAllocate(&m_calvedThicknessSource[a_level], a_grids,  1, IntVect::Unit) ;
   levelAllocate(&m_balance[a_level],a_grids,   1, IntVect::Zero) ;
   levelAllocate(&m_calvedIceThickness[a_level],a_grids, 1, IntVect::Unit);
   levelAllocate(&m_deltaTopography[a_level],a_grids, 1, IntVect::Zero);
@@ -5645,7 +5682,8 @@ AmrIce::computeDivThicknessFlux(Vector<LevelData<FArrayBox>* >& a_divFlux,
       
       LevelData<FArrayBox>& basalThicknessSource = *m_basalThicknessSource[lev];
       m_basalFluxPtr->surfaceThicknessFlux(basalThicknessSource, *this, lev, a_dt);
-      m_calvingModelPtr->modifySurfaceThicknessFlux(basalThicknessSource, *this, lev, a_dt);
+      LevelData<FArrayBox>& calvedThicknessSource = *m_calvedThicknessSource[lev];
+      m_calvingModelPtr->modifySurfaceThicknessFlux(basalThicknessSource, calvedThicknessSource, *this, lev, a_dt);
 
       const RealVect& dx = levelCoords.dx();          
 
@@ -6481,6 +6519,11 @@ AmrIce::writePlotFile()
       numPlotComps += 3;  // surface and basal sources, plus the balance
     }
 
+  if (m_write_calved)
+    {
+      numPlotComps += 2;  // melting due to calving model and calved ice thickness
+    }
+
 
 #endif
   // generate data names
@@ -6530,6 +6573,9 @@ AmrIce::writePlotFile()
   string basalThicknessSourceName("basalThicknessSource");
   string surfaceThicknessSourceName("surfaceThicknessSource");
   string surfaceThicknessBalanceName("surfaceThicknessBalance");
+
+  string calvedThicknessSourceName("calvedThicknessSource");
+  string calvedIceThicknessName("calvedIceThickness");
 
   string surfaceCrevasseName("surfaceCrevasse");
   string basalCrevasseName("basalCrevasse");
@@ -6706,7 +6752,16 @@ AmrIce::writePlotFile()
       vectName[comp] = basalThicknessSourceName; comp++;
       vectName[comp] = surfaceThicknessSourceName; comp++;
       vectName[comp] = surfaceThicknessBalanceName; comp++;	
+    }
 
+  if (m_write_calved)
+    {
+      vectName[comp] = calvedThicknessSourceName; comp++;
+      vectName[comp] = calvedIceThicknessName; comp++;
+    }
+
+  if (m_write_thickness_sources || m_write_calved)
+    {
       //update the surface thickness sources 
       for (int lev = 0; lev <= m_finest_level ; lev++)
 	{
@@ -6715,7 +6770,7 @@ AmrIce::writePlotFile()
 	  m_basalFluxPtr->surfaceThicknessFlux
 	    (*m_basalThicknessSource[lev], *this, lev, m_dt);
 	  m_calvingModelPtr->modifySurfaceThicknessFlux
-	    (*m_basalThicknessSource[lev],*this, lev, m_dt );
+	    (*m_basalThicknessSource[lev],*m_calvedThicknessSource[lev],*this, lev, m_dt );
 	}
 
     }
@@ -6997,6 +7052,14 @@ AmrIce::writePlotFile()
 	      comp++;
 	    }
 
+	  if (m_write_calved)
+	    {
+	      thisPlotData.copy((*m_calvedThicknessSource[lev])[dit], 0, comp, 1);
+	      comp++;
+	      thisPlotData.copy((*m_calvedIceThickness[lev])[dit], 0, comp, 1);
+	      comp++;
+	    }
+
 	} // end loop over boxes on this level
 
       // this is just so that visit surface plots look right
@@ -7186,7 +7249,8 @@ AmrIce::writeCheckpointFile(const string& a_file)
   header.m_real["time"] = m_time;
   header.m_real["dt"] = m_dt;
   header.m_int["num_comps"] = 2 +  m_velocity[0]->nComp() 
-    + m_internalEnergy[0]->nComp() + m_deltaTopography[0]->nComp();
+    + m_internalEnergy[0]->nComp() + m_deltaTopography[0]->nComp()
+    + m_calvedIceThickness[0]->nComp();
 #if BISICLES_Z == BISICLES_LAYERED
 
 
@@ -7256,6 +7320,17 @@ AmrIce::writeCheckpointFile(const string& a_file)
     }
   nComp++;
 
+  string calvedIceThckName("accumCalvedIceThck");
+  for (int comp=0; comp < 1; comp++)
+    {
+      // first generate component name
+      char idx[5]; sprintf(idx, "%04d", comp);
+      compName = calvedIceThckName + string(idx);
+      sprintf(compStr, "component_%04d", comp + nComp);
+      header.m_string[compStr] = compName;
+      
+    }
+  nComp++;
 
   string velocityName("velocity");
   for (int comp=0; comp < m_velocity[0]->nComp() ; comp++) 
@@ -7342,6 +7417,9 @@ AmrIce::writeCheckpointFile(const string& a_file)
 	  write(handle, *m_deltaTopography[lev] , "deltaBedHeightData",
 		m_deltaTopography[lev]->ghostVect()  );
 
+	  write(handle, *m_calvedIceThickness[lev] , "accumCalvedIceThckData",
+		m_calvedIceThickness[lev]->ghostVect()  );
+
 	  write(handle, *m_velocity[lev], "velocityData", 
 		m_velocity[lev]->ghostVect());
 
@@ -7386,6 +7464,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   //check for various components. Maybe rethink this when HDF5::SetGroup
   //is fixed...
   bool containsDeltaBedHeight(false);
+  bool containsAccumCalvedIceThck(false);
   bool containsInternalEnergy(false);
   bool containsTemperature(false);
    
@@ -7395,6 +7474,10 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
       if (i->second == "deltaBedHeight0000")
 	{
 	  containsDeltaBedHeight = true;
+	}
+      if (i->second == "accumCalvedIceThck0000")
+	{
+	  containsAccumCalvedIceThck = true;
 	}
       if (i->second == "temperature0000")
 	{
@@ -7560,6 +7643,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   m_velRHS.resize(m_max_level+1);
   m_surfaceThicknessSource.resize(m_max_level+1,NULL);
   m_basalThicknessSource.resize(m_max_level+1,NULL);
+  m_calvedThicknessSource.resize(m_max_level+1,NULL);
   m_calvedIceThickness.resize(m_max_level+1, NULL);
   m_deltaTopography.resize(m_max_level+1, NULL);
   m_balance.resize(m_max_level+1,NULL);
@@ -7697,6 +7781,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	  m_velRHS[lev] = new LevelData<FArrayBox>(levelDBL, SpaceDim, IntVect::Zero);
 	  m_surfaceThicknessSource[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_basalThicknessSource[lev] = new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
+	  m_calvedThicknessSource[lev] = new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_calvedIceThickness[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_deltaTopography[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Zero) ;
 	  m_balance[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Zero) ;
@@ -7745,6 +7830,25 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 		  deltaBedHeight[dit].setVal(0.0);
 		}
 	    }
+
+	  LevelData<FArrayBox> accumCalvedIceThck;
+	  accumCalvedIceThck.define(old_thickness);
+	  
+	  if (containsAccumCalvedIceThck)
+	    {
+	      dataStatus = read<FArrayBox>(a_handle,accumCalvedIceThck,"accumCalvedIceThckData",levelDBL);
+	      if (dataStatus != 0)
+		{
+		  MayDay::Error("checkpoint file does not contain accumulated calved ice thickess data");
+		}
+	    }
+	  else
+	    {
+	      for (DataIterator dit = accumCalvedIceThck.disjointBoxLayout(); dit.ok();++dit)
+		{
+		  accumCalvedIceThck[dit].setVal(0.0);
+		}
+	    }
 	  
 	  //having read thickness and base data, we can define
           //the co-ordinate system 
@@ -7771,6 +7875,13 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	      for (dit.begin(); dit.ok(); ++dit)
 		{
 		  (*m_deltaTopography[lev])[dit].copy(deltaBedHeight[dit]);
+		} 
+	    }
+	  if (accumCalvedIceThck.isDefined())
+	    {
+	      for (dit.begin(); dit.ok(); ++dit)
+		{
+		  (*m_calvedIceThickness[lev])[dit].copy(accumCalvedIceThck[dit]);
 		} 
 	    }
 	  {
@@ -7872,7 +7983,6 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	} // end if this level is defined
     } // end loop over levels                                    
           
-  
   // do we need to close the handle?
  
   //this is just to make sure the diffusivity is computed

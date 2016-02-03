@@ -183,6 +183,7 @@ void ProximityCalvingModel::endTimeStepModifyState
 
 void ProximityCalvingModel::modifySurfaceThicknessFlux
 (LevelData<FArrayBox>& a_flux,
+ LevelData<FArrayBox>& a_calvingMelt,
  const AmrIce& a_amrIce,
  int a_level,
  Real a_dt)
@@ -205,6 +206,7 @@ void ProximityCalvingModel::modifySurfaceThicknessFlux
 	{
 	  //const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
 	  FArrayBox& flux = a_flux[dit];
+	  FArrayBox& melt = a_calvingMelt[dit];
 	  const FArrayBox& prox = proximity[dit];
 	  const FArrayBox& vel = velocity[dit];
 	  const FArrayBox& thck = levelCoords.getH()[dit];
@@ -212,11 +214,15 @@ void ProximityCalvingModel::modifySurfaceThicknessFlux
 	  for (BoxIterator bit(b); bit.ok(); ++bit)
 	    {
 	      const IntVect& iv = bit();
+	      Real extraMelt = 0.0;
 	      Real vmod = std::sqrt(vel(iv,0)*vel(iv,0) + vel(iv,1)*vel(iv,1));
 	      if (prox(iv) < m_proximity && calvingActive && vmod > m_velocity)
 	  	{
-	  	  flux(iv) -= 0.95 * thck(iv)/a_dt;
+	  	  //flux(iv) -= 0.95 * thck(iv)/a_dt;
+		  extraMelt = 0.95 * thck(iv)/a_dt;
+		  flux(iv) -= extraMelt;
 	  	}
+	      melt(iv) = extraMelt;
 	    }
 	}
     }
