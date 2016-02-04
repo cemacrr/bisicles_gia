@@ -22,6 +22,11 @@ endif
 include $(CHOMBO_HOME)/mk/Make.defs
 include $(CHOMBO_HOME)/mk/Make.defs.config
 
+#  USE_GDAL        : if TRUE, use gdal library (for amrtocf in filetools)
+#    GDAL_HOME     : location of gdal
+USE_GDAL      = FALSE
+GDAL_HOME     = $(BISICLES_HOME)/gdal
+
 #netcdf location
 NETCDF_HOME=$(BISICLES_HOME)/netcdf/serial
 NETCDF_LIBS= -lnetcdff -lnetcdf -lhdf5_hl

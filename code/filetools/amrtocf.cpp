@@ -63,8 +63,11 @@ int main(int argc, char* argv[]) {
       { std::cerr << " usage: " << argv[0] << " <config_file> [additional key=value args]\n"; exit(0); }
 
     char* config_file = argv[1];
+
     ParmParse pp(argc-2,argv+2,NULL,config_file);
-  
+
+    pout() << "config_file read in " << config_file << std::endl;
+
     std::string ifile;
     pp.get("infile",ifile);
 
@@ -149,16 +152,24 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile,
   //extract valid data
   UnstructuredData usData(names.size(), RealVect::Unit*crseDx, domBox, ratio, time + a_timeOrigin,  a_origin);
   UnstructuredIO::BStoUS(usData, data, ratio, a_validOnly);
+ 
+#ifdef HAVE_GDAL 
 
-  
+  int epsgval = 3413;  // ESPG number for Polar Sterographic North (70 degN, 45 degW) projection.
+  Real x0 = -654650.0; // Origin of the geometry dataset. Assumes the grid in BISICLES plotfiles start from (0,0).
+  Real y0 = -3385950.0;
+
+  gdalxytolatlon transformation
+  (epsgval, x0, y0);
+
+#else
   PolarStereographicCartesianToPolarTransformation transformation
     (0.08181922,  6.3781370e+6, 1.0 , 0.0, RealVect::Zero);
-  //eccentricity, equatorial radius, 
+  //eccentricity, equatorial radius,
+#endif 
 
   //write to CF file
   UnstructuredIO::writeCF ( ofile,  usData , names, a_created , transformation );
-
-
 
   for (int lev = 0; lev < numLevels; lev++)
     {

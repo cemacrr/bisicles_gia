@@ -15,6 +15,10 @@
 #define _TRANSFORMATION_H_
 
 #include "RealVect.H"
+#ifdef HAVE_GDAL
+#include "ogr_spatialref.h"
+#endif
+#include <sstream>
 #include "NamespaceHeader.H"
 
 /// abstract class for co-ordinate Transformations.
@@ -97,9 +101,80 @@ public:
 
   }
 
-  
 };
 
+#ifdef HAVE_GDAL
+class gdalxytolatlon : public Transformation
+{
+  
+/*
+GDAL: using gdal rountines to convert from x,y to lat lon
+*/ 
+
+  int m_epsg;
+  Real  m_x0, m_y0;
+  OGRSpatialReference source, *poLatLon;
+  OGRCoordinateTransformation *mapping;
+
+  Real unitDegree;
+
+public:
+  gdalxytolatlon
+  (const int& a_epsg, const Real& a_x0, const Real& a_y0)
+    :m_epsg(a_epsg),m_x0(a_x0),m_y0(a_y0)
+  {
+
+    source.importFromEPSG( m_epsg );
+    poLatLon = source.CloneGeogCS();
+    mapping = OGRCreateCoordinateTransformation( &source, poLatLon );
+    
+    CH_assert( mapping != NULL );
+
+    char *pszwkt = NULL;
+
+    source.exportToWkt( &pszwkt );
+    pout() << " " << std::endl;
+    pout() << pszwkt << std::endl;
+    pout() << " " << std::endl;
+    
+    if (pszwkt) {delete pszwkt; pszwkt=NULL;}
+
+    unitDegree=0.0;
+    istringstream ist(SRS_UA_DEGREE_CONV);
+    ist >> unitDegree;
+        
+  }
+
+  ~gdalxytolatlon()
+  {
+    if (mapping) {delete mapping; mapping=NULL;}
+    if (poLatLon) {delete poLatLon; poLatLon=NULL;} 
+  }
+  
+  virtual RealVect transform(const RealVect& x) const
+  {
+
+    RealVect rwk ( x) ;
+    Real z = 0.0;
+#if CH_SPACEDIM > 2
+    z = rwk[2];
+#endif
+    int nPoints = 1;
+
+    rwk[0]=rwk[0]+m_x0; // Translate grid to Morgihem's coord system
+    rwk[1]=rwk[1]+m_y0;
+ 
+    CH_assert( mapping->Transform(nPoints, &rwk[0], &rwk[1], &z) );
+    RealVect r ( D_DECL(rwk[1], rwk[0], z));
+    r *= unitDegree;
+    
+    return r;
+
+  }
+
+  
+};
+#endif
 
 #include "NamespaceFooter.H"
 #endif

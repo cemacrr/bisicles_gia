@@ -30,12 +30,17 @@ EXEC_DIR = .
 
 src_dirs =  ../src ../util  src
 
-
 XTRACPPFLAGS=-I$(NETCDF_HOME)/include
 XTRALIBFLAGS=-L$(NETCDF_HOME)/lib $(NETCDF_LIBS)
+
 include $(CHOMBO_HOME)/mk/Make.example
 #CPPFLAGS+=-I$(NETCDF_HOME)/include 
 #LIBFLAGS+=-L$(NETCDF_HOME)/lib -lnetcdf -lhdf5_hl -lhdf5
+
+ifeq ($(USE_GDAL),TRUE)
+XTRACPPFLAGS+=-I$(GDAL_HOME)/include -DHAVE_GDAL 
+XTRALIBFLAGS+=-L$(GDAL_HOME)/lib -lgdal
+endif
 
 ifneq ($(PYTHON_INC),)
 CPPFLAGS+=-I$(PYTHON_INC) -DHAVE_PYTHON	

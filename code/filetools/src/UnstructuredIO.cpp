@@ -532,6 +532,13 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
 
   //set global attributes
   {
+    std::string gs("unstructured");
+    if ( (rc =  nc_put_att_text (ncID, NC_GLOBAL , "gridtype", 
+				 gs.size(), gs.c_str())) != NC_NOERR)
+      {
+	MayDay::Error("failed to add gridtype attribute");
+      }
+
     std::string s("CF-1.6");
     if ( (rc =  nc_put_att_text (ncID, NC_GLOBAL , "Conventions", 
 				 s.size(), s.c_str())) != NC_NOERR)
@@ -609,10 +616,11 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
 
   //definition of cell-centered lat and lon variables
   {
-    int varID = defineCFVar(ncID, 1, &cellDimID, NC_DOUBLE, "lat" , 
+    int varID = defineCFVar(ncID, 1, &cellDimID, NC_DOUBLE, "lat" ,
 			    "degrees_north", "" ,"latitude");
 
     std::string s = "lat_vertices";
+
     if ( (rc =  nc_put_att_text (ncID, varID, "bounds", 
     				 s.size(), s.c_str())) != NC_NOERR)
       {
@@ -623,9 +631,10 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
   
   {
    
-    int varID = defineCFVar(ncID, 1, &cellDimID, NC_DOUBLE, "lon" , 
+    int varID = defineCFVar(ncID, 1, &cellDimID, NC_DOUBLE, "lon" ,
 			    "degrees_east", "" ,"longitude");
     std::string s = "lon_vertices";
+
     if ( (rc =  nc_put_att_text (ncID, varID, "bounds", 
     				 s.size(), s.c_str())) != NC_NOERR)
       {
@@ -791,9 +800,17 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
     //I/O will dominate anyway
     size_t start[2] = {0,0};
     size_t count[2] = {nCell,1};
-    for (BoxIterator bit(unit);bit.ok();++bit)
+
+    Vector<IntVect> ivs;
+    ivs.push_back(IntVect(0,0));
+    ivs.push_back(IntVect(1,0));
+    ivs.push_back(IntVect(1,1));
+    ivs.push_back(IntVect(0,1));
+
+    for (int j=0; j < ivs.size(); j++)
       {
-	const IntVect& iv = bit();
+	const IntVect& iv = ivs[j];
+	
 	for (int dir = 0; dir < SpaceDim; dir++)
 	  {
 	    a_usData.computeNodeCoord( nodeX[dir], dir, iv);
@@ -843,7 +860,7 @@ void UnstructuredIO::writeCF ( const std::string& a_file,
 	  }
 	
 	
-	    if ( (rc = nc_inq_varid(ncID,"lon_vertices", &varID)) != NC_NOERR)
+	if ( (rc = nc_inq_varid(ncID,"lon_vertices", &varID)) != NC_NOERR)
 	      {
 		MayDay::Error("failed to find variable id");
 	      }
