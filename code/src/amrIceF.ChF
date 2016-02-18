@@ -766,6 +766,70 @@ c -----------------------------------------------------------
       return
       end 
 
+c -------------------------------------------------------------
+c compute "area advection" of real-valued ice mask
+c Basic idea is that in the absence of calving, etc, a calving front
+c will advance at the speed of the ice
+c 
+c  INPUTS/OUTPUTS:
+c  mask         <=> ice mask between 0 (no ice) and 1 (fully-covered)
+c  faceVel       => face-centered advection velocity
+c  dx            => cell spacing
+c  dt            => timestep
+c  fillThreshold => value above which we declare a cell to be full 
+c                   and set mask to 1.
+c  box           => subregion over which to update mask
+c  idir          => component direction (do this one direction at a time)
+c -------------------------------------------------------------
+      subroutine ADVECTMASK(CHF_FRA1[mask],
+     &                      CHF_CONST_FRA1[faceVel],
+     &                      CHF_REAL[dx],
+     &                      CHF_REAL[dt],
+     &                      CHF_REAL[fillThreshold],
+     &                      CHF_BOX[box],
+     &                      CHF_INT[idir])
+      
+
+      integer CHF_AUTODECL[i]
+      integer CHF_AUTODECL[ioff]
+      REAL_T factor
+      REAL_T eps
+
+c  this assumes 2d and dx == dy
+      factor = dt/dx
+      eps = 0.95d0
+
+      CHF_DTERM[
+      ioff0 = CHF_ID(0,idir);
+      ioff1 = CHF_ID(1,idir);
+      ioff2 = CHF_ID(2,idir)]
+      
+      CHF_AUTOMULTIDO[box; i]
+c       lower side
+        if ((faceVel(CHF_AUTOIX[i]).gt.0)
+     & .and.(mask(CHF_OFFSETIX[i;-ioff]).gt.eps)) then
+          mask(CHF_AUTOIX[i]) = mask(CHF_AUTOIX[i]) 
+     &                    + factor*faceVel(CHF_AUTOIX[i])
+        endif
+
+c       upper side
+        if ((faceVel(CHF_OFFSETIX[i;+ioff]).lt.0.0)
+     &    .and.(mask(CHF_OFFSETIX[i;+ioff]).gt.eps)) then 
+          mask(CHF_AUTOIX[i]) = mask(CHF_AUTOIX[i]) 
+     &                    - factor*faceVel(CHF_OFFSETIX[i;+ioff]) 
+        endif
+
+c     now limit to one
+        if (mask(CHF_AUTOIX[i]) .gt. fillThreshold) then
+           mask(CHF_AUTOIX[i]) = 1.0
+        endif
+
+      CHF_ENDDO
+      return
+      end
+
+
+
 c#ifdef TARMAC 
 c -------------------------------------------------------------
 c calculation of the vertical velocity from div(u) = 0

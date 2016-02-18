@@ -96,7 +96,7 @@ public:
 };
 
 
-// A Deglacation-only calving model which 
+// A Deglaciation-only calving model which 
 // i. Makes calving irreversible : if a cell mask is open sea / land, set thickness
 //    there to zero. No need to worry about the velocity fields in cells
 //    which were previously calved.
@@ -340,6 +340,184 @@ private:
   DeglaciationCalvingModelB();
 };
 
+
+
+/// A  thickness-based calving model which should permit advance and retreat
+/** (i). Sets any floating ice below a given thickness and in a given depth of
+         ocean to zero thickness
+   (ii). uses real-valued ice mask in AmrIce to account for partial cells
+         using the scheme described in the "Notes on MISOMIP Thickness-driven
+         Calving Law" in the doc directory
+*/
+class ThicknessCalvingModel : public CalvingModel
+{
+
+public:
+
+  
+  //alter the thickness field prior to the first time step. Same as endTimeStepModifyState
+  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
+				  const AmrIce& a_amrIce,
+				  int a_level)
+  {
+    endTimeStepModifyState(a_thickness, a_amrIce, a_level);
+  }
+
+
+  //alter the thickness field at the end of a time step
+  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
+				      const AmrIce& a_amrIce,
+				      int a_level);
+
+
+  //alter the thickness field after a regrid
+  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
+				      const AmrIce& a_amrIce,
+				      int a_level)
+  {
+    //do nothing... for backward compatibility
+  }
+
+  //modify a thickness flux
+  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  LevelData<FArrayBox>& a_calvingMelt,
+					  const AmrIce& a_amrIce,
+					  int a_level,
+					  Real a_dt)
+  {
+
+  }
+
+
+  ThicknessCalvingModel(const Real& a_calvingThickness,
+                        const Real& a_calvingOceanDepth,
+                        const Real& a_minThickness, 
+                        const Real& a_startTime, 
+                        const Real& a_endTime)
+    : m_calvingThickness(a_calvingThickness),
+      m_calvingOceanDepth(a_calvingOceanDepth),
+      m_minThickness(a_minThickness),
+      m_startTime(a_startTime),
+      m_endTime(a_endTime)
+  {
+    ;
+  }
+ 
+protected:
+  Real m_calvingThickness, m_calvingOceanDepth, m_minThickness, m_startTime, m_endTime;
+  
+private:
+  ThicknessCalvingModel();
+};
+
+
+/// A calving model which enforces a maximum extent of the ice shelf
+class MaximumExtentCalvingModel : public CalvingModel
+{
+
+public:
+
+  
+  //alter the thickness field prior to the first time step. Same as endTimeStepModifyState
+  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
+				  const AmrIce& a_amrIce,
+				  int a_level)
+  {
+    endTimeStepModifyState(a_thickness, a_amrIce, a_level);
+  }
+
+
+  //alter the thickness field at the end of a time step
+  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
+				      const AmrIce& a_amrIce,
+				      int a_level);
+
+
+  //alter the thickness field after a regrid
+  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
+				      const AmrIce& a_amrIce,
+				      int a_level)
+  {
+    //do nothing... for backward compatibility
+  }
+
+  //modify a thickness flux
+  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  LevelData<FArrayBox>& a_calvingMelt,
+					  const AmrIce& a_amrIce,
+					  int a_level,
+					  Real a_dt)
+  {
+
+  }
+
+
+  MaximumExtentCalvingModel(const RealVect& a_highLoc,
+                            const RealVect& a_lowLoc,
+                            const Real& a_startTime, 
+                            const Real& a_endTime)
+    : m_startTime(a_startTime),
+      m_endTime(a_endTime),
+      m_highLoc(a_highLoc),
+      m_lowLoc(a_lowLoc)      
+  {
+    ;
+  }
+ 
+protected:
+  Real m_startTime, m_endTime;
+  RealVect m_highLoc, m_lowLoc;
+  
+private:
+  MaximumExtentCalvingModel();
+};
+
+
+
+/// Calving model which lets us compose multiple calving models
+/** Allows serial application of  multiple calving models (for example, FixedFrontCalvingModel plus ThicknessCalvingModel). The ordering here is likely important, so always perform operations starting with calving model 0, then 1, etc.
+ */
+class CompositeCalvingModel : public CalvingModel
+{
+
+public:
+
+  CompositeCalvingModel(Vector<CalvingModel*> a_vectModels)
+    : m_vectModels(a_vectModels)
+  { }
+
+      
+
+  //alter the thickness field prior to the first time step. 
+  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
+				  const AmrIce& a_amrIce,
+				  int a_level);
+
+
+  //alter the thickness field at the end of a time step
+  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
+				      const AmrIce& a_amrIce,
+				      int a_level);
+  
+//alter the thickness field after a regid
+  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
+				 const AmrIce& a_amrIce,
+				 int a_level);
+
+  //modify a thickness flux
+  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  LevelData<FArrayBox>& a_calvingMelt,
+					  const AmrIce& a_amrIce,
+					  int a_level,
+					  Real a_dt);
+
+
+  virtual ~CompositeCalvingModel();
+  
+  // this is public for simplicity
+  Vector<CalvingModel*> m_vectModels;
+
+};
 
 
 

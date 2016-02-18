@@ -377,6 +377,14 @@ public:
     return m_surfaceBoundaryHeatDataDirichlett;
   }
 
+  /// return pointer to real-valued ice mask on level a_level
+  /** (0 = no ice, 1 = full of ice, 0<phi<1 -- partially filled 
+      (useful for calving model and for communication with POP  **/
+  LevelData<FArrayBox>* iceMask(int a_level) 
+  {
+    return m_iceMask[a_level];
+  };
+
   bool surfaceHeatBoundaryTemperature() const
   {
     return m_surfaceBoundaryHeatDataTemperature;
@@ -390,6 +398,26 @@ public:
 	MayDay::Error("no surface heat boundary data");
       }
     return *m_basalHeatBoundaryDataPtr;
+  }
+
+  /// return pointer to real-valued ice mask on level a_level
+  /** (0 = no ice, 1 = full of ice, 0<phi<1 -- partially filled 
+      (useful for calving model and for communication with POP  **/
+  const LevelData<FArrayBox>* iceMask(int a_level) const
+  {
+    return m_iceMask[a_level];
+  };
+
+  /// return reference to full AMR ice mask
+  Vector<LevelData<FArrayBox>* >& amrIceMask() 
+  {
+    return m_iceMask;
+  }
+
+  /// return const reference to full AMR ice mask
+  const Vector<LevelData<FArrayBox>* >& amrIceMask() const
+  {
+    return m_iceMask;
   }
 
   const LevelData<FArrayBox>* groundingLineProximity(int a_level) const;
@@ -485,6 +513,17 @@ protected:
 
   // incremente coordSys with new thickness
   void updateCoordSysWithNewThickness(const Vector<LevelData<FArrayBox>* >& a_thickness);
+
+  /// set real-valued ice mask after thickness update 
+  /** this is entirely based on ice thickness h, as opposed
+      to the advective update
+   */
+  void setIceMask(const LevelData<FArrayBox>& a_thickness, int a_level);
+
+  /// update real-valued ice mask through advection from neighboring cells
+  void advectIceMask(Vector<LevelData<FArrayBox>* >& a_iceMask,
+                     const Vector<LevelData<FluxBox>* >& a_faceVelAdvection, 
+                     Real a_dt);
 
   /// compute timestep
   Real computeDt();
@@ -943,9 +982,15 @@ protected:
   // SigmaCS mapping
   Vector<RefCountedPtr<LevelSigmaCS > > m_vect_coordSys;
   
+  /// real-valued ice mask
+  ///  real-valued ice mask on level a_level
+  /** (0 = no ice, 1 = full of ice, 0<phi<1 -- partially filled 
+      (useful for calving model and for communication with POP  **/
+  Vector<LevelData<FArrayBox>* > m_iceMask;
 
   // Cell-centered internalEnergy field
   Vector<LevelData<FArrayBox>* > m_internalEnergy;
+
   // Cell-centered A field
   Vector<LevelData<FArrayBox>* > m_A;
   // used to decide whether A needs updating (after a regrid, or a internalEnergy update)
@@ -1136,6 +1181,12 @@ protected:
   //if true, keep floating or grounded ice stable;
   bool m_grounded_ice_stable ;
   bool m_floating_ice_stable ;
+
+  /** if true, scale thickness sources (surface flux and basal flux) by 
+      iceMask values (allows for effective partial cells)
+  */
+  bool m_mask_sources;
+
 
   enum DiffusionTreatment {NONE,IMPLICIT,EXPLICIT};
   DiffusionTreatment m_diffusionTreatment;

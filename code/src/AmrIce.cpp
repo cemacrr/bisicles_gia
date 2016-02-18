@@ -598,7 +598,8 @@ AmrIce::setDefaults()
   m_evolve_velocity = true;
   m_grounded_ice_stable = false;
   m_floating_ice_stable = false;
-  
+  m_mask_sources = false;
+
   m_groundingLineProximityScale = 1.0e+4;
   m_groundingLineProximityCalcType = 0 ; // default to the old (odd) behaviour
   //cache validity flags
@@ -634,6 +635,17 @@ AmrIce::~AmrIce()
         }
     }
  
+  // clean up ice mask
+  for (int lev=0; lev<m_iceMask.size(); lev++)
+    {
+      if (m_iceMask[lev] != NULL)
+        {
+          delete m_iceMask[lev];
+          m_iceMask[lev] = NULL;
+        }
+    }
+ 
+
 
   // clean up velocityRHS storage if appropriate
   for (int lev=0; lev<m_velRHS.size(); lev++)
@@ -1099,6 +1111,7 @@ AmrIce::initialize()
 
   ppAmr.query("grounded_ice_stable", m_grounded_ice_stable);
   ppAmr.query("floating_ice_stable", m_floating_ice_stable);
+  ppAmr.query("mask_sources", m_mask_sources);
 
   ppAmr.query("grounding_line_proximity_scale",m_groundingLineProximityScale);
   ppAmr.query("grounding_line_proximity_calc_type", m_groundingLineProximityCalcType);
@@ -1687,6 +1700,7 @@ AmrIce::initialize()
       // now set up data holders
       m_old_thickness.resize(m_max_level+1, NULL);
       m_velocity.resize(m_max_level+1, NULL);
+      m_iceMask.resize(m_max_level+1, NULL);
       m_faceVelAdvection.resize(m_max_level+1, NULL);
       m_faceVelTotal.resize(m_max_level+1, NULL);
       m_diffusivity.resize(m_max_level+1);
@@ -1709,11 +1723,12 @@ AmrIce::initialize()
       m_sHeatFlux.resize(m_max_level+1, NULL);
       m_bHeatFlux.resize(m_max_level+1, NULL);
 #endif
-      // allocate storage for m_old_thickness and m_velocity
+      // allocate storage for m_old_thickness,  m_velocity, etc
       for (int lev=0; lev<m_velocity.size(); lev++)
         {
           m_old_thickness[lev] = new LevelData<FArrayBox>;
           m_velocity[lev] = new LevelData<FArrayBox>;
+          m_iceMask[lev] = new LevelData<FArrayBox>;
 	  m_faceVelAdvection[lev] = new LevelData<FluxBox>;
 	  m_faceVelTotal[lev] = new LevelData<FluxBox>;
 	  m_velBasalC[lev] = new LevelData<FArrayBox>;
@@ -2392,6 +2407,9 @@ AmrIce::timeStep(Real a_dt)
       computeDischarge(vectFluxes);
     }
 
+  // update ice mask through advection
+  advectIceMask(m_iceMask, m_faceVelAdvection, a_dt);
+
   // make a copy of m_vect_coordSys before it is overwritten
   Vector<RefCountedPtr<LevelSigmaCS> > vectCoords_old (m_finest_level+1);
   for (int lev=0; lev<= m_finest_level; lev++)
@@ -3024,8 +3042,27 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
 
 	  if (m_diffusionTreatment != IMPLICIT)
             {
-              newH.minus((*m_surfaceThicknessSource[lev])[dit], gridBox,0,0,1);
-              newH.minus((*m_basalThicknessSource[lev])[dit], gridBox,0,0,1);
+              if (m_mask_sources)
+                {
+                  // scale surface fluxes by mask values
+                  const FArrayBox& thisMask = (*m_iceMask[lev])[dit];
+                  FArrayBox sources(gridBox,1);
+                  sources.setVal(0.0);
+                  sources.plus((*m_surfaceThicknessSource[lev])[dit], gridBox,
+                               0, 0, 1);
+                  sources.plus((*m_basalThicknessSource[lev])[dit], gridBox, 
+                               0, 0, 1);
+                  
+                  sources.mult(thisMask, gridBox, 0, 0, 1);
+                  newH.minus(sources, gridBox, 0, 0, 1);
+                  
+                }
+              else
+                {
+                  // just add in sources directly
+                  newH.minus((*m_surfaceThicknessSource[lev])[dit], gridBox,0,0,1);
+                  newH.minus((*m_basalThicknessSource[lev])[dit], gridBox,0,0,1);
+                }
             }
           
 	 
@@ -3048,6 +3085,10 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
 	}
       //MayDay::Error("m_diffusionTreatment == IMPLICIT no yet implemented");
       //implicit thickness correction
+      if (m_mask_sources)
+        {
+          MayDay::Error("scaling sources by mask values not implemented yet");
+        }
       implicitThicknessCorrection(a_dt, m_surfaceThicknessSource,  m_basalThicknessSource);
     }
   
@@ -3318,6 +3359,7 @@ AmrIce::regrid()
 	    LevelData<FArrayBox>* old_tempDataPtr = m_internalEnergy[lev];
 	    LevelData<FArrayBox>* old_calvDataPtr = m_calvedIceThickness[lev];
 	    LevelData<FArrayBox>* old_deltaTopographyDataPtr = m_deltaTopography[lev];
+            LevelData<FArrayBox>* old_iceMaskDataPtr = m_iceMask[lev];
 	     
 	    LevelData<FArrayBox>* new_oldDataPtr = 
 	      new LevelData<FArrayBox>(newDBL, 1, m_old_thickness[0]->ghostVect());
@@ -3331,6 +3373,9 @@ AmrIce::regrid()
 	    //since the internalEnergy data has changed
 	    m_A_valid = false;
 
+            LevelData<FArrayBox>* new_iceMaskDataPtr = 
+              new LevelData<FArrayBox>(newDBL, 1, m_iceMask[0]->ghostVect());
+            
 	    LevelData<FArrayBox>* new_calvDataPtr = 
 	      new LevelData<FArrayBox>(newDBL, m_calvedIceThickness[0]->nComp(), 
 				       m_calvedIceThickness[0]->ghostVect());
@@ -3492,6 +3537,20 @@ AmrIce::regrid()
 		  // can now delete old data 
 		  delete old_oldDataPtr;
 		}
+
+		interpolator.interpToFine(*new_iceMaskDataPtr, *m_iceMask[lev-1]);
+	
+		// now copy old-grid data into new holder
+		if (old_iceMaskDataPtr != NULL) 
+		  {
+		    if ( oldDBL.isClosed())
+		      {
+			old_iceMaskDataPtr->copyTo(*new_iceMaskDataPtr);
+		      }
+		    // can now delete old data 
+		    delete old_iceMaskDataPtr;
+		  }
+
 		
 	    }
 	      
@@ -3647,6 +3706,7 @@ AmrIce::regrid()
 	    m_internalEnergy[lev] = new_tempDataPtr;
 	    m_calvedIceThickness[lev] = new_calvDataPtr;
 	    m_deltaTopography[lev] = new_deltaTopographyDataPtr;
+            m_iceMask[lev] = new_iceMaskDataPtr;      
 #if BISICLES_Z == BISICLES_LAYERED
 	    m_sInternalEnergy[lev] = new_sTempDataPtr;
 	    m_bInternalEnergy[lev] = new_bTempDataPtr;
@@ -3786,6 +3846,13 @@ AmrIce::regrid()
 		delete m_internalEnergy[lev];
 		m_internalEnergy[lev] = NULL;
 	      }
+
+	      if (m_iceMask[lev] != NULL) 
+		{
+		  delete m_iceMask[lev];
+		  m_iceMask[lev] = NULL;
+		}
+
 #if BISICLES_Z == BISICLES_LAYERED
 	    if (m_sInternalEnergy[lev] != NULL) 
 	      {
@@ -4714,6 +4781,7 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
   levelAllocate(&m_faceVelAdvection[a_level] ,a_grids,1,IntVect::Unit);
   levelAllocate(&m_faceVelTotal[a_level],a_grids,1,IntVect::Unit);
   levelAllocate(&m_diffusivity[a_level],a_grids, 1, IntVect::Zero);
+  levelAllocate(&m_iceMask[a_level],a_grids, 1, IntVect::Unit);
 
 #if BISICLES_Z == BISICLES_LAYERED
   levelAllocate(&m_layerXYFaceXYVel[a_level] ,a_grids, m_nLayers, IntVect::Unit);
@@ -4795,7 +4863,14 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
 
       a_vectCoordSys[lev]->recomputeGeometry(crsePtr, refRatio);
 
-      //allow calving model to modify geometry and velocity
+
+
+      const LevelData<FArrayBox>& levelThickness = m_vect_coordSys[lev]->getH();
+      setIceMask(levelThickness, lev);
+
+
+      //allow calving model to modify geometry and velocity (and possibly
+      // mask)
       m_calvingModelPtr->initialModifyState
       	(m_vect_coordSys[lev]->getH(), *this, lev);
 
@@ -5763,6 +5838,66 @@ AmrIce::updateCoordSysWithNewThickness(const Vector<LevelData<FArrayBox>* >& a_t
     } // end loop over levels      
 }
 
+void
+AmrIce::setIceMask(const LevelData<FArrayBox>& a_thickness, int a_level)
+{
+  // initialize mask to 1 if H>0, 0 o/w...
+  DataIterator dit = m_iceMask[a_level]->dataIterator();
+  for (dit.begin(); dit.ok(); ++dit)
+    {
+      FArrayBox& thisMask = (*m_iceMask[a_level])[dit];
+      thisMask.setVal(0.0);
+      const FArrayBox& thisH = a_thickness[dit];
+      BoxIterator bit(thisMask.box());
+      for (bit.begin(); bit.ok(); ++bit)
+        {
+          IntVect iv = bit();
+          if (thisH(iv,0) > 0) thisMask(iv,0) = 1.0;
+        }
+    }
+}
+
+/// update real-valued ice mask through advection from neighboring cells
+void
+AmrIce::advectIceMask(Vector<LevelData<FArrayBox>* >& a_iceMask,
+                      const Vector<LevelData<FluxBox>* >& a_faceVelAdvection,
+                      Real a_dt)
+{
+  // for now, set fill threshold to be (1-cfl) on the theory 
+  // that we want to declare a cell full before it actually over-fills
+  Real fillThreshold = (1.0 - m_cfl);
+  
+  for (int lev=0; lev<= m_finest_level; lev++)
+    {
+      LevelData<FArrayBox>& levelMask = *a_iceMask[lev];
+      const LevelData<FluxBox>& levelFaceVel = *a_faceVelAdvection[lev];
+      const DisjointBoxLayout& maskGrids = levelMask.getBoxes();
+      Real levelDx = m_amrDx[lev];
+
+      DataIterator dit = levelMask.dataIterator();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          // only update valid cells
+          const Box& gridBox = maskGrids[dit];
+          FArrayBox& thisMask = levelMask[dit];
+          const FluxBox& thisFaceVel = levelFaceVel[dit];          
+          for (int dir=0; dir<SpaceDim; dir++)
+            {
+              FORT_ADVECTMASK(CHF_FRA1(thisMask,0),
+                              CHF_CONST_FRA1(thisFaceVel[dir],0),
+                              CHF_REAL(levelDx),
+                              CHF_REAL(a_dt),
+                              CHF_REAL(fillThreshold),
+                              CHF_BOX(gridBox),
+                              CHF_INT(dir));
+            } // end loop over directions
+        } // end loop over boxes
+    } // end loop over levels
+
+}
+
+
+
 
 // compute timestep
 Real 
@@ -6492,7 +6627,8 @@ AmrIce::writePlotFile()
       numPlotComps += SpaceDim;
       if (writeZvel) numPlotComps+=1;
     }
-  if (m_write_mask) numPlotComps += 1;
+  // write both integer and real-valued masks
+  if (m_write_mask) numPlotComps += 2;
   if (m_write_dHDt) numPlotComps += 1;
   if (m_write_solver_rhs) numPlotComps += (SpaceDim+2);
 
@@ -6541,6 +6677,7 @@ AmrIce::writePlotFile()
   string solverRhsyName("solverRHSy");
   string C0Name("C0");
   string maskName("mask");
+  string mask2Name("iceMask");
   string xfVelName("xfVel");
   string yfVelName("yfVel");
   string zfVelName("zfVel");
@@ -6636,6 +6773,8 @@ AmrIce::writePlotFile()
   if (m_write_mask)
     {
       vectName[comp] = maskName;      
+      comp++;
+      vectName[comp] = mask2Name;
       comp++;
     } 
 
@@ -6927,6 +7066,11 @@ AmrIce::writePlotFile()
 		}
 	      thisPlotData.copy(tmp,0,comp,1);
 	      comp++;
+              // now copy real-valued ice mask
+              const FArrayBox& iceMaskFab = (*m_iceMask[lev])[dit];
+              thisPlotData.copy(iceMaskFab,0,comp,1);
+	      comp++;
+
 	    }
 
 	  // const FArrayBox& thisSurfaceVel = (*m_velocity[lev])[dit];
@@ -7045,8 +7189,20 @@ AmrIce::writePlotFile()
 	  if (m_write_thickness_sources)
 	    {
 	      thisPlotData.copy((*m_basalThicknessSource[lev])[dit], 0, comp, 1);
+              if (m_mask_sources)
+                {
+                  thisPlotData.mult( (*m_iceMask[lev])[dit],0,comp,1);
+                }
+
 	      comp++;
 	      thisPlotData.copy((*m_surfaceThicknessSource[lev])[dit], 0, comp, 1);
+              if (m_mask_sources)
+                {
+                  // scale by mask
+                  thisPlotData.mult( (*m_iceMask[lev])[dit],0,comp,1);
+                }
+
+
 	      comp++;
 	      thisPlotData.copy((*m_balance[lev])[dit], 0, comp, 1);
 	      comp++;
@@ -7332,6 +7488,18 @@ AmrIce::writeCheckpointFile(const string& a_file)
     }
   nComp++;
 
+  string iceMaskName("iceMask");
+  for (int comp=0; comp < 1; comp++)
+    {
+      // first generate component name
+      char idx[5]; sprintf(idx, "%04d", comp);
+      compName = iceMaskName + string(idx);
+      sprintf(compStr, "component_%04d", comp + nComp);
+      header.m_string[compStr] = compName;
+      
+    }
+  nComp++;
+
   string velocityName("velocity");
   for (int comp=0; comp < m_velocity[0]->nComp() ; comp++) 
     {
@@ -7419,6 +7587,9 @@ AmrIce::writeCheckpointFile(const string& a_file)
 
 	  write(handle, *m_calvedIceThickness[lev] , "accumCalvedIceThckData",
 		m_calvedIceThickness[lev]->ghostVect()  );
+
+	  write(handle, *m_iceMask[lev] , "iceMaskData",
+		m_iceMask[lev]->ghostVect()  );
 
 	  write(handle, *m_velocity[lev], "velocityData", 
 		m_velocity[lev]->ghostVect());
@@ -7637,6 +7808,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   m_amrGrids.resize(m_max_level+1);
   m_amrDx.resize(m_max_level+1);
   m_old_thickness.resize(m_max_level+1, NULL);
+  m_iceMask.resize(m_max_level+1, NULL);
   m_velocity.resize(m_max_level+1, NULL);
   m_diffusivity.resize(m_max_level+1);
   m_vect_coordSys.resize(m_max_level+1);
@@ -7765,6 +7937,8 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	  IntVect ghostVect(IntVect::Unit);
           m_velocity[lev] = new LevelData<FArrayBox>(levelDBL, SpaceDim, 
                                                      ghostVect);
+
+          m_iceMask[lev] = new LevelData<FArrayBox>(levelDBL, 1, ghostVect);
 
 	  m_faceVelAdvection[lev] = new LevelData<FluxBox>(m_amrGrids[lev], 1, IntVect::Unit);
 	  m_faceVelTotal[lev] = new LevelData<FluxBox>(m_amrGrids[lev], 1, IntVect::Unit);
@@ -7911,6 +8085,20 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	      
             }
 
+	  LevelData<FArrayBox>& iceMaskData = *m_iceMask[lev];
+	  dataStatus = read<FArrayBox>(a_handle,
+				       iceMaskData,
+                                       "iceMaskData",
+				       levelDBL);
+          
+	  if (dataStatus != 0)
+	    {
+	      MayDay::Warning("checkpoint file does not contain ice mask data -- initializing based on current ice thicknesses"); 
+              
+              const LevelData<FArrayBox>& levelThickness = m_vect_coordSys[lev]->getH();
+              setIceMask(levelThickness, lev);
+            } // end if no ice mask in data
+          
 	  {
 	    // read internal energy , or read temperature and convert to internal energy
  	    std::string dataName, sDataName, bDataName;

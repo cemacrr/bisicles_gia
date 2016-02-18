@@ -11,6 +11,7 @@
 #include "SurfaceFlux.H"
 #include "LevelDataSurfaceFlux.H"
 #include "GroundingLineLocalizedFlux.H"
+#include "HotspotFlux.H"
 #ifdef HAVE_PYTHON
 #include "PythonInterface.H"
 #endif
@@ -586,6 +587,30 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       pp.get("flux_value", fluxVal);
       constFluxPtr->setFluxVal(fluxVal);
       ptr = static_cast<SurfaceFlux*>(constFluxPtr);
+    }
+  else if (type == "hotspotFlux")
+    {
+      HotspotFlux* hotspotFluxPtr = new HotspotFlux;
+      Real fluxVal;
+      pp.get("flux_value", fluxVal);
+      hotspotFluxPtr->setFluxVal(fluxVal);
+      Vector<Real> vect(SpaceDim,0.0);
+
+      pp.getarr("radius",vect,0,SpaceDim);
+      RealVect radius(D_DECL(vect[0], vect[1],vect[2]));      
+
+      pp.getarr("center",vect,0,SpaceDim);
+      RealVect center(D_DECL(vect[0], vect[1],vect[2]));
+
+      hotspotFluxPtr->setSpotLoc(radius, center);
+      
+      Real startTime = -1.2345e300;
+      Real stopTime = 1.2345e300;
+      pp.query("start_time", startTime);
+      pp.query("stop_time", stopTime);
+      hotspotFluxPtr->setSpotTimes(startTime, stopTime);
+      
+      ptr = static_cast<SurfaceFlux*>(hotspotFluxPtr);
     }
   else if (type == "LevelData")
     {

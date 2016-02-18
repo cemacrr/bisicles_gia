@@ -355,7 +355,66 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
 				 oldMeltRate, NoiseScale, calvingFreq,
 				 decay, timescale);
     }
- 
+  else if (type == "ThicknessCalvingModel")
+    {  
+      Real minThickness = 0.0;
+      pp.get("min_thickness", minThickness );
+      Real calvingThickness = 0.0;
+      pp.get("calving_thickness", calvingThickness );
+      Real calvingDepth = 0.0;
+      pp.query("calving_depth", calvingDepth );
+      Real startTime = -1.2345678e+300;
+      pp.query("start_time",  startTime);
+      Real endTime = 1.2345678e+300;
+      pp.query("end_time",  endTime);
+      ptr = new ThicknessCalvingModel
+	(calvingThickness,  calvingDepth, minThickness, startTime, endTime); 
+    }
+  else if (type == "MaxiumumExtentCalvingModel")  
+    {
+
+      Real startTime = -1.2345678e+300;
+      pp.query("start_time",  startTime);
+      Real endTime = 1.2345678e+300;
+      pp.query("end_time",  endTime);
+
+      Vector<Real> vect(SpaceDim,0.0);
+
+      pp.getarr("lowLoc",vect,0,SpaceDim);
+      RealVect lowLoc(D_DECL(vect[0], vect[1],vect[2]));      
+
+      pp.getarr("highLoc",vect,0,SpaceDim);
+      RealVect highLoc(D_DECL(vect[0], vect[1],vect[2]));      
+
+      MaximumExtentCalvingModel* Ptr = new MaximumExtentCalvingModel(highLoc,
+                                                                     lowLoc,
+                                                                     startTime,
+                                                                     endTime);
+      ptr = static_cast<CalvingModel*>(Ptr);
+
+    }
+  else if (type == "CompositeCalvingModel")
+    {
+      int nElements;
+      pp.get("nElements",nElements);
+     
+      std::string elementPrefix(a_prefix);
+      elementPrefix += ".element";
+
+      Vector<CalvingModel*> elements(nElements);
+      for (int i = 0; i < nElements; i++)
+        {
+          std::string prefix(elementPrefix);
+          char s[32];
+          sprintf(s,"%i",i);
+          prefix += s;
+          ParmParse pe(prefix.c_str());
+          elements[i] = parseCalvingModel(prefix.c_str());
+          CH_assert(elements[i] != NULL);
+        }
+      CompositeCalvingModel* compositePtr = new CompositeCalvingModel(elements);
+      ptr = static_cast<CalvingModel*>(compositePtr);
+    }   
 
 //   else
 //     {
@@ -406,6 +465,179 @@ DeglaciationCalvingModelB::endTimeStepModifyState
 }
 
 
+void 
+ThicknessCalvingModel::endTimeStepModifyState
+(LevelData<FArrayBox>& a_thickness, 
+ const AmrIce& a_amrIce,
+ int a_level)
+{
+  // actually need a non-const AmrIce here because we also want to 
+  // change the iceMask. 
+  AmrIce* nonConstAmrIce = const_cast<AmrIce*>(&a_amrIce);
+  
+  const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
+  LevelData<FArrayBox>& levelIceMask = *nonConstAmrIce->iceMask(a_level);
+
+  for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
+    {
+      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+      FArrayBox& iceMask = levelIceMask[dit];
+      FArrayBox& thck = a_thickness[dit];
+      FArrayBox effectiveThickness(thck.box(), 1);
+      effectiveThickness.copy(thck);
+      Box b = thck.box();
+      b &= iceMask.box();
+      
+      for (BoxIterator bit(b); bit.ok(); ++bit)
+	{
+	  const IntVect& iv = bit();          
+          // if iceMask > 0, then rescale effectiveThickness
+          // by dividing by iceMask value, which gives "actual" thickness
+          // in the partial cell. Probably eventually want to move this to 
+          // fortran
+          if (iceMask(iv,0) > 0.0)
+            {
+              effectiveThickness(iv,0) /= iceMask(iv,0);
+            }
+            
+          if (mask(iv) == OPENLANDMASKVAL)
+	    {
+	      thck(iv) = 0.0;
+	    }
+          // allow ice to spread into open sea regions too, if appropriate
+          else if (((mask(iv) == FLOATINGMASKVAL) || (mask(iv) == OPENSEAMASKVAL))
+                   && (effectiveThickness(iv) < m_calvingThickness))
+            {
+              // note that we're setting thck here, not effectiveThickness, 
+              // which is a temporary
+              // also set the iceMask to zero in these cells
+	      thck(iv) = m_minThickness; 
+              iceMask(iv,0) = 0.0;
+            }
+	  else
+	    {
+	      thck(iv) = std::max(thck(iv),m_minThickness);
+	    }
+	}
+    }
+}
+
+
+
+  
+//alter the thickness field at the end of a time step
+void
+MaximumExtentCalvingModel::endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
+                                                  const AmrIce& a_amrIce,
+                                                  int a_level)
+{
+
+  const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
+  const Real dx = a_amrIce.amrDx()[a_level];
+  
+  for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
+    {
+      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+      FArrayBox& thck = a_thickness[dit];
+      Box b = thck.box();
+      
+      for (BoxIterator bit(b); bit.ok(); ++bit)
+	{
+	  const IntVect& iv = bit();
+          RealVect loc(iv);
+          loc += 0.5*RealVect::Unit;
+          loc *= dx;
+          
+          // check high and low extents
+          if ((loc[0] < m_lowLoc[0]) && (mask(iv) == FLOATINGMASKVAL))
+            {
+	      thck(iv) = 0.0;
+            }
+          else if ((loc[1] < m_lowLoc[1]) && (mask(iv) == FLOATINGMASKVAL))
+            {
+	      thck(iv) = 0.0;
+            }
+          else if ((loc[0] > m_highLoc[0]) && (mask(iv) == FLOATINGMASKVAL))
+            {
+	      thck(iv) = 0.0;
+            }
+            else if ((loc[1] > m_highLoc[1]) && (mask(iv) == FLOATINGMASKVAL))
+            {
+	      thck(iv) = 0.0;
+            }
+          
+        }
+  
+    }
+
+}
+
+
+//alter the thickness field prior to the first time step. 
+void
+CompositeCalvingModel::initialModifyState(LevelData<FArrayBox>& a_thickness, 
+                                          const AmrIce& a_amrIce,
+                                          int a_level)
+{
+  for (int n=0; n<m_vectModels.size(); n++)
+    {
+      m_vectModels[n]->initialModifyState(a_thickness, a_amrIce, a_level);
+    }
+}
+
+
+//alter the thickness field at the end of a time step
+void 
+CompositeCalvingModel::endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
+                                              const AmrIce& a_amrIce,
+                                              int a_level)
+{
+  for (int n=0; n<m_vectModels.size(); n++)
+    {
+      m_vectModels[n]->endTimeStepModifyState(a_thickness, a_amrIce, 
+                                              a_level);
+    }
+}
+
+  
+//alter the thickness field after a regrid
+void 
+CompositeCalvingModel::regridModifyState(LevelData<FArrayBox>& a_thickness, 
+                                         const AmrIce& a_amrIce,
+                                         int a_level)
+{
+  for (int n=0; n<m_vectModels.size(); n++)
+    {
+      m_vectModels[n]->regridModifyState(a_thickness, a_amrIce, a_level);
+    }
+
+}
+
+//modify a thickness flux
+void 
+CompositeCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+                                                  LevelData<FArrayBox>& a_calvingMelt,
+                                                  const AmrIce& a_amrIce,
+                                                  int a_level,
+                                                  Real a_dt)
+{
+  for (int n=0; n<m_vectModels.size(); n++)
+    {
+      m_vectModels[n]->modifySurfaceThicknessFlux(a_flux, a_calvingMelt, 
+                                                  a_amrIce, a_level, a_dt);
+                                                  
+    }  
+}
+
+
+CompositeCalvingModel::~CompositeCalvingModel()
+{
+  for (int n=0; n<m_vectModels.size(); n++)
+    {
+      delete m_vectModels[n];
+      m_vectModels[n] = NULL;
+    }
+}
 
 
 #include "NamespaceFooter.H"
