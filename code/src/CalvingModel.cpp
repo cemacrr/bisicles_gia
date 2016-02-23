@@ -544,29 +544,34 @@ MaximumExtentCalvingModel::endTimeStepModifyState(LevelData<FArrayBox>& a_thickn
       for (BoxIterator bit(b); bit.ok(); ++bit)
 	{
 	  const IntVect& iv = bit();
-          RealVect loc(iv);
+
+          // compute location of cell center
+          RealVect loc(iv);          
           loc += 0.5*RealVect::Unit;
           loc *= dx;
           
           // check high and low extents
-          if ((loc[0] < m_lowLoc[0]) && (mask(iv) == FLOATINGMASKVAL))
+          if ((mask(iv) == FLOATINGMASKVAL) || (mask(iv) == OPENSEAMASKVAL))
             {
-	      thck(iv) = 0.0;
-            }
-          else if ((loc[1] < m_lowLoc[1]) && (mask(iv) == FLOATINGMASKVAL))
-            {
-	      thck(iv) = 0.0;
-            }
-          else if ((loc[0] > m_highLoc[0]) && (mask(iv) == FLOATINGMASKVAL))
-            {
-	      thck(iv) = 0.0;
-            }
-            else if ((loc[1] > m_highLoc[1]) && (mask(iv) == FLOATINGMASKVAL))
-            {
-	      thck(iv) = 0.0;
-            }
-          
-        }
+              if (loc[0] <= m_lowLoc[0])
+                {
+                  thck(iv) = 0.0;
+                }
+              else if (loc[1] <= m_lowLoc[1])
+                {
+                  thck(iv) = 0.0;
+                }
+              else if (loc[0] > m_highLoc[0]) 
+                {
+                  thck(iv) = 0.0;
+                }
+              else if (loc[1] > m_highLoc[1])
+                {
+                  thck(iv) = 0.0;
+                }
+              
+            } // end if floating or opensea
+        } // end loop over cells
   
     }
 

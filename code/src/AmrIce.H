@@ -48,7 +48,7 @@ public:
   /// destructor
   /** destructor
    */
-  ~AmrIce();
+  virtual ~AmrIce();
 
   /// set default values before initialization
   void setDefaults();
@@ -514,11 +514,20 @@ protected:
   // incremente coordSys with new thickness
   void updateCoordSysWithNewThickness(const Vector<LevelData<FArrayBox>* >& a_thickness);
 
-  /// set real-valued ice mask after thickness update 
+  /// initialize real-valued ice mask  
   /** this is entirely based on ice thickness h, as opposed
       to the advective update
    */
   void setIceMask(const LevelData<FArrayBox>& a_thickness, int a_level);
+
+
+  /// update real-valued ice mask after thickness update 
+  /** this is different from setIceMask in that it preserves 
+      fractional mask values, but still sets mask to zero in cells 
+      with no ice. Thickness is non-const because it may set very small
+      values of H (less than epsilon) to zero
+   */
+  void updateIceMask(LevelData<FArrayBox>& a_thickness, int a_level);
 
   /// update real-valued ice mask through advection from neighboring cells
   void advectIceMask(Vector<LevelData<FArrayBox>* >& a_iceMask,

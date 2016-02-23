@@ -3187,9 +3187,12 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
 	  calv[dit] += prevThck[dit];
 	  calv[dit] -= thck[dit];
 	}
+      // update real-valued mask in case calving model removed any ice
+      updateIceMask(m_vect_coordSys[lev]->getH(), lev);
+
     }
   
-  
+
   
   
   //dont allow thickness to be negative
@@ -5857,6 +5860,33 @@ AmrIce::setIceMask(const LevelData<FArrayBox>& a_thickness, int a_level)
     }
 }
 
+void
+AmrIce::updateIceMask(LevelData<FArrayBox>& a_thickness, int a_level)
+{
+  // set mask to 0 if no ice in cell...
+
+  // "zero" thickness value
+  Real ice_eps = 1.0e-6;
+  DataIterator dit = m_iceMask[a_level]->dataIterator();
+  for (dit.begin(); dit.ok(); ++dit)
+    {
+      FArrayBox& thisMask = (*m_iceMask[a_level])[dit];
+      FArrayBox& thisH = a_thickness[dit];
+      BoxIterator bit(thisMask.box());
+      for (bit.begin(); bit.ok(); ++bit)
+        {
+          IntVect iv = bit();
+          if (thisH(iv,0) < ice_eps) 
+            {
+              thisMask(iv,0) = 0.0;
+              thisH(iv,0) = 0.0;
+            }          
+        }
+    }
+}
+
+
+
 /// update real-valued ice mask through advection from neighboring cells
 void
 AmrIce::advectIceMask(Vector<LevelData<FArrayBox>* >& a_iceMask,
@@ -8098,7 +8128,12 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
               const LevelData<FArrayBox>& levelThickness = m_vect_coordSys[lev]->getH();
               setIceMask(levelThickness, lev);
             } // end if no ice mask in data
-          
+          else
+            {
+              // ensure that ice mask is set to zero where there's no ice
+              updateIceMask(m_vect_coordSys[lev]->getH(), lev);
+            }
+        
 	  {
 	    // read internal energy , or read temperature and convert to internal energy
  	    std::string dataName, sDataName, bDataName;
