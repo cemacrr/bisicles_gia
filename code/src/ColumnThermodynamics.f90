@@ -15,7 +15,7 @@ module column_thermodynamics
   ! factor for dependence of melting point on pressure, triple point of water (K)
 
   integer, parameter :: groundedmaskval = 1, floatingmaskval = 2, openseamaskval = 4, openlandmaskval = 8
-  real(kind=8), parameter :: temp_eps = 1.0e-3
+  real(kind=8), parameter :: temp_eps = 1.0e-3, max_delta_energy = 200.0
   real(kind=8), parameter :: zero_debug = 0.0d0
 contains
 
@@ -125,13 +125,14 @@ contains
     logical, intent(in) :: sdiric
     !locals
     real(kind=8), dimension(1:n) :: a,c,b,r,a2,c2,b2,r2 ! TDMA coefficients
-    real(kind=8), dimension(1:n) :: csig,cdsig,epmp,drain,energy2
+    real(kind=8), dimension(1:n) :: csig,cdsig,epmp,drain,energy2,energy0
     real(kind=8), dimension(1:n+1) :: fdsig,  kcc, ktt, kct, ktc
     real(kind=8) :: bmb, eps,k, kr,bepmp,sepmp, kb
     integer :: i
     logical :: btemperate
    
     eps = 1.0e-3 
+    energy0 = energy
 
     do i = 1,n
        cdsig(i) = fsig(i+1)-fsig(i)
@@ -191,6 +192,7 @@ contains
        r(i) = thckold * energy(i) + rhs(i) &
             - epmp(i-1)/cdsig(i)* (-ktt(i) - ktc(i)) &
             - epmp(i+1)/cdsig(i)* (-ktt(i+1) - kct(i+1)) &
+!            - epmp(i)/cdsig(i) * (ktt(i) + ktc(i) + ktt(i+1) + kct(i+1))
             - epmp(i)/cdsig(i) * (ktt(i) + kct(i) + ktt(i+1) + ktc(i+1))
     end do
 
@@ -270,6 +272,10 @@ contains
     c2 = c
     r2 = r
     call tdmasolve(n,energy2,a2,b2,c2,r2)
+    a2 = a
+    b2 = b
+    c2 = c
+    r2 = r
     
     !drainage
     where (energy2 .gt. epmp + 0.01 * lhci)
@@ -281,7 +287,12 @@ contains
     b = b + thcknew*drain
     r = r + thcknew*drain*epmp
     call tdmasolve(n,energy,a,b,c,r)
-    
+    if ( ( abs(thcknew - 2.3781568151838943) .lt. 0.0001) .and. & 
+         (maxval(abs(energy0-energy)) .gt. 10000.0)) then
+       write(*,*) maxval(abs(energy0-energy)), thcknew, thckold, minval(energy)/2009.0
+    end if
+
+ 
     drain = (energy2 - energy)/lhci
  
     !compute surface energy density or heat flux
@@ -302,6 +313,8 @@ contains
 
     !basal melt rate
     bmb = sum(drain) / dt * cdsig(n) * thcknew
+
+  
 
     return
 
@@ -358,22 +371,39 @@ subroutine column_thermodynamics_update_internal_energy(energy, senergy, sflux, 
   integer l,nt,it,i
   
 
-  if (thcknew.gt.1.0d0) then
+  if (thcknew.gt.1.0d0 .and. thckold.gt.1.0d0) then
      
      do i = 1,n
         csig(i) = 0.5*(fsig(i+1)+fsig(i))
-        if (energy(i).gt.6.0d+5) then
-           write(*,*) 'odd, ', energy(i)
-        end if
+!!$        if (energy(i).gt.6.0d+5) then
+!!$           write(*,*) 'odd, ', energy(i)
+!!$        end if
      end do
     
      !work out a stable time step
+
+     !advection cfl
      dtcfl = dt
      do i = 1,n
         dtcfl = min(dtcfl,(thckold+thcknew)*(fsig(i+1)-fsig(i))/(abs(usig(i+1)) + abs(usig(i))))
      end do
+
+     !a simplified criterion for temperate ice conduction, which is essentially explicit diffusion
+     !hopefully the scaling will not be a major issue. TODO revisit and limit to cases where
+     !there is temperate ice above the bottom layer if it proves a problem
+     !using real(kind=8) tt as a workspace
+     tt = (fsig(2)-fsig(1))**2
+     do i = 2,n
+        tt = min(tt, (fsig(i+1)-fsig(i))**2)
+     end do
+     tt = tt * min(thckold,thcknew)**2 / coni
+
+     !maybe have a factor < 1 here? So far has not been needed
+     dtcfl = min(dtcfl, tt)
+
      nt = ceiling(dt/dtcfl)
      dtcfl = dt/dble(nt)
+
      tt = 0.0d0
      do it = 1,nt
 
@@ -393,17 +423,13 @@ subroutine column_thermodynamics_update_internal_energy(energy, senergy, sflux, 
         tt = tt + dtcfl
         tthcknew = tt/dt * thcknew + (1.0d0-tt/dt) *thckold
 
-        if (energy(n).gt.6.0d+5) then
-           write(*,*) dt, dtcfl,'odd, ', energy(n)
-        end if
-
         call fo_diffusive_advance(energy, senergy, sflux, sdiric, benergy, bflux, rhsl, &
              tthckold, tthcknew,fsig,dtcfl,mask,n)
 
      end do
   else
      !no ice
-     senergy = max(senergy, shci*(trpt - temp_eps))
+     senergy = max(senergy, shci*(trpt - temp_eps - 0.0))
      if (sdiric) then
         sflux = bflux
      end if
