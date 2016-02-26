@@ -317,11 +317,11 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 		      Real epsThck = 10.0;// TODO fix magic number
 		      if ((thck(iv) < epsThck) | (mask(iv) != GROUNDEDMASKVAL))
 			{
-			  if (thck(iv + BASISV(dir)) > epsThck & (mask(iv + BASISV(dir)) == GROUNDEDMASKVAL) ) 
+			  if (thck(iv + BASISV(dir)) > epsThck && (mask(iv + BASISV(dir)) == GROUNDEDMASKVAL) ) 
 			    {
 			      discharge(iv) += -flux(iv + BASISV(dir)) / dx[lev];
 			    }
-			  if (thck(iv - BASISV(dir)) > epsThck & (mask(iv - BASISV(dir)) == GROUNDEDMASKVAL) )
+			  if (thck(iv - BASISV(dir)) > epsThck && (mask(iv - BASISV(dir)) == GROUNDEDMASKVAL) )
 			    {
 			      discharge(iv) += flux(iv) / dx[lev];
 			    }
