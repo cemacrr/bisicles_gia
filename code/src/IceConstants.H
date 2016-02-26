@@ -51,6 +51,7 @@
 #define ICEPMELTFACTOR 9.7456e-8
 #define triplepoint 273.15
 #define TRIPLEPOINT 273.15
+#define MIN_TEMPERATURE 200.0e0
 
 #elif defined(CH_USE_DOUBLE) && !defined(CH_LANG_CC)
 
@@ -81,6 +82,7 @@
 #define ICEPMELTFACTOR 9.7456d-8
 #define triplepoint 273.15d0
 #define TRIPLEPOINT 273.15d0
+#define MIN_TEMPERATURE 200.0d0
 #else
 
 #error One of CH_USE_{FLOAT,DOUBLE} must be defined

@@ -1,5 +1,5 @@
 #include "CONSTANTS.H"
-
+#include "IceConstants.H"
 c-------------------------------------------
 c F = C*T + L*W
 c-------------------------------------------
@@ -55,7 +55,8 @@ c-------------------------------------------
              T(CHF_AUTOIX[i],n) = Tp
              W(CHF_AUTOIX[i],n) = (F(CHF_AUTOIX[i],n) - Fp) / L
           else
-	     T(CHF_AUTOIX[i],n) = (F(CHF_AUTOIX[i],n))/C
+	     T(CHF_AUTOIX[i],n) = max( MIN_TEMPERATURE, 
+     &            (F(CHF_AUTOIX[i],n))/C)
              W(CHF_AUTOIX[i],n) = zero
           end if
        end do
