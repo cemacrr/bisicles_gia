@@ -2865,11 +2865,11 @@ AmrIce::computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes)
 		  Real smallThk = 10.0;
 		  if ((thk(iv) < smallThk) || (mask(iv) != GROUNDEDMASKVAL))
 		    {
-		      if (thk(iv + BASISV(dir)) > smallThk & (mask(iv + BASISV(dir)) == GROUNDEDMASKVAL) ) 
+		      if (thk(iv + BASISV(dir)) > smallThk && (mask(iv + BASISV(dir)) == GROUNDEDMASKVAL) ) 
 			{
 			  groundedDischarge(iv) += -flux(iv + BASISV(dir)) / m_amrDx[lev];
 			}
-		      if (thk(iv - BASISV(dir)) > smallThk & (mask(iv - BASISV(dir)) == GROUNDEDMASKVAL) )
+		      if (thk(iv - BASISV(dir)) > smallThk && (mask(iv - BASISV(dir)) == GROUNDEDMASKVAL) )
 			{
 			  groundedDischarge(iv) += flux(iv) / m_amrDx[lev];
 			}
