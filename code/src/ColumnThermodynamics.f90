@@ -396,7 +396,7 @@ subroutine column_thermodynamics_update_internal_energy(energy, senergy, sflux, 
      do i = 2,n
         tt = min(tt, (fsig(i+1)-fsig(i))**2)
      end do
-     tt = tt * min(thckold,thcknew)**2 / coni
+     tt = tt * min(thckold,thcknew)**2 / (2.0* coni)
 
      !maybe have a factor < 1 here? So far has not been needed
      dtcfl = min(dtcfl, tt)
