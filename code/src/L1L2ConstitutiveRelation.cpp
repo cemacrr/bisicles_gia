@@ -442,11 +442,8 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
 
         Real resNorm = res.norm(0);
         CH_assert(resNorm < 2.0 * m_solverTol);
-	//CH_assert(res.norm(0) < 2.0 * m_solverTol);
 	CH_assert(a_mu.min(a_box,l) > 0.0e0);
       } // end general case
-    //CH_assert(a_mu.min(a_box, l) > TINY_NORM && a_mu.max(a_box, l) < HUGE_NORM);
-    //CH_assert(a_mu.norm(a_box, 1 , l) < HUGE_NORM * a_box.size(0)*a_box.size(1));
   }
 }
 
