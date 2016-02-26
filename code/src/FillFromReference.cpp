@@ -36,7 +36,8 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 		       const RealVect& a_destDx,
 		       const RealVect& a_srcDx,
 		       const IntVect& a_srcGhost,
-		       const bool a_verbose)
+		       bool a_verbose, 
+		       CoarseAverage::averageType a_avgType)
 {
   // tolerance used when converting refinement ratio from Real -> integer
   Real tolerance = 1.0e-6;
@@ -155,7 +156,19 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 	}
       CoarseAverage averager(srcDBL,destGrids,
 			     1, nRef, a_destData.ghostVect());
-      averager.averageToCoarse(a_destData, srcLD);
+      if (a_avgType == CoarseAverage::arithmetic)
+	{
+	  averager.averageToCoarse(a_destData, srcLD);
+	}
+      else if (a_avgType == CoarseAverage::harmonic)
+	{
+	  averager.averageToCoarseHarmonic(a_destData, srcLD);
+	}
+      else
+	{
+	  CH_assert( a_avgType >= 0 && a_avgType <  CoarseAverage::NUM_AVERAGE_TYPES);
+	  MayDay::Error("FillFromReference::invalid average type");
+	}
     }
   else
     {
@@ -180,7 +193,8 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 		       const LevelData<FArrayBox>&  a_srcData,
 		       const RealVect&  a_destDx,
 		       const RealVect&  a_srcDx,
-		       const bool a_verbose)
+		       bool a_verbose,  
+		       CoarseAverage::averageType a_avgType)
 {
 
   if (a_verbose)
@@ -290,8 +304,21 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 	}
 	CoarseAverage averager(srcGrids, destGrids, a_destData.nComp(), 
                                nRef, a_destData.ghostVect());
-			       
-	averager.averageToCoarse(a_destData, a_srcData);
+	
+	
+	if (a_avgType == CoarseAverage::arithmetic)
+	  {
+	    averager.averageToCoarse(a_destData, a_srcData);
+	  }
+	else if (a_avgType == CoarseAverage::harmonic)
+	  {
+	    averager.averageToCoarseHarmonic(a_destData, a_srcData);
+	  }
+	else
+	  {
+	    CH_assert( a_avgType >= 0 && a_avgType <  CoarseAverage::NUM_AVERAGE_TYPES);
+	    MayDay::Error("FillFromReference::invalid average type");
+	  }	       
     }
   else
     {
@@ -319,7 +346,8 @@ flattenCellData(LevelData<FArrayBox>& a_destData,
                 const RealVect& a_destDx,
                 Vector<LevelData<FArrayBox>* >& a_srcData,
                 const Vector<RealVect>& a_srcDx,
-                const bool a_verbose)
+                bool a_verbose, 
+		CoarseAverage::averageType a_avgType)
 {
 
   int numLevels = a_srcData.size();
@@ -364,7 +392,7 @@ flattenCellData(LevelData<FArrayBox>& a_destData,
       RealVect levelDx = a_srcDx[lev];
       FillFromReference(a_destData, *a_srcData[lev],
                         a_destDx, levelDx,
-                        a_verbose);
+                        a_verbose,a_avgType);
     }
 
   // now loop from finer levels down to this one, averaging each src
@@ -375,14 +403,14 @@ flattenCellData(LevelData<FArrayBox>& a_destData,
       RealVect crseLevelDx = a_srcDx[lev];
       FillFromReference(*a_srcData[lev],*a_srcData[lev+1],
                         crseLevelDx, fineLevelDx,
-                        a_verbose);
+                        a_verbose,a_avgType);
     }
 
   // now fill from src data on the same level as dest
   RealVect levelDx = a_srcDx[destLev];
   FillFromReference(a_destData, *a_srcData[destLev],
                     a_destDx, levelDx,
-                    a_verbose);
+                    a_verbose,a_avgType);
   
 }
 
@@ -396,7 +424,8 @@ flattenCellData(LevelData<FArrayBox>& a_destData,
                 const RealVect& a_destDx,
                 Vector<RefCountedPtr<LevelData<FArrayBox> >  >& a_srcData,
                 const Vector<RealVect>& a_srcDx,
-                const bool a_verbose)
+                bool a_verbose, 
+		CoarseAverage::averageType a_avgType)
 {
  
   Vector<LevelData<FArrayBox>* > srcData(a_srcData.size(),NULL);
@@ -409,7 +438,7 @@ flattenCellData(LevelData<FArrayBox>& a_destData,
                   a_destDx,
                   srcData,
                   a_srcDx,
-                  a_verbose);
+                  a_verbose,a_avgType);
 
 }
 
@@ -423,7 +452,8 @@ flattenCellDataConst(LevelData<FArrayBox>& a_destData,
                      const RealVect& a_destDx,
                      const Vector<LevelData<FArrayBox>* >& a_srcData,
                      const Vector<RealVect>& a_srcDx,
-                     const bool a_verbose)
+                     bool a_verbose, 
+		     CoarseAverage::averageType a_avgType)
 {
 
   int numLevels = a_srcData.size();
@@ -445,7 +475,7 @@ flattenCellDataConst(LevelData<FArrayBox>& a_destData,
       RealVect levelDx = a_srcDx[lev];
       FillFromReference(a_destData, *a_srcData[lev],
                         a_destDx, levelDx,
-                        a_verbose);
+                        a_verbose,a_avgType);
     }
 
 }

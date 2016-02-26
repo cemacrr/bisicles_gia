@@ -21,6 +21,7 @@
 #include "LevelData.H"
 #include "FArrayBox.H"
 #include "IntVect.H"
+#include "CoarseAverage.H"
 #include "RealVect.H"
 
 
@@ -37,7 +38,8 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 		       const RealVect&  a_destDx,
 		       const RealVect&  a_srcDx,
 		       const IntVect& a_srcGhost,
-		       const bool a_verbose);
+		       bool a_verbose, 
+		       CoarseAverage::averageType a_avgType = CoarseAverage::arithmetic);
 
 
 
@@ -50,7 +52,8 @@ void FillFromReference(LevelData<FArrayBox>& a_destData,
 		       const LevelData<FArrayBox>&  a_srcData,
 		       const RealVect&  a_destDx,
 		       const RealVect&  a_srcDx,
-		       const bool a_verbose);
+		       bool a_verbose, 
+		       CoarseAverage::averageType a_avgType = CoarseAverage::arithmetic);
 
 
 // fill a single LevelData wth a flattened AMR hierarchy's worth of data
@@ -62,7 +65,8 @@ flattenCellData(LevelData<FArrayBox>& a_destData,
                 const RealVect& a_destDx,
                 Vector<LevelData<FArrayBox>* >& a_srcData,
                 const Vector<RealVect>& a_srcDx,
-                const bool a_verbose);
+                bool a_verbose, 
+		CoarseAverage::averageType a_avgType = CoarseAverage::arithmetic);
 
 
 // fill a single LevelData wth a flattened AMR hierarchy's worth of data
@@ -75,7 +79,8 @@ flattenCellData(LevelData<FArrayBox>& a_destData,
                 const RealVect& a_destDx,
                 Vector<RefCountedPtr<LevelData<FArrayBox> >  >& a_srcData,
                 const Vector<RealVect>& a_srcDx,
-                const bool a_verbose);
+                bool a_verbose, 
+		CoarseAverage::averageType a_avgType = CoarseAverage::arithmetic);
 
 
 // fill a single LevelData wth a flattened AMR hierarchy's worth of data
@@ -88,7 +93,8 @@ flattenCellDataConst(LevelData<FArrayBox>& a_destData,
                      const RealVect& a_destDx,
                      const Vector<LevelData<FArrayBox>* >& a_srcData,
                      const Vector<RealVect>& a_srcDx,
-                     const bool a_verbose);
+                     bool a_verbose, 
+		     CoarseAverage::averageType a_avgType = CoarseAverage::arithmetic);
 
 #include "NamespaceFooter.H"
 
