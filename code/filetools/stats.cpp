@@ -371,7 +371,7 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 		  dhc(iv) += (flux(iv) - flux(iv + BASISV(dir)))/dx[lev]; // flux divergence
 		  
 		  Real epsThck = 10.0;// TODO fix magic number
-		  if ((thck(iv) < epsThck) | (mask(iv) != GROUNDEDMASKVAL))
+		  if ((thck(iv) < epsThck) || (mask(iv) != GROUNDEDMASKVAL))
 		    {
 		      dh(iv) = 0.0;
 		      dhc(iv) = 0.0;
@@ -447,6 +447,342 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
       if (ccBMB[lev] != NULL)
 	{
 	  delete ccBMB[lev];ccBMB[lev]= NULL;
+	}
+      
+    }
+
+
+}
+
+void computeCalving(Vector<LevelData<FArrayBox>* >& topography,
+		      Vector<LevelData<FArrayBox>* >& thickness, 
+		      Vector<Real>& dx, Vector<int>& ratio, 
+		      Vector<std::string>& name, 
+		      Vector<LevelData<FArrayBox>* >& data, 
+		      Real a_iceDensity, Real a_waterDensity, Real a_gravity)
+{
+
+  
+  int numLevels = data.size();
+  Vector<LevelData<FArrayBox>* > ccVel(numLevels, NULL);
+  Vector<LevelData<FluxBox>* > fcVel(numLevels, NULL);
+  Vector<LevelData<FluxBox>* > fcThck(numLevels, NULL);
+  Vector<LevelData<BaseFab<int> >* > ccMask(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccDH(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccCumCalvedIce(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccSMB(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccBMB(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccOMB(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccCMB(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccDischarge(numLevels, NULL);
+
+  for (int lev = 0; lev < numLevels; lev++)
+    {
+      int comp = 0;
+      const DisjointBoxLayout& grids = topography[lev]->disjointBoxLayout();
+      ccVel[lev] = new LevelData<FArrayBox>(grids,SpaceDim,IntVect::Unit);
+      fcVel[lev] = new LevelData<FluxBox>(grids,1,IntVect::Unit);
+      fcThck[lev] = new LevelData<FluxBox>(grids,1,IntVect::Unit);
+      ccDH[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccMask[lev] = new LevelData<BaseFab<int> >(grids,1,IntVect::Unit);
+      ccCumCalvedIce[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccSMB[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccBMB[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccOMB[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccCMB[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      for (DataIterator dit(grids);dit.ok();++dit)
+	{
+	  (*ccVel[lev])[dit].setVal(0.0);
+	  for (int dir = 0; dir < SpaceDim; dir++)
+	    {
+	      (*fcVel[lev])[dit][dir].setVal(0.0);
+	    }
+	}
+
+      ccDischarge[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      for (int j = 0; j < name.size(); j++)
+	{
+	  if (name[j] == "xVel")
+	    {
+	      data[lev]->copyTo(Interval(j,j),*ccVel[lev],Interval(0,0));
+	      comp++;
+	    }
+	  else if (name[j] == "yVel")
+	    {
+	      data[lev]->copyTo(Interval(j,j),*ccVel[lev],Interval(1,1));
+	      comp++;
+	    }
+	  else if (name[j] == "dThickness/dt")
+	    {
+	      data[lev]->copyTo(Interval(j,j),*ccDH[lev],Interval(0,0));
+	      comp++;
+	    }
+	  else if (name[j] == "surfaceThicknessSource")
+	    {
+	      data[lev]->copyTo(Interval(j,j),*ccSMB[lev],Interval(0,0));
+	      comp++;
+	    }
+	  else if (name[j] == "basalThicknessSource")
+	    {
+	      data[lev]->copyTo(Interval(j,j),*ccBMB[lev],Interval(0,0));
+	      comp++;
+	    }
+	  else if (name[j] == "calvedThicknessSource")
+	    {
+	      data[lev]->copyTo(Interval(j,j),*ccCMB[lev],Interval(0,0));
+	      comp++;
+	    }
+	  else if (name[j] == "calvedIceThickness")
+	    {
+	      data[lev]->copyTo(Interval(j,j),*ccCumCalvedIce[lev],Interval(0,0));
+	      comp++;
+	    }
+	}
+      CH_assert(comp == 7);
+
+      ccVel[lev]->exchange();
+      if (lev > 0)
+	{
+	  const DisjointBoxLayout& crseGrids = topography[lev-1]->disjointBoxLayout();
+	  PiecewiseLinearFillPatch velFiller(grids , crseGrids, ccVel[lev]->nComp(), 
+					     crseGrids.physDomain(), ratio[lev-1], 1);
+	  Real time_interp_coeff = 0.0;
+	  velFiller.fillInterp(*ccVel[lev],*ccVel[lev-1] ,*ccVel[lev-1],
+			       time_interp_coeff,0, 0, ccVel[lev]->nComp());
+	}
+
+      CellToEdge(*ccVel[lev], *fcVel[lev]);
+
+      //modification to fluxes at the margins, that is where mask changes to open sea or land.
+      for (DataIterator dit(grids); dit.ok(); ++dit)
+	{
+
+	  
+	  const FArrayBox& thck = (*thickness[lev])[dit];
+	  const FArrayBox& topg = (*topography[lev])[dit];
+	  
+	  FArrayBox usrf(topg.box(),1);
+	  Real seaLevel = 0.0;
+
+	  FORT_SURFACEHEIGHT(CHF_FRA1(usrf,0),
+			     CHF_CONST_FRA1(thck,0),
+			     CHF_CONST_FRA1(topg,0),
+			     CHF_CONST_REAL(a_iceDensity),
+			     CHF_CONST_REAL(a_waterDensity),
+			     CHF_CONST_REAL(seaLevel),
+			     CHF_BOX(topg.box()));
+
+	  BaseFab<int>& mask = (*ccMask[lev])[dit];
+	  int any = 0;
+
+	  FORT_SETFLOATINGMASK(CHF_FIA1(mask,0),
+			       CHF_CONST_FRA1(usrf,0),
+			       CHF_CONST_FRA1(topg,0),
+			       CHF_CONST_FRA1(thck,0),
+			       CHF_INT(any),
+			       CHF_REAL(a_iceDensity),
+			       CHF_REAL(a_waterDensity),
+			       CHF_REAL(seaLevel),
+			       CHF_BOX(mask.box()));
+    
+
+	    for (int dir = 0; dir < SpaceDim; ++dir)
+	      {
+		Box faceBox = grids[dit];
+		faceBox.surroundingNodes(dir);
+		FArrayBox& faceVel = (*fcVel[lev])[dit][dir];
+	  Box grownFaceBox = faceBox;
+	  CH_assert(faceVel.box().contains(grownFaceBox));
+	  FArrayBox vface(faceBox,1);
+
+		const FArrayBox& cellVel = (*ccVel[lev])[dit];
+		BaseFab<int> mask(grids[dit],1) ;
+
+		FORT_EXTRAPTOMARGIN(CHF_FRA1(faceVel,0),
+                                    CHF_FRA1(vface,0),
+				    CHF_CONST_FRA1(cellVel,dir),
+				    CHF_CONST_FRA1(usrf,0),
+				    CHF_CONST_FRA1(topg,0),
+				    CHF_CONST_FRA1(thck,0),
+				    CHF_CONST_INT(dir),
+				    CHF_BOX(faceBox));
+	      }
+	}
+
+      // face centered thickness from PPM
+      for (DataIterator dit(grids);dit.ok();++dit)
+	{
+	  AdvectPhysics advectPhys;
+	  RealVect levelDx = RealVect::Unit * dx[lev];
+	  RefCountedPtr<LevelData<FArrayBox> > levelThck(thickness[0]); levelThck.neverDelete();
+	  RefCountedPtr<LevelData<FArrayBox> > levelTopg(topography[0]); levelTopg.neverDelete();
+	  LevelDataIBC thicknessIBC(levelThck,levelTopg,levelDx);
+
+	 
+	  FluxBox& fcvel = (*fcVel[lev])[dit];
+	  FArrayBox& ccvel = (*ccVel[lev])[dit];
+	  advectPhys.setPhysIBC(&thicknessIBC);
+	  
+	  
+	  FluxBox& faceh = (*fcThck[lev])[dit];
+	  FArrayBox& cch = (*thickness[lev])[dit];
+	  
+	  FArrayBox src(grids[dit],1); 
+	  src.copy( (*ccSMB[lev])[dit]) ;
+	  src.plus( (*ccBMB[lev])[dit]) ;
+	  
+	  Real dt = 1.0e-3;
+	  int normalPredOrder = 2;
+	  bool useFourthOrderSlopes = true;
+	  bool usePrimLimiting = true;
+	  bool useCharLimiting = false;
+	  bool useFlattening = false;
+	  bool useArtificialViscosity = false;
+	  Real artificialViscosity = 0.0;
+	  PatchGodunov patchGod;
+	  patchGod.define(grids.physDomain(), dx[lev], &advectPhys,
+			  normalPredOrder,
+			  useFourthOrderSlopes,
+			  usePrimLimiting,
+			  useCharLimiting,
+			  useFlattening,
+			  useArtificialViscosity,
+			  artificialViscosity);
+	  AdvectPhysics* advectPhysPtr = dynamic_cast<AdvectPhysics*>(patchGod.getGodunovPhysicsPtr());
+	  CH_assert(advectPhysPtr != NULL);
+	  
+	  advectPhysPtr->setVelocities(&ccvel,&fcvel);
+
+	  patchGod.setCurrentTime(0.0);
+	  patchGod.setCurrentBox(grids[dit]);
+	  patchGod.computeWHalf(faceh, cch, src, dt, grids[dit]);
+
+	}
+
+      //work out (dh/dt)_c = smb - bmb + div(uh) and discharge across boundary. 
+      for (DataIterator dit(grids);dit.ok();++dit)
+    	{
+    	  FArrayBox& discharge = (*ccDischarge[lev])[dit];
+    	  discharge.setVal(0.0);
+    	  FArrayBox& smb = (*ccSMB[lev])[dit];
+    	  FArrayBox& bmb = (*ccBMB[lev])[dit];
+    	  FArrayBox& cmb = (*ccCMB[lev])[dit];
+    	  FArrayBox& omb = (*ccOMB[lev])[dit];
+    	  FArrayBox& dh = (*ccDH[lev])[dit];
+    	  BaseFab<int>& mask = (*ccMask[lev])[dit];
+    	  const FArrayBox& thck = (*thickness[lev])[dit];
+    	  const Box& b = grids[dit];
+	  
+	  for (BoxIterator bit(b);bit.ok();++bit)
+	    {
+	      const IntVect& iv = bit();
+	      omb(iv) = bmb(iv) + cmb(iv);
+	    }
+
+	  for (int dir =0; dir < SpaceDim; dir++)
+	    {
+	      const FArrayBox& vel = (*fcVel[lev])[dit][dir];
+   
+	      CH_assert(vel.norm(0) < 1.0e+12);
+
+	      FArrayBox flux(vel.box(),1);
+	      flux.copy((*fcVel[lev])[dit][dir]);
+	      flux.mult((*fcThck[lev])[dit][dir]);
+	     
+
+	      for (BoxIterator bit(b);bit.ok();++bit)
+		{
+		  const IntVect& iv = bit();
+		  
+		  Real epsThck = 1.0e-10;// TODO fix magic number
+		  if ((thck(iv) < epsThck) || (mask(iv) != GROUNDEDMASKVAL && mask(iv) != FLOATINGMASKVAL))
+		    {
+		      dh(iv) = 0.0;
+		      smb(iv) = 0.0;
+		      bmb(iv) = 0.0;
+		      cmb(iv) = 0.0;
+		      if (thck(iv + BASISV(dir)) > epsThck && (mask(iv + BASISV(dir)) == GROUNDEDMASKVAL || mask(iv + BASISV(dir)) == FLOATINGMASKVAL) ) 
+			{
+			  discharge(iv) += -flux(iv + BASISV(dir)) / dx[lev];
+			}
+		      if (thck(iv - BASISV(dir)) > epsThck && (mask(iv - BASISV(dir)) == GROUNDEDMASKVAL || mask(iv - BASISV(dir)) == FLOATINGMASKVAL) )
+			{
+			  discharge(iv) += flux(iv) / dx[lev];
+			}
+    		    } //end if (thck(iv) < epsThck) 
+    		} //end loop over cells
+    	    } // end loop over direction
+    	} // end loop over grids
+    } //end loop over levels
+
+  pout() << " Calving:";
+  Real sumDischarge = computeSum(ccDischarge, ratio, dx[0], Interval(0,0), 0);
+  pout() << "dischargeFromEdge = " << sumDischarge << " ";
+  
+  Real sumDH = computeSum(ccDH, ratio, dx[0], Interval(0,0), 0);
+  pout() << " dhdt = " << sumDH << " ";
+
+  Real sumSMB = computeSum(ccSMB, ratio, dx[0], Interval(0,0), 0);
+  pout() << " smb = " << sumSMB << " ";
+
+  Real sumBMB = computeSum(ccBMB, ratio, dx[0], Interval(0,0), 0);
+  pout() << " bmb = " << sumBMB << " ";
+
+  Real sumOMB = computeSum(ccOMB, ratio, dx[0], Interval(0,0), 0);
+  pout() << " oceanMelt = " << sumOMB << " ";
+
+  Real sumCMB = computeSum(ccCMB, ratio, dx[0], Interval(0,0), 0);
+  pout() << " calvingMelt = " << sumCMB << " ";
+
+  Real sumCumCalvedIce = computeSum(ccCumCalvedIce, ratio, dx[0], Interval(0,0), 0);
+  pout() << " cumulatedCalvedIce = " << sumCumCalvedIce << " " << endl;
+
+
+  for (int lev = 0; lev < numLevels; lev++)
+    {
+      if (ccVel[lev] != NULL)
+	{
+	  delete ccVel[lev];ccVel[lev]= NULL;
+	}
+      if (fcVel[lev] != NULL)
+	{
+	  delete fcVel[lev];fcVel[lev]= NULL;
+	}
+      if (fcThck[lev] != NULL)
+	{
+	  delete fcThck[lev];fcThck[lev]= NULL;
+	}
+      if (ccDischarge[lev] != NULL)
+	{
+	  delete ccDischarge[lev];ccDischarge[lev]= NULL;
+	}
+      if (ccDH[lev] != NULL)
+	{
+	  delete ccDH[lev];ccDH[lev]= NULL;
+	}
+      if (ccMask[lev] != NULL)
+	{
+	  delete ccMask[lev];ccMask[lev]= NULL;
+	}
+      if (ccCumCalvedIce[lev] != NULL)
+	{
+	  delete ccCumCalvedIce[lev];ccCumCalvedIce[lev]= NULL;
+	}
+       if (ccSMB[lev] != NULL)
+	{
+	  delete ccSMB[lev];ccSMB[lev]= NULL;
+	}
+      if (ccBMB[lev] != NULL)
+	{
+	  delete ccBMB[lev];ccBMB[lev]= NULL;
+	}
+      if (ccOMB[lev] != NULL)
+	{
+	  delete ccOMB[lev];ccOMB[lev]= NULL;
+	}
+      if (ccCMB[lev] != NULL)
+	{
+	  delete ccCMB[lev];ccCMB[lev]= NULL;
 	}
       
     }
@@ -609,7 +945,7 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
 		for (BoxIterator bit(b);bit.ok();++bit)
 		  {
 		    const IntVect& iv = bit();
-		    if ((mask(iv) == GROUNDEDMASKVAL) | (mask(iv) == FLOATINGMASKVAL))
+		    if ((mask(iv) == GROUNDEDMASKVAL) || (mask(iv) == FLOATINGMASKVAL))
 		      {
 			a(iv) = 1.0;
 		      }
@@ -746,9 +1082,11 @@ int main(int argc, char* argv[]) {
     Vector<LevelData<FArrayBox>* > topography(numLevels,NULL);
     Vector<LevelData<FArrayBox>* > basalThicknessSrc(numLevels,NULL);
     int srcComp = -1;
+    bool calving = false;
     for (int i=0; i< name.size(); i++)
       {
         if (name[i] == "basalThicknessSource") srcComp=i;
+        if (name[i] == "calvedIceThickness") calving=true;
       }
 
     for (int lev=0;lev<numLevels;++lev)
@@ -778,7 +1116,12 @@ int main(int argc, char* argv[]) {
 	    pout() << " sector = " << maskNo;
 	  }
 #ifdef STATS_COMPUTE_DISCHARGE
-	    computeDischarge(topography, thickness, dx, ratio, name, data, iceDensity, waterDensity,gravity);
+	computeDischarge(topography, thickness, dx, ratio, name, data, iceDensity, waterDensity,gravity);
+	if (calving)
+	  {
+	    pout() << endl;
+	    computeCalving(topography, thickness, dx, ratio, name, data, iceDensity, waterDensity,gravity);
+	  }
 #endif
 	pout() << endl;
       }
@@ -794,7 +1137,12 @@ int main(int argc, char* argv[]) {
 	    pout() << " all sectors ";
 	  }
 #ifdef STATS_COMPUTE_DISCHARGE
-	    computeDischarge(topography, thickness, dx, ratio, name, data, iceDensity, waterDensity,gravity);
+	computeDischarge(topography, thickness, dx, ratio, name, data, iceDensity, waterDensity,gravity);
+	if (calving)
+	  {
+	    pout() << endl;
+	    computeCalving(topography, thickness, dx, ratio, name, data, iceDensity, waterDensity,gravity);
+	  }
 #endif
 	pout() << endl;
       }

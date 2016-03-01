@@ -311,11 +311,11 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 	      for (BoxIterator bit(b);bit.ok();++bit)
 		{
 		  const IntVect& iv = bit();
-		  if ( std::abs ( (*sectorMask[lev])[dit](iv) - maskNo) < 1.0e-6 | maskNo == -1)
+		  if ( std::abs ( (*sectorMask[lev])[dit](iv) - maskNo) < 1.0e-6 || maskNo == -1)
 		    {
 		  
 		      Real epsThck = 10.0;// TODO fix magic number
-		      if ((thck(iv) < epsThck) | (mask(iv) != GROUNDEDMASKVAL))
+		      if ((thck(iv) < epsThck) || (mask(iv) != GROUNDEDMASKVAL))
 			{
 			  if (thck(iv + BASISV(dir)) > epsThck && (mask(iv + BASISV(dir)) == GROUNDEDMASKVAL) ) 
 			    {
