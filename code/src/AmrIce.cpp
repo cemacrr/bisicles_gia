@@ -2887,7 +2887,7 @@ AmrIce::computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes)
 			}
 
 		    }
-		  if ((thk(iv) < tiny_thickness) & (mask(iv) == OPENSEAMASKVAL)) 
+		  if ((thk(iv) < tiny_thickness) && (mask(iv) == OPENSEAMASKVAL)) 
 		    {
 		      if (thk(iv + BASISV(dir)) > tiny_thickness)
 			{
