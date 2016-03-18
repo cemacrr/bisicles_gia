@@ -1207,6 +1207,18 @@ void bisicles_get_2d_data
 	  
 	  break;
 
+	case BISICLES_FIELD_ICE_THICKNESS_HARMONIC:
+	  
+	  for (int lev = 0; lev < n ; lev++)
+	    {
+	      data[lev] = const_cast<LevelData<FArrayBox>* >(&(amrIce.geometry(lev)->getH()));
+	      amrDx[lev] = amrIce.dx(lev);
+	    }
+	  
+	  flattenCellData(*ptr,dxv,data,amrDx,true, CoarseAverage::harmonic);	
+	  
+	  break;
+
 	case BISICLES_FIELD_CALVED_THICKNESS:
 	  
 	  for (int lev = 0; lev < n ; lev++)
