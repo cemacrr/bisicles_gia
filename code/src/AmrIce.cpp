@@ -3342,6 +3342,25 @@ AmrIce::regrid()
 	    //return;
 	  }
 
+#ifdef REGRID_EH
+	// We need to regrid the internal energy, but the conserved quantity is H*E
+	// Set E <- E*H now (and E <- E/H later)
+	for (int lev=0; lev <= m_finest_level ; ++lev)
+	  {
+	    for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+	      {
+		FArrayBox& E = (*m_internalEnergy[lev])[dit];
+		FArrayBox H(E.box(),1);
+		H.copy((*m_old_thickness[lev])[dit]);
+		H += 1.0e-10;
+		for (int comp  = 0; comp < m_internalEnergy[0]->nComp(); comp++)
+		  {
+		    E.mult( H,0,comp,1);
+		  }
+	      }
+	  }
+#endif
+
 	// now loop through levels and redefine if necessary
 	for (int lev=lbase+1; lev<= new_finest_level; ++lev)
 	  {
@@ -3357,14 +3376,14 @@ AmrIce::regrid()
 	    m_amrGrids[lev] = newDBL;
 	      
 	    // build new storage
-	    LevelData<FArrayBox>* old_oldDataPtr = m_old_thickness[lev];
+	    LevelData<FArrayBox>* old_old_thicknessDataPtr = m_old_thickness[lev];
 	    LevelData<FArrayBox>* old_velDataPtr = m_velocity[lev];
 	    LevelData<FArrayBox>* old_tempDataPtr = m_internalEnergy[lev];
 	    LevelData<FArrayBox>* old_calvDataPtr = m_calvedIceThickness[lev];
 	    LevelData<FArrayBox>* old_deltaTopographyDataPtr = m_deltaTopography[lev];
             LevelData<FArrayBox>* old_iceMaskDataPtr = m_iceMask[lev];
 	     
-	    LevelData<FArrayBox>* new_oldDataPtr = 
+	    LevelData<FArrayBox>* new_old_thicknessDataPtr = 
 	      new LevelData<FArrayBox>(newDBL, 1, m_old_thickness[0]->ghostVect());
 	      
 	    LevelData<FArrayBox>* new_velDataPtr = 
@@ -3528,17 +3547,16 @@ AmrIce::regrid()
 				      m_refinement_ratios[lev-1],
 				      m_amrDomains[lev]);
 	    
-	      interpolator.interpToFine(*new_oldDataPtr, *m_old_thickness[lev-1]);
+	      interpolator.interpToFine(*new_old_thicknessDataPtr, *m_old_thickness[lev-1]);
 	
 	      // now copy old-grid data into new holder
-	      if (old_oldDataPtr != NULL) 
+	      if (old_old_thicknessDataPtr != NULL) 
 		{
 		  if ( oldDBL.isClosed())
 		    {
-		      old_oldDataPtr->copyTo(*new_oldDataPtr);
+		      old_old_thicknessDataPtr->copyTo(*new_old_thicknessDataPtr);
 		    }
-		  // can now delete old data 
-		  delete old_oldDataPtr;
+		  
 		}
 
 		interpolator.interpToFine(*new_iceMaskDataPtr, *m_iceMask[lev-1]);
@@ -3593,6 +3611,7 @@ AmrIce::regrid()
 
 	    {
 	      // may eventually want to do post-regrid smoothing on this
+	    
 	      FineInterp interpolator(newDBL,m_internalEnergy[0]->nComp(),
 				      m_refinement_ratios[lev-1],
 				      m_amrDomains[lev]);
@@ -3615,8 +3634,7 @@ AmrIce::regrid()
 		{
 		  old_tempDataPtr->copyTo(*new_tempDataPtr);
 		}
-	      delete old_tempDataPtr;
-		
+	      delete old_tempDataPtr;	
 	    }
 	      
 	      
@@ -3701,10 +3719,11 @@ AmrIce::regrid()
 
 	    }
 #endif
-
+	    // can now delete old data 
+	    delete old_old_thicknessDataPtr;
 
 	    // now copy new holders into multilevel arrays
-	    m_old_thickness[lev] = new_oldDataPtr;
+	    m_old_thickness[lev] = new_old_thicknessDataPtr;
 	    m_velocity[lev] = new_velDataPtr;
 	    m_internalEnergy[lev] = new_tempDataPtr;
 	    m_calvedIceThickness[lev] = new_calvDataPtr;
@@ -3937,12 +3956,29 @@ AmrIce::regrid()
 		  }
 	      }
 	  } // end loop over levels to determine covered levels
-
+	
 	// this is a good time to check for remote ice
 	if ((m_eliminate_remote_ice_after_regrid) 
 	    && !(m_eliminate_remote_ice))
 	  eliminateRemoteIce();
-	
+#ifdef REGRID_EH 	
+	// Since we set E <- E*H earlier, set E <- E/H later now
+	for (int lev=0; lev<= new_finest_level; ++lev)
+	  {
+	    for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+	      {
+		FArrayBox& E = (*m_internalEnergy[lev])[dit];
+		FArrayBox H(E.box(),1);
+		H.copy((*m_old_thickness[lev])[dit]);
+		H += 1.0e-10;
+		for (int comp  = 0; comp < m_internalEnergy[0]->nComp(); comp++)
+		  {
+		    E.divide( H,0,comp,1);
+		  }
+	      }
+	  }
+#endif
+
 	if (m_evolve_velocity)
 	  {
 	    //velocity solver needs to be re-defined
@@ -7668,6 +7704,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   bool containsAccumCalvedIceThck(false);
   bool containsInternalEnergy(false);
   bool containsTemperature(false);
+  bool containsIceMask(false);
    
   map<std::string, std::string>::const_iterator i;
   for (i = header.m_string.begin(); i!= header.m_string.end(); ++i)
@@ -7687,6 +7724,10 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
       if (i->second == "internalEnergy0000")
 	{
 	  containsInternalEnergy = true;
+	}
+      if (i->second == "iceMask0000")
+	{
+	  containsIceMask = true;
 	}
     }
 
@@ -8115,24 +8156,35 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	      
             }
 
-	  LevelData<FArrayBox>& iceMaskData = *m_iceMask[lev];
-	  dataStatus = read<FArrayBox>(a_handle,
-				       iceMaskData,
-                                       "iceMaskData",
+
+	  if (containsIceMask)
+	    {
+	      LevelData<FArrayBox>& iceMaskData = *m_iceMask[lev];
+	      dataStatus = read<FArrayBox>(a_handle,
+					   iceMaskData,
+					   "iceMaskData",
 				       levelDBL);
           
-	  if (dataStatus != 0)
+	      /// note that although this check appears to work, it makes a mess of a_handle and the next lot of data are not read...
+	      if (dataStatus != 0)
+		{
+		  MayDay::Warning("checkpoint file does not contain ice mask data -- initializing based on current ice thicknesses"); 
+		  const LevelData<FArrayBox>& levelThickness = m_vect_coordSys[lev]->getH();
+		  setIceMask(levelThickness, lev);
+		} // end if no ice mask in data
+	      else
+		{
+		  // ensure that ice mask is set to zero where there's no ice
+		  updateIceMask(m_vect_coordSys[lev]->getH(), lev);
+		}
+	    } 
+	  else
 	    {
 	      MayDay::Warning("checkpoint file does not contain ice mask data -- initializing based on current ice thicknesses"); 
-              
-              const LevelData<FArrayBox>& levelThickness = m_vect_coordSys[lev]->getH();
-              setIceMask(levelThickness, lev);
-            } // end if no ice mask in data
-          else
-            {
-              // ensure that ice mask is set to zero where there's no ice
-              updateIceMask(m_vect_coordSys[lev]->getH(), lev);
-            }
+	      const LevelData<FArrayBox>& levelThickness = m_vect_coordSys[lev]->getH();
+	      setIceMask(levelThickness, lev);
+	    }
+
         
 	  {
 	    // read internal energy , or read temperature and convert to internal energy
@@ -9105,8 +9157,7 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
 	  scaledBasalHeatFlux *= (levelCoordsNew.iceDensity());
 	  basalHeatFlux[dit].copy(scaledBasalHeatFlux);
 	  scaledSurfaceHeatFlux *= (levelCoordsNew.iceDensity());
-	  surfaceHeatFlux[dit].copy(scaledSurfaceHeatFlux);
-	    
+	  surfaceHeatFlux[dit].copy(scaledSurfaceHeatFlux);	    
 	} // end update internal energy loop over grids
     } // end update internal energy loop over levels
 
