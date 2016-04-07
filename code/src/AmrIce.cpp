@@ -1778,13 +1778,18 @@ AmrIce::initialize()
       // once we've set up everything, this lets us over-ride the
       // time and step number in the restart checkpoint file with
       // one specified in the inputs
+      
       if (ppAmr.contains("restart_time") )
         {
-          Real restart_time;
-          ppAmr.get("restart_time", restart_time);
-          m_time = restart_time;
+	  bool set_time = true;
+	  ppAmr.query("restart_set_time",set_time); // set amr.restart_set_time = false to prevent time reset
+	  if (set_time){
+	    Real restart_time;
+	    ppAmr.get("restart_time", restart_time);
+	    m_time = restart_time;
+	  }
         }
-
+      
       if (ppAmr.contains("restart_step") )
         {
           int restart_step;
