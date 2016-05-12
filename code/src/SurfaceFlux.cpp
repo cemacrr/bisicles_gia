@@ -293,7 +293,56 @@ fortranInterfaceFlux::setFluxVal(Real* a_data_ptr,
   m_isValSet = true;
 }
 
- /// constructor
+// constructor
+ProductSurfaceFlux::ProductSurfaceFlux  (SurfaceFlux* a_flux1, SurfaceFlux* a_flux2)
+{
+  m_flux1 = a_flux1;
+  m_flux2 = a_flux2;
+}
+
+
+/// destructor
+ProductSurfaceFlux::~ProductSurfaceFlux()
+{
+  // I think we should be deleting m_flux1 and m_flux2 here
+}
+
+/// factory method
+/** return a pointer to a new SurfaceFlux object
+ */
+SurfaceFlux* 
+ProductSurfaceFlux::new_surfaceFlux()
+{
+  SurfaceFlux* f1 = m_flux1->new_surfaceFlux();
+  SurfaceFlux* f2 = m_flux2->new_surfaceFlux();
+  return static_cast<SurfaceFlux*>(new ProductSurfaceFlux(f1,f2));
+}
+
+/// define source term for thickness evolution and place it in flux
+/** dt is included in case one needs integrals or averages over a
+    timestep. flux should be defined in meters/second in the current 
+    implementation. 
+*/
+void 
+ProductSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					 const AmrIceBase& a_amrIce, 
+					 int a_level, Real a_dt)
+{
+  LevelData<FArrayBox> f2(a_flux.getBoxes(), a_flux.nComp(), a_flux.ghostVect());
+  // compute flux1, put in a_flux, compute flux2 in f2, then multiply
+  m_flux1->surfaceThicknessFlux(a_flux, a_amrIce, a_level, a_dt);
+  m_flux2->surfaceThicknessFlux(f2, a_amrIce, a_level, a_dt);
+  DataIterator dit = a_flux.dataIterator();
+  for (dit.begin(); dit.ok(); ++dit)
+    {
+      a_flux[dit].mult(f2[dit]);
+    }
+}
+
+
+
+
+/// constructor
 MaskedFlux::MaskedFlux(SurfaceFlux* a_groundedIceFlux, SurfaceFlux* a_floatingIceFlux,
 		       SurfaceFlux* a_openSeaFlux, SurfaceFlux* a_openLandFlux)
   :m_groundedIceFlux(a_groundedIceFlux),m_floatingIceFlux(a_floatingIceFlux),
@@ -323,7 +372,7 @@ void MaskedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 
   //somewhat ineffcient, because we compute all fluxes everywhere. 
   //At some point, come back and only compute (say) grounded ice flux
-  //in boxes where all the ice is grounded.
+  //in boxes where at least some of the ice is grounded.
 
   //first, grounded ice values
   if (m_groundedIceFlux)
@@ -664,6 +713,33 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       
       PiecewiseLinearFlux* pptr = new PiecewiseLinearFlux(vabs,vord,dmin);
       ptr = static_cast<SurfaceFlux*>(pptr);
+    }
+  else if (type == "productFlux")
+    {
+      std::string flux1Prefix(a_prefix);
+      flux1Prefix += ".flux1";
+      SurfaceFlux* flux1Ptr = parseSurfaceFlux(flux1Prefix.c_str());
+      if (flux1Ptr == NULL)
+	{
+	  MayDay::Error("undefined flux1 in productFlux");
+	}
+
+      std::string flux2Prefix(a_prefix);
+      flux2Prefix += ".flux2";
+      SurfaceFlux* flux2Ptr = parseSurfaceFlux(flux2Prefix.c_str());
+      if (flux2Ptr == NULL)
+	{
+	  MayDay::Error("undefined flux2 in productFlux");
+	}
+ 
+
+      ptr = static_cast<SurfaceFlux*>
+	(new ProductSurfaceFlux(flux1Ptr->new_surfaceFlux(),
+				flux2Ptr->new_surfaceFlux()));
+
+      
+      delete flux1Ptr;
+      delete flux2Ptr;
     }
   else if (type == "maskedFlux")
     {

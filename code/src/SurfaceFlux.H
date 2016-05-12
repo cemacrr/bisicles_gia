@@ -252,8 +252,58 @@ private:
   }
 };
 
+// class which multiplies 2 surface fluxes together
+// (useful for using an externally defined mask, among other things)
+class ProductSurfaceFlux : public SurfaceFlux
+{
+
+public:
+  /// constructor
+  ProductSurfaceFlux(SurfaceFlux* a_Flux1, SurfaceFlux* a_flux2);
+
+  /// destructor
+  virtual ~ProductSurfaceFlux();
+
+  /// factory method
+  /** return a pointer to a new SurfaceFlux object
+   */
+  virtual SurfaceFlux* new_surfaceFlux();
+
+  /// define source term for thickness evolution and place it in flux
+  /** dt is included in case one needs integrals or averages over a
+      timestep. flux should be defined in meters/second in the current 
+      implementation. 
+  */
+  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				    const AmrIceBase& a_amrIce, 
+				    int a_level, Real a_dt);
 
 
+protected:
+  SurfaceFlux* m_flux1;
+  SurfaceFlux* m_flux2;
+
+  
+private:
+  // Disallowed for all the usual reasons
+  void operator=(const ProductSurfaceFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  // Disallowed for all the usual reasons
+  ProductSurfaceFlux(const ProductSurfaceFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  ProductSurfaceFlux()
+  {
+    MayDay::Error("invalid operator");
+  }
+
+};
+  
 // class which applies a different surface flux 
 // depending on the mask
 class MaskedFlux : public SurfaceFlux
