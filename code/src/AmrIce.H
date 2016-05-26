@@ -191,9 +191,6 @@ public:
                               const Vector<LevelData<FluxBox>* >& a_H_half,
                               const Vector<LevelData<FluxBox>* >& a_faceVelAdvection);
 
-  // disagnostic routine -- compute discharge
-  void computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes);
-
   // update ice thickness *and* bedrock elevation
   void updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new, 
                        Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoords_old, 
@@ -616,6 +613,11 @@ protected:
 				       Real a_waterDensity, 
 				       Real a_iceDensity);
 
+  // disagnostic routine -- compute discharge
+  void computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes);
+
+  // disagnostic routine 
+  void endTimestepDiagnostics();
 
 
   /// temporal accuracy 
