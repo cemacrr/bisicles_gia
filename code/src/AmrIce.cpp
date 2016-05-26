@@ -9100,10 +9100,8 @@ AmrIce::computeFluxOverIce(const Vector<LevelData<FArrayBox>* > a_flux)
 	}
     }
   // compute sum
-  Real tot_per_yer = computeSum(fluxOverIce, m_refinement_ratios,m_amrDx[0],
+  Real tot_per_year = computeSum(fluxOverIce, m_refinement_ratios,m_amrDx[0],
 				Interval(0,0), 0);
-
-  Real tot = tot_per_yer*m_dt;
 
   //free storage
   for (int lev = 0; lev < m_finest_level ; lev++)
@@ -9116,7 +9114,7 @@ AmrIce::computeFluxOverIce(const Vector<LevelData<FArrayBox>* > a_flux)
 	}
     }
 
-  return tot;
+  return tot_per_year;
 }
 
 void 
@@ -9130,11 +9128,11 @@ AmrIce::endTimestepDiagnostics()
       Real sumGroundedIce = 0.0, diffSumGrounded = 0.0, totalDiffGrounded = 0.0;
       Real VAF=0.0, diffVAF = 0.0, totalDiffVAF = 0.0;
       Real groundedArea = 0.0, floatingArea = 0.0;
-      Real sumBasalFlux = 0.0;
-      Real sumCalvedBasalFlux = 0.0;
+      Real sumBasalFluxOverIce = 0.0;
+      Real sumCalvedBasalFluxOverIce = 0.0;
       Real sumCalvedIce = 0.0;
-      Real sumSurfaceFlux = 0.0;
-      Real sumBalance = 0.0;
+      Real sumSurfaceFluxOverIce = 0.0;
+      Real sumBalanceOverIce = 0.0;
       if (m_report_grounded_ice)
 	{
 	  sumGroundedIce = computeTotalGroundedIce();
@@ -9157,15 +9155,15 @@ AmrIce::endTimestepDiagnostics()
       if (m_report_total_flux)
 
 	{
-	  sumBasalFlux = computeFluxOverIce(m_basalThicknessSource);
-	  sumSurfaceFlux = computeFluxOverIce(m_surfaceThicknessSource);
-	  sumBalance = computeFluxOverIce(m_balance);
+	  sumBasalFluxOverIce = computeFluxOverIce(m_basalThicknessSource);
+	  sumSurfaceFluxOverIce = computeFluxOverIce(m_surfaceThicknessSource);
+	  sumBalanceOverIce = computeFluxOverIce(m_balance);
 	}
 
       if (m_report_calving)
 
 	{
-	  sumCalvedBasalFlux = computeFluxOverIce(m_calvedThicknessSource);
+	  sumCalvedBasalFluxOverIce = computeFluxOverIce(m_calvedThicknessSource);
 	  sumCalvedIce = computeSum(m_calvedIceThickness, m_refinement_ratios,m_amrDx[0],
 				Interval(0,0), 0);
 	}
@@ -9207,16 +9205,13 @@ AmrIce::endTimestepDiagnostics()
 	      if (m_dt > 0)
 		{
 		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-			 << ": TotalBasalFlux = " << sumBasalFlux << " m3 " 
-			 << " ( " << sumBasalFlux/m_dt << " m3/yr ) " << endl;
+			 << ": BasalFlux = " << sumBasalFluxOverIce << " m3/yr " << endl;
 
 		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-			 << ": TotalSurfaceFlux = " << sumSurfaceFlux << " m3 "
-			 << " ( " << sumSurfaceFlux/m_dt << " m3/yr ) " << endl;
+			 << ": SurfaceFlux = " << sumSurfaceFluxOverIce << " m3/yr  " << endl;
 
 		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-			 << ": TotalBalance = " << sumBalance << " m3 "
-			 << " ( " << sumBalance/m_dt << " m3/yr ) " << endl;
+			 << ": Balance = " << sumBalanceOverIce << " m3/yr " << endl;
 		}
 	    }
 
@@ -9225,8 +9220,7 @@ AmrIce::endTimestepDiagnostics()
 	      if (m_dt > 0)
 		{
 		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-			 << ": TotalCalvedBasalFlux = " << sumCalvedBasalFlux << " m3 " 
-			 << " ( " << sumCalvedBasalFlux/m_dt << " m3/yr ) " << endl;
+			 << ": CalvedBasalFlux = " << sumCalvedBasalFluxOverIce << " m3/yr ) " << endl;
 
 		}
 	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
