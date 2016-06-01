@@ -291,8 +291,11 @@ public:
   /// compute area of floating ice.
   Real computeFloatingArea() const;
 
-  /// compute total flux over ice
+  /// compute flux over ice
   Real computeFluxOverIce(const Vector<LevelData<FArrayBox>*> a_flux);
+
+  /// compute flux domain
+  Real computeTotalFlux(const Vector<LevelData<FArrayBox>*> a_flux);
 
   /// compute crevasses depths
   void computeCrevasseDepths(LevelData<FArrayBox>& a_surfaceCrevasse,
@@ -1076,7 +1079,10 @@ protected:
   /// 
   /// diagnostic quantity -- sum(ice over flotation) at last timestepa
   Real m_lastVolumeAboveFlotation;
- 
+
+  /// diagnostic quantity -- sum(calved ice) at last timestep
+  Real m_lastSumCalvedIce;
+
   /// if true, report area of grounded ice and area of floating ice
   bool m_report_area;
 

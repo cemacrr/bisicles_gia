@@ -9117,6 +9117,16 @@ AmrIce::computeFluxOverIce(const Vector<LevelData<FArrayBox>* > a_flux)
   return tot_per_year;
 }
 
+Real 
+AmrIce::computeTotalFlux(const Vector<LevelData<FArrayBox>* > a_flux)
+{
+
+  //compute sum of a flux for whole domain  
+  Real tot_per_year = computeSum(a_flux, m_refinement_ratios,m_amrDx[0],
+				Interval(0,0), 0);
+  return tot_per_year;
+}
+
 void 
 AmrIce::endTimestepDiagnostics()
 {
@@ -9128,11 +9138,11 @@ AmrIce::endTimestepDiagnostics()
       Real sumGroundedIce = 0.0, diffSumGrounded = 0.0, totalDiffGrounded = 0.0;
       Real VAF=0.0, diffVAF = 0.0, totalDiffVAF = 0.0;
       Real groundedArea = 0.0, floatingArea = 0.0;
-      Real sumBasalFluxOverIce = 0.0;
-      Real sumCalvedBasalFluxOverIce = 0.0;
+      Real sumBasalFluxOverIce = 0.0, sumBasalFlux = 0.0;
+      Real sumCalvedBasalFluxOverIce = 0.0, sumCalvedBasalFlux = 0.0;
       Real sumCalvedIce = 0.0;
-      Real sumSurfaceFluxOverIce = 0.0;
-      Real sumBalanceOverIce = 0.0;
+      Real sumSurfaceFluxOverIce = 0.0, sumSurfaceFlux = 0.0;
+      Real sumBalanceOverIce = 0.0, sumBalance = 0.0;
       if (m_report_grounded_ice)
 	{
 	  sumGroundedIce = computeTotalGroundedIce();
@@ -9158,15 +9168,20 @@ AmrIce::endTimestepDiagnostics()
 	  sumBasalFluxOverIce = computeFluxOverIce(m_basalThicknessSource);
 	  sumSurfaceFluxOverIce = computeFluxOverIce(m_surfaceThicknessSource);
 	  sumBalanceOverIce = computeFluxOverIce(m_balance);
+	  sumBasalFlux = computeTotalFlux(m_basalThicknessSource);
+	  sumSurfaceFlux = computeTotalFlux(m_surfaceThicknessSource);
+	  sumBalance = computeTotalFlux(m_balance);
 	}
 
       if (m_report_calving)
 
 	{
 	  sumCalvedBasalFluxOverIce = computeFluxOverIce(m_calvedThicknessSource);
-	  sumCalvedIce = computeSum(m_calvedIceThickness, m_refinement_ratios,m_amrDx[0],
-				Interval(0,0), 0);
+	  sumCalvedBasalFlux = computeSum(m_calvedThicknessSource, m_refinement_ratios,m_amrDx[0],
+					  Interval(0,0), 0);
 	}
+      sumCalvedIce = computeSum(m_calvedIceThickness, m_refinement_ratios,m_amrDx[0],
+				Interval(0,0), 0);
 
       if (s_verbosity > 0) 
 	{
@@ -9205,13 +9220,25 @@ AmrIce::endTimestepDiagnostics()
 	      if (m_dt > 0)
 		{
 		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-			 << ": BasalFlux = " << sumBasalFluxOverIce << " m3/yr " << endl;
+			 << ": BasalFlux = " << sumBasalFluxOverIce << " m3/yr " 
+			 << " (" << sumBasalFlux 
+			 << "  " << sumBasalFlux-sumBasalFluxOverIce
+			 << ")"
+			 << endl;
 
 		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-			 << ": SurfaceFlux = " << sumSurfaceFluxOverIce << " m3/yr  " << endl;
+			 << ": SurfaceFlux = " << sumSurfaceFluxOverIce << " m3/yr  " 
+			 << " (" << sumSurfaceFlux 
+			 << "  " << sumSurfaceFlux-sumSurfaceFluxOverIce 
+			 << ")"
+			 << endl;
 
 		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-			 << ": Balance = " << sumBalanceOverIce << " m3/yr " << endl;
+			 << ": Balance = " << sumBalanceOverIce << " m3/yr " 
+			 << " (" << sumBalance 
+			 << "  " << sumBalance-sumBalanceOverIce
+			 << ")"
+			 << endl;
 		}
 	    }
 
@@ -9220,15 +9247,39 @@ AmrIce::endTimestepDiagnostics()
 	      if (m_dt > 0)
 		{
 		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-			 << ": CalvedBasalFlux = " << sumCalvedBasalFluxOverIce << " m3/yr ) " << endl;
-
+			 << ": CalvedBasalFlux = " << sumCalvedBasalFluxOverIce << " m3/yr ) " 
+			 << " (" << sumCalvedBasalFlux 
+			 << "  " << sumCalvedBasalFlux-sumCalvedBasalFluxOverIce
+			 << ")"
+			 << endl;
 		}
 	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
 		     << ": CalvedIce = " << sumCalvedIce << " m3 " << endl;
 	    }
 	}
-
+      
+      if (m_dt > 0)
+	{
+	  Real cflux=(sumCalvedIce-m_lastSumCalvedIce)/m_dt;
+	  Real calvingerr=sumSurfaceFlux+sumBasalFlux-(cflux+diffSum/m_dt);
+	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+		 << ": Domain error = " << calvingerr << " m3/yr"
+		 << " ( dV/dt = " << diffSum/m_dt 
+		 << " calving flux = " << cflux
+		 << " SMB = " << sumSurfaceFlux
+		 << " BMB = " << sumBasalFlux
+		 << ")" << endl;
+	  Real err=sumSurfaceFluxOverIce+sumBasalFluxOverIce-(sumBalanceOverIce+diffSum/m_dt);
+	  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+		 << ": Ice sheet error = " << err << " m3/yr"
+		 << " ( dV/dt = " << diffSum/m_dt 
+		 << " flux = " << sumBalanceOverIce
+		 << " smb = " << sumSurfaceFluxOverIce
+		 << " bmb = " << sumBasalFluxOverIce
+		 << ")" << endl;
+	}
       m_lastSumIce = sumIce;
+      m_lastSumCalvedIce = sumCalvedIce;
 
 }
 
