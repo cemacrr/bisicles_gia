@@ -9069,7 +9069,7 @@ AmrIce::computeFluxOverIce(const Vector<LevelData<FArrayBox>* > a_flux)
   //compute sum of a flux component over ice
   //construct fluxOverIce
   Vector<LevelData<FArrayBox>* > fluxOverIce ( m_finest_level+1, NULL);
-  for (int lev = 0; lev < m_finest_level ; lev++)
+  for (int lev = 0; lev <= m_finest_level ; lev++)
     {
       fluxOverIce[lev] = new
 	LevelData<FArrayBox>(m_amrGrids[lev],1, IntVect::Zero);
