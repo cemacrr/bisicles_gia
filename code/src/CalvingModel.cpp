@@ -125,6 +125,7 @@ void DomainEdgeCalvingModel::endTimeStepModifyState
 	    {
 	      thck(iv) = 0.0;
 	    }
+	  thck(iv) = std::max(thck(iv),0.0);
 	}
 
     } // end loop over boxes
