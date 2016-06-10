@@ -360,6 +360,7 @@ c f = 1 for ursf(i) - topg(i+1) > thk [the 'usual' case]
 c------------------------------------------------------
 
       subroutine extraptomargin(CHF_FRA1[uf], CHF_FRA1[vface],
+     &     CHF_CONST_FRA1[ufin],
      &     CHF_CONST_FRA1[uc],
      &     CHF_CONST_FRA1[usrf],
      &     CHF_CONST_FRA1[topg],
@@ -378,32 +379,34 @@ c------------------------------------------------------
 
       CHF_AUTOMULTIDO[facebox ; i]
 
+    
       hl = thk(CHF_OFFSETIX[i;-ii])
       hr = thk(CHF_AUTOIX[i])
-
+      
+  
       icel = (hl.gt.tiny_thickness) 
       icer = (hr.gt.tiny_thickness)
 
       vface(CHF_AUTOIX[i]) = one
+      uf(CHF_AUTOIX[i]) = ufin(CHF_AUTOIX[i])
       if (icel.and.(.not.icer)) then
 !     ice on the left and not on the right
          uf(CHF_AUTOIX[i]) = max(two * uc(CHF_OFFSETIX[i;-ii])
-     &           - uf(CHF_OFFSETIX[i;-ii]), uf(CHF_AUTOIX[i]))
+     &           - ufin(CHF_OFFSETIX[i;-ii]), ufin(CHF_AUTOIX[i]))
          vface(CHF_AUTOIX[i]) = one/hl * max(zero,  
      &        usrf(CHF_OFFSETIX[i;-ii]) -  topg(CHF_AUTOIX[i]))
       else if (icer.and.(.not.icel)) then
 !     ice on the right and not on the left
          uf(CHF_AUTOIX[i]) = min(two * uc(CHF_AUTOIX[i])
-     &        - uf(CHF_OFFSETIX[i;+ii]),uf(CHF_AUTOIX[i]))
+     &        - ufin(CHF_OFFSETIX[i;+ii]),ufin(CHF_AUTOIX[i]))
          vface(CHF_AUTOIX[i]) = one/hr * max(zero,  
      &        usrf(CHF_AUTOIX[i]) -  topg(CHF_OFFSETIX[i;-ii]))
+
       end if
 
       if (vface(CHF_AUTOIX[i]) .lt. one ) then
          uf(CHF_AUTOIX[i]) =  uf(CHF_AUTOIX[i]) * vface(CHF_AUTOIX[i])
       end if
-
-
 
       CHF_ENDDO
       return

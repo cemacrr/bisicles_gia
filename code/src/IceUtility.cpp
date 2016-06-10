@@ -335,6 +335,7 @@ void IceUtility::extrapVelocityToMargin(LevelData<FluxBox>& a_faceVel,
       CH_assert(a_faceVel.ghostVect()[dir] >= 1);
     }
 
+ 
   for (DataIterator dit(grids); dit.ok(); ++dit)
     {
       const FArrayBox& cellVel = a_cellVel[dit];
@@ -342,6 +343,7 @@ void IceUtility::extrapVelocityToMargin(LevelData<FluxBox>& a_faceVel,
       const FArrayBox& usrf = a_coordSys.getSurfaceHeight()[dit];
       const FArrayBox& topg = a_coordSys.getTopography()[dit];
       const FArrayBox& thk = a_coordSys.getH()[dit];
+
       for (int dir = 0; dir <SpaceDim; dir++)
 	{
 	  Box faceBox = grids[dit];
@@ -350,16 +352,24 @@ void IceUtility::extrapVelocityToMargin(LevelData<FluxBox>& a_faceVel,
 	  Box grownFaceBox = faceBox;
 	  CH_assert(faceVel.box().contains(grownFaceBox));
 	  FArrayBox vface(faceBox,1);
+	  FArrayBox faceVelCopy(faceVel.box(), 1); faceVelCopy.copy(faceVel);
+
 	  FORT_EXTRAPTOMARGIN(CHF_FRA1(faceVel,0), CHF_FRA1(vface,0),
+			      CHF_CONST_FRA1(faceVelCopy,0),
 			      CHF_CONST_FRA1(cellVel,dir),
 			      CHF_CONST_FRA1(usrf,0),
 			      CHF_CONST_FRA1(topg,0),
 			      CHF_CONST_FRA1(thk,0),
 			      CHF_CONST_INT(dir),
 			      CHF_BOX(faceBox));
+
 	  Real maxFaceVelocity = faceVel.norm(faceBox,0);
 	  CH_assert(maxFaceVelocity < HUGE_VEL);
+
+
+
 	}
+
     }
 }
     
@@ -732,7 +742,7 @@ void IceUtility::eliminateRemoteIce
 
 	    }
 	}
-
+      levelCS.getH().exchange();
       LevelSigmaCS* crseCS = (lev > 0)?&(*a_coordSys[lev-1]):NULL;
       int refRatio = (lev > 0)?a_refRatio[lev-1]:-1;
       levelCS.recomputeGeometry(crseCS, refRatio);     

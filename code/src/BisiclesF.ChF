@@ -182,6 +182,38 @@ c--------------------------------------------------
       end do
       return
       end
+
+c----------------------------------------------------------
+c impose u.u <= limit^2, count the number of cells affected
+c----------------------------------------------------------
+      subroutine modlimitfab(CHF_FRA[u],
+     &     CHF_INT[nlimit],
+     &     CHF_REAL[umax],
+     &     CHF_CONST_REAL[limit],
+     &     CHF_BOX[box])
+      
+      integer CHF_AUTODECL[i], n
+      REAL_T umod
+      
+      umax = zero
+      nlimit = 0
+      CHF_AUTOMULTIDO[box; i]
+      umod = zero
+      do n = 0, CHF_NCOMP[u]-1
+         umod = umod + u(CHF_AUTOIX[i],n)*u(CHF_AUTOIX[i],n)
+      end do
+      umod = sqrt(max(zero,umod))
+      umax = max(umax,umod)
+      if (umod .gt. limit) then
+         nlimit = nlimit + 1
+         do n = 0, CHF_NCOMP[u]-1
+            u(CHF_AUTOIX[i],n) = limit * u(CHF_AUTOIX[i],n)/umod
+         end do
+      end if
+      CHF_ENDDO
+      return
+      end
+
 	
       subroutine minfab1(CHF_FRA[u], 
      &     CHF_CONST_REAL[limit], 	
