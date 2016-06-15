@@ -28,14 +28,12 @@
 
 /// compute RHS for velocity field solve
 void IceUtility::defineRHS(Vector<LevelData<FArrayBox>* >& a_rhs,
-			    const Vector<RefCountedPtr<LevelSigmaCS > >& a_CS,
-			    const Vector<DisjointBoxLayout>& a_grids,
-			    const Vector<RealVect>& a_dx)
+			   const Vector<RefCountedPtr<LevelSigmaCS > >& a_CS,
+			   const Vector<DisjointBoxLayout>& a_grids,
+			   const Vector<RealVect>& a_dx)
 			    
 {
-  CH_assert(SpaceDim == 2);
-  int xDir = SpaceDim-2;
-  int yDir = SpaceDim-1;
+ 
   CH_assert(a_rhs.size() <= a_CS.size());
   for (int lev = 0; lev < a_rhs.size(); ++lev)
     {
@@ -52,8 +50,10 @@ void IceUtility::defineRHS(Vector<LevelData<FArrayBox>* >& a_rhs,
 	  const FArrayBox& thck = levelCS.getH()[dit];
 	  
 	  rhs.copy(gradS);
-	  rhs.mult(thck,0,xDir);
-	  rhs.mult(thck,0,yDir);
+	  for (int dir = 0; dir <SpaceDim ; dir++)
+	    {
+	      rhs.mult(thck,0,dir);
+	    }
 	  rhs *= rhog;
 
 	  const bool& anyFloating = levelCS.anyFloating()[dit];
@@ -76,8 +76,10 @@ void IceUtility::defineRHS(Vector<LevelData<FArrayBox>* >& a_rhs,
 				    CHF_BOX(box));
 		}
 	    }
-	}
-    }
+	} // loop over boxes
+    }//loop over levels
+
+
 }
 
 
@@ -576,6 +578,7 @@ void IceUtility::eliminateFastIce
 		    {
 		      H(iv) = 0.0;
 		      D_DECL(u(iv,0) = 0 ,u(iv,1) = 0, u(iv,2) = 0);
+		      pout() << " (fast) eliminated level " << lev << " iv " << iv << std::endl;
 		      nEliminated++;
 		    }
 		}
@@ -612,7 +615,7 @@ void IceUtility::eliminateFastIce
     {
       
       // eliminateRemoteIce will recompute surface elevation etc
-      eliminateRemoteIce(a_coordSys,a_grids,a_domain,a_refRatio, a_crseDx,
+      eliminateRemoteIce(a_coordSys,a_vel,a_grids,a_domain,a_refRatio, a_crseDx,
 			 a_finestLevel,a_maxIter,a_thinIceTol,  a_verbosity);
     }
 }
@@ -629,6 +632,7 @@ void IceUtility::eliminateFastIce
 */ 
 void IceUtility::eliminateRemoteIce
 (Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+ Vector<LevelData<FArrayBox>* >& a_vel,
  const Vector<DisjointBoxLayout>& a_grids,
  const Vector<ProblemDomain>& a_domain,
  const Vector<int>& a_refRatio, Real a_crseDx,
@@ -729,7 +733,8 @@ void IceUtility::eliminateRemoteIce
       for (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	{
 	  const FArrayBox& thisPhi = levelPhi[dit];
-	  FArrayBox& thisH = levelCS.getH()[dit];
+	  FArrayBox& h = levelCS.getH()[dit];
+	  FArrayBox& u = (*a_vel[lev])[dit];
 
 	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
 	  for (BoxIterator bit(levelGrids[dit]); bit.ok(); ++bit)
@@ -737,7 +742,9 @@ void IceUtility::eliminateRemoteIce
 	      const IntVect& iv = bit();
 	      if (mask(iv) == FLOATINGMASKVAL && thisPhi(iv) < 0.5)
 	      	{
-		  thisH(iv) = 0.0;
+		  h(iv) = 0.0;
+		  D_DECL(u(iv,0) = 0 ,u(iv,1) = 0, u(iv,2) = 0);
+		  pout() << " (remote) eliminated level " << lev << " iv " << iv << std::endl;
 	      	}
 
 	    }

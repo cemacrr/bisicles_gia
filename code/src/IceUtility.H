@@ -130,6 +130,7 @@ namespace IceUtility
   ///from grounded ice and eliminate them.
   void eliminateRemoteIce
   (Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+   Vector<LevelData<FArrayBox>* >& a_vel,
    const Vector<DisjointBoxLayout>& a_grids,
    const Vector<ProblemDomain>& a_domain,
    const Vector<int>& a_refRatio, Real a_crseDx,

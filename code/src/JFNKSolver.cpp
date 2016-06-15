@@ -592,6 +592,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
  J0.create(residual,localU);  
  J0.create(du,localU);
  
+ 
  //calculate the initial residual and its norm
  J0.m_writeResiduals = m_writeResiduals;
 
@@ -643,6 +644,11 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 					   m_refRatios, m_dxs[0][0], a_maxLevel, 
 					   m_eliminateRemoteIceMaxIter, m_eliminateRemoteIceTol, 
 					   m_eliminateFastIceSpeed, m_eliminateFastIceEdgeOnly, m_verbosity);
+
+	      
+	      //need to redfine RHS
+	      IceUtility::defineRHS(localRhs, a_coordSys, m_grids, m_dxs);
+
 	      current.setState(localU);
 	    }
 	 

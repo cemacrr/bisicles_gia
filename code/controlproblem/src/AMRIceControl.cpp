@@ -1384,7 +1384,7 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
   if (m_eliminateRemoteIce)
     {
       int verbosity = 1;
-      IceUtility::eliminateRemoteIce(m_coordSys, m_grids, m_domain, m_refRatio, 
+      IceUtility::eliminateRemoteIce(m_coordSys, m_velb,  m_grids, m_domain, m_refRatio, 
 				     m_dx[0][0], m_finestLevel, 
 				     m_eliminateRemoteIceMaxIter, m_eliminateRemoteIceTol,
 				     verbosity );
