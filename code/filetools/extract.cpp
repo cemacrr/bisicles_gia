@@ -114,7 +114,13 @@ int main(int argc, char* argv[]) {
 	
 	outData[lev] = new LevelData<FArrayBox>(grids[lev],var.size(),data[lev]->ghostVect());
 	for (int i = 0 ;i < outToIn.size(); i++)
-	  data[lev]->copyTo(Interval(outToIn[i],outToIn[i]),*outData[lev],Interval(i,i));
+	  {
+	    //data[lev]->copyTo(Interval(outToIn[i],outToIn[i]),*outData[lev],Interval(i,i));
+	    for (DataIterator dit(grids[lev]);dit.ok();++dit)
+	      {
+		(*outData[lev])[dit].copy( (*data[lev])[dit], outToIn[i], i, 1);
+	      }
+	  }
       }
 
     if (verbose)
