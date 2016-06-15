@@ -4943,12 +4943,14 @@ void AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs)
 {
 
   Vector<RealVect> dx;
+  Vector<LevelData<FArrayBox>*> rhs;
   for (int lev=0; lev<=m_finest_level; lev++)
     {
       dx.push_back(m_vect_coordSys[lev]->dx());
+      rhs.push_back(a_vectRhs[lev]);
     }
 
-  IceUtility::defineRHS(a_vectRhs, m_vect_coordSys,  m_amrGrids, dx);
+  IceUtility::defineRHS(rhs, m_vect_coordSys,  m_amrGrids, dx);
 
   //\todo : move this into IceUtility::defineRHS
   for (int lev=0; lev<=m_finest_level; lev++)
