@@ -3461,7 +3461,7 @@ AmrIce::regrid()
 		delete m_balance[lev];
 	      }
 	    m_balance[lev] = 
-	      new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
+	      new LevelData<FArrayBox>(newDBL,   1, IntVect::Zero) ;
 
 
 	    if (m_bHeatFlux[lev] != NULL)
