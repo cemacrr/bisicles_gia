@@ -2503,8 +2503,6 @@ AmrIce::computeH_half(Vector<LevelData<FluxBox>* >& a_H_half, Real a_dt)
       // set basal thickness source
       m_basalFluxPtr->surfaceThicknessFlux(levelBTS, *this, lev, a_dt);
       
-      m_calvingModelPtr->modifySurfaceThicknessFlux(levelBTS, levelCTS, *this, lev, a_dt);
-      
       LevelData<FArrayBox> levelCCVel(levelGrids, SpaceDim, IntVect::Unit);
       EdgeToCell( levelFaceVel, levelCCVel);
       
@@ -2616,6 +2614,7 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
 		       const Vector<LevelData<FluxBox>* >& a_vectFluxes, 
 		       Real a_dt)
 {
+
 
   for (int lev=0; lev <= finestTimestepLevel() ; lev++)
     {
@@ -2825,27 +2824,7 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
     }
   
   //allow calving model to modify geometry and velocity
-  for (int lev=0; lev<= m_finest_level; lev++)
-    {
-      //keep track of the calved ice
-      LevelData<FArrayBox> prevThck(m_amrGrids[lev],1,IntVect::Unit);
-      LevelData<FArrayBox>& thck = a_vect_coordSys_new[lev]->getH();
-      LevelData<FArrayBox>& calv = *m_calvedIceThickness[lev];
-      for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
-	{
-	  prevThck[dit].copy(thck[dit]);
-	}
-      m_calvingModelPtr->endTimeStepModifyState(thck, *this, lev);
-      for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
-	{
-	  calv[dit] += prevThck[dit];
-	  calv[dit] -= thck[dit];
-	}
-      // update real-valued mask in case calving model removed any ice
-      updateIceMask(m_vect_coordSys[lev]->getH(), lev);
-
-    }
-  
+  applyCalvingCriterion(CalvingModel::PostThicknessAdvection);
 
   
   
@@ -2901,14 +2880,10 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
     }
   
   
-  
   // recompute thickness-derived data in SigmaCS
   for (int lev=0; lev<= m_finest_level; lev++)
     {
       LevelSigmaCS& levelCoords = *(m_vect_coordSys[lev]);
-      //slc : I think we need an exchange here
-      levelCoords.getH().exchange();
-      levelCoords.getTopography().exchange();
       LevelSigmaCS* crseCoords = (lev > 0)?&(*m_vect_coordSys[lev-1]):NULL;
       int refRatio = (lev > 0)?m_refinement_ratios[lev-1]:-1;
       levelCoords.recomputeGeometry(crseCoords, refRatio);            
@@ -3178,8 +3153,7 @@ AmrIce::regrid()
 	      m_thicknessIBCPtr->setGeometryBCs(*m_vect_coordSys[lev],
 						m_amrDomains[lev],levelDx, m_time, m_dt);
 
-	      //need to re-apply the calving model?
-	      m_calvingModelPtr->regridModifyState(thisLevelH, *this, lev);
+	      
 
 	      // exchange is necessary to fill periodic ghost cells
 	      // which aren't filled by the copyTo from oldLevelH
@@ -3632,6 +3606,9 @@ AmrIce::regrid()
 	      }
 	  }
 #endif
+
+
+	applyCalvingCriterion(CalvingModel::PostRegrid);
 
 	if (m_evolve_velocity)
 	  {
@@ -4560,13 +4537,6 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
 
       const LevelData<FArrayBox>& levelThickness = m_vect_coordSys[lev]->getH();
       setIceMask(levelThickness, lev);
-
-
-      //allow calving model to modify geometry and velocity (and possibly
-      // mask)
-      m_calvingModelPtr->initialModifyState
-      	(m_vect_coordSys[lev]->getH(), *this, lev);
-
       a_vectCoordSys[lev]->recomputeGeometry(crsePtr, refRatio);
 
       // initialize oldH to be the current value
@@ -4588,8 +4558,12 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
   if ((m_eliminate_remote_ice_after_regrid) && !(m_eliminate_remote_ice))
     eliminateRemoteIce();
   
+
+
   setToZero(m_calvedIceThickness);
   setToZero(m_deltaTopography);
+
+  applyCalvingCriterion(CalvingModel::Initialization);
 
   // now call velocity solver to initialize velocity field, force a solve no matter what the time step
   solveVelocityField(true);
@@ -4910,6 +4884,10 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
       }
     }
 
+  
+  //allow calving model to modify geometry 
+  applyCalvingCriterion(CalvingModel::PostVelocitySolve);
+
   //calculate the face centred (flux) velocity and diffusion coefficients
   computeFaceVelocity(m_faceVelAdvection,m_faceVelTotal,m_diffusivity,m_layerXYFaceXYVel, m_layerSFaceXYVel);
 
@@ -5197,7 +5175,6 @@ AmrIce::computeDivThicknessFlux(Vector<LevelData<FArrayBox>* >& a_divFlux,
       LevelData<FArrayBox>& basalThicknessSource = *m_basalThicknessSource[lev];
       m_basalFluxPtr->surfaceThicknessFlux(basalThicknessSource, *this, lev, a_dt);
       LevelData<FArrayBox>& calvedThicknessSource = *m_calvedThicknessSource[lev];
-      m_calvingModelPtr->modifySurfaceThicknessFlux(basalThicknessSource, calvedThicknessSource, *this, lev, a_dt);
 
       const RealVect& dx = levelCoords.dx();          
 
@@ -5915,6 +5892,48 @@ const LevelData<FArrayBox>* AmrIce::groundingLineProximity(int a_level) const
 }
 
 
+void AmrIce::applyCalvingCriterion(CalvingModel::Stage a_stage)
+{
+
+  //need to copy the thickness to keep track of the calved ice
+  Vector<RefCountedPtr<LevelData<FArrayBox> > > prevThck;
+  for (int lev=0; lev<= m_finest_level; lev++)
+    {
+      const LevelData<FArrayBox>& thck = m_vect_coordSys[lev]->getH();
+      prevThck.push_back( RefCountedPtr<LevelData<FArrayBox> >
+			  (new LevelData<FArrayBox>(thck.disjointBoxLayout(),thck.nComp(),thck.ghostVect())));
+      for (DataIterator dit(m_amrGrids[lev]);dit.ok();++dit)
+	{
+	  (*prevThck[lev])[dit].copy(thck[dit]);
+	}
+    }
+
+  //allow calving model to modify geometry and velocity
+  for (int lev=0; lev<= m_finest_level; lev++)
+    {
+      LevelData<FArrayBox>& thck = m_vect_coordSys[lev]->getH();
+      LevelData<FArrayBox>& mask = *m_iceMask[lev];
+      m_calvingModelPtr->applyCriterion(thck, mask, *this, lev, a_stage);
+
+    }
+
+  // usually a good time to eliminate remote ice
+  if (m_eliminate_remote_ice) eliminateRemoteIce();
+  
+  //update calved ice thickness and real valued mask
+  for (int lev=0; lev<= m_finest_level; lev++)
+    {
+      LevelData<FArrayBox>& calv = *m_calvedIceThickness[lev];
+      LevelData<FArrayBox>& thck = m_vect_coordSys[lev]->getH();
+      for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+	{
+	  calv[dit] += (*prevThck[lev])[dit];
+	  calv[dit] -= thck[dit];
+	}
+      updateIceMask(thck, lev);
+    }
+}
+
 
 ///Identify regions of floating ice that are remote
 ///from grounded ice and eliminate them.
@@ -6374,8 +6393,6 @@ AmrIce::writePlotFile()
 	    (*m_surfaceThicknessSource[lev], *this, lev, m_dt);
 	  m_basalFluxPtr->surfaceThicknessFlux
 	    (*m_basalThicknessSource[lev], *this, lev, m_dt);
-	  m_calvingModelPtr->modifySurfaceThicknessFlux
-	    (*m_basalThicknessSource[lev],*m_calvedThicknessSource[lev],*this, lev, m_dt );
 	}
 
     }

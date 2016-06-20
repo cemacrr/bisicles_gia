@@ -9,22 +9,22 @@
 #endif
 
 #include "CalvingModel.H"
-#include "BennCalvingModel.H"
-#include "FlotationCalvingModel.H"
+#include "CrevasseCalvingModel.H"
 #include "IceConstants.H"
 #include "AmrIce.H"
 #include "ParmParse.H"
 #include "NamespaceHeader.H"
 
 void 
-DeglaciationCalvingModelA::endTimeStepModifyState
+DeglaciationCalvingModelA::applyCriterion
 (LevelData<FArrayBox>& a_thickness, 
+ LevelData<FArrayBox>& a_mask, 
  const AmrIce& a_amrIce,
- int a_level)
+ int a_level,
+ Stage a_stage)
 {
-  
+
   const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
-  
   for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
     {
       const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
@@ -50,10 +50,12 @@ DeglaciationCalvingModelA::endTimeStepModifyState
     }
 }
 
-void DomainEdgeCalvingModel::endTimeStepModifyState
+void DomainEdgeCalvingModel::applyCriterion
 (LevelData<FArrayBox>& a_thickness, 
+ LevelData<FArrayBox>& a_mask, 
  const AmrIce& a_amrIce,
- int a_level)
+ int a_level,
+ Stage a_stage)
 {
 
   const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
@@ -132,10 +134,12 @@ void DomainEdgeCalvingModel::endTimeStepModifyState
 
 }
 
-void ProximityCalvingModel::endTimeStepModifyState
+void ProximityCalvingModel::applyCriterion
 (LevelData<FArrayBox>& a_thickness, 
+ LevelData<FArrayBox>& a_mask, 
  const AmrIce& a_amrIce,
- int a_level)
+ int a_level,
+ Stage a_stage)
 {
 
   Real time = a_amrIce.time();
@@ -178,57 +182,6 @@ void ProximityCalvingModel::endTimeStepModifyState
 	    }
 	}
     }
-}
-
-
-
-void ProximityCalvingModel::modifySurfaceThicknessFlux
-(LevelData<FArrayBox>& a_flux,
- LevelData<FArrayBox>& a_calvingMelt,
- const AmrIce& a_amrIce,
- int a_level,
- Real a_dt)
-{
-
-  Real time = a_amrIce.time();
-  bool calvingActive = (time >= m_startTime && time < m_endTime);
-  pout() << " time = " << time 
-	 << " m_startTime = " <<  m_startTime
-	 << " m_endTime = " <<  m_endTime
-	 << " calvingActive = " << calvingActive
-	 << std::endl;
-  if (calvingActive)
-    {
-      const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
-      const LevelData<FArrayBox>& proximity = *a_amrIce.groundingLineProximity(a_level);
-      const LevelData<FArrayBox>& velocity = *a_amrIce.velocity(a_level);
-      
-      for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
-	{
-	  //const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
-	  FArrayBox& flux = a_flux[dit];
-	  FArrayBox& melt = a_calvingMelt[dit];
-	  const FArrayBox& prox = proximity[dit];
-	  const FArrayBox& vel = velocity[dit];
-	  const FArrayBox& thck = levelCoords.getH()[dit];
-	  Box b = flux.box();b &= prox.box();
-	  for (BoxIterator bit(b); bit.ok(); ++bit)
-	    {
-	      const IntVect& iv = bit();
-	      Real extraMelt = 0.0;
-	      Real vmod = std::sqrt(vel(iv,0)*vel(iv,0) + vel(iv,1)*vel(iv,1));
-	      if (prox(iv) < m_proximity && calvingActive && vmod > m_velocity)
-	  	{
-	  	  //flux(iv) -= 0.95 * thck(iv)/a_dt;
-		  extraMelt = 0.95 * thck(iv)/a_dt;
-		  flux(iv) -= extraMelt;
-	  	}
-	      melt(iv) = extraMelt;
-	    }
-	}
-    }
-
-  
 }
 
 
@@ -322,39 +275,11 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
     }
   else if (type == "BennCalvingModel")
     {
-      Real waterDepth = 0.0;
-      pp.get("waterDepth",waterDepth);
-      Vector<int> frontLo(2,false); 
-      pp.getarr("front_lo",frontLo,0,frontLo.size());
-      Vector<int> frontHi(2,false);
-      pp.getarr("front_hi",frontHi,0,frontHi.size());
-      bool preserveSea = false;
-      pp.query("preserveSea",preserveSea);
-      bool preserveLand = false;
-      pp.query("preserveLand",preserveLand);
-      bool inclBasalCrev = false;
-      pp.query("inclBasalCrev",inclBasalCrev);
-      bool oneDimCrev = false;
-      pp.query("oneDimCrev",oneDimCrev);
-      bool RedFreqCalv = false;
-      pp.query("RedFreqCalv",RedFreqCalv);
-      bool setZeroThck = false;
-      pp.query("setZeroThck",setZeroThck);
-      bool oldMeltRate = false;
-      pp.query("oldMeltRate",oldMeltRate);
-      Real NoiseScale = 0.0;
-      pp.query("NoiseScale",NoiseScale);
-      Real calvingFreq = 1.0;
-      pp.query("calvingFreq",calvingFreq);
-      Real decay = 3.0e-1;
-      pp.query("decay",decay);
-      Real timescale = 0.25;
-      pp.query("timescale",timescale);
-      ptr = new BennCalvingModel(waterDepth, frontLo, frontHi, preserveSea,
-				 preserveLand, inclBasalCrev, oneDimCrev, 
-				 RedFreqCalv, setZeroThck,
-				 oldMeltRate, NoiseScale, calvingFreq,
-				 decay, timescale);
+      ptr = new BennCalvingModel(pp);
+    }
+  else if (type == "VanDerVeenCalvingModel")
+    {
+      ptr = new VdVCalvingModel(pp);
     }
   else if (type == "ThicknessCalvingModel")
     {  
@@ -428,10 +353,12 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
 
 
 void 
-DeglaciationCalvingModelB::endTimeStepModifyState
+DeglaciationCalvingModelB::applyCriterion
 (LevelData<FArrayBox>& a_thickness, 
+ LevelData<FArrayBox>& a_mask, 
  const AmrIce& a_amrIce,
- int a_level)
+ int a_level,
+ Stage a_stage)
 {
   
   const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
@@ -467,22 +394,19 @@ DeglaciationCalvingModelB::endTimeStepModifyState
 
 
 void 
-ThicknessCalvingModel::endTimeStepModifyState
+ThicknessCalvingModel::applyCriterion
 (LevelData<FArrayBox>& a_thickness, 
+ LevelData<FArrayBox>& a_mask, 
  const AmrIce& a_amrIce,
- int a_level)
+ int a_level,
+ Stage a_stage)
 {
-  // actually need a non-const AmrIce here because we also want to 
-  // change the iceMask. 
-  AmrIce* nonConstAmrIce = const_cast<AmrIce*>(&a_amrIce);
   
   const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
-  LevelData<FArrayBox>& levelIceMask = *nonConstAmrIce->iceMask(a_level);
-
   for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
     {
       const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
-      FArrayBox& iceMask = levelIceMask[dit];
+      FArrayBox& iceMask = a_mask[dit];
       FArrayBox& thck = a_thickness[dit];
       FArrayBox effectiveThickness(thck.box(), 1);
       effectiveThickness.copy(thck);
@@ -528,9 +452,11 @@ ThicknessCalvingModel::endTimeStepModifyState
   
 //alter the thickness field at the end of a time step
 void
-MaximumExtentCalvingModel::endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
-                                                  const AmrIce& a_amrIce,
-                                                  int a_level)
+MaximumExtentCalvingModel::applyCriterion(LevelData<FArrayBox>& a_thickness, 
+					  LevelData<FArrayBox>& a_mask, 
+					  const AmrIce& a_amrIce,
+					  int a_level,
+					  Stage a_stage)
 {
 
   const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
@@ -579,63 +505,23 @@ MaximumExtentCalvingModel::endTimeStepModifyState(LevelData<FArrayBox>& a_thickn
 }
 
 
-//alter the thickness field prior to the first time step. 
-void
-CompositeCalvingModel::initialModifyState(LevelData<FArrayBox>& a_thickness, 
-                                          const AmrIce& a_amrIce,
-                                          int a_level)
-{
-  for (int n=0; n<m_vectModels.size(); n++)
-    {
-      m_vectModels[n]->initialModifyState(a_thickness, a_amrIce, a_level);
-    }
-}
 
 
 //alter the thickness field at the end of a time step
 void 
-CompositeCalvingModel::endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
-                                              const AmrIce& a_amrIce,
-                                              int a_level)
+CompositeCalvingModel::applyCriterion(LevelData<FArrayBox>& a_thickness, 
+			      LevelData<FArrayBox>& a_mask, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      Stage a_stage)
 {
   for (int n=0; n<m_vectModels.size(); n++)
     {
-      m_vectModels[n]->endTimeStepModifyState(a_thickness, a_amrIce, 
-                                              a_level);
+      m_vectModels[n]->applyCriterion( a_thickness, a_mask,a_amrIce, a_level, a_stage);
     }
 }
 
   
-//alter the thickness field after a regrid
-void 
-CompositeCalvingModel::regridModifyState(LevelData<FArrayBox>& a_thickness, 
-                                         const AmrIce& a_amrIce,
-                                         int a_level)
-{
-  for (int n=0; n<m_vectModels.size(); n++)
-    {
-      m_vectModels[n]->regridModifyState(a_thickness, a_amrIce, a_level);
-    }
-
-}
-
-//modify a thickness flux
-void 
-CompositeCalvingModel::modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-                                                  LevelData<FArrayBox>& a_calvingMelt,
-                                                  const AmrIce& a_amrIce,
-                                                  int a_level,
-                                                  Real a_dt)
-{
-  for (int n=0; n<m_vectModels.size(); n++)
-    {
-      m_vectModels[n]->modifySurfaceThicknessFlux(a_flux, a_calvingMelt, 
-                                                  a_amrIce, a_level, a_dt);
-                                                  
-    }  
-}
-
-
 CompositeCalvingModel::~CompositeCalvingModel()
 {
   for (int n=0; n<m_vectModels.size(); n++)
@@ -644,6 +530,34 @@ CompositeCalvingModel::~CompositeCalvingModel()
       m_vectModels[n] = NULL;
     }
 }
+
+void FlotationCalvingModel::applyCriterion
+(LevelData<FArrayBox>& a_thickness, 
+ LevelData<FArrayBox>& a_mask, 
+ const AmrIce& a_amrIce,
+ int a_level,
+ Stage a_stage)
+{
+
+  m_domainEdgeCalvingModel.applyCriterion( a_thickness, a_mask,a_amrIce, a_level, a_stage);
+  const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
+  for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
+    {
+      FArrayBox& thck = a_thickness[dit];
+      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+      const Box& b = levelCoords.grids()[dit];
+      for (BoxIterator bit(b); bit.ok(); ++bit)
+	{
+	  const IntVect& iv = bit();
+	  Real extraMelt = 0.0;
+	  if (mask(iv) == FLOATINGMASKVAL)
+	    {
+	      thck(iv) = 0.0; 
+	    }
+	}
+    }
+}
+
 
 
 #include "NamespaceFooter.H"

@@ -37,10 +37,13 @@ surfaceFlux.type = constantFlux
 surfaceFlux.flux_value = 0.5
 basalFlux.type = zeroFlux
 
-CalvingModel.type = BennCalvingModel
-CalvingModel.waterDepth = 25.0
+CalvingModel.type = ThicknessCalvingModel
+CalvingModel.calving_thickness = 500.0
+CalvingModel.min_thickness = 0.0
 CalvingModel.front_hi = 1 0
 CalvingModel.front_lo = 0 0
+amr.eliminate_remote_ice = true
+
 
 #velocity solve type -- 0 = Picard, 1 = JFNK
 amr.velocity_solver_type = 1
@@ -75,26 +78,27 @@ JFNKSolver.switchRate = 5.0
 #JFNKSolver.uMaxAbs = 1.0e+6
 
 #time stepping
-main.maxTime = 28500.0  # maximum time to run to
+main.maxTime = 500.0 # maximum time to run to
 main.maxStep = 100000   # maximum number of steps to runx
 amr.temporal_accuracy = 1
-amr.cfl = 0.5 
-amr.initial_cfl = 0.5 
+amr.cfl = 0.25 
+amr.initial_cfl = 0.25 
 amr.max_dt_grow_factor = 1.1 
 amr.time_step_ticks = 1
 
 #plotting options
-#amr.plot_interval = 1
-amr.plot_time_interval = 1
-amr.plot_prefix = plot.mismip3D.Benn.calve.ssa.0lev.
+amr.plot_interval = 1
+#amr.plot_time_interval = 1
+amr.plot_prefix = plot.mismip3D.thickness.calve.ssa.0lev.
 #amr.write_preSolve_plotfiles = true
 amr.write_solver_rhs = 1
 amr.write_viscous_tensor = true
 amr.write_thickness_sources = true
+amr.write_mask = true
 
 #check points
 amr.check_interval = 100
-amr.check_prefix = chk.mismip3D.Benn.calve.ssa.0lev.
+amr.check_prefix = chk.mismip3D.thickness.calve.ssa.0lev.
 amr.check_overwrite = 0
 amr.verbosity = 5
 
@@ -128,3 +132,5 @@ amr.grounding_line_tagging_min_vel = 0
 amr.verbosity = 5
 
 amr.restart_file = chk.mismip3D.Benn.ssa.0lev.013000.2d.hdf5
+amr.restart_set_time = true
+amr.restart_time = 0.0

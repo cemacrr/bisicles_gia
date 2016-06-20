@@ -549,6 +549,8 @@ protected:
 				   const Vector<LevelData<FArrayBox>* >& a_bts
 				   );
   
+  void applyCalvingCriterion(CalvingModel::Stage a_stage);
+
   void eliminateRemoteIce();
 
   /// solve a_alpha * phi - a_beta * laplacian(phi) = a_rhs

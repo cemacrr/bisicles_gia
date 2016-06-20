@@ -24,28 +24,16 @@ class CalvingModel
 
 public:
 
-  //alter the thickness field prior to the first time step. 
-  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness,  
-				  const AmrIce& a_amrIce,
-				  int a_level) = 0;
+  enum Stage { Initialization, PostVelocitySolve, PostThicknessAdvection, PostRegrid, MAX_STAGE};
 
 
-  //alter the thickness field at the end of a time step
-  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
-				      const AmrIce& a_amrIce,
-				      int a_level) = 0;
-  
-//alter the thickness field after a regid
-  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
-				 const AmrIce& a_amrIce,
-				 int a_level) = 0;
 
-  //modify a thickness flux
-  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  LevelData<FArrayBox>& a_calvingMelt,
-					  const AmrIce& a_amrIce,
-					  int a_level,
-					  Real a_dt) =0;
+
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
+			      LevelData<FArrayBox>& a_mask, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      Stage a_stage) = 0;
 
 
   virtual ~CalvingModel(){};
@@ -61,33 +49,11 @@ class NoCalvingModel : public CalvingModel
 
 public:
 
-  
-  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
-				  const AmrIce& a_amrIce,
-				  int a_level)
-  {
-
-  }
-
-  
-  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
-				      const AmrIce& a_amrIce,
-				      int a_level)
-  {
-
-  }
-
-  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
-				 const AmrIce& a_amrIce,
-				 int a_level) 
-  {
-
-  }
-  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  LevelData<FArrayBox>& a_calvingMelt,
-					  const AmrIce& a_amrIce,
-					  int a_level,
-					  Real a_dt)
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
+			      LevelData<FArrayBox>& a_mask, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      Stage a_stage)
   {
 
   }
@@ -108,39 +74,14 @@ class DeglaciationCalvingModelA : public CalvingModel
 
 public:
 
-  
-  //alter the thickness field prior to the first time step. Same as endTimeStepModifyState
-  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
-				  const AmrIce& a_amrIce,
-				  int a_level)
-  {
-    endTimeStepModifyState(a_thickness, a_amrIce, a_level);
-  }
-
 
   //alter the thickness field at the end of a time step
-  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
-				      const AmrIce& a_amrIce,
-				      int a_level);
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
+			      LevelData<FArrayBox>& a_mask, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      Stage a_stage);
 
-  //alter the thickness field after a regrid
-  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
-				      const AmrIce& a_amrIce,
-				      int a_level)
-  {
-    //do nothing... for backward compatibility
-  }
-
-
-  //modify a thickness flux
-  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  LevelData<FArrayBox>& a_calvingMelt,
-					  const AmrIce& a_amrIce,
-					  int a_level,
-					  Real a_dt)
-  {
-
-  }
 
 
   DeglaciationCalvingModelA(const Real& a_calvingThickness,
@@ -170,39 +111,11 @@ class DomainEdgeCalvingModel :  public CalvingModel
 
 public:
 
-  
-  //alter the thickness field prior to the first time step. 
-  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
-				  const AmrIce& a_amrIce,
-				  int a_level)
-  {
-    endTimeStepModifyState(a_thickness, a_amrIce, a_level);
-  }
-
-
-  //alter the thickness field at the end of a time step
-  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
-				      const AmrIce& a_amrIce,
-				      int a_level);
-
-  //alter the thickness field after a regrid
-  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
-				 const AmrIce& a_amrIce,
-				 int a_level)
-  {
-    endTimeStepModifyState(a_thickness, a_amrIce, a_level);
-  }
-
-  //modify a thickness flux
-  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  LevelData<FArrayBox>& a_calvingMelt,
-					  const AmrIce& a_amrIce,
-					  int a_level,
-					  Real a_dt)
-  {
-
-  }
-
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
+			      LevelData<FArrayBox>& a_mask, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      Stage a_stage);
 
   DomainEdgeCalvingModel(const Vector<int>& a_frontLo,
 			 const Vector<int>& a_frontHi,
@@ -241,32 +154,13 @@ public:
       m_endTime(a_endTime)
   {
   }
-  
-  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
-				  const AmrIce& a_amrIce,
-				  int a_level)
-  {
-    endTimeStepModifyState( a_thickness,  a_amrIce, a_level);
-  }
-
-  //alter the thickness field after a regrid
-  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
-				 const AmrIce& a_amrIce,
-				 int a_level)
-  {
-    //nothing
-  }
-  
-  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
-				      const AmrIce& a_amrIce,
-				      int a_level);
-
-
-  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  LevelData<FArrayBox>& a_calvingMelt,
-					  const AmrIce& a_amrIce,
-					  int a_level,
-					  Real a_dt);
+ 
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
+			      LevelData<FArrayBox>& a_mask, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      Stage a_stage);
+ 
 
 
 };
@@ -284,39 +178,11 @@ class DeglaciationCalvingModelB : public CalvingModel
 
 public:
 
-  
-  //alter the thickness field prior to the first time step. Same as endTimeStepModifyState
-  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
-				  const AmrIce& a_amrIce,
-				  int a_level)
-  {
-    endTimeStepModifyState(a_thickness, a_amrIce, a_level);
-  }
-
-
-  //alter the thickness field at the end of a time step
-  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
-				      const AmrIce& a_amrIce,
-				      int a_level);
-
-
-  //alter the thickness field after a regrid
-  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
-                                 const AmrIce& a_amrIce,
-                                 int a_level)
-  {
-    //do nothing... for backward compatibility
-  }
-  
-  //modify a thickness flux
-  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  LevelData<FArrayBox>& a_calvingMelt,
-					  const AmrIce& a_amrIce,
-					  int a_level,
-					  Real a_dt)
-  {
-
-  }
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
+			      LevelData<FArrayBox>& a_mask, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      Stage a_stage);
 
 
   DeglaciationCalvingModelB(const Real& a_calvingThickness,
@@ -354,39 +220,11 @@ class ThicknessCalvingModel : public CalvingModel
 
 public:
 
-  
-  //alter the thickness field prior to the first time step. Same as endTimeStepModifyState
-  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
-				  const AmrIce& a_amrIce,
-				  int a_level)
-  {
-    endTimeStepModifyState(a_thickness, a_amrIce, a_level);
-  }
-
-
-  //alter the thickness field at the end of a time step
-  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
-				      const AmrIce& a_amrIce,
-				      int a_level);
-
-
-  //alter the thickness field after a regrid
-  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
-				      const AmrIce& a_amrIce,
-				      int a_level)
-  {
-    //do nothing... for backward compatibility
-  }
-
-  //modify a thickness flux
-  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  LevelData<FArrayBox>& a_calvingMelt,
-					  const AmrIce& a_amrIce,
-					  int a_level,
-					  Real a_dt)
-  {
-
-  }
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
+			      LevelData<FArrayBox>& a_mask, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      Stage a_stage);
 
 
   ThicknessCalvingModel(const Real& a_calvingThickness,
@@ -417,41 +255,12 @@ class MaximumExtentCalvingModel : public CalvingModel
 
 public:
 
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
+			      LevelData<FArrayBox>& a_mask, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      Stage a_stage);
   
-  //alter the thickness field prior to the first time step. Same as endTimeStepModifyState
-  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
-				  const AmrIce& a_amrIce,
-				  int a_level)
-  {
-    endTimeStepModifyState(a_thickness, a_amrIce, a_level);
-  }
-
-
-  //alter the thickness field at the end of a time step
-  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
-				      const AmrIce& a_amrIce,
-				      int a_level);
-
-
-  //alter the thickness field after a regrid
-  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
-				      const AmrIce& a_amrIce,
-				      int a_level)
-  {
-    //do nothing... for backward compatibility
-  }
-
-  //modify a thickness flux
-  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  LevelData<FArrayBox>& a_calvingMelt,
-					  const AmrIce& a_amrIce,
-					  int a_level,
-					  Real a_dt)
-  {
-
-  }
-
-
   MaximumExtentCalvingModel(const RealVect& a_highLoc,
                             const RealVect& a_lowLoc,
                             const Real& a_startTime, 
@@ -487,29 +296,11 @@ public:
   { }
 
       
-
-  //alter the thickness field prior to the first time step. 
-  virtual void initialModifyState(LevelData<FArrayBox>& a_thickness, 
-				  const AmrIce& a_amrIce,
-				  int a_level);
-
-
-  //alter the thickness field at the end of a time step
-  virtual void endTimeStepModifyState(LevelData<FArrayBox>& a_thickness, 
-				      const AmrIce& a_amrIce,
-				      int a_level);
-  
-//alter the thickness field after a regid
-  virtual void regridModifyState(LevelData<FArrayBox>& a_thickness, 
-				 const AmrIce& a_amrIce,
-				 int a_level);
-
-  //modify a thickness flux
-  virtual void modifySurfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-					  LevelData<FArrayBox>& a_calvingMelt,
-					  const AmrIce& a_amrIce,
-					  int a_level,
-					  Real a_dt);
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
+			      LevelData<FArrayBox>& a_mask, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      Stage a_stage);
 
 
   virtual ~CompositeCalvingModel();
@@ -519,7 +310,33 @@ public:
 
 };
 
+class FlotationCalvingModel : public CalvingModel
+{
 
+public:
+
+  
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
+			      LevelData<FArrayBox>& a_mask, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      Stage a_stage);
+
+  FlotationCalvingModel (const Vector<int>& a_frontLo,
+			 const Vector<int>& a_frontHi,
+			 bool a_preserveSea,
+			 bool a_preserveLand) 
+    : m_domainEdgeCalvingModel(a_frontLo,a_frontHi, 
+			       a_preserveSea, a_preserveLand)
+  {
+    
+  }
+
+private:
+  DomainEdgeCalvingModel(m_domainEdgeCalvingModel);
+
+  
+};
 
 #include "NamespaceFooter.H"
 
