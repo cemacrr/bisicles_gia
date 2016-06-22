@@ -5895,6 +5895,9 @@ const LevelData<FArrayBox>* AmrIce::groundingLineProximity(int a_level) const
 void AmrIce::applyCalvingCriterion(CalvingModel::Stage a_stage)
 {
 
+
+ 
+
   //need to copy the thickness to keep track of the calved ice
   Vector<RefCountedPtr<LevelData<FArrayBox> > > prevThck;
   for (int lev=0; lev<= m_finest_level; lev++)
@@ -5908,14 +5911,14 @@ void AmrIce::applyCalvingCriterion(CalvingModel::Stage a_stage)
 	}
     }
 
-  //allow calving model to modify geometry and velocity
+  //allow calving model to modify geometry 
   for (int lev=0; lev<= m_finest_level; lev++)
     {
       LevelData<FArrayBox>& thck = m_vect_coordSys[lev]->getH();
       LevelData<FArrayBox>& mask = *m_iceMask[lev];
-      m_calvingModelPtr->applyCriterion(thck, mask, *this, lev, a_stage);
-
+      m_calvingModelPtr->applyCriterion(thck, mask, *this, lev, a_stage);	  
     }
+    
 
   // usually a good time to eliminate remote ice
   if (m_eliminate_remote_ice) eliminateRemoteIce();

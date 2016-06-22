@@ -143,7 +143,55 @@ void CrevasseCalvingModel::applyCriterion
       m_waterDepth->evaluate(waterDepth, a_amrIce, a_level, 0.0);
       computeRemnant(remnant, stressMeasure, thcke, usrfe, habe, waterDepth, levelCoords);
       
-      //update thickness and mask. should go to fortran...
+      //used to make sure that only cells within some distance of the open sea calve: 
+      LevelData<BaseFab<int> > grownOpenSea (levelCoords.grids(), 1 , IntVect::Unit);
+      for (DataIterator dit (levelCoords.grids()); dit.ok(); ++dit)
+	{
+	   if (m_calvingZoneLength > 0.0)
+	     {
+	       // a finite distance
+	       grownOpenSea[dit].copy(levelCoords.getFloatingMask()[dit]);
+	     }
+	   else
+	     {
+	       //any distance at all
+	       grownOpenSea[dit].setVal( OPENSEAMASKVAL );
+	     }
+	}
+
+      if (m_calvingZoneLength > 0.0)
+	{
+	  //grow the opensea mask by nCalve cells. 
+	  int niter = std::max( 1,  int( m_calvingZoneLength / a_amrIce.dx(a_level)[0])) ;
+	  LevelData<BaseFab<int> > prev (levelCoords.grids(), 1 , IntVect::Unit);
+	  
+	  for (int iter = 0; iter < niter; iter++)
+	    {
+	       for (DataIterator dit (levelCoords.grids()); dit.ok(); ++dit)
+		 {
+		   prev[dit].copy( grownOpenSea[dit]);
+		   Box b = levelCoords.grids()[dit];
+		   BaseFab<int>& m = grownOpenSea[dit];
+		   const BaseFab<int>& mp = prev[dit];
+		   for (BoxIterator bit(b); bit.ok(); ++bit)
+		     {
+		       const IntVect& iv = bit();
+		       if (m(iv) != OPENSEAMASKVAL)
+			 {
+			   bool t = false;
+			   t = t || (mp(iv + BASISV(0)) ==  OPENSEAMASKVAL);
+			   t = t || (mp(iv - BASISV(0)) ==  OPENSEAMASKVAL);
+			   t = t || (mp(iv + BASISV(1)) ==  OPENSEAMASKVAL);
+			   t = t || (mp(iv - BASISV(1)) ==  OPENSEAMASKVAL);
+			   if (t) m(iv) = OPENSEAMASKVAL;
+			 }
+		     }
+		 }
+	       grownOpenSea.exchange();
+	    }
+	}
+
+      //update thickness and mask.
       for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
 	{
 	  FArrayBox& thck = a_thickness[dit];
@@ -154,7 +202,7 @@ void CrevasseCalvingModel::applyCriterion
 	  for (BoxIterator bit(b); bit.ok(); ++bit)
 	    {
 	      const IntVect& iv = bit(); 
-	      if (remnant[dit](iv) < TINY_THICKNESS)
+	      if ( (grownOpenSea[dit](iv) == OPENSEAMASKVAL ) && ( remnant[dit](iv) < TINY_THICKNESS ))
 		{
 		  thck(iv) = 0.0;
 		  iceMask(iv,0) = 0.0;
@@ -198,9 +246,9 @@ CrevasseCalvingModel::CrevasseCalvingModel(ParmParse& a_pp)
 
 
   m_includeBasalCrevasses = false;
-  a_pp.query("include_basal_crevasses",m_includeBasalCrevasses);
+  a_pp.query("includeBasalCrevasses",m_includeBasalCrevasses);
   m_calvingZoneLength = -1.0;
-  a_pp.query("calving_zone_length",m_calvingZoneLength);
+  a_pp.query("calvingZoneLength",m_calvingZoneLength);
   
   m_stressMeasure = FirstPrincipalStress; // was the original default
   {
