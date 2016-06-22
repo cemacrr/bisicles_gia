@@ -67,10 +67,15 @@ JFNKSolver.bottom_solver_type = 2 #Relax solver
 #control problem parameters
 control.velMisfitCoefficient = 1.0
 control.massImbalanceCoefficient = 0.0e+2
-control.gradCsqRegularization = 1.0e+5
-control.gradMuCoefsqRegularization = 1.0e+5
-control.lowerX1 = -1.0
-control.upperX1 = 1.0
+control.gradCsqRegularization = 1.0e+3
+control.gradMuCoefsqRegularization = 1.0e+11
+
+control.lowerX0 = -5.0
+control.upperX0 = 5.0
+
+control.lowerX1 = -3.0
+control.upperX1 = 0.5
+
 control.boundMethod=Projection
 
 control.CGmaxIter = 32
@@ -78,6 +83,8 @@ control.CGtol = 1.0e-6
 control.CGsecantParameter = 1.0e-8
 control.CGsecantMaxIter = 20
 control.CGsecantTol = 1.0e-1
+control.restartInterval = 32
+
 control.initialMu = 1.0e+6
 
 #domain details
