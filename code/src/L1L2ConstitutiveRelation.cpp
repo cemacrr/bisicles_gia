@@ -890,6 +890,9 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 	  { 
 	    const FArrayBox& b = a_coordSys.getTopography()[dit];
 	    const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
+	    Real ffactor = (1.0 - a_coordSys.iceDensity()/a_coordSys.waterDensity());
+
+
 	    for (BoxIterator bit(fbox);bit.ok();++bit)
 	      {
 		const IntVect& iv = bit();
@@ -897,7 +900,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 	
 		if (mask(ivm)==FLOATINGMASKVAL || mask(iv)==FLOATINGMASKVAL)
 		  {
-		    Dface(iv)*=(1.0-918.0/1028.0);
+		    Dface(iv)*=ffactor;
 		  }
 		else if (mask(ivm)==GROUNDEDMASKVAL || mask(iv)==GROUNDEDMASKVAL)
 		  {
