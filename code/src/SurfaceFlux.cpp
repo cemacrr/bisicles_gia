@@ -909,6 +909,16 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
 
   }
 #endif
+  else if (type == "")
+    {
+      ptr = NULL; // return a NULL and leave it up to the caller to care
+    }
+  else
+    {
+      // a type was specified but it made no sense...
+      pout() << "unknown flux type " << type << std::endl;
+      MayDay::Error("unknown flux type");
+    }
   return ptr;
   
 }
