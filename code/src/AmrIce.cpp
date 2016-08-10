@@ -638,10 +638,10 @@ AmrIce::~AmrIce()
 	  delete m_calvedThicknessSource[lev];
 	  m_calvedThicknessSource[lev] = NULL;
 	}
-      if (m_calvedIceThickness[lev] != NULL)
+      if (m_accumCalvedIceThickness[lev] != NULL)
 	{
-	  delete m_calvedIceThickness[lev];
-	  m_calvedIceThickness[lev] = NULL;
+	  delete m_accumCalvedIceThickness[lev];
+	  m_accumCalvedIceThickness[lev] = NULL;
 	}
     }
   
@@ -1615,7 +1615,7 @@ AmrIce::initialize()
       m_surfaceThicknessSource.resize(m_max_level+1, NULL);
       m_basalThicknessSource.resize(m_max_level+1, NULL);
       m_calvedThicknessSource.resize(m_max_level+1, NULL);
-      m_calvedIceThickness.resize(m_max_level+1, NULL);
+      m_accumCalvedIceThickness.resize(m_max_level+1, NULL);
       m_balance.resize(m_max_level+1, NULL);
       m_internalEnergy.resize(m_max_level+1, NULL);
       m_deltaTopography.resize(m_max_level+1, NULL);
@@ -1653,7 +1653,7 @@ AmrIce::initialize()
 
         }
 
-      setToZero(m_calvedIceThickness);
+      setToZero(m_accumCalvedIceThickness);
 
       int finest_level = -1;
       if (usePredefinedGrids)
@@ -3008,7 +3008,7 @@ AmrIce::regrid()
 	    LevelData<FArrayBox>* old_old_thicknessDataPtr = m_old_thickness[lev];
 	    LevelData<FArrayBox>* old_velDataPtr = m_velocity[lev];
 	    LevelData<FArrayBox>* old_tempDataPtr = m_internalEnergy[lev];
-	    LevelData<FArrayBox>* old_calvDataPtr = m_calvedIceThickness[lev];
+	    LevelData<FArrayBox>* old_calvDataPtr = m_accumCalvedIceThickness[lev];
 	    LevelData<FArrayBox>* old_deltaTopographyDataPtr = m_deltaTopography[lev];
             LevelData<FArrayBox>* old_iceMaskDataPtr = m_iceMask[lev];
 	     
@@ -3028,8 +3028,8 @@ AmrIce::regrid()
               new LevelData<FArrayBox>(newDBL, 1, m_iceMask[0]->ghostVect());
             
 	    LevelData<FArrayBox>* new_calvDataPtr = 
-	      new LevelData<FArrayBox>(newDBL, m_calvedIceThickness[0]->nComp(), 
-				       m_calvedIceThickness[0]->ghostVect());
+	      new LevelData<FArrayBox>(newDBL, m_accumCalvedIceThickness[0]->nComp(), 
+				       m_accumCalvedIceThickness[0]->ghostVect());
 	      
 	    LevelData<FArrayBox>* new_deltaTopographyDataPtr = 
 	      new LevelData<FArrayBox>(newDBL, m_deltaTopography[0]->nComp(), 
@@ -3268,23 +3268,23 @@ AmrIce::regrid()
 	      
 	    {
 	      // may eventually want to do post-regrid smoothing on this
-	      FineInterp interpolator(newDBL,m_calvedIceThickness[0]->nComp(),
+	      FineInterp interpolator(newDBL,m_accumCalvedIceThickness[0]->nComp(),
 				      m_refinement_ratios[lev-1],
 				      m_amrDomains[lev]);
-	      interpolator.interpToFine(*new_calvDataPtr, *m_calvedIceThickness[lev-1]);
+	      interpolator.interpToFine(*new_calvDataPtr, *m_accumCalvedIceThickness[lev-1]);
 
 		
 	      PiecewiseLinearFillPatch ghostFiller
 		(m_amrGrids[lev],
 		 m_amrGrids[lev-1],
-		 m_calvedIceThickness[lev-1]->nComp(),
+		 m_accumCalvedIceThickness[lev-1]->nComp(),
 		 m_amrDomains[lev-1],
 		 m_refinement_ratios[lev-1],
-		 m_calvedIceThickness[lev-1]->ghostVect()[0]);
+		 m_accumCalvedIceThickness[lev-1]->ghostVect()[0]);
 
-	      ghostFiller.fillInterp(*new_calvDataPtr,*m_calvedIceThickness[lev-1],
-				     *m_calvedIceThickness[lev-1],1.0,0,0,
-				     m_calvedIceThickness[lev-1]->nComp());
+	      ghostFiller.fillInterp(*new_calvDataPtr,*m_accumCalvedIceThickness[lev-1],
+				     *m_accumCalvedIceThickness[lev-1],1.0,0,0,
+				     m_accumCalvedIceThickness[lev-1]->nComp());
 
 	      if (old_calvDataPtr != NULL && oldDBL.isClosed())
 		{
@@ -3354,7 +3354,7 @@ AmrIce::regrid()
 	    m_old_thickness[lev] = new_old_thicknessDataPtr;
 	    m_velocity[lev] = new_velDataPtr;
 	    m_internalEnergy[lev] = new_tempDataPtr;
-	    m_calvedIceThickness[lev] = new_calvDataPtr;
+	    m_accumCalvedIceThickness[lev] = new_calvDataPtr;
 	    m_deltaTopography[lev] = new_deltaTopographyDataPtr;
             m_iceMask[lev] = new_iceMaskDataPtr;      
 #if BISICLES_Z == BISICLES_LAYERED
@@ -4466,7 +4466,7 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
   levelAllocate(&m_basalThicknessSource[a_level], a_grids,  1, IntVect::Unit) ;
   levelAllocate(&m_calvedThicknessSource[a_level], a_grids,  1, IntVect::Unit) ;
   levelAllocate(&m_balance[a_level],a_grids,   1, IntVect::Zero) ;
-  levelAllocate(&m_calvedIceThickness[a_level],a_grids, 1, IntVect::Unit);
+  levelAllocate(&m_accumCalvedIceThickness[a_level],a_grids, 1, IntVect::Unit);
   levelAllocate(&m_deltaTopography[a_level],a_grids, 1, IntVect::Zero);
   // probably eventually want to do this differently
   RealVect dx = m_amrDx[a_level]*RealVect::Unit;
@@ -4560,7 +4560,7 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
   
 
 
-  setToZero(m_calvedIceThickness);
+  setToZero(m_accumCalvedIceThickness);
   setToZero(m_deltaTopography);
 
   applyCalvingCriterion(CalvingModel::Initialization);
@@ -5926,12 +5926,12 @@ void AmrIce::applyCalvingCriterion(CalvingModel::Stage a_stage)
   //update calved ice thickness and real valued mask
   for (int lev=0; lev<= m_finest_level; lev++)
     {
-      LevelData<FArrayBox>& calv = *m_calvedIceThickness[lev];
+      LevelData<FArrayBox>& accumCalv = *m_accumCalvedIceThickness[lev];
       LevelData<FArrayBox>& thck = m_vect_coordSys[lev]->getH();
       for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
 	{
-	  calv[dit] += (*prevThck[lev])[dit];
-	  calv[dit] -= thck[dit];
+	  accumCalv[dit] += (*prevThck[lev])[dit];
+	  accumCalv[dit] -= thck[dit];
 	}
       updateIceMask(thck, lev);
     }
@@ -6200,7 +6200,7 @@ AmrIce::writePlotFile()
   string surfaceThicknessBalanceName("surfaceThicknessBalance");
 
   string calvedThicknessSourceName("calvedThicknessSource");
-  string calvedIceThicknessName("calvedIceThickness");
+  string accumCalvedIceThicknessName("accumCalvedIceThickness");
 
   string surfaceCrevasseName("surfaceCrevasse");
   string basalCrevasseName("basalCrevasse");
@@ -6384,7 +6384,7 @@ AmrIce::writePlotFile()
   if (m_write_calved)
     {
       vectName[comp] = calvedThicknessSourceName; comp++;
-      vectName[comp] = calvedIceThicknessName; comp++;
+      vectName[comp] = accumCalvedIceThicknessName; comp++;
     }
 
   if (m_write_thickness_sources || m_write_calved)
@@ -6698,7 +6698,7 @@ AmrIce::writePlotFile()
 	    {
 	      thisPlotData.copy((*m_calvedThicknessSource[lev])[dit], 0, comp, 1);
 	      comp++;
-	      thisPlotData.copy((*m_calvedIceThickness[lev])[dit], 0, comp, 1);
+	      thisPlotData.copy((*m_accumCalvedIceThickness[lev])[dit], 0, comp, 1);
 	      comp++;
 	    }
 
@@ -6892,7 +6892,7 @@ AmrIce::writeCheckpointFile(const string& a_file)
   header.m_real["dt"] = m_dt;
   header.m_int["num_comps"] = 2 +  m_velocity[0]->nComp() 
     + m_internalEnergy[0]->nComp() + m_deltaTopography[0]->nComp()
-    + m_calvedIceThickness[0]->nComp();
+    + m_accumCalvedIceThickness[0]->nComp();
 #if BISICLES_Z == BISICLES_LAYERED
 
 
@@ -7071,8 +7071,8 @@ AmrIce::writeCheckpointFile(const string& a_file)
 	  write(handle, *m_deltaTopography[lev] , "deltaBedHeightData",
 		m_deltaTopography[lev]->ghostVect()  );
 
-	  write(handle, *m_calvedIceThickness[lev] , "accumCalvedIceThckData",
-		m_calvedIceThickness[lev]->ghostVect()  );
+	  write(handle, *m_accumCalvedIceThickness[lev] , "accumCalvedIceThckData",
+		m_accumCalvedIceThickness[lev]->ghostVect()  );
 
 	  write(handle, *m_iceMask[lev] , "iceMaskData",
 		m_iceMask[lev]->ghostVect()  );
@@ -7307,7 +7307,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   m_surfaceThicknessSource.resize(m_max_level+1,NULL);
   m_basalThicknessSource.resize(m_max_level+1,NULL);
   m_calvedThicknessSource.resize(m_max_level+1,NULL);
-  m_calvedIceThickness.resize(m_max_level+1, NULL);
+  m_accumCalvedIceThickness.resize(m_max_level+1, NULL);
   m_deltaTopography.resize(m_max_level+1, NULL);
   m_balance.resize(m_max_level+1,NULL);
   m_velBasalC.resize(m_max_level+1,NULL);
@@ -7447,7 +7447,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	  m_surfaceThicknessSource[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_basalThicknessSource[lev] = new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_calvedThicknessSource[lev] = new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
-	  m_calvedIceThickness[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
+	  m_accumCalvedIceThickness[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_deltaTopography[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Zero) ;
 	  m_balance[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Zero) ;
 	  m_diffusivity[lev] = new LevelData<FluxBox>(levelDBL, 1, IntVect::Zero);
@@ -7546,7 +7546,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	    {
 	      for (dit.begin(); dit.ok(); ++dit)
 		{
-		  (*m_calvedIceThickness[lev])[dit].copy(accumCalvedIceThck[dit]);
+		  (*m_accumCalvedIceThickness[lev])[dit].copy(accumCalvedIceThck[dit]);
 		} 
 	    }
 	  {
@@ -8946,7 +8946,7 @@ AmrIce::endTimestepDiagnostics()
 	  sumCalvedBasalFlux = computeSum(m_calvedThicknessSource, m_refinement_ratios,m_amrDx[0],
 					  Interval(0,0), 0);
 	}
-      sumCalvedIce = computeSum(m_calvedIceThickness, m_refinement_ratios,m_amrDx[0],
+      sumCalvedIce = computeSum(m_accumCalvedIceThickness, m_refinement_ratios,m_amrDx[0],
 				Interval(0,0), 0);
 
       if (s_verbosity > 0) 

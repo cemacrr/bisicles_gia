@@ -439,7 +439,7 @@ public:
   const Vector<LevelData<FluxBox>* >& faceVelocitiesLayered() const {return m_layerXYFaceXYVel;} 
 
   /// access function for calved ice thickness
-  const  Vector<LevelData<FArrayBox>* >& calvedIceThickness() const {return m_calvedIceThickness; }
+  const  Vector<LevelData<FArrayBox>* >& accumCalvedIceThickness() const {return m_accumCalvedIceThickness; }
   
   /// access function for surface temperature
   const  Vector<LevelData<FArrayBox>* >& surfaceInternalEnergy() const {return m_sInternalEnergy; }
@@ -1032,7 +1032,7 @@ protected:
   
   Vector<LevelData<FArrayBox>* > m_balance; // set to -dH/dt
   //(accumulated) thickness of calved ice 
-  Vector<LevelData<FArrayBox>* > m_calvedIceThickness;
+  Vector<LevelData<FArrayBox>* > m_accumCalvedIceThickness;
   Vector<LevelData<FArrayBox>* > m_calvedThicknessSource;
 
   //cell centered storage for the stress-balance equation coefficients
