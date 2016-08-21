@@ -321,7 +321,7 @@ void BennCalvingModel::computeRemnant(LevelData<FArrayBox>& a_remnant,
       for (BoxIterator bit(b);bit.ok();++bit)
 	{
 	  const IntVect& iv = bit();
-	  Real Ds = std::max(s(iv),0.0) / (grav*rhoi) + rhoi/rhoo * wd(iv);
+	  Real Ds = std::max(s(iv),0.0) / (grav*rhoi) + 1000.0/rhoi * wd(iv);
 
 	  if (m_includeBasalCrevasses)
 	    {
