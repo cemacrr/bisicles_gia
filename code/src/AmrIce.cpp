@@ -1776,8 +1776,11 @@ AmrIce::initialize()
       m_initialVolumeAboveFlotation = computeVolumeAboveFlotation();
       m_lastVolumeAboveFlotation = m_initialVolumeAboveFlotation; 
     }
-  m_lastSumCalvedIce = computeSum(m_accumCalvedIceThickness, m_refinement_ratios,m_amrDx[0],
-				 Interval(0,0), 0);
+  if (m_report_calving)
+    {
+      m_lastSumCalvedIce = computeSum(m_accumCalvedIceThickness, m_refinement_ratios,m_amrDx[0],
+				      Interval(0,0), 0);
+    }
 
 
 }  
@@ -9177,6 +9180,11 @@ AmrIce::endTimestepDiagnostics()
 	      sumBasalFlux = computeTotalFlux(m_basalThicknessSource);
 	      sumSurfaceFlux = computeTotalFlux(m_surfaceThicknessSource);
 	      sumDivThckFlux = computeTotalFlux(m_divThicknessFlux);
+	    }
+	  
+	  if (m_report_calving)
+
+	    {
 	      sumAccumCalvedIce = computeSum(m_accumCalvedIceThickness, m_refinement_ratios,m_amrDx[0],
 					Interval(0,0), 0);
 	      diffAccumCalvedIce=sumAccumCalvedIce-m_lastSumCalvedIce;
@@ -9191,6 +9199,9 @@ AmrIce::endTimestepDiagnostics()
 	      sumAddedOverIce = computeFluxOverIce(m_addedIceThickness);
 	      totalLostIce = sumCalvedIce+sumRemovedIce+sumAddedIce;
 	      totalLostOverIce = sumCalvedOverIce+sumRemovedOverIce+sumAddedOverIce;
+
+	      m_lastSumCalvedIce = sumAccumCalvedIce;
+
 	    }
 
 
@@ -9253,38 +9264,46 @@ AmrIce::endTimestepDiagnostics()
 
 
 
-     
-	  if (m_dt > 0)
+	  if (m_report_calving)
 	    {
-	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-		     << ": AccumCalvedIce = " << sumAccumCalvedIce << " m3 " 
-		     << " ( " << diffAccumCalvedIce << "  " << diffAccumCalvedIce - totalLostIce << " ) " << endl;
-	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-		     << ": CalvedIce = " << sumCalvedIce << " m3 " << " RemovedIce = " << sumRemovedIce << " m3 " << " AddedIce = " << sumAddedIce << " m3 Sum " << totalLostIce << " m3 " << endl;
-	      Real cflux=sumCalvedIce/m_dt;
-	      Real adjflux=(sumRemovedIce+sumAddedIce)/m_dt;
-	      Real calvingerr=sumSurfaceFlux+sumBasalFlux-(cflux+diffSum/m_dt+adjflux);
-	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-		     << ": Domain error = " << calvingerr << " m3/yr"
-		     << " ( dV/dt = " << diffSum/m_dt 
-		     << " calving flux = " << cflux
-		     << " SMB = " << sumSurfaceFlux
-		     << " BMB = " << sumBasalFlux
-		     << " adjustment flux to maintain front = " << adjflux
-		     << " )"  << endl;
-	      
-	      adjflux=(sumRemovedOverIce+sumAddedOverIce)/m_dt;
-	      Real err=sumSurfaceFluxOverIce+sumBasalFluxOverIce-(sumDivThckFluxOverIce+diffSum/m_dt+adjflux);
-	      pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
-		     << ": Ice sheet error = " << err << " m3/yr"
-		     << " ( dV/dt = " << diffSum/m_dt 
-		     << " flux = " << sumDivThckFluxOverIce
-		     << " smb = " << sumSurfaceFluxOverIce
-		     << " bmb = " << sumBasalFluxOverIce
-		     << " adjustment flux to maintain front = " << adjflux
-		     << " )" << endl;
+	      if (m_dt > 0)
+		{
+		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+			 << ": AccumCalvedIce = " << sumAccumCalvedIce << " m3 " 
+			 << " ( " << diffAccumCalvedIce << "  " << diffAccumCalvedIce - totalLostIce << " ) " << endl;
+		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+			 << ": CalvedIce = " << sumCalvedIce << " m3 " << " RemovedIce = " << sumRemovedIce << " m3 " << " AddedIce = " << sumAddedIce << " m3 Sum " << totalLostIce << " m3 " << endl;
+		}
 	    }
-	  m_lastSumCalvedIce = sumAccumCalvedIce;
+
+	  if (m_report_calving && m_report_total_flux)
+	    {
+	      if (m_dt > 0)
+		{
+		  Real cflux=sumCalvedIce/m_dt;
+		  Real adjflux=(sumRemovedIce+sumAddedIce)/m_dt;
+		  Real calvingerr=sumSurfaceFlux+sumBasalFlux-(cflux+diffSum/m_dt+adjflux);
+		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+			 << ": Domain error = " << calvingerr << " m3/yr"
+			 << " ( dV/dt = " << diffSum/m_dt 
+			 << " calving flux = " << cflux
+			 << " SMB = " << sumSurfaceFlux
+			 << " BMB = " << sumBasalFlux
+			 << " adjustment flux to maintain front = " << adjflux
+			 << " )"  << endl;
+	      
+		  adjflux=(sumRemovedOverIce+sumAddedOverIce)/m_dt;
+		  Real err=sumSurfaceFluxOverIce+sumBasalFluxOverIce-(sumDivThckFluxOverIce+diffSum/m_dt+adjflux);
+		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
+			 << ": Ice sheet error = " << err << " m3/yr"
+			 << " ( dV/dt = " << diffSum/m_dt 
+			 << " flux = " << sumDivThckFluxOverIce
+			 << " smb = " << sumSurfaceFluxOverIce
+			 << " bmb = " << sumBasalFluxOverIce
+			 << " adjustment flux to maintain front = " << adjflux
+			 << " )" << endl;
+		}
+	    }
 	}
 
       m_lastSumIce = sumIce;
