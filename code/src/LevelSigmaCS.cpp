@@ -562,6 +562,7 @@ LevelSigmaCS::recomputeGeometry(const LevelSigmaCS* a_crseCoords,
   
   // compute face-averaged Him 
   m_H.exchange();
+  m_topography.exchange();
   CellToEdge(m_H, m_faceH);    
 
   // probably will eventually want to do this more efficiently. For
@@ -818,7 +819,6 @@ LevelSigmaCS::computeSurface(const LevelSigmaCS* a_crseCoords,
       
     }
   m_surface.exchange();
-  m_topography.exchange();
   //update the mask
   computeFloatingMask(m_surface);
 

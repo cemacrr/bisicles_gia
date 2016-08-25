@@ -44,8 +44,11 @@ public:
 			      
 
   // CalvingModel implementation
-  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
-			      LevelData<FArrayBox>& a_mask, 
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness,
+			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+			      LevelData<FArrayBox>& a_removedIce,  
+			      LevelData<FArrayBox>& a_iceFrac, 
 			      const AmrIce& a_amrIce,
 			      int a_level,
 			      Stage a_stage);

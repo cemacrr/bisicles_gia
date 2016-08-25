@@ -81,14 +81,17 @@ void CrevasseCalvingModel::computeStressMeasure(LevelData<FArrayBox>& a_stressMe
 
 	      		 
 void CrevasseCalvingModel::applyCriterion
-(LevelData<FArrayBox>& a_thickness, 
- LevelData<FArrayBox>& a_mask, 
+(LevelData<FArrayBox>& a_thickness,
+ LevelData<FArrayBox>& a_calvedIce,
+ LevelData<FArrayBox>& a_addedIce,
+ LevelData<FArrayBox>& a_removedIce, 
+ LevelData<FArrayBox>& a_iceFrac, 
  const AmrIce& a_amrIce,
  int a_level,
  Stage a_stage)
 {
   //domain edge calving model always applies
-  m_domainEdgeCalvingModel->applyCriterion( a_thickness, a_mask,a_amrIce, a_level, a_stage);
+  m_domainEdgeCalvingModel->applyCriterion( a_thickness, a_calvedIce, a_addedIce, a_removedIce, a_iceFrac,a_amrIce, a_level, a_stage);
   
   if  (a_stage == PostVelocitySolve)
     {
@@ -111,7 +114,7 @@ void CrevasseCalvingModel::applyCriterion
 	  thcke[dit].copy(a_thickness[dit]);
 	  FORT_EFFECTIVETHICKNESS( CHF_FRA1(thcke[dit],0), 
 				   CHF_CONST_FRA1(a_thickness[dit],0),
-				   CHF_CONST_FRA1(a_mask[dit],0), 
+				   CHF_CONST_FRA1(a_iceFrac[dit],0), 
 				   CHF_BOX(thcke[dit].box()));
 	  
 	  Real rhoi = levelCoords.iceDensity();
@@ -195,18 +198,31 @@ void CrevasseCalvingModel::applyCriterion
       for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
 	{
 	  FArrayBox& thck = a_thickness[dit];
-	  FArrayBox& iceMask = a_mask[dit];
+	  FArrayBox& calved = a_calvedIce[dit];
+	  FArrayBox& added = a_addedIce[dit];
+	  FArrayBox& removed = a_removedIce[dit];
+	  FArrayBox& iceFrac = a_iceFrac[dit];
+	  const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
 	  
 	  Box b = thck.box();
-	  b &= iceMask.box();
+	  b &= iceFrac.box();
 	  for (BoxIterator bit(b); bit.ok(); ++bit)
 	    {
 	      const IntVect& iv = bit(); 
+	      Real prevThck = thck(iv);
 	      if ( (grownOpenSea[dit](iv) == OPENSEAMASKVAL ) && ( remnant[dit](iv) < TINY_THICKNESS ))
 		{
 		  thck(iv) = 0.0;
-		  iceMask(iv,0) = 0.0;
+		  iceFrac(iv,0) = 0.0;
 		}
+
+	      // Record gain/loss of ice.
+	      if (calved.box().contains(iv))
+		{
+		  // grownOpenSea can change OPENLAND or GROUNDED mask to OPENSEA
+		  updateCalvedIce(thck(iv),prevThck,grownOpenSea[dit](iv),added(iv),calved(iv),removed(iv));
+		}
+
 	    } // end loop over cells
 	} // end loop over boxes
     } // end (a_stage == PostVelocitySolve || a_stage == PostRegrid)

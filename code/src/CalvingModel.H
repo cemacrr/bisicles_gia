@@ -26,11 +26,14 @@ public:
 
   enum Stage { Initialization, PostVelocitySolve, PostThicknessAdvection, PostRegrid, MAX_STAGE};
 
+  static void updateCalvedIce(const Real& a_thck, const Real a_prevThck, const int a_mask, Real& a_added, Real& a_calved, Real& a_removed);
 
 
-
-  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
-			      LevelData<FArrayBox>& a_mask, 
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness,
+			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+ 			      LevelData<FArrayBox>& a_removedIce, 
+			      LevelData<FArrayBox>& a_iceFrac, 
 			      const AmrIce& a_amrIce,
 			      int a_level,
 			      Stage a_stage) = 0;
@@ -50,7 +53,10 @@ class NoCalvingModel : public CalvingModel
 public:
 
   virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
-			      LevelData<FArrayBox>& a_mask, 
+			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+			      LevelData<FArrayBox>& a_removedIce,
+			      LevelData<FArrayBox>& a_iceFrac, 
 			      const AmrIce& a_amrIce,
 			      int a_level,
 			      Stage a_stage)
@@ -77,7 +83,10 @@ public:
 
   //alter the thickness field at the end of a time step
   virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
-			      LevelData<FArrayBox>& a_mask, 
+			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+			      LevelData<FArrayBox>& a_removedIce,
+			      LevelData<FArrayBox>& a_iceFrac, 
 			      const AmrIce& a_amrIce,
 			      int a_level,
 			      Stage a_stage);
@@ -112,7 +121,10 @@ class DomainEdgeCalvingModel :  public CalvingModel
 public:
 
   virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
-			      LevelData<FArrayBox>& a_mask, 
+			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+			      LevelData<FArrayBox>& a_removedIce,
+			      LevelData<FArrayBox>& a_iceFrac, 
 			      const AmrIce& a_amrIce,
 			      int a_level,
 			      Stage a_stage);
@@ -156,7 +168,10 @@ public:
   }
  
   virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
-			      LevelData<FArrayBox>& a_mask, 
+			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+			      LevelData<FArrayBox>& a_removedIce,
+			      LevelData<FArrayBox>& a_iceFrac, 
 			      const AmrIce& a_amrIce,
 			      int a_level,
 			      Stage a_stage);
@@ -179,7 +194,10 @@ class DeglaciationCalvingModelB : public CalvingModel
 public:
 
   virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
-			      LevelData<FArrayBox>& a_mask, 
+			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+			      LevelData<FArrayBox>& a_removedIce,
+			      LevelData<FArrayBox>& a_iceFrac, 
 			      const AmrIce& a_amrIce,
 			      int a_level,
 			      Stage a_stage);
@@ -211,7 +229,7 @@ private:
 /// A  thickness-based calving model which should permit advance and retreat
 /** (i). Sets any floating ice below a given thickness and in a given depth of
          ocean to zero thickness
-   (ii). uses real-valued ice mask in AmrIce to account for partial cells
+   (ii). uses real-valued ice fraction in AmrIce to account for partial cells
          using the scheme described in the "Notes on MISOMIP Thickness-driven
          Calving Law" in the doc directory
 */
@@ -221,7 +239,10 @@ class ThicknessCalvingModel : public CalvingModel
 public:
 
   virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
-			      LevelData<FArrayBox>& a_mask, 
+			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+			      LevelData<FArrayBox>& a_removedIce,
+			      LevelData<FArrayBox>& a_iceFrac, 
 			      const AmrIce& a_amrIce,
 			      int a_level,
 			      Stage a_stage);
@@ -256,7 +277,10 @@ class MaximumExtentCalvingModel : public CalvingModel
 public:
 
   virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
-			      LevelData<FArrayBox>& a_mask, 
+			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+			      LevelData<FArrayBox>& a_removedIce,
+			      LevelData<FArrayBox>& a_iceFrac, 
 			      const AmrIce& a_amrIce,
 			      int a_level,
 			      Stage a_stage);
@@ -297,7 +321,10 @@ public:
 
       
   virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
-			      LevelData<FArrayBox>& a_mask, 
+			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+			      LevelData<FArrayBox>& a_removedIce,
+			      LevelData<FArrayBox>& a_iceFrac, 
 			      const AmrIce& a_amrIce,
 			      int a_level,
 			      Stage a_stage);
@@ -317,7 +344,10 @@ public:
 
   
   virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
-			      LevelData<FArrayBox>& a_mask, 
+			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+			      LevelData<FArrayBox>& a_removedIce,
+			      LevelData<FArrayBox>& a_iceFrac, 
 			      const AmrIce& a_amrIce,
 			      int a_level,
 			      Stage a_stage);

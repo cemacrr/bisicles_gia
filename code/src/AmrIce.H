@@ -377,12 +377,12 @@ public:
     return m_surfaceBoundaryHeatDataDirichlett;
   }
 
-  /// return pointer to real-valued ice mask on level a_level
+  /// return pointer to real-valued ice fraction on level a_level
   /** (0 = no ice, 1 = full of ice, 0<phi<1 -- partially filled 
       (useful for calving model and for communication with POP  **/
-  LevelData<FArrayBox>* iceMask(int a_level) 
+  LevelData<FArrayBox>* iceFrac(int a_level) 
   {
-    return m_iceMask[a_level];
+    return m_iceFrac[a_level];
   };
 
   bool surfaceHeatBoundaryTemperature() const
@@ -400,24 +400,24 @@ public:
     return *m_basalHeatBoundaryDataPtr;
   }
 
-  /// return pointer to real-valued ice mask on level a_level
+  /// return pointer to real-valued ice fraction on level a_level
   /** (0 = no ice, 1 = full of ice, 0<phi<1 -- partially filled 
       (useful for calving model and for communication with POP  **/
-  const LevelData<FArrayBox>* iceMask(int a_level) const
+  const LevelData<FArrayBox>* iceFrac(int a_level) const
   {
-    return m_iceMask[a_level];
+    return m_iceFrac[a_level];
   };
 
-  /// return reference to full AMR ice mask
-  Vector<LevelData<FArrayBox>* >& amrIceMask() 
+  /// return reference to full AMR ice fraction
+  Vector<LevelData<FArrayBox>* >& amrIceFrac() 
   {
-    return m_iceMask;
+    return m_iceFrac;
   }
 
-  /// return const reference to full AMR ice mask
-  const Vector<LevelData<FArrayBox>* >& amrIceMask() const
+  /// return const reference to full AMR ice fraction
+  const Vector<LevelData<FArrayBox>* >& amrIceFrac() const
   {
-    return m_iceMask;
+    return m_iceFrac;
   }
 
   const LevelData<FArrayBox>* groundingLineProximity(int a_level) const;
@@ -440,6 +440,13 @@ public:
 
   /// access function for calved ice thickness
   const  Vector<LevelData<FArrayBox>* >& accumCalvedIceThickness() const {return m_accumCalvedIceThickness; }
+  const  Vector<LevelData<FArrayBox>* >& calvedIceThickness() const {return m_calvedIceThickness; }
+  const  Vector<LevelData<FArrayBox>* >& removedIceThickness() const {return m_removedIceThickness; }
+  const  Vector<LevelData<FArrayBox>* >& addedIceThickness() const {return m_addedIceThickness; }
+  /// access function for recorded thickness
+  const  Vector<LevelData<FArrayBox>* >& recordThickness() const {return m_recordThickness; }
+  // access private flag 
+  bool getIsThckRecorded() const {return m_thicknessIsRecorded; }
   
   /// access function for surface temperature
   const  Vector<LevelData<FArrayBox>* >& surfaceInternalEnergy() const {return m_sInternalEnergy; }
@@ -514,23 +521,23 @@ protected:
   // incremente coordSys with new thickness
   void updateCoordSysWithNewThickness(const Vector<LevelData<FArrayBox>* >& a_thickness);
 
-  /// initialize real-valued ice mask  
+  /// initialize real-valued ice fraction  
   /** this is entirely based on ice thickness h, as opposed
       to the advective update
    */
-  void setIceMask(const LevelData<FArrayBox>& a_thickness, int a_level);
+  void setIceFrac(const LevelData<FArrayBox>& a_thickness, int a_level);
 
 
-  /// update real-valued ice mask after thickness update 
-  /** this is different from setIceMask in that it preserves 
-      fractional mask values, but still sets mask to zero in cells 
+  /// update real-valued ice fraction after thickness update 
+  /** this is different from setIceFrac in that it preserves 
+      fractional values, but still sets values to zero in cells 
       with no ice. Thickness is non-const because it may set very small
       values of H (less than epsilon) to zero
    */
-  void updateIceMask(LevelData<FArrayBox>& a_thickness, int a_level);
+  void updateIceFrac(LevelData<FArrayBox>& a_thickness, int a_level);
 
-  /// update real-valued ice mask through advection from neighboring cells
-  void advectIceMask(Vector<LevelData<FArrayBox>* >& a_iceMask,
+  /// update real-valued ice fraction through advection from neighboring cells
+  void advectIceFrac(Vector<LevelData<FArrayBox>* >& a_iceFrac,
                      const Vector<LevelData<FluxBox>* >& a_faceVelAdvection, 
                      Real a_dt);
 
@@ -550,6 +557,14 @@ protected:
 				   );
   
   void applyCalvingCriterion(CalvingModel::Stage a_stage);
+
+  /// Copy thickness before ice is removed  
+  void resetRecordThickness(const LevelData<FArrayBox>& a_thickness, int a_level);
+  /// Set private flag
+  void setIsThckRecorded(const bool a_thicknessIsRecorded);
+
+  /// Keep track of calved ice
+  void updateAccumulatedCalvedIce(LevelData<FArrayBox>& a_thickness, int a_level);
 
   void eliminateRemoteIce();
 
@@ -998,11 +1013,11 @@ protected:
   // SigmaCS mapping
   Vector<RefCountedPtr<LevelSigmaCS > > m_vect_coordSys;
   
-  /// real-valued ice mask
-  ///  real-valued ice mask on level a_level
+  /// real-valued ice fraction
+  ///  real-valued ice fraction on level a_level
   /** (0 = no ice, 1 = full of ice, 0<phi<1 -- partially filled 
       (useful for calving model and for communication with POP  **/
-  Vector<LevelData<FArrayBox>* > m_iceMask;
+  Vector<LevelData<FArrayBox>* > m_iceFrac;
 
   // Cell-centered internalEnergy field
   Vector<LevelData<FArrayBox>* > m_internalEnergy;
@@ -1030,10 +1045,15 @@ protected:
   Vector<LevelData<FArrayBox>* > m_surfaceThicknessSource;
   Vector<LevelData<FArrayBox>* > m_basalThicknessSource;
   
-  Vector<LevelData<FArrayBox>* > m_balance; // set to -dH/dt
+  Vector<LevelData<FArrayBox>* > m_divThicknessFlux; // set to -dH/dt
   //(accumulated) thickness of calved ice 
   Vector<LevelData<FArrayBox>* > m_accumCalvedIceThickness;
+  Vector<LevelData<FArrayBox>* > m_calvedIceThickness;
+  Vector<LevelData<FArrayBox>* > m_removedIceThickness;
+  Vector<LevelData<FArrayBox>* > m_addedIceThickness;
   Vector<LevelData<FArrayBox>* > m_calvedThicknessSource;
+  // Record thickness before ice is removed.
+  Vector<LevelData<FArrayBox>* > m_recordThickness;
 
   //cell centered storage for the stress-balance equation coefficients
   mutable Vector<LevelData<FArrayBox>* > m_dragCoef;
@@ -1065,6 +1085,9 @@ protected:
   /// diagnostic quantity -- sum(ice) at last timestepa
   Real m_lastSumIce;
 
+  /// diagnostic quantity -- sum(calved ice) at last timestep
+  Real m_lastSumCalvedIce;
+
   /// if true, report sum(grounded ice) as well as sum(total ice)
   bool m_report_grounded_ice;
 
@@ -1081,9 +1104,6 @@ protected:
   /// 
   /// diagnostic quantity -- sum(ice over flotation) at last timestepa
   Real m_lastVolumeAboveFlotation;
-
-  /// diagnostic quantity -- sum(calved ice) at last timestep
-  Real m_lastSumCalvedIce;
 
   /// if true, report area of grounded ice and area of floating ice
   bool m_report_area;
@@ -1177,9 +1197,6 @@ protected:
   //if true, include thickness source terms in plot files
   bool m_write_thickness_sources;
 
-  //if true, include melting from calving model and calved ice thickness in plot files 
-  bool m_write_calved;
-
   /// if true, write out .map.hdf5 file
   bool m_write_map_file;
   
@@ -1202,9 +1219,9 @@ protected:
   bool m_floating_ice_stable ;
 
   /** if true, scale thickness sources (surface flux and basal flux) by 
-      iceMask values (allows for effective partial cells)
+      iceFrac values (allows for effective partial cells)
   */
-  bool m_mask_sources;
+  bool m_frac_sources;
 
 
   enum DiffusionTreatment {NONE,IMPLICIT,EXPLICIT};
@@ -1262,6 +1279,9 @@ private:
       delete *a_ptrPtr;
     *a_ptrPtr = new LevelData<T>(a_grids, a_nComp, a_ghost);
   }
+  
+  // Flag to stop double counting calved/removed ice
+  bool m_thicknessIsRecorded;
 
 };  
   

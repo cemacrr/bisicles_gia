@@ -120,6 +120,9 @@ namespace IceUtility
   void eliminateFastIce
   (Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
    Vector<LevelData<FArrayBox>* >& a_vel,
+   Vector<LevelData<FArrayBox>* >& a_calvedIce,
+   Vector<LevelData<FArrayBox>* >& a_addedIce,
+   Vector<LevelData<FArrayBox>* >& a_removedIce,
    const Vector<DisjointBoxLayout>& a_grids,
    const Vector<ProblemDomain>& a_domain,
    const Vector<int>& a_refRatio, Real a_crseDx,
@@ -131,6 +134,9 @@ namespace IceUtility
   void eliminateRemoteIce
   (Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
    Vector<LevelData<FArrayBox>* >& a_vel,
+   Vector<LevelData<FArrayBox>* >& a_calvedIce,
+   Vector<LevelData<FArrayBox>* >& a_addedIce,
+   Vector<LevelData<FArrayBox>* >& a_removedIce,
    const Vector<DisjointBoxLayout>& a_grids,
    const Vector<ProblemDomain>& a_domain,
    const Vector<int>& a_refRatio, Real a_crseDx,
@@ -147,7 +153,6 @@ namespace IceUtility
   (LevelData<FArrayBox>& a_C, const LevelSigmaCS& a_coords,
    const DisjointBoxLayout& a_grids, int a_subdivision);
 
-  
 }
 
 #include "NamespaceFooter.H"

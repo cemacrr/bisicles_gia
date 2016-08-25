@@ -450,6 +450,9 @@ void PetscIceSolver::jfnkSolve_private( int a_ilev,
  */
 int
 PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
+		       Vector<LevelData<FArrayBox>* >& a_calvedIce,
+		       Vector<LevelData<FArrayBox>* >& a_addedIce,
+		       Vector<LevelData<FArrayBox>* >& a_removedIce,
 		       Real& a_initialResidualNorm, 
 		       Real& a_finalResidualNorm,
 		       const Real a_convergenceMetric,
@@ -737,7 +740,9 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 	      {
 		pout() << "call JFNK for clean up solve" << endl;      
 	      }
-	    returnCode = jfnkSolver->solve( a_horizontalVel, a_initialResidualNorm,  a_finalResidualNorm,
+	    returnCode = jfnkSolver->solve( a_horizontalVel, 
+					    a_calvedIce, a_addedIce, a_removedIce, 
+					    a_initialResidualNorm,  a_finalResidualNorm,
 					    a_convergenceMetric, a_rhs, a_beta, a_beta0, a_A, a_muCoef,
 					    a_coordSys, a_time, a_lbase, a_maxLevel);
 	    delete jfnkSolver;

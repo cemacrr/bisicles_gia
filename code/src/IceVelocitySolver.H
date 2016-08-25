@@ -62,6 +62,9 @@ public:
   /** return value is 0 if solver converges successfully
    */
   virtual int solve(Vector<LevelData<FArrayBox>* >& a_horizontalVel,
+		    Vector<LevelData<FArrayBox>* >& a_calvedIce,
+		    Vector<LevelData<FArrayBox>* >& a_addedIce,
+		    Vector<LevelData<FArrayBox>* >& a_removedIce,
 		    Real& a_initialResidualNorm, Real& a_finalResidualNorm,
 		    const Real a_convergenceMetric,
                     const Vector<LevelData<FArrayBox>* >& a_rhs,
