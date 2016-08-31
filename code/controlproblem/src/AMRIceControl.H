@@ -225,6 +225,12 @@ private:
   Vector<LevelData<FArrayBox>*> m_internalEnergy; //cell / layer centers
   Vector<LevelData<FArrayBox>*> m_bInternalEnergy; // cell centered surface internalEnergy
   Vector<LevelData<FArrayBox>*> m_sInternalEnergy; // cell centered basal internalEnergy
+
+  // Variables to pass to eliminateRemoteIce. Not relevant to control problem.
+  Vector<LevelData<FArrayBox>*> m_calvedIceThickness;
+  Vector<LevelData<FArrayBox>*> m_removedIceThickness;
+  Vector<LevelData<FArrayBox>*> m_addedIceThickness;
+
   // A in glen's flow law
   Vector<LevelData<FArrayBox>*> m_A;
   Vector<LevelData<FluxBox>*> m_faceA;

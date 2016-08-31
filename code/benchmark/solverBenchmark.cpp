@@ -258,6 +258,9 @@ int main(int argc, char* argv[]) {
     Vector<LevelData<FArrayBox>* > vectC0(numLevels, NULL);
     Vector<LevelData<FArrayBox>* > vectA(numLevels, NULL);
     Vector<LevelData<FArrayBox>* > vectSurface(numLevels, NULL); // L1L2 will need grad(S)
+    Vector<LevelData<FArrayBox>* > calvedIceThickness(numLevels, NULL);
+    Vector<LevelData<FArrayBox>* > removedIceThickness(numLevels, NULL);
+    Vector<LevelData<FArrayBox>* > addedIceThickness(numLevels, NULL);
 
     Real iceDensity = 910.0;
     Real seaWaterDensity = 1028.0;
@@ -307,6 +310,21 @@ int main(int argc, char* argv[]) {
           for (dit.begin(); dit.ok(); ++dit)
             {
               (*vectC0[lev])[dit].setVal(0.0);
+            }
+        }
+        calvedIceThickness[lev] = new LevelData<FArrayBox>(amrGrids[lev],1,
+                                                 IntVect::Unit);
+        removedIceThickness[lev] = new LevelData<FArrayBox>(amrGrids[lev],1,
+                                                 IntVect::Unit);
+        addedIceThickness[lev] = new LevelData<FArrayBox>(amrGrids[lev],1,
+                                                 IntVect::Unit);
+        {
+          DataIterator dit = amrGrids[lev].dataIterator();
+          for (dit.begin(); dit.ok(); ++dit)
+            {
+              (*calvedIceThickness[lev])[dit].setVal(0.0);
+              (*removedIceThickness[lev])[dit].setVal(0.0);
+              (*addedIceThickness[lev])[dit].setVal(0.0);
             }
         }
 
@@ -1070,6 +1088,7 @@ int main(int argc, char* argv[]) {
     Real initialResidNorm, finalResidNorm;
     Vector<LevelData<FluxBox>* > vectMuCoef(max_level + 1,NULL);
     solverPtr->solve(velocity,
+		     calvedIceThickness, addedIceThickness, removedIceThickness,
                      initialResidNorm, finalResidNorm,
                      convergenceMetric,
                      vectRhs, 
@@ -1198,6 +1217,22 @@ int main(int argc, char* argv[]) {
           {
             delete vectData[lev];
             vectData[lev] = NULL;
+          }
+
+        if (calvedIceThickness[lev] != NULL)
+          {
+            delete calvedIceThickness[lev];
+            calvedIceThickness[lev] = NULL;
+          }
+        if (removedIceThickness[lev] != NULL)
+          {
+            delete removedIceThickness[lev];
+            removedIceThickness[lev] = NULL;
+          }
+        if (addedIceThickness[lev] != NULL)
+          {
+            delete addedIceThickness[lev];
+            addedIceThickness[lev] = NULL;
           }
       }
 

@@ -355,6 +355,14 @@ void AMRIceControl::define(IceThicknessIBC* a_ibcPtr,
   create(m_A,m_faceSigma.size()-1,IntVect::Unit);
   create(m_faceA,m_faceSigma.size()-1,IntVect::Unit);
 
+  //Create dummy variables to pass to eliminateRemoteIce
+  create(m_calvedIceThickness,1,IntVect::Unit);
+  setToZero(m_calvedIceThickness);
+  create(m_removedIceThickness,1,IntVect::Unit);
+  setToZero(m_removedIceThickness);
+  create(m_addedIceThickness,1,IntVect::Unit);
+  setToZero(m_addedIceThickness);
+
   for (int lev=0;lev<=m_finestLevel;lev++)
     {
        m_internalEnergyIBCPtr->initializeIceInternalEnergy
@@ -785,6 +793,9 @@ AMRIceControl::~AMRIceControl()
   free(m_internalEnergy);
   free(m_sInternalEnergy);
   free(m_bInternalEnergy);
+  free(m_calvedIceThickness);
+  free(m_removedIceThickness);
+  free(m_addedIceThickness);
   free(m_A);
   free(m_faceA);
   free(m_vtFace);
@@ -1384,7 +1395,10 @@ void AMRIceControl::evolveGeometry(Real a_dt, Real a_time)
   if (m_eliminateRemoteIce)
     {
       int verbosity = 1;
-      IceUtility::eliminateRemoteIce(m_coordSys, m_velb,  m_grids, m_domain, m_refRatio, 
+      IceUtility::eliminateRemoteIce(m_coordSys, m_velb,  
+				     m_calvedIceThickness, m_addedIceThickness,
+				     m_removedIceThickness,
+				     m_grids, m_domain, m_refRatio, 
 				     m_dx[0][0], m_finestLevel, 
 				     m_eliminateRemoteIceMaxIter, m_eliminateRemoteIceTol,
 				     verbosity );
@@ -2572,7 +2586,9 @@ void AMRIceControl::solveForwardProblem(Vector<LevelData<FArrayBox>* >& a_u,
       //jfnkSolver.m_writeResiduals = true;
     }
 
-  jfnkSolver.solve(a_u, initialNorm, finalNorm, convergenceMetric, a_linear, 
+  jfnkSolver.solve(a_u, 
+		   m_calvedIceThickness, m_addedIceThickness, m_removedIceThickness,
+		   initialNorm, finalNorm, convergenceMetric, a_linear, 
 		   a_rhs, a_C, a_C0, a_A, a_muCoef, m_coordSys, 0.0 , 0, m_finestLevel);
 
 
