@@ -82,7 +82,13 @@ PetscAMRSolver::solve_mfree( Vector<LevelData<FArrayBox>*>& a_phi,
   ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
 
   PetscBool ism = PETSC_FALSE;
-  PetscOptionsGetBool(PETSC_NULL,"-ksp_monitor",&ism,PETSC_NULL);
+
+#if PETSC_VERSION_GE(3,7,0)
+  PetscOptionsGetBool(PETSC_NULL,PETSC_NULL,"-ksp_monitor",&ism,PETSC_NULL);
+#else
+ PetscOptionsGetBool(PETSC_NULL,"-ksp_monitor",&ism,PETSC_NULL);
+#endif
+
   if(ism)
     {
       ierr = KSPMonitorSet(ksp,ksp_monitor_pout,PETSC_NULL,PETSC_NULL);CHKERRQ(ierr);
@@ -148,7 +154,11 @@ PetscAMRSolver::solve( Vector<LevelData<FArrayBox>*>& a_phi,
   ierr = KSPSetFromOptions(ksp); CHKERRQ(ierr);
 
   PetscBool ism = PETSC_FALSE;
+#if PETSC_VERSION_GE(3,7,0)
+  PetscOptionsGetBool(PETSC_NULL,PETSC_NULL,"-ksp_monitor",&ism,PETSC_NULL);
+#else
   PetscOptionsGetBool(PETSC_NULL,"-ksp_monitor",&ism,PETSC_NULL);
+#endif
   if(ism)
     {
       ierr = KSPMonitorSet(ksp,ksp_monitor_pout,PETSC_NULL,PETSC_NULL);CHKERRQ(ierr);
