@@ -1804,6 +1804,8 @@ AmrIce::defineSolver()
 {
   if (m_solverType == Picard)
     {
+      MayDay::Error("PicardSolver is deprecated (for now)");
+      
       // for now, at least, just delete any existing solvers
       // and rebuild them from scratch
       if (m_velSolver != NULL)
