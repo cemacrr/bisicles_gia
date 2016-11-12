@@ -6167,6 +6167,8 @@ void AmrIce::eliminateRemoteIce()
 }
 
 
+
+
 void 
 AmrIce::implicitThicknessCorrection(Real a_dt,
 				    const Vector<LevelData<FArrayBox>* >& a_sts,
@@ -6302,7 +6304,6 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 
 
 #ifdef CH_USE_HDF5
-
 
 /// write hdf5 plotfile to the standard location
 void 
@@ -6999,8 +7000,7 @@ AmrIce::writePlotFile()
         }
 
       HDF5Handle handle(filename.c_str(), HDF5Handle::CREATE);
-     
-      //Chombo AMR data (VisIt compatible)
+       //Chombo AMR data (VisIt compatible)
       WriteAMRHierarchyHDF5(handle, m_amrGrids, plotData, vectName, 
 			    domain, m_amrDx[0], dt, time(), m_refinement_ratios, 
 			    numLevels);

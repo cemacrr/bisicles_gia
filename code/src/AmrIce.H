@@ -1283,6 +1283,7 @@ private:
   // Flag to stop double counting calved/removed ice
   bool m_thicknessIsRecorded;
 
+
 };  
   
 #include "NamespaceFooter.H"
