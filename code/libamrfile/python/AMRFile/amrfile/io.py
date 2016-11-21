@@ -12,7 +12,8 @@ def __error__(status):
 def load(filename):
     status = c_int(-1)
     amrID = c_int(-1)
-    libamrfile.amr_read_file(pointer(status), pointer(amrID), filename)
+    ascii_filename =  filename.encode('ascii')
+    libamrfile.amr_read_file(pointer(status), pointer(amrID), ascii_filename)
     __error__(status)
     return amrID
 
@@ -31,7 +32,8 @@ def queryCompID(amrID, name):
     status = c_int(-1)
     comp = c_int(-1)
     namelen = c_int(len(name))
-    libamrfile.amr_query_comp_id(pointer(status), pointer(comp), pointer(amrID), name, pointer(namelen))
+    ascii_name =  name.encode('ascii')
+    libamrfile.amr_query_comp_id(pointer(status), pointer(comp), pointer(amrID), ascii_name, pointer(namelen))
     __error__(status)
     return comp.value
 
