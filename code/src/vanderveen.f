@@ -50,7 +50,7 @@ c     parameters needed by quadpack dqagp
 
 c     declarations for integrand (gb)
       external vdvabzg
-      double precision vdvabzg,d1mach
+      double precision vdvabzg,dd1mach
       double precision gdepth, gthickness,ga,gb
       common /vdvcom/ gdepth,gthickness,ga,gb
 
@@ -496,11 +496,11 @@ c                     number of subintervals actually produced in the
 c                     subdivisions process
 c
 c***references  (none)
-c***routines called  d1mach,dqelg,dqk21,dqpsrt
+c***routines called  dd1mach,dqelg,dqk21,dqpsrt
 c***end prologue  dqagpe
       double precision a,abseps,abserr,alist,area,area1,area12,area2,a1,
      *  a2,b,blist,b1,b2,correc,dabs,defabs,defab1,defab2,dmax1,dmin1,
-     *  dres,d1mach,elist,epmach,epsabs,epsrel,erlarg,erlast,errbnd,
+     *  dres,dd1mach,elist,epmach,epsabs,epsrel,erlarg,erlast,errbnd,
      *  errmax,error1,erro12,error2,errsum,ertest,f,oflow,points,pts,
      *  resa,resabs,reseps,result,res3la,rlist,rlist2,sign,temp,uflow
       integer i,id,ier,ierro,ind1,ind2,iord,ip1,iroff1,iroff2,iroff3,j,
@@ -567,7 +567,7 @@ c           uflow is the smallest positive magnitude.
 c           oflow is the largest positive magnitude.
 c
 c***first executable statement  dqagpe
-      epmach = d1mach(4)
+      epmach = dd1mach(4)
 c
 c            test on validity of parameters
 c            -----------------------------
@@ -684,8 +684,8 @@ c
       iroff2 = 0
       iroff3 = 0
       ierro = 0
-      uflow = d1mach(1)
-      oflow = d1mach(2)
+      uflow = dd1mach(1)
+      oflow = dd1mach(2)
       abserr = oflow
       ksgn = -1
       if(dres.ge.(0.1d+01-0.5d+02*epmach)*resabs) ksgn = 1
@@ -863,7 +863,7 @@ c
       subroutine dqelg(n,epstab,result,abserr,res3la,nres)
 c***begin prologue  dqelg
 c***refer to  dqagie,dqagoe,dqagpe,dqagse
-c***routines called  d1mach
+c***routines called  dd1mach
 c***revision date  830518   (yymmdd)
 c***keywords  epsilon algorithm, convergence acceleration,
 c             extrapolation
@@ -910,7 +910,7 @@ c                       (should be zero at first call)
 c
 c***end prologue  dqelg
 c
-      double precision abserr,dabs,delta1,delta2,delta3,dmax1,d1mach,
+      double precision abserr,dabs,delta1,delta2,delta3,dmax1,dd1mach,
      *  epmach,epsinf,epstab,error,err1,err2,err3,e0,e1,e1abs,e2,e3,
      *  oflow,res,result,res3la,ss,tol1,tol2,tol3
       integer i,ib,ib2,ie,indx,k1,k2,k3,limexp,n,newelm,nres,num
@@ -941,8 +941,8 @@ c           table can contain. if this number is reached, the upper
 c           diagonal of the epsilon table is deleted.
 c
 c***first executable statement  dqelg
-      epmach = d1mach(4)
-      oflow = d1mach(2)
+      epmach = dd1mach(4)
+      oflow = dd1mach(2)
       nres = nres+1
       abserr = oflow
       result = epstab(n)
@@ -1094,11 +1094,11 @@ c                       approximation to the integral of abs(f-i/(b-a))
 c                       over (a,b)
 c
 c***references  (none)
-c***routines called  d1mach
+c***routines called  dd1mach
 c***end prologue  dqk21
 c
       double precision a,absc,abserr,b,centr,dabs,dhlgth,dmax1,dmin1,
-     *  d1mach,epmach,f,fc,fsum,fval1,fval2,fv1,fv2,hlgth,resabs,resasc,
+     *  dd1mach,epmach,f,fc,fsum,fval1,fval2,fv1,fv2,hlgth,resabs,resasc,
      *  resg,resk,reskh,result,uflow,wg,wgk,xgk
       integer j,jtw,jtwm1
       external f
@@ -1175,8 +1175,8 @@ c           epmach is the largest relative spacing.
 c           uflow is the smallest positive magnitude.
 c
 c***first executable statement  dqk21
-      epmach = d1mach(4)
-      uflow = d1mach(1)
+      epmach = dd1mach(4)
+      uflow = dd1mach(1)
 c
       centr = 0.5d+00*(a+b)
       hlgth = 0.5d+00*(b-a)
@@ -1357,15 +1357,15 @@ c
       ermax = elist(maxerr)
       return
       end
-      DOUBLE PRECISION FUNCTION D1MACH(I)
+      DOUBLE PRECISION FUNCTION DD1MACH(I)
       INTEGER I
 C
 C  DOUBLE-PRECISION MACHINE CONSTANTS
-C  D1MACH( 1) = B**(EMIN-1), THE SMALLEST POSITIVE MAGNITUDE.
-C  D1MACH( 2) = B**EMAX*(1 - B**(-T)), THE LARGEST MAGNITUDE.
-C  D1MACH( 3) = B**(-T), THE SMALLEST RELATIVE SPACING.
-C  D1MACH( 4) = B**(1-T), THE LARGEST RELATIVE SPACING.
-C  D1MACH( 5) = LOG10(B)
+C  DD1MACH( 1) = B**(EMIN-1), THE SMALLEST POSITIVE MAGNITUDE.
+C  DD1MACH( 2) = B**EMAX*(1 - B**(-T)), THE LARGEST MAGNITUDE.
+C  DD1MACH( 3) = B**(-T), THE SMALLEST RELATIVE SPACING.
+C  DD1MACH( 4) = B**(1-T), THE LARGEST RELATIVE SPACING.
+C  DD1MACH( 5) = LOG10(B)
 C
       INTEGER SMALL(2)
       INTEGER LARGE(2)
@@ -1383,7 +1383,7 @@ C
       EQUIVALENCE (DMACH(5),LOG10(1))
 C  THIS VERSION ADAPTS AUTOMATICALLY TO MOST CURRENT MACHINES.
 C  R1MACH CAN HANDLE AUTO-DOUBLE COMPILING, BUT THIS VERSION OF
-C  D1MACH DOES NOT, BECAUSE WE DO NOT HAVE QUAD CONSTANTS FOR
+C  DD1MACH DOES NOT, BECAUSE WE DO NOT HAVE QUAD CONSTANTS FOR
 C  MANY MACHINES YET.
 C  TO COMPILE ON OLDER MACHINES, ADD A C IN COLUMN 1
 C  ON THE NEXT LINE
@@ -1391,7 +1391,7 @@ C  ON THE NEXT LINE
 C  AND REMOVE THE C FROM COLUMN 1 IN ONE OF THE SECTIONS BELOW.
 C  CONSTANTS FOR EVEN OLDER MACHINES CAN BE OBTAINED BY
 C          mail netlib@research.bell-labs.com
-C          send old1mach from blas
+C          send oldd1mach from blas
 C  PLEASE SEND CORRECTIONS TO dmg OR ehg@bell-labs.com.
 C
 C     MACHINE CONSTANTS FOR THE HONEYWELL DPS 8/70 SERIES.
@@ -1536,18 +1536,18 @@ C     ON FIRST CALL, IF NO DATA UNCOMMENTED, TEST MACHINE TYPES.
 *    SANITY CHECK
       IF (DMACH(4) .GE. 1.0D0) STOP 778
       IF (I .LT. 1 .OR. I .GT. 5) THEN
-         WRITE(*,*) 'D1MACH(I): I =',I,' is out of bounds.'
+         WRITE(*,*) 'DD1MACH(I): I =',I,' is out of bounds.'
          STOP
          END IF
-      D1MACH = DMACH(I)
+      DD1MACH = DMACH(I)
       RETURN
- 9000 FORMAT(/' Adjust D1MACH by uncommenting data statements'/
+ 9000 FORMAT(/' Adjust DD1MACH by uncommenting data statements'/
      *' appropriate for your machine.')
-* /* Standard C source for D1MACH -- remove the * in column 1 */
+* /* Standard C source for DD1MACH -- remove the * in column 1 */
 *#include <stdio.h>
 *#include <float.h>
 *#include <math.h>
-*double d1mach_(long *i)
+*double dd1mach_(long *i)
 *{
 *	switch(*i){
 *	  case 1: return DBL_MIN;
@@ -1556,7 +1556,7 @@ C     ON FIRST CALL, IF NO DATA UNCOMMENTED, TEST MACHINE TYPES.
 *	  case 4: return DBL_EPSILON;
 *	  case 5: return log10((double)FLT_RADIX);
 *	  }
-*	fprintf(stderr, "invalid argument: d1mach(%ld)\n", *i);
+*	fprintf(stderr, "invalid argument: dd1mach(%ld)\n", *i);
 *	exit(1); return 0; /* some compilers demand return values */
 *}
       END
