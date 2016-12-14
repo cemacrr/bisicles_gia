@@ -1098,8 +1098,8 @@ c***routines called  dd1mach
 c***end prologue  dqk21
 c
       double precision a,absc,abserr,b,centr,dabs,dhlgth,dmax1,dmin1,
-     *  dd1mach,epmach,f,fc,fsum,fval1,fval2,fv1,fv2,hlgth,resabs,resasc,
-     *  resg,resk,reskh,result,uflow,wg,wgk,xgk
+     *  dd1mach,epmach,f,fc,fsum,fval1,fval2,fv1,fv2,hlgth,resabs,
+     *     resasc,resg,resk,reskh,result,uflow,wg,wgk,xgk
       integer j,jtw,jtwm1
       external f
 c
