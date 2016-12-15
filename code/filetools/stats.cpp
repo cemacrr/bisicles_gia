@@ -270,12 +270,13 @@ void computeDischarge(Vector<LevelData<FArrayBox>* >& topography,
 	  Box grownFaceBox = faceBox;
 	  CH_assert(faceVel.box().contains(grownFaceBox));
 	  FArrayBox vface(faceBox,1);
-
+	  FArrayBox faceVelCopy(faceVel.box(), 1); faceVelCopy.copy(faceVel);
 		const FArrayBox& cellVel = (*ccVel[lev])[dit];
 		BaseFab<int> mask(grids[dit],1) ;
 
 		FORT_EXTRAPTOMARGIN(CHF_FRA1(faceVel,0),
                                     CHF_FRA1(vface,0),
+				    CHF_CONST_FRA1(faceVelCopy,0),
 				    CHF_CONST_FRA1(cellVel,dir),
 				    CHF_CONST_FRA1(usrf,0),
 				    CHF_CONST_FRA1(topg,0),
@@ -594,12 +595,13 @@ void computeCalving(Vector<LevelData<FArrayBox>* >& topography,
 	  Box grownFaceBox = faceBox;
 	  CH_assert(faceVel.box().contains(grownFaceBox));
 	  FArrayBox vface(faceBox,1);
-
+	  FArrayBox faceVelCopy(faceVel.box(), 1); faceVelCopy.copy(faceVel);
 		const FArrayBox& cellVel = (*ccVel[lev])[dit];
 		BaseFab<int> mask(grids[dit],1) ;
 
 		FORT_EXTRAPTOMARGIN(CHF_FRA1(faceVel,0),
-                                    CHF_FRA1(vface,0),
+                                    CHF_FRA1(vface,0), 
+				    CHF_CONST_FRA1(faceVelCopy,0),
 				    CHF_CONST_FRA1(cellVel,dir),
 				    CHF_CONST_FRA1(usrf,0),
 				    CHF_CONST_FRA1(topg,0),
