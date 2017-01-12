@@ -12,6 +12,7 @@
 #include "LevelDataSurfaceFlux.H"
 #include "GroundingLineLocalizedFlux.H"
 #include "HotspotFlux.H"
+#include <map>
 #ifdef HAVE_PYTHON
 #include "PythonInterface.H"
 #endif
@@ -375,38 +376,32 @@ void MaskedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
   //in boxes where at least some of the ice is grounded.
 
   //first, grounded ice values
-  if (m_groundedIceFlux)
-    m_groundedIceFlux->surfaceThicknessFlux(a_flux,a_amrIce,a_level,a_dt);
+  m_groundedIceFlux->surfaceThicknessFlux(a_flux,a_amrIce,a_level,a_dt);
 
-  //floating ice values
-  LevelData<FArrayBox> floatingFlux;
-  floatingFlux.define(a_flux);
-
-  if (m_floatingIceFlux)
-    m_floatingIceFlux->surfaceThicknessFlux(floatingFlux, a_amrIce,a_level,a_dt);
-
-  for (DataIterator dit(a_flux.dataIterator()); dit.ok(); ++dit)
+  //floating,open sea,open land ice values
+  std::map<int,SurfaceFlux*> mask_flux;
+  mask_flux[FLOATINGMASKVAL] = m_floatingIceFlux;
+  mask_flux[OPENSEAMASKVAL] =  m_openSeaFlux ;
+  mask_flux[OPENLANDMASKVAL] = m_openLandFlux;
+  LevelData<FArrayBox> tmpFlux;
+  tmpFlux.define(a_flux);
+  for (std::map<int,SurfaceFlux*>::iterator i = mask_flux.begin(); i != mask_flux.end(); ++i)
     {
-      const BaseFab<int>& mask =  a_amrIce.geometry(a_level)->getFloatingMask()[dit];
+      i->second->surfaceThicknessFlux(tmpFlux, a_amrIce,a_level,a_dt);
+      for (DataIterator dit(a_flux.dataIterator()); dit.ok(); ++dit)
+	{
+	  const BaseFab<int>& mask =  a_amrIce.geometry(a_level)->getFloatingMask()[dit];
       
-      Box box = mask.box();
-      box &= a_flux[dit].box();
+	  Box box = mask.box();
+	  box &= a_flux[dit].box();
 
-      int m = FLOATINGMASKVAL;
-      FORT_MASKEDREPLACE(CHF_FRA1(a_flux[dit],0),
-			 CHF_CONST_FRA1(floatingFlux[dit],0),
-			 CHF_CONST_FIA1(mask,0),
-			 CHF_CONST_INT(m),
-			 CHF_BOX(box));
-
-      
-      m = OPENSEAMASKVAL;
-      FORT_MASKEDREPLACE(CHF_FRA1(a_flux[dit],0),
-			 CHF_CONST_FRA1(floatingFlux[dit],0),
-			 CHF_CONST_FIA1(mask,0),
-			 CHF_CONST_INT(m),
-			 CHF_BOX(box));
-
+	  int m = i->first;
+	  FORT_MASKEDREPLACE(CHF_FRA1(a_flux[dit],0),
+			     CHF_CONST_FRA1(tmpFlux[dit],0),
+			     CHF_CONST_FIA1(mask,0),
+			     CHF_CONST_INT(m),
+			     CHF_BOX(box));
+	}
     }
 
 }
@@ -764,7 +759,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       SurfaceFlux* openLandPtr = parseSurfaceFlux(openLandPrefix.c_str());
       if (openLandPtr == NULL)
 	{
-	  openLandPtr = new zeroFlux;
+	  openLandPtr = groundedPtr->new_surfaceFlux();
 	}
 
       
@@ -773,7 +768,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       SurfaceFlux* openSeaPtr = parseSurfaceFlux(openSeaPrefix.c_str());
       if (openSeaPtr == NULL)
 	{
-	  openSeaPtr = new zeroFlux;
+	  openSeaPtr = floatingPtr->new_surfaceFlux();
 	}
 
       ptr = static_cast<SurfaceFlux*>
