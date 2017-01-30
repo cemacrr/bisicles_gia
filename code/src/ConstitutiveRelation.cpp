@@ -21,7 +21,6 @@
 #include "NyeCrevasseConstitutiveRelation.H"
 #include "NamespaceHeader.H"
 
-/// compute cell-centered epsilon^2
 void
 ConstitutiveRelation::computeStrainRateInvariant(LevelData<FArrayBox>& a_epsilonSquared,
                                                  const LevelData<FArrayBox>& a_velocity,
@@ -38,7 +37,6 @@ ConstitutiveRelation::computeStrainRateInvariant(LevelData<FArrayBox>& a_epsilon
 
 }
 
-/// compute face-centered epsilon^2 based on cell-centered velocity
 void
 ConstitutiveRelation::computeStrainRateInvariantFace(LevelData<FluxBox>& a_epsilonSquared,
                                                      LevelData<FArrayBox>& a_velocity,
@@ -59,7 +57,6 @@ ConstitutiveRelation::computeStrainRateInvariantFace(LevelData<FluxBox>& a_epsil
 
 
 
-/// compute cell-centered epsilon^2 and grad(u)
 void
 ConstitutiveRelation::computeStrainRateInvariant(LevelData<FArrayBox>& a_epsilonSquared,
 						 LevelData<FArrayBox>& a_gradVelocity,
@@ -266,14 +263,7 @@ ConstitutiveRelation::computeStrainRateInvariantFace(LevelData<FluxBox>& a_epsil
 
  
 
-/// implementation of Glen's flow law constitutive relation
-/** The  GlensFlowRelation class is publicly derived from the {\tt
-    ConstitutiveRelation Class and uses Glen's flow law, as described
-    in Dukowicz, Et Al (2009)
-*/
 
-
-///
 GlensFlowRelation::GlensFlowRelation() 
 {
   // initialize parameter values
@@ -287,14 +277,7 @@ GlensFlowRelation::~GlensFlowRelation()
 }
 
 
-/// computes cell-centered $\mu_{AS}$ based on the cell-centered velocity
-/**
-   a_mu -- mu_{AS} based on the local velocity field.
-   a_vel -- Cell-centered velocity field.
-   a_A: Cell-centered temperature field
-   a_coordSys:  SigmaCS object containing the geometry of this patch.
-   a_box: cell-centered box over which to do this computation
-  */
+
 void
 GlensFlowRelation::computeMu(LevelData<FArrayBox>& a_mu,
                              const LevelData<FArrayBox>& a_vel, 
@@ -372,19 +355,6 @@ GlensFlowRelation::computeMu(LevelData<FArrayBox>& a_mu,
    
 }
   
-/// Compute a cell centred bulk dissipation 
-/// \f$\Phi/(\rho _i c _i) = \sigma_ij \epsilon _ji /(\rho _i c _i) \f$ 
-/// (heat source) at the cell centres.
-/**
-   a_dissipation -- \f$\Phi\f$ based on the local velocity field.
-   a_vel -- Cell-centered velocity field.
-   a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-   (NULL if no coarser level)
-   a_nRefCrse -- refinement ratio to next coarser level
-   a_A: Cell-centered flow law coefficient (Glenn's A) field
-   a_coordSys:  SigmaCS object containing the geometry of this patch.
-   a_box: cell-centered box over which to do this computation
-**/
 void 
 GlensFlowRelation::computeDissipation(LevelData<FArrayBox>& a_dissipation,
 				      const LevelData<FArrayBox>& a_vel, 
@@ -416,17 +386,6 @@ GlensFlowRelation::computeDissipation(LevelData<FArrayBox>& a_dissipation,
 }
 
 
-// computes face-centered mu_{AS} based on cell-centered velocity
-/** a_mu: face-centered mu_{AS} based on the local velocity field.
-    a_vel: Cell-centered velocity field.
-    a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-                 (NULL if no coarser level)
-    a_nRefCrse -- refinement ratio to next coarser level      
-    a_A: Cell-centered flow law coefficient (glenn's A) field
-    a_coordSys: LevelSigmaCS object containing the geometry of this patch.
-    a_ghostVect -- how the boxes over which we want to compute mu relate 
-                   to those in the DisjointBoxLayout (can be negative)     
-*/  
 void
 GlensFlowRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
                                  LevelData<FArrayBox>& a_vel, 
@@ -540,13 +499,7 @@ GlensFlowRelation::computeMu0(FArrayBox& a_mu0,
 }
 
 
-/// implementation of constant-mu constitutive relation
-/** The  constMuRelation class is publicly derived from the {\tt
-    ConstitutiveRelation Class and sets mu to be a constant
-*/
 
-
-///
 constMuRelation::constMuRelation()
 {
   setDefaultParameters();
@@ -558,18 +511,6 @@ constMuRelation::~constMuRelation()
 }
 
 
-/// computes cell-centered $\mu_{AS}$ based on the cell-centered velocity
-/**
-   a_mu -- mu_{AS} based on the local velocity field.
-   a_vel -- Cell-centered velocity field.
-   a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-                 (NULL if no coarser level)
-   a_nRefCrse -- refinement ratio to next coarser level      
-   a_A: Cell-centered flow law coefficient field - ignored
-   a_coordSys:  SigmaCS object containing the geometry of this patch.
-   a_ghostVect -- how the boxes over which we want to compute mu relate 
-                  to those in the DisjointBoxLayout (can be negative)     
-*/
 void 
 constMuRelation::computeMu(LevelData<FArrayBox>& a_mu,
                            const LevelData<FArrayBox>& a_vel, 
@@ -587,19 +528,7 @@ constMuRelation::computeMu(LevelData<FArrayBox>& a_mu,
     }
 }
 
-/// Compute a cell centred bulk dissipation 
-/// \f$\Phi/(\rho _i c _i) = \sigma_ij \epsilon _ji /(\rho _i c _i) \f$ 
-/// (heat source) at the cell centres.
-/**
-   a_dissipation -- \f$\Phi\f$ based on the local velocity field.
-   a_vel -- Cell-centered velocity field.
-   a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-   (NULL if no coarser level)
-   a_nRefCrse -- refinement ratio to next coarser level
-   a_A: Cell-centered flow law coefficient field (ignored)
-   a_coordSys:  SigmaCS object containing the geometry of this patch.
-   a_box: cell-centered box over which to do this computation
-**/
+
 void 
 constMuRelation::computeDissipation(LevelData<FArrayBox>& a_dissipation,
 				      const LevelData<FArrayBox>& a_vel, 
@@ -621,18 +550,7 @@ constMuRelation::computeDissipation(LevelData<FArrayBox>& a_dissipation,
     }
 
 }
-// computes face-centered mu_{AS} based on cell-centered velocity
-/** a_mu: face-centered mu_{AS} based on the local velocity field.
-    a_vel: Cell-centered velocity field.
-    a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-                 (NULL if no coarser level)
-    a_nRefCrse -- refinement ratio to next coarser level      
-    a_A: Cell-centered temperature field
-    a_coordSys: SigmaCS object containing the geometry of this patch.
-    a_box: cell-centered box over which to do this computation
-    a_ghostVect -- how the boxes over which we want to compute mu relate 
-                   to those in the DisjointBoxLayout (can be negative)     
-*/  
+
 void
 constMuRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
                                LevelData<FArrayBox>& a_vel, 

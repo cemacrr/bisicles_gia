@@ -15,11 +15,35 @@
 #include "BasalFriction.H"
 #include "NamespaceHeader.H"
 
-
+/// BasalFriction that computes \f$ \beta^2 \f$ from data on a uniform grid
+/**
+   
+   Run time configuration is carried out in BasalFriction::parse(A, ... )
+   If the option `A.beta_type = LevelData` is found, then the 
+   expected form is:
+   
+   - `inputLevelData.frictionFile = <string>` 
+   - `inputLevelData.frictionName = <string>` 
+   
+   for a single file or
+   
+   - `inputLevelData.frictionFileFormat = <string>` 
+   - `inputLevelData.frictionName = <string>` 
+   - `inputLevelData.frictionFileStartTime = <int>`
+   - `inputLevelData.frictionFileTimeStep = <int>`
+   
+   for a sequence of files
+   
+*/
 class LevelDataBasalFriction : public BasalFriction
 {
 public:
-  /// constructor
+  /// construct from uniform grid data
+  /**
+     @param a_C data on a uniform grid.
+     @param a_dx uniform grid mesh spacing.
+     
+   */
   LevelDataBasalFriction(RefCountedPtr<LevelData<FArrayBox> > a_C,
 			 const RealVect& a_dx)
     :m_timeFileMap(NULL),m_startTime(-1.2345678e+300),m_endTime(1.2345678e+300),
@@ -27,7 +51,12 @@ public:
   {
   }
   
-  
+  /// construct from a sequence of files
+  /**
+     @param a_timeFileMap maps model times to filenames
+     @param a_name  name of the field in all hdf5 files
+     
+   */
   LevelDataBasalFriction(RefCountedPtr<std::map<Real, std::string> >& a_timeFileMap, 
 		       const std::string& a_name)
     :m_timeFileMap(a_timeFileMap),m_startTime(1.2345678e+299),m_endTime(-1.2345678e+299),
@@ -37,16 +66,11 @@ public:
     
   }
 
-  
-  
-
-  /// destructor
+ 
   virtual ~LevelDataBasalFriction()
   {;}
   
-  /// factory method
-  /** return a pointer to a new BasalFriction object
-   */
+
   virtual BasalFriction* new_basalFriction() const
   {
     LevelDataBasalFriction* ptr;
@@ -63,10 +87,6 @@ public:
     return static_cast<BasalFriction*>(ptr);
   }
 
-  /// define basal friction coefficient C and place in a_betaSqr
-  /** Either copy data from a single stored level, or load files as needed
-      depending on a_time
-  */
   virtual void setBasalFriction(LevelData<FArrayBox>& a_C,
                                 LevelSigmaCS& a_coordSys,
                                 Real a_time,
@@ -95,10 +115,27 @@ private:
 
 };
 
+/// BasalFriction that computes \f$ \beta^2 \f$ from data on a non-uniform grid 
+/**
+   
+   Run time configuration is carried out in BasalFriction::parse(A, ... )
+   If the option `A.beta_type = LevelData` is found, then the 
+   expected form is:
+   
+   - `inputLevelData.frictionFile = <string>` 
+   - `inputLevelData.frictionName = <string>` 
+   
+*/
 class MultiLevelDataBasalFriction : public BasalFriction
 {
 public:
-  /// constructor
+  /// construct from non-uniform grid data
+  /**
+     @param a_C data on a non-uniform grid.
+     @param a_dxCrse coarse level mesh spacing.
+     @param a_ratio refinement ratio between levels
+     
+   */
   MultiLevelDataBasalFriction
   (const Vector<RefCountedPtr<LevelData<FArrayBox> > >&a_C,
    const RealVect& a_dxCrse, const Vector<int> a_ratio)
@@ -106,27 +143,28 @@ public:
   {
   }
   
-  /// destructor
   virtual ~MultiLevelDataBasalFriction()
   {;}
   
-  /// factory method
-  /** return a pointer to a new BasalFriction object
-   */
+
   virtual BasalFriction* new_basalFriction() const
   {
     MultiLevelDataBasalFriction* ptr = new MultiLevelDataBasalFriction(m_C,m_dxCrse,m_ratio);
     return static_cast<BasalFriction*>(ptr);
   }
-  /// define basal friction coefficient C and place in a_betaSqr
-  /** Copy data from a single stored AMR HIerarchy
-  */
+ 
+  /// Copy data from the stored AMR HIerarchy
+  /**
+     @param a_C single level of output data
+     @param a_C a_dx mesh spacing for a_C
+     @param a_time time
+     @param a_dt timestep
+   */
   void setBasalFriction(LevelData<FArrayBox>& a_C, 
 			RealVect a_dx,
 			Real a_time,
 			Real a_dt);
  
-  /// define basal friction coefficient C and place in a_betaSqr
   virtual void setBasalFriction(LevelData<FArrayBox>& a_C,
                                 LevelSigmaCS& a_coordSys,
                                 Real a_time,

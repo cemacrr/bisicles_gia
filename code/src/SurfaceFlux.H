@@ -16,37 +16,46 @@
 #include "LevelData.H"
 #include "FArrayBox.H"
 #include "LevelSigmaCS.H"
-#ifdef HAVE_PYTHON
-#include "Python.h"
-#endif
-
 #include "NamespaceHeader.H"
-
-/// interface class encapsulating surface fluxes for ice-sheet model
-/** This is a virtual base class -- it is expected that specific cases
-    will be derived from this
-*/
 
 class AmrIceBase;
 
+class SurfaceFlux;
+
+typedef SurfaceFlux SurfaceData;
+
+/// abstract class defining the surface flux interface
+/** 
+    The ice sheet model include several inputs natually described
+    as surface flux densities: ice accumulation and ablation,
+    energy influx, bedrock uplift rates. 
+
+    \todo In fact, since all that is really needed here is a methods to fill 2D fields,
+    a very much larger set of inputs could be described in the
+    same way. For now, a simple 'typedef SurfaceFlux SurfaceData'
+    is our nod to this, but a refactoring exercise where, instead
+    SurfaceFlux is a minor specialization of SurfaceData is on the cards. 
+*/
 class SurfaceFlux
 {
   
 public:
-  /// constructor
-  SurfaceFlux() {};
-
-  /// destructor
+  
+  /// virtual destructor
   virtual ~SurfaceFlux() {};
 
-  /// factory method
-  /** return a pointer to a new SurfaceFlux object
-   */
+  /// factory method: return a pointer to a new SurfaceFlux object
   virtual SurfaceFlux* new_surfaceFlux() = 0;
 
   /// define source term for thickness evolution and place it in flux
-  /** dt is included in case one needs integrals or averages over a
-      timestep.  flux should be defined in meters/second in the current 
+  /** 
+      @param a_flux output flux data 
+      @param     a_amrIce reference to the ice sheet state
+      @param     a_level mesh level of a_flux
+      @param     a_dt current timestep
+
+      a_dt is included in case one needs integrals or averages over a
+      timestep.  flux should be defined in meters per year in the current 
       implementation. 
   */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
@@ -54,17 +63,42 @@ public:
 				    int a_level, Real a_dt) = 0;
   
   /// Sub-classes of this class turned out to be useful for various data apart from thickness fluxes...
-  virtual void evaluate(LevelData<FArrayBox>& a_flux,
+  /** 
+      @param     a_data  output data 
+      @param     a_amrIce reference to the ice sheet state
+      @param     a_level mesh level of a_flux
+      @param     a_dt current timestep 
+  */
+  virtual void evaluate(LevelData<FArrayBox>& a_data,
 			const AmrIceBase& a_amrIce, 
 			int a_level, Real a_dt)
   {
-    surfaceThicknessFlux(a_flux,a_amrIce, a_level,a_dt);
+    surfaceThicknessFlux(a_data, a_amrIce, a_level,a_dt);
   }
 
 
-  //assemble a SurfaceFlux* object from ParmParse input
-  static SurfaceFlux* parseSurfaceFlux(const char* a_prefix);
+  ///assemble a SurfaceFlux* object from ParmParse inputs
+  /**
+     
+     @param  a_prefix prefix string in the ParmParse table
 
+     Run-time configuration of SurfaceFlux objects is complicated by 
+     the 'complex fluxes', e.g MaskedFlux that include a number of subsidiary SurfaceFlux members. 
+     We support this by parsing strings of the form recursively. For example,
+     say that the inputs.example file contained the strings 'surfaceFlux.type = maskedFlux',
+     'surfaceFlux.grounded.type = axbyFlux', 'surfaceFlux.floating.type = productFlux'.
+     SurfaceFlux::parse would first (call 1) be called with the argument a_prefix = 'surfaceFlux',
+     and would itself call SurfaceFlux::parse twice more, once with the argument
+     a_prefix = 'surfaceFlux.grounded' (call 1.1), and one with a_prefix = 'surfaceFlux.floating' (call 1.2).
+     Call 1.1 would parse the string 'surfaceFlux.grounded.type = axbyFlux', and in turn
+     call SurfaceFlux::parse twice with the arguments  a_prefix = 'surfaceFlux.grounded.x' (call 1.1.1) 
+     and a_prefix = 'surfaceFlux.grounded.y' (call 1.1.2).
+     
+     
+
+    
+   */
+  static SurfaceFlux* parse(const char* a_prefix);
 
 private:
   // Disallowed for all the usual reasons
@@ -73,38 +107,31 @@ private:
     MayDay::Error("invalid operator");
   }
 
-  // Disallowed for all the usual reasons
-  SurfaceFlux(const SurfaceFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
+  // // Disallowed for all the usual reasons
+  // SurfaceFlux(const SurfaceFlux& a_input)
+  // {
+  //   MayDay::Error("invalid operator");
+  // }
 };
 
 
-// simple version which sets surface flux to zero
+/// simple implementation of SurfaceFlux which sets surface flux to zero
+/**
+   Run-time configuration is carried out in SurfaceFlux::parse. A
+   Zeroflux object will be created if the string `A.B.C.type = zeroFlux` is found
+ */
 class zeroFlux : public SurfaceFlux
 {
 public:
-  /// constructor
   zeroFlux() {};
 
-  /// destructor
   virtual ~zeroFlux() {};
 
-  /// factory method
-  /** return a pointerto a new SurfaceFlux object
-   */
   virtual SurfaceFlux* new_surfaceFlux();
 
-  /// define source term for thickness evolution and place it in flux
-  /** dt is included in case one needs integrals or averages over a
-      timestep.  flux should be defined in meters/year in the current 
-      implementation. 
-  */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 				    const AmrIceBase& a_amrIce, 
 				    int a_level, Real a_dt);
-
 
 private:
   // Disallowed for all the usual reasons
@@ -121,26 +148,30 @@ private:
 };
 
 
-// simple version which sets surface flux to a constant in space and time
+typedef zeroFlux ZeroData;
+
+/// simple implementation of SurfaceFlux which sets surface flux to a constant in space and time
+/**
+
+   Run-time configuration is carried out in SurfaceFlux::parse. 
+   If the string `A.B.C.type = constantFlux` is found, then the expected form is:
+
+   - `A.B.C.flux_value = <float>` 
+
+*/
 class constantFlux : public SurfaceFlux
 {
 public:
-  /// constructor
   constantFlux();
 
-  /// destructor
+  /// Construct a constantFlux with a given constant value
+  constantFlux(const Real& a_fluxVal):
+    m_fluxVal(a_fluxVal), m_isValSet(true){;};
+
   virtual ~constantFlux() {}
 
-  /// factory method
-  /** return a pointerto a new SurfaceFlux object
-   */
   virtual SurfaceFlux* new_surfaceFlux();
 
-  /// define source term for thickness evolution and place it in flux
-  /** dt is included in case one needs integrals or averages over a
-      timestep. flux should be defined in meters/second in the current 
-      implementation. 
-  */
   virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 				    const AmrIceBase& a_amrIce, 
 				    int a_level, Real a_dt);
@@ -167,405 +198,7 @@ private:
   }
 };
 
-
-/// class which takes an input fortran array 
-/** averages or interpolates as necessary to fill the flux
- */
-class fortranInterfaceFlux : public SurfaceFlux
-{
-public:
-  /// constructor
-  fortranInterfaceFlux();
-
-  /// destructor
-  virtual ~fortranInterfaceFlux() {}
-
-  /// factory method
-  /** return a pointer to a new SurfaceFlux object
-   */
-  virtual SurfaceFlux* new_surfaceFlux();
-
-  /// define source term for thickness evolution and place it in flux
-  /** dt is included in case one needs integrals or averages over a
-      timestep. flux should be defined in meters/second in the current 
-      implementation. 
-  */
-  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIceBase& a_amrIce, 
-				    int a_level, Real a_dt);
-
-  /// set fortran array-valued surface flux
-  void setFluxVal(Real* a_data_ptr,
-                  const int* a_dimInfo,
-                  const int* a_boxlo, const int* a_boxhi, 
-                  const Real* a_dew, const Real* a_dns,
-                  const IntVect& a_offset,
-                  const IntVect& a_nGhost,
-                  const ProblemDomain& a_domain,
-                  const bool a_nodal);
-    
-
-  /// has setGrids been called?
-  bool gridsSet() const {return m_gridsSet;}
-
-
-protected:
-  IntVect m_fluxGhost;
-  bool m_verbose;
-
-  ProblemDomain m_domain;
-  DisjointBoxLayout m_grids;
-  bool m_gridsSet;
-
-  // input flux from CISM
-  // alias to data array passed in from CISM
-  FArrayBox m_inputFlux;
-  /// true if inputFlux is nodeal
-  bool m_nodalFlux;
-
-  /// cell-centered input flux
-  /**
-     if nodalFlux is false, this is identical to m_inputFlux.
-     if nodalFlux is true, this contains the cell-averaged version
-     of the inputFlux
-  */
-  FArrayBox m_ccInputFlux;
-
-  RealVect m_inputFluxDx;
-
-  /// distributed version of flux
-  RefCountedPtr<LevelData<FArrayBox> > m_inputFluxLDF;
-
-  bool m_isValSet;
-
-private:
-  // Disallowed for all the usual reasons
-  void operator=(const fortranInterfaceFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-
-  // Disallowed for all the usual reasons
-  fortranInterfaceFlux(const fortranInterfaceFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-};
-
-// class which multiplies 2 surface fluxes together
-// (useful for using an externally defined mask, among other things)
-class ProductSurfaceFlux : public SurfaceFlux
-{
-
-public:
-  /// constructor
-  ProductSurfaceFlux(SurfaceFlux* a_Flux1, SurfaceFlux* a_flux2);
-
-  /// destructor
-  virtual ~ProductSurfaceFlux();
-
-  /// factory method
-  /** return a pointer to a new SurfaceFlux object
-   */
-  virtual SurfaceFlux* new_surfaceFlux();
-
-  /// define source term for thickness evolution and place it in flux
-  /** dt is included in case one needs integrals or averages over a
-      timestep. flux should be defined in meters/second in the current 
-      implementation. 
-  */
-  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIceBase& a_amrIce, 
-				    int a_level, Real a_dt);
-
-
-protected:
-  SurfaceFlux* m_flux1;
-  SurfaceFlux* m_flux2;
-
-  
-private:
-  // Disallowed for all the usual reasons
-  void operator=(const ProductSurfaceFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-
-  // Disallowed for all the usual reasons
-  ProductSurfaceFlux(const ProductSurfaceFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-
-  ProductSurfaceFlux()
-  {
-    MayDay::Error("invalid operator");
-  }
-
-};
-  
-// class which applies a different surface flux 
-// depending on the mask
-class MaskedFlux : public SurfaceFlux
-{
-
-public:
-  /// constructor
-  MaskedFlux(SurfaceFlux* a_groundedIceFlux, SurfaceFlux* a_floatingIceFlux,
-	     SurfaceFlux* a_openSeaFlux, SurfaceFlux* a_openLandFlux);
-
-  /// destructor
-  virtual ~MaskedFlux(){};
-
-  /// factory method
-  /** return a pointer to a new SurfaceFlux object
-   */
-  virtual SurfaceFlux* new_surfaceFlux();
-
-  /// define source term for thickness evolution and place it in flux
-  /** dt is included in case one needs integrals or averages over a
-      timestep. flux should be defined in meters/second in the current 
-      implementation. 
-  */
-  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIceBase& a_amrIce, 
-				    int a_level, Real a_dt);
-
-
-protected:
-  SurfaceFlux* m_groundedIceFlux;
-  SurfaceFlux* m_floatingIceFlux;
-  SurfaceFlux* m_openSeaFlux;
-  SurfaceFlux* m_openLandFlux;
-  
-private:
-  // Disallowed for all the usual reasons
-  void operator=(const MaskedFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-
-  // Disallowed for all the usual reasons
-  MaskedFlux(const MaskedFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-
-  MaskedFlux()
-  {
-    MayDay::Error("invalid operator");
-  }
-
-};
-  
-
-//class which applies a flux inside a box with Real boundaries 
-//(and optionally time boundaries) and zero outside
-class BoxBoundedFlux : public SurfaceFlux
-{
-  RealVect m_lo,m_hi;
-  Real m_startTime, m_endTime;
-  SurfaceFlux* m_fluxPtr;
-public:
-  BoxBoundedFlux
-(const RealVect& a_lo,
- const RealVect& a_hi,
- const Real& a_startTime,
- const Real& a_endTime,
- SurfaceFlux* a_fluxPtr)
-    : m_lo(a_lo),m_hi(a_hi),m_startTime(a_startTime),m_endTime(a_endTime)
-  {
-    m_fluxPtr = a_fluxPtr->new_surfaceFlux();
-    if (!(m_hi > m_lo))
-      {
-	pout() <<  "!(m_hi > m_lo), m_lo = " << m_lo << " m_hi = " << m_hi << endl;
-	CH_assert( (m_hi > m_lo) );
-	MayDay::Error("BoxBoundedFlux::  !(m_hi > m_lo)");
-      }
-  }
-  
-
-   /// destructor
-  virtual ~BoxBoundedFlux(){};
-
-/// factory method
-/** return a pointer to a new SurfaceFlux object
- */
-virtual SurfaceFlux* new_surfaceFlux();
-
-/// define source term for thickness evolution and place it in flux
-/** dt is included in case one needs integrals or averages over a
-    timestep. flux should be defined in meters/second in the current 
-      implementation. 
-*/
-virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				  const AmrIceBase& a_amrIce, 
-				  int a_level, Real a_dt);
-
-private:
-  // Disallowed for all the usual reasons
-  void operator=(const BoxBoundedFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-
-  // Disallowed for all the usual reasons
-  BoxBoundedFlux(const BoxBoundedFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-
-  BoxBoundedFlux()
-  {
-    MayDay::Error("invalid operator");
-  }
-
-};
-
-//class which contains two fluxes (x any y)
-//and two scalars (a and b) and provide the
-//flux a x + b y
-class AxbyFlux : public SurfaceFlux
-{
-  SurfaceFlux* m_x;
-  SurfaceFlux* m_y;
-  Real m_a,m_b;
-  
-public:
-  AxbyFlux(const Real& a_a, SurfaceFlux* a_x, 
-	   const Real& a_b, SurfaceFlux* a_y);
-
-  virtual ~AxbyFlux();
-
-  virtual SurfaceFlux* new_surfaceFlux();
-  
-  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIceBase& a_amrIce, 
-				    int a_level, Real a_dt);
-
-private:
-  
-  // Disallowed for all the usual reasons
-  void operator=(const AxbyFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-
-  // Disallowed for all the usual reasons
-  AxbyFlux(const AxbyFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-
-  AxbyFlux()
-  {
-    MayDay::Error("invalid operator");
-  }
-
-};
-
-
-//class which adds together the results of a list of fluxes
-class CompositeFlux : public SurfaceFlux
-{
-  
-  Vector<SurfaceFlux*> m_fluxes;
-
-public:
-  CompositeFlux(const Vector<SurfaceFlux*>& a_fluxes);
-
-  virtual ~CompositeFlux();
-    
-  /// factory method
-  /** return a pointer to a new SurfaceFlux object
- */
-  virtual SurfaceFlux* new_surfaceFlux();
-
-/// define source term for thickness evolution and place it in flux
-/** dt is included in case one needs integrals or averages over a
-    timestep. flux should be defined in meters/second in the current 
-    implementation. 
-*/
-  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIceBase& a_amrIce, 
-				    int a_level, Real a_dt);
-
-  
-private:
-  // Disallowed for all the usual reasons
-  void operator=(const CompositeFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-
-  // Disallowed for all the usual reasons
-  CompositeFlux(const CompositeFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-
-  CompositeFlux()
-  {
-    MayDay::Error("invalid operator");
-  }
-
-
-};
-
-/// surface flux which has a piecwise linear dependence
-/// on thk^a * usrf^b * max(0,(usrf-thk-topg))^c 
-class PiecewiseLinearFlux : public SurfaceFlux
-{
-public:
-  //constructor
-  PiecewiseLinearFlux(const Vector<Real>& a_abscissae, 
-		      const Vector<Real>& a_ordinates,
-		      const Real a_minWaterDepth = -1.0);
-
-  /// destructor
-  ~PiecewiseLinearFlux(){};
-
-  /// factory method
-  /** return a pointer to a new SurfaceFlux object
-   */
-  virtual SurfaceFlux* new_surfaceFlux();
-
-  /// define source term for thickness evolution and place it in flux
-  /** dt is included in case one needs integrals or averages over a
-      timestep. flux should be defined in meters/second in the current 
-      implementation. 
-  */
-  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
-				    const AmrIceBase& a_amrIce, 
-				    int a_level, Real a_dt);
-  
-
-
-protected:
-  Vector<Real> m_abscissae;
-  Vector<Real> m_ordinates;
-  Real m_minWaterDepth;
-
-private:
-   // Disallowed for all the usual reasons
-  void operator=(const PiecewiseLinearFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-
-  // Disallowed for all the usual reasons
-  PiecewiseLinearFlux(const PiecewiseLinearFlux& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
-
-  PiecewiseLinearFlux()
-  {
-    MayDay::Error("invalid operator");
-  }
-
-};
-
+typedef constantFlux ConstantData;
 
 
 #include "NamespaceFooter.H"

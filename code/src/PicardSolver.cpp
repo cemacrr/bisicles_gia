@@ -185,7 +185,7 @@ int PicardSolver::solve(Vector<LevelData<FArrayBox>* >       & a_horizontalVel,
                         const Vector<LevelData<FArrayBox>*  >& a_beta,
                         const Vector<LevelData<FArrayBox>*  >& a_beta0, // not used
                         const Vector<LevelData<FArrayBox>*  >& a_A,
-                        const Vector<LevelData<FluxBox>  *  >& a_muCoef,
+                        const Vector<LevelData<FArrayBox>*  >& a_muCoef,
                         Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
                         Real                                   a_time,
                         int                                    a_lbase, 
@@ -202,12 +202,19 @@ int PicardSolver::solve(Vector<LevelData<FArrayBox>* >       & a_horizontalVel,
   // coefficients from operators and reset in existing solver
   //cell face A, needed to compute mu
   Vector<LevelData<FluxBox>* > faceA(a_maxLevel+1, NULL);
+  //Vector<LevelData<FluxBox>* > faceMuCoef(a_maxLevel+1, NULL);
   for (int lev = 0; lev < a_maxLevel + 1; ++lev)
     {
       faceA[lev] = new LevelData<FluxBox>(m_vectGrids[lev], 
                                           a_A[lev]->nComp(), 
                                           IntVect::Zero);
       CellToEdge(*a_A[lev] , *faceA[lev]);
+
+      // faceMuCoef[lev] = new LevelData<FluxBox>(m_vectGrids[lev], 
+      // 					       a_muCoef[lev]->nComp(), 
+      // 					       IntVect::Zero);
+      // CellToEdge(*a_MuCoef[lev] , *faceMuCoef[lev]);
+
     }
  
   // copy beta into local storage (also not terribly efficient; we'll fix that later as well)

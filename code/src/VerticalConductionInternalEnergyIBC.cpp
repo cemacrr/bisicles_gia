@@ -32,7 +32,7 @@ VerticalConductionInternalEnergyIBC::parse
 (ParmParse& a_pp)
 {
 
-  SurfaceFlux* s = SurfaceFlux::parseSurfaceFlux("VerticalConductionInternalEnergyIBC.dissipation");
+  SurfaceFlux* s = SurfaceFlux::parse("VerticalConductionInternalEnergyIBC.dissipation");
   return new VerticalConductionInternalEnergyIBC(s);
 }
 

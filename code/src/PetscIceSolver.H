@@ -87,7 +87,7 @@ public:
 		     const Vector<LevelData<FArrayBox>* >& a_C,
 		     const Vector<LevelData<FArrayBox>* >& a_C0,
 		     const Vector<LevelData<FArrayBox>* >& a_A,
-		     const Vector<LevelData<FluxBox>* >& a_muCoef,
+		     const Vector<LevelData<FArrayBox>* >& a_muCoef,
 		     Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
 		     Real a_time,
 		     int a_lbase, int a_maxLevel);
@@ -148,7 +148,7 @@ public:
   // winds up being H*mu) -- non-isothermal version...
   void computeMu( LevelData<FArrayBox> &a_horizontalVel, 
 		  const LevelData<FluxBox> &a_A, 
-		  const LevelData<FluxBox> *a_muCoef,
+		  const LevelData<FluxBox> &a_muCoef,
 		  const RefCountedPtr<LevelSigmaCS> &a_coordSys,
 		  LevelData<FArrayBox>* crseVelPtr,
 		  LevelData<FArrayBox>* fineVelPtr,
@@ -163,7 +163,7 @@ public:
   RefCountedPtr<LevelData<FluxBox> >  m_tfaceA;
   LevelData<FArrayBox>* m_tcrseVel;
   LevelData<FArrayBox> *m_tphi0; 
-  LevelData<FluxBox>* m_tmuCoef;
+  RefCountedPtr<LevelData<FluxBox> > m_tmuCoef;
   RefCountedPtr<LevelSigmaCS> m_tcoordSys;
   Real m_ttime;
   // prolongation stuff

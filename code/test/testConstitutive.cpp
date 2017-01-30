@@ -558,7 +558,7 @@ testConstitutive()
     GlensFlowRelation constitutiveRelation;
     ArrheniusRateFactor rateFactor;
     Real epsSqrZero = 1e-30;
-    constitutiveRelation.setParameters(3.0 , &rateFactor, epsSqrZero);
+    constitutiveRelation.setParameters(3.0 , epsSqrZero, 0.0);
 
     // assuming theta = 238.15...
     //Real exactMu0 = 4.779690e-19;
@@ -680,7 +680,7 @@ testConstitutive()
       // constitutive relation object
       GlensFlowRelation constitutiveRelation;
       ArrheniusRateFactor rateFactor;
-      constitutiveRelation.setParameters(3.0 , &rateFactor, 1.0e-30);
+      constitutiveRelation.setParameters(3.0 , 1.0e-30, 0.0);
       
       IntVect epsSqrGhost = IntVect::Zero;
       constitutiveRelation.computeStrainRateInvariant(ccEpsSqr,

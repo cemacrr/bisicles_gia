@@ -1,12 +1,33 @@
 <html>
 <head>
   <title>BISICLES build instructions</title>
+  <link href="bikedoc.css" rel="stylesheet" type="text/css"/>
 </head>
 <body>
 
-<a href='index.html'>User documentation index<a/>
+<div id="head">
+<ul>
+<li><a href='index.html'>Index page<a/> </li>
+<li><a href='#top'>Top of page<a/> </li>
+</ul>
 
-<h1>BISICLES build instructions</h1>
+<h1>Contents</h1>
+
+<ol>
+  <li> <a href='#sysreq'>System requirements</a></li>
+  <li> <a href='#svnco'>Source code</a></li>
+  <li> <a href='#deps'>Dependencies</a></li>
+  <li> <a href='#chombo'>Chombo configuration</a></li>
+  <li> <a href='#bikeconf'>BISICLES configuration</a></li>
+  <li> <a href='#bisicles'>Building basic BISICLES</a></li>
+  <li> <a href='#example'>MISMIP3d example</a></li>
+  <li> <a href='#all'>Building all of BISICLES</a></li>
+</ol>
+
+</div>
+
+<div id="main">
+<h1><a name='top'>BISICLES build instructions</a></h1>
 
 <p>These are the instructions to build BISICLES against the Chombo 3.2 release. To build against the older 3.1 Chombo release, go <a href='readme-3.1.html'>here<a/>
 
@@ -16,20 +37,10 @@
   <li> <a href='#svnco'>Check out</a> the source code</li>
   <li> Set up some third party <a href='#deps'>dependencies</a></li>
   <li> <a href='#chombo'> Configure Chombo</a> by editing some definitions in a makefile</li>
-  <li> <a href='#python'> Configure the (optional) python interface</a> by editing some definitions in a makefile</li>
+  <li> <a href='#bikeconf'>Configure BISICLES</a> addtional options by editing some definitions in another makefile</li>
   <li> <a href='#bisicles'> Compile driver</a>, the main standalone BISICLES executable.</li>
   <li> <a href='#example'> Run driver on a simple problem </a> to ensure that it works</li>
 </ol>
-<p> Optionally, you might also</p>
-<ol>
-  <!--<li> visualize BISICLES output using <a href='https://wci.llnl.gov/codes/visit/home.html'>VisIt</a></li>!-->
-  <li> <a href='#nctoamr'> Compile the filetools</a>, including nctoamr, a tool to convert NetCDF files into hdf5 files that BISICLES can read.</li>
-  <li> <a href='#control'> Compile control</a>, which can be used to solve an inverse problem (or control problem)</li>
-  <!--<li> <li> Look at an example application, <a href='pineisland.html'>Pine Island Glacier</a>, to 
-  see how to load topography, thickness, basal traction coefficient, and temperature</li>
-  <li> Specify <a href='surfaceflux.html'>surface thickness fluxes</a>, that is, accumulation and melt rates</li>!-->
-</ol>
-
 
 
 <h2><a name="sysreq"> System requirements.</a></h2>
@@ -230,7 +241,7 @@ Assuming this is all OK, type
 this time, the bin,doc,include and src directories should end up  in $BISICLES_HOME/hdf5/parallel/.
 </p>
 
-<h3>Building serial netcdf </h3>
+<h3><a name='cdf'>Building serial netcdf</a> </h3>
 <p>
 Before starting, make sure that you can run gcc,g++ and gfortran.
 Enter the appropriate source directory
@@ -264,7 +275,7 @@ Possibly, building two versions of netcdf is a waste of time.
 </pre>
 
 </p>
-<h2><a name="petsc">Installing PETSc</a></h2>
+<h3><a name="petsc">Installing PETSc</a></h3>
 <p>
 If we're planning to use the PETSc solver interface, it's a good idea to install PETSc before building Chombo. It's likely that some version of petsc may be pre-installed on your system -- we need petsc version 3.3.4 or later,
 
@@ -320,26 +331,80 @@ so that Chombo sees Make.defs.local in the place it expects
 >ln -s $BISICLES_HOME/Make.defs.local $BISICLES_HOME/Chombo/lib/mk/Make.defs.local
 </pre>
 
-<h2><a name="python">Configuring the Python interface</a></h2>
+<h2><a name="bikeconf">Configuring BISICLES</a></h2>
+
 <p>
-To make use of the <a href='pythoninterface.html'>python interface</a>, you need to ensure that you have a suitable
-python installation. This is usually straightforward in modern GNU/linux distributions,
-since Python is so widespread. Before you can compile BISICLES with Python support, 
-find out <ol>
-<li>where the header file &quot;Python.h&quot; lives; /usr/include/python2.6, for example</li>
-<li>what linker flags you need, for example -lpython2.6
-</ol>
-Now, edit the file
+A makefile containing options specific to BISICLES (rather than Chombo) 
+is located at
+</p>
 <pre>
 $BISICLES_HOME/BISICLES/code/mk/Make.defs
 </pre>
-to define the variables PYTHON_INC and PYTHON_LIBS. There are several examples in the file already.
+<p>
+You do not usually need to edit that file, but instead, add a file
+named for your machine to that directory. Run 'uname -n' to find out the 
+name of you machine, e.g on a host called 'mymachine'
+</p>
+<pre>
+> cd $BISICLES_HOME/BISICLES/code/mk/
+> uname -n
+mymachine
+> cp Make.defs.template Make.defs.mymachine
+</pre>
+<p>
+Alternatively, create a file called Make.defs.none
 </p>
 
-<p>when you come to compile BISICLES, you should see flags like -DHAVE_PYTHON included in the compilation</p>
 
 
-<h2><a name="bisicles">Building stand-alone BISICLES</a></h2>
+<h3>Python</h3>
+<p>
+To make use of the <a href='pythoninterface.html'>python interface</a>, you need to 
+ensure that you have a suitable
+python installation. This is usually straightforward in modern GNU/linux distributions,
+since Python is so widespread. The aim is to make sure that the
+the variables PYTHON_INC and PYTHON_LIBS are correctly defined. 
+Make.defs.template attempts to set these variables by running
+</p>
+<pre>
+python-config --includes
+python-config --libs
+</pre>
+which works on many workstations but may not be what you want.
+In that case, you need to find out where the header file "Python.h" lives,
+and what linker flags you need. For example, edit  Make.defs.mymachine to set
+<pre>
+PYTHON_INC=/usr/include/python2.7
+PYTHON_LIBS=-lpython2.7
+</pre> 
+<p>
+There are several machine specific examples in the same directory. If you do not want
+the python interface for some reason (we advise having it), make sure that
+PYTHON_INC is not set</p>
+
+<h3>NetCDF</h3>
+<p>
+Netcdf is not needed by the main BISICLES code, but there are
+tools and examples to do depend upon it. The aim is to set the
+NETCDF_INC and NETCDF_LIBS variables in (e.g) Make.defs.mymachine, and
+once again Make.defs.template shows one way to do this if 
+netcdf is installed, by running
+</p>
+<pre>
+nc-config --includedir
+nc-config --flibs
+</pre>
+<p>
+If that is not suitable, for example if you built <a href='#cdf'>netcdf as above</a>,  
+you need to find the location netcdf.h and netcdf.mod
+and the correct linker flags (for fortran and C), e.g edit  Make.defs.mymachine to set
+</p>
+<pre>
+NETCDF_INC=$(BISICLES_HOME)/netcdf/serial/include
+NETCDF_LIBS=-L$(BISICLES_HOME)/netcdf/serial/include -lnetcdff -lnetcdf -lhdf5_hl
+</pre>
+
+<h2><a name="bisicles">Building basic (standalone) BISICLES</a></h2>
 
 <p>Now we are ready to build one or more BISICLES executables. If you plan to do development
 work on the code itself, you will want to build an unoptimized version to run in gdb. Run
@@ -374,7 +439,7 @@ To build with PETSc support, add "USE_PETSC=TRUE" to your build line, e.g.
 > make all OPT=TRUE MPI=TRUE USE_PETSC=TRUE
 </pre>
 
-<h2><a name="makeclean">Make clean</a></h2>
+<h3><a name="makeclean">Make clean</a></h3>
 <p>On occasion it might be necessary to rebuild BISICLES entirely, rather than just those parts where a file
 has changed. To do so, run
 <pre>make clean</pre>
@@ -384,7 +449,7 @@ for optimized serial builds, and
 <pre>make clean OPT=TRUE MPI=TRUE</pre>
 for optimized parallel builds</p>
 
-<h2><a name="makerealclean">Make realclean</a></h2>
+<h3><a name="makerealclean">Make realclean</a></h3>
 <p> In the event even more houscleaning is desired, the "realclean" target does everything the "clean" target does, and additionally removes many other user-generated files, including all files with the ".hdf5" suffix (including checkpoint and plot files). 
 
 <h2><a name="example">Running BISICLES on a simple problem</a></h2>
@@ -462,39 +527,26 @@ JFNKSolver.solverType = 4
 
 </ol>
 
-<h3><a name='nctoamr'>Compiling and using the file tools</a></h3>
-<p>
-To compile the file tools you might need to edit file $BISICLES_HOME/BISICLES/code/mk/Make.defs. 
-If you have installed BISICLES (and netcdf in particular) following this guide, there should be no need, but otherwise
-make sure that the variable NETCDF_HOME points to the parent directory of the netcdf include and lib directories.
-There is little point in building parallel file tools, so type
-<pre>
-cd $BISICLES_HOME/BISICLES/code/filetools/
-make all
-</pre>
-now, say you have a NetCDF file called data.nc, which contains 2D fields named thk and topg arranged on a regular
-grid (with equal spacing in x and y), and must also contain a 1D field called x, you can run
-<pre>
-$BISICLES_HOME/BISICLES/code/filetools/nctoamr2d.Linux.64.g++.gfortran.DEBUG.ex data.nc data.2d.hdf5 thk topg
-</pre>  
-to obtain a file called data.2d.hdf5 that BISICLES can read as (say) thickness and topography data. 
-</p>
-There are a number of other <a href='filetools.html'>file tools</a>.
 
-<h3><a name='control'>Compiling the control problem code</a></h3>
-<p>
-  The control problem code is used to solve an optimization problem (inverse problem, or ill-posed problem),
-  using the optimal control methods described by (e.g) MacAyeal (1993) Journal of Glaciology, vol 39 p 91
-  and elsewhere. It lives somewhat apart from the rest on BISICLES, and has its own executable
- <pre>
-   cd $BISICLES_HOME/BISICLES/control
-   make all OPT=TRUE #compile a serial optimized version
-   make all OPT=TRUE MPI=TRUE #compile a parallel optimized version
-</pre>
- There is a <a href='pineislandcontrol.html'>Pine Island Glacier example</a> which shows how to run the control problem
- and what to do with its results.
-</p>
 
+<h2><a name='all'>Building all of BISICLES</a></h2>
+
+<p>
+Once BISICLES is working on a given machine, it might be convenient to
+build everything -  standalone BISICLES, 
+<a href='libamrfile.html'>the R/Python/MATLAB analysis tools</a></li>, 
+the programmable <a href='cdriver.html'>cdriver interface</a>, the
+<a href='filetools.html'>file tools</a>, and so on. To build
+everything, run e.g
+</p>
+<pre>
+cd $BISICLES_HOME/BISICLES/code
+make all OPT=TRUE MPI=TRUE
+</pre>
+<p>
+or specify the optons you prefer. 
+</p>
+</div>
 
 </body>
 </html>

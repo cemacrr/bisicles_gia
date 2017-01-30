@@ -12,18 +12,17 @@
 #ifndef _BASALFRICTIONRELATION_H_
 #define _BASALFRICTIONRELATION_H_
 
-///virtual base class for basal Friction relations 
-/** sublclasses must, at least, compute a positive C
-   given basal velocity u_b such that basal traction 
-   \f T_b  = C(u_b, theta_b) u_b \f
-*/
-
 #include "FArrayBox.H"
 #include "NamespaceHeader.H"
 
 class LevelSigmaCS;
 class DataIterator;
 
+/// Virtual base class for basal friction relations.
+/** Sublclasses must, at least, compute a positive \f$ \alpha \f$
+    given basal velocity \f$ u_b \f$ such that basal traction 
+    \f$ \tau _b  = \alpha(u_b, ...) u_b \f$. 
+*/
 class BasalFrictionRelation
 {
 public:
@@ -31,15 +30,14 @@ public:
   virtual ~BasalFrictionRelation() {;}
 
 
-  /// computes cell-centered \f$ \alpha \f$ based on the cell-centered velocity
-  /// and a coefficient field C such that  \f T_b  = \alpha (u_b, C) u_b \f
-  /** 
-      \param a_alpha -- \f$C\f$ based on the local velocity field. 
-      \param a_basalVel -- Cell-centered basal velocity field.
-      \param a_C -- Cell-centered coefficient field
-      \param a_coords -- whole level geometry data
-      \param a_dit -- index needed to retrieve data from a_coords
-      \param a_box: cell-centered box over which to do this computation
+  /// Computes cell-centered effective basal friction coeffcient \f$ \alpha \f$ such that  \f$ \tau_b  = \alpha (u_b, C) u_b \f$
+  /**
+      \param a_alpha effective basal friction coefficient based on the local velocity field. 
+      \param a_basalVel Cell-centered basal velocity field.
+      \param a_C Cell-centered coefficient field
+      \param a_coords whole level geometry data
+      \param a_dit index needed to retrieve data from a_coords
+      \param a_box cell-centered box over which to do this computation
   */
 
   virtual void computeAlpha(FArrayBox& a_alpha,
@@ -48,17 +46,15 @@ public:
 			    const LevelSigmaCS& a_coords, 
 			    const DataIterator& a_dit,
 			    const Box& a_box) const = 0;
-
-  /// computes cell-centered heat source \f$ s = T_b . u_b  / k_ice \f$
-  /// based on the cell-centered velocity
-  /// and a coefficient field beta such that \f T_b  = \alpha (u_b, C) u_b \f
+  
+  /// Compute cell-centered dissipation rate \f$ s = T_b . u_b  / k_ice \f$
   /** 
-      \param a_dissipation -- \f$C\f$ based on the local velocity field. 
-      \param a_basalVel -- Cell-centered basal velocity field.
-      \param a_C: Cell-centered coefficient field
-      \param a_coords -- whole level geometry data
-      \param a_dit -- index needed to retrieve data from a_coords
-      \param a_box: cell-centered box over which to do this computation
+      \param a_dissipation dissipation rate based on the local velocity field. 
+      \param a_basalVel Cell-centered basal velocity field.
+      \param a_C Cell-centered coefficient field
+      \param a_coords whole level geometry data
+      \param a_dit index needed to retrieve data from a_coords
+      \param a_box cell-centered box over which to do this computation
   */
   virtual void computeDissipation(FArrayBox& a_dissipation,  
 				  const FArrayBox& a_basalVel,
@@ -73,20 +69,33 @@ public:
 
   virtual Real power() const = 0;
 
-
-  static BasalFrictionRelation* parseBasalFrictionRelation(const char* a_prefix, int a_recursion );
+  /// Run-time configuration of BasalFrictionRelation objects
+  static BasalFrictionRelation* parse(const char* a_prefix, int a_recursion );
 
 };
 
 
 /// implements BasalFrictionRelation to provide a power law
 /**
-   \f T_b  = - C |u_b|^{m-1} u_b \f
+   \f$ \tau_b  = - C h_{ab}^n |u_b|^{m-1} u_b \f$
    
-   when m = 1, we have the usual linear law.
-        m = 0  gives Coulomb Friction
-        m = 1/3 is often used (e.g in the MISMIP tests)
+   where \f$tau_b\f$ is the basal traction, \f$C\f$ is a coefficient 
+   not dependent on velocity, \f$h_{ab}\f$ is the thickness above flotation,  
+   \f$u_b\f$ is the basal velocity, and \f$n,m\f$ are exponents. Typically \f$m \leq 1\f$.
+
+    - \f$ m = 1 \f$ gives a linear viscous sliding law 
+    - \f$ m = 1/3 \f$ is often used (e.g in the MISMIP tests)
 	
+    Run-time configuation is carried out in BasalFrictionRelation::parse.
+    If the string `A.B.basalFrictionRelation = powerLaw` is found, the expected
+    form is
+    
+    - `BasalFrictionPowerLaw.m = <float. e,g 0.3333 for m = 1/3>`
+    - `BasalFrictionPowerLaw.includeEffectivePressure = <bool>`
+    
+    if includeEffectivePressure, \f$n = 0\f$ so that there is no
+    dependence on the thickness over flotation \f$h_ab\f$. Otherwise,
+    \f$n = m\f$
 
  */
 class BasalFrictionPowerLaw : public BasalFrictionRelation
@@ -109,7 +118,7 @@ public:
     return static_cast<BasalFrictionRelation*> (new BasalFrictionPowerLaw(m_m, m_includeEffectivePressure));
   }
 
- 
+  /// \callergraph
   virtual Real power() const {return m_m;} 
 
 private:
@@ -119,13 +128,31 @@ private:
 
 };
 
-/// Basal friction relation of the form Tb = min(Tb', a*p*u/|u|)
+/// Basal friction relation which satisfies Tb = min(|Tb'|, a*p) u/|u|
 /**
    Tb' is any BasalFrictionRelation
-   a is a constant (for now) coefficient, p is the local (hydrostatic) pressure
+   a is a constant (for now) coefficient, N is the local (hydrostatic) pressure
+   For a ~ 1, Tb = Tb' is applied most places, with the Coulomb law 
+   Tb = a*p*u/|u| imposed at  flotation
 
-   for a ~ 1, Tb = Tb' is applied most places, with the Coulomb law 
-   Tb = a*p*u/|u| imposed as the ice approaches flotation
+   Two laws are supported, one due to Tsai 2015
+
+   \f$ \tau_b = \min(|\tau _b^{\prime}|, \alpha N^p) u/|u| \f$
+
+   and a second due to Schoof 2005, Gagliardini 2007, and Leguy 2014, which
+   is smoother but otherwise similar. We use the form from Leguy 2014
+
+   \f$ \tau _b = \tau _b^{\prime} ( N^p / (\alpha |u| + N^p ) )^{1/p}\f$
+   
+    Run-time configuation is carried out in BasalFrictionRelation::parse.
+    If the string `A.B.basalFrictionRelation = pressureLimitedLaw` is found, the expected
+    form is
+    
+     - `BasalFrictionPressureLimitedLaw.coefficient = <float, optional, defualt 1.0>` (\f$\alpha\f$)
+     - `BasalFrictionPressureLimitedLaw.power = <float, optional, defualt 1.0>` (\f$p\f$)
+     - `BasalFrictionPressureLimitedLaw.model = Tsai|Leguy (optional , default Tsai)`
+     - `BasalFrictionPressureLimitedLaw.basalFrictionRelation = <valid BasalFrictionRelation>`
+
 
 */ 
 class PressureLimitedBasalFrictionRelation : public BasalFrictionRelation

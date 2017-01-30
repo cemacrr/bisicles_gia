@@ -84,7 +84,7 @@ JFNKSolver.switchRate = 5.0
 #JFNKSolver.numMGSmooth = 48
 JFNKSolver.numMGSmooth = 8
 JFNKSolver.maxIter = 100
-
+JFNKSolver.maxIter = 1
 JFNKSolver.absTol = 1.0e-2
 JFNKSolver.relTol = 1.0e-10
 #JFNKSolver.BiCGStabRelTol = 4.0e-3
@@ -111,3 +111,8 @@ JFNKSolver.vtopRelaxTol = 0
 
 #input file for solver benchmark
 main.filename = stream.regression.preSolve.000000.2d.hdf5
+
+
+regression.result_hdf5 = stream.regression.000000.2d.hdf5
+regression.reference_hdf5 = stream.reference.000000.2d.hdf5
+regression.tol = -1.0

@@ -476,86 +476,75 @@ main(int argc ,char* argv[])
 }
 
 
+
+/// Test L1L2 effective viscosity for zero velocity case
 void testZV(int basalType, const Vector<Box>& gridBoxes,
 	    const Vector<int>& procAssign, const ProblemDomain& entireDomain,
 	    const RealVect& dx, const RealVect& domainSize, int& status)
 {
-  // test zero-velocity, constant temperature
-     // isothermal ice value from Pattyn(2003)
-    Real thetaVal = 238.15;
+  
+  // test zero velocity, constant A
+  Real Aval = 1.0e-18;
     
-    // allocate storage
-    DisjointBoxLayout grids(gridBoxes, procAssign, entireDomain);
+  // allocate storage
+  DisjointBoxLayout grids(gridBoxes, procAssign, entireDomain);
+  
+  IntVect ghostVect = IntVect::Unit;    
+  LevelSigmaCS sigmaCoords(grids, dx, ghostVect);
+  
+  RealVect basalSlope = RealVect::Zero;
+  defineLevelSigmaCS(sigmaCoords, domainSize, thicknesstype, basalType,
+		     basalSlope);
+  
+  LevelData<FArrayBox> A(grids, 1, ghostVect);
+  LevelData<FArrayBox> horizontalVel(grids, 2, ghostVect);
+  // for now, no coarser level
+  LevelData<FArrayBox>* crseVelPtr = NULL;
+  int nRefCrse = -1;
+  
+  DataIterator dit = grids.dataIterator();
+  for (dit.begin(); dit.ok(); ++dit)
+    {
+      A[dit].setVal(Aval);
+      horizontalVel[dit].setVal(0);
+    }
+  
+  // cell- and face-centered L1L2 mu and glen mu;
+  LevelData<FArrayBox> cellMu(grids, 1);
+  LevelData<FluxBox> faceMu(grids,1);
+  LevelData<FArrayBox> cellGlenMu(grids, 1);
+  LevelData<FluxBox> faceGlenMu(grids,1);
+  
+  // ConstitutiveRelation object
+  L1L2ConstitutiveRelation constitutiveRelation;
+  
+  //ordinary glen for comparision
+  GlensFlowRelation glenRelation;
+  
+  Real epsSqr0 = 1.0e-30;
+  if (basalType == xInclineZb || basalType == yInclineZb)
+    {
+      epsSqr0 = 1.0e-30;
+    }
 
-    IntVect ghostVect = IntVect::Unit;    
-    LevelSigmaCS sigmaCoords(grids, dx, ghostVect);
+  Real glenN = 3.0;
+  Real glenMu = std::pow(8.0 *  epsSqr0 * Aval, -1.0/glenN);
+  Real exactMu = glenMu;
+  
+  glenRelation.setParameters(3.0 ,   epsSqr0 , epsSqr0);
+  constitutiveRelation.getGlensFlowRelation().setParameters(glenN, epsSqr0, epsSqr0 );
 
-    RealVect basalSlope = RealVect::Zero;
-    defineLevelSigmaCS(sigmaCoords, domainSize, thicknesstype, basalType,
-                       basalSlope);
-
-    LevelData<FArrayBox> theta(grids, 1, ghostVect);
-    LevelData<FArrayBox> horizontalVel(grids, 2, ghostVect);
-    // for now, no coarser level
-    LevelData<FArrayBox>* crseVelPtr = NULL;
-    int nRefCrse = -1;
-
-    DataIterator dit = grids.dataIterator();
-    for (dit.begin(); dit.ok(); ++dit)
-      {
-        theta[dit].setVal(thetaVal);
-        horizontalVel[dit].setVal(0);
-      }
-
-    // cell- and face-centered L1L2 mu and glen mu;
-    LevelData<FArrayBox> cellMu(grids, 1);
-    LevelData<FluxBox> faceMu(grids,1);
-    LevelData<FArrayBox> cellGlenMu(grids, 1);
-    LevelData<FluxBox> faceGlenMu(grids,1);
-
-    // ConstitutiveRelation object
-    L1L2ConstitutiveRelation constitutiveRelation;
-    ArrheniusRateFactor rateFactor;
-    ConstantRateFactor rateFactorC;
-
-    //ordinary glen for comparision
-    GlensFlowRelation glenRelation;
+  
     
-    if (basalType == xInclineZb || basalType == yInclineZb)
-      {
-	glenRelation.setParameters(3.0 , &rateFactorC, 1.0e-6);
-	constitutiveRelation.getGlensFlowRelation().setParameters
-	  (3.0 ,&rateFactorC, 1.0e-6);
-      }
-    else 
-      {
-	glenRelation.setParameters(3.0 , &rateFactor, 1.0e-30);
-	constitutiveRelation.getGlensFlowRelation().setParameters
-	  (3.0 , &rateFactor, 1.0e-30);
-      }
-
-    // assuming theta = 238.15...
-    Real exactMu0 = pow(4.779690e-19,-1.0/3.0);
-    
-    // zero velocity field -- this is the effect of the
-    // small parameter epsSqr_0
-    Real exactMu = 0.5 * exactMu0*(1.0e10);
-    if (basalType == xInclineZb || basalType == yInclineZb)
-      {
-	//inclined plane cases: correction to mu
-	exactMu = 2255163.48075611;
-	//6394944128.8084021
-	
-      }
-
 
     IntVect muGhost = IntVect::Zero;
     // cell-centered Mu
+
     constitutiveRelation.computeMu(cellMu,
                                    horizontalVel,
                                    crseVelPtr, 
                                    nRefCrse,
-                                   theta,
+				   A,
                                    sigmaCoords,
 				   entireDomain,
                                    muGhost);
@@ -564,18 +553,18 @@ void testZV(int basalType, const Vector<Box>& gridBoxes,
                            horizontalVel,
                            crseVelPtr, 
                            nRefCrse,
-                           theta,
+                           A,
                            sigmaCoords,
 			   entireDomain,
                            muGhost);
     // face-centered Mu
-    LevelData<FluxBox> faceTheta(grids, 1, theta.ghostVect());
-    CellToEdge(theta, faceTheta);
+    LevelData<FluxBox> faceA(grids, 1, A.ghostVect());
+    CellToEdge(A, faceA);
     constitutiveRelation.computeFaceMu(faceMu,
                                        horizontalVel,
                                        crseVelPtr, 
                                        nRefCrse,
-                                       faceTheta,
+                                       faceA,
                                        sigmaCoords,
 				       entireDomain,
                                        muGhost);
@@ -584,13 +573,13 @@ void testZV(int basalType, const Vector<Box>& gridBoxes,
                                horizontalVel,
                                crseVelPtr, 
                                nRefCrse,
-                               faceTheta,
+                               faceA,
                                sigmaCoords,
 			       entireDomain,
 			       muGhost);;
     
 
-// compute errors and differences
+    // compute errors and differences
     Real maxCellErr = 0.0, maxCellGlenDiff = 0.0;
     RealVect maxFaceErr = RealVect::Zero, maxFaceGlenDiff = RealVect::Zero;
     for (dit.begin(); dit.ok(); ++dit)
@@ -606,9 +595,6 @@ void testZV(int basalType, const Vector<Box>& gridBoxes,
         cellMu[dit] /= exactMu;
         Real thisMax = cellMu[dit].norm(0);
         if (thisMax > maxCellErr) maxCellErr = thisMax;
-
-	
-
 
         for (int dir=0; dir<SpaceDim; dir++)
           {

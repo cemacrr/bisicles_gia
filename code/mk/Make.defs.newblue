@@ -1,0 +1,2 @@
+PYTHON_INC=/cm/shared/languages/Python-2.7.10/include/python2.7/
+PYTHON_LIBS=-L/cm/shared/languages/Python-2.7.10/lib/ -lpython2.7 

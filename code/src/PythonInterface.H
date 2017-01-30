@@ -261,12 +261,28 @@ namespace PythonInterface
     
   };
   /// Use a python function to evaluate the surface flux
-  /** the user needs to provide a python function foo that
-      takes x,y,thickness,topography as args
+  /** 
+      The user needs to provide a python function `foo` that
+      takes x,y,thickness,topography as args, plus some kwargs
       and returns a single scalar (the flux)
-      def foo(x,y,thickness,topography):
-      ...
-      return flux
+      \code{.py}
+      def foo(x,y,t,thickness,topography,*kwargs):
+           ...
+           return flux
+      \endcode
+
+       Run-time configuration is carried out in SurfaceFlux::parse. 
+       If the string `A.B.C.type = pythonFlux` is found, then the expected form is:
+
+        - `A.B.C.module = <string>` (the name of the python module, eg. `foo` (not `foo.py`)
+        - `A.B.C.function = <string>` (the name of the python function in `foo`)
+	- `A.B.C.n_kwargs = <int>` (the number of keyword arguments)
+        - `A.B.C.kwargs = <string> <string> ...` (the keywords)
+
+       Keywords supported are: gl_proximity, gl_proximity_scale. In each case, 
+       BISICLES supplies a known value, serived from the ice sheet state, 
+       if a known keyword is supplied
+
   */
   class PythonSurfaceFlux : public SurfaceFlux
   {
@@ -275,22 +291,20 @@ namespace PythonInterface
     std::map<std::string,Real> m_kwarg;
  
   public:
+    /// Construct a PythonSurfaceFlux from module, function, and kwargs list
+    /**
+       @param a_pyModule the python module name
+       @param a_pyFunc the python function name
+       @param a_kwarg a list of kwarg names
+     */
     PythonSurfaceFlux(const std::string& a_pyModule,
 		      const std::string& a_pyFunc, 
 		      std::map<std::string,Real>& a_kwarg);
 
     virtual ~PythonSurfaceFlux();
-    
-    /// factory method
-    /** return a pointer to a new SurfaceFlux object
-     */
+
     virtual SurfaceFlux* new_surfaceFlux();
 
-    /// define source term for thickness evolution and place it in flux
-    /** dt is included in case one needs integrals or averages over a
-	timestep. flux should be defined in meters/second in the current 
-	implementation. 
-    */
     virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 				      const AmrIceBase& a_amrIce, 
 				      int a_level, Real a_dt);
@@ -298,13 +312,13 @@ namespace PythonInterface
   
   private:
     // Disallowed for all the usual reasons
-    void operator=(const CompositeFlux& a_input)
+    void operator=(const PythonSurfaceFlux& a_input)
     {
       MayDay::Error("invalid operator");
     }
 
     // Disallowed for all the usual reasons
-    PythonSurfaceFlux(const CompositeFlux& a_input)
+    PythonSurfaceFlux(const PythonSurfaceFlux& a_input)
     {
       MayDay::Error("invalid operator");
     }
@@ -374,8 +388,24 @@ private:
 
   };
 
+  /// BasalFriction that calls a python function to compute \f$ \beta^2 \f$ 
+  /**
+     The user needs to provide a python function `foo` that
+     takes x,y,thickness,topography as args, and returns a single scalar 
+     \code{.py}
+     def foo(x,y,t,thickness,topography):
+        ...
+        return betasqr
+     \endcode
 
+     Run time configuration is carried out in BasalFriction::parse(A, ... )
+     If the option `A.beta_type = Python` is found, then the 
+     expected form is:
 
+     - `PythonBasalFriction.module = <string>` (the name of the python module, eg. `foo` not `foo.py`)
+     - `PythonBasalFriction.function = <string>` (the name of the python function in `foo`) 
+     
+  */
   class PythonBasalFriction : public BasalFriction
   {
 
@@ -383,6 +413,12 @@ private:
     PyObject*  m_pFunc;
  
   public:
+
+    /// Construct a PythonBasalFriction from module and function names
+    /**
+       @param a_pyModule the python module name
+       @param a_pyFunc the python function name
+     */
     PythonBasalFriction(const std::string& a_pyModule,
 			const std::string& a_pyFunc);
 
@@ -410,7 +446,11 @@ private:
 
     }
 
-    
+    /// Construct a PythonBasalFriction from module and function objects
+    /**
+       @param a_pModule the python module
+       @param a_pFunc the python function
+     */
     PythonBasalFriction(PyObject*  a_pModule,  PyObject*  a_pFunc)
     {
       m_pModule = a_pModule;
@@ -495,7 +535,7 @@ private:
 		      const Vector<LevelData<FArrayBox>* >& a_beta,
 		      const Vector<LevelData<FArrayBox>* >& a_beta0,
 		      const Vector<LevelData<FArrayBox>* >& a_A,
-		      const Vector<LevelData<FluxBox>* >& a_muCoef,
+		      const Vector<LevelData<FArrayBox>* >& a_muCoef,
 		      Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
 		      Real a_time,
 		      int a_lbase, int a_maxLevel);

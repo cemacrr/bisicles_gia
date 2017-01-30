@@ -15,7 +15,7 @@
 #include "IceThicknessIBC.H"
 #include "NamespaceHeader.H"
 
-/// IceUtility namespace : general purpose ice sheet functions common to the 'big' classes (AmrIce and AMRIceControl for now)
+/// IceUtility namespace : general purpose ice sheet functions common to the 'big' classes (AmrIce, JFNKSolver, etc)
 namespace IceUtility
 {
 

@@ -57,6 +57,7 @@ using std::string;
 #include "IceThermodynamics.H"
 #include "PicardSolver.H"
 #include "JFNKSolver.H"
+#include "InverseVerticallyIntegratedVelocitySolver.H"
 #include "PetscIceSolver.H"
 #include "RelaxSolver.H"
 #ifdef CH_USE_FAS
@@ -415,6 +416,8 @@ AmrIce::setDefaults()
   m_tagEntireDomain = false;
   m_groundingLineTaggingMinVel = 200.0;
   m_groundingLineTaggingMaxBasalFrictionCoef = 1.2345678e+300;
+  m_tag_thin_cavity = false;
+  m_tag_thin_cavity_thickness = TINY_THICKNESS;
 #ifdef HAVE_PYTHON
   m_tagPython = false;
   m_tagPythonModule = NULL;
@@ -452,6 +455,7 @@ AmrIce::setDefaults()
   m_plot_prefix = "plot";
   m_plot_interval = 10000000;
   m_plot_time_interval = 1.0e+12;
+  m_reduced_plot = false;
   m_write_presolve_plotfiles = false;
   m_write_solver_rhs = false;
   m_write_dHDt = true;
@@ -500,8 +504,11 @@ AmrIce::setDefaults()
   m_groundingLineSubdivision = 0;
   m_evolve_thickness = true;
   m_evolve_velocity = true;
+  m_evolve_topography_fix_surface = false;
   m_grounded_ice_stable = false;
   m_floating_ice_stable = false;
+  m_floating_ice_basal_flux_is_dhdt = false;
+  m_grounded_ice_basal_flux_is_dhdt = false;
   m_frac_sources = false;
 
   m_groundingLineProximityScale = 1.0e+4;
@@ -511,8 +518,7 @@ AmrIce::setDefaults()
   m_groundingLineProximity_valid = false;
   m_viscousTensor_valid = false;
 
-  constantFlux* cfptr = new constantFlux;
-  cfptr->setFluxVal(0.0);
+  zeroFlux* cfptr = new zeroFlux;
   m_basalFluxPtr = cfptr;
   
   m_calvingModelPtr = NULL;//new NoCalvingModel; 
@@ -580,16 +586,6 @@ AmrIce::~AmrIce()
           m_cellMuCoef[lev] = NULL;
         }
     }
-  // clean up face-centered mu coef storage if appropriate
-  for (int lev=0; lev < m_faceMuCoef.size(); lev++)
-    {
-      if (m_faceMuCoef[lev] != NULL)
-        {
-          delete m_faceMuCoef[lev];
-          m_faceMuCoef[lev] = NULL;
-        }
-    }
-
 
   // clean up face advection velocity storage if appropriate
   for (int lev=0; lev < m_faceVelAdvection.size(); lev++)
@@ -1011,7 +1007,7 @@ AmrIce::initialize()
   ppAmr.query("plot_interval", m_plot_interval);
   ppAmr.query("plot_time_interval", m_plot_time_interval);
   ppAmr.query("plot_prefix", m_plot_prefix);
-
+  ppAmr.query("reduced_plot", m_reduced_plot);
   ppAmr.query("write_map_file", m_write_map_file);
 
   ppAmr.query("write_preSolve_plotfiles", m_write_presolve_plotfiles);
@@ -1024,12 +1020,14 @@ AmrIce::initialize()
   ppAmr.query("write_layer_velocities", m_write_layer_velocities);
 
   ppAmr.query("evolve_thickness", m_evolve_thickness);
-
+  ppAmr.query("evolve_topography_fix_surface", m_evolve_topography_fix_surface);
   ppAmr.query("evolve_velocity", m_evolve_velocity);
   ppAmr.query("velocity_solve_interval", m_velocity_solve_interval);
 
   ppAmr.query("grounded_ice_stable", m_grounded_ice_stable);
   ppAmr.query("floating_ice_stable", m_floating_ice_stable);
+  ppAmr.query("floating_ice_basal_flux_is_dhdt", m_floating_ice_basal_flux_is_dhdt);
+  ppAmr.query("grounded_ice_basal_flux_is_dhdt",m_grounded_ice_basal_flux_is_dhdt);
   ppAmr.query("mask_sources", m_frac_sources);
 
   ppAmr.query("grounding_line_proximity_scale",m_groundingLineProximityScale);
@@ -1168,6 +1166,9 @@ AmrIce::initialize()
       m_velDx_tagVal_finestLevelFloating = m_velDx_tagVal_finestLevelGrounded;
       ppAmr.query("vel_dx_finest_level_floating",m_velDx_tagVal_finestLevelFloating);
     }
+
+  ppAmr.query("tag_thin_cavity", m_tag_thin_cavity);
+  ppAmr.query("tag_thin_cavity_thickness", m_tag_thin_cavity_thickness);
 
 #ifdef HAVE_PYTHON
   ppAmr.query("tag_python", m_tagPython);
@@ -1625,7 +1626,6 @@ AmrIce::initialize()
       m_diffusivity.resize(m_max_level+1);
       m_velBasalC.resize(m_max_level+1,NULL);
       m_cellMuCoef.resize(m_max_level+1,NULL);
-      m_faceMuCoef.resize(m_max_level+1,NULL);
       m_velRHS.resize(m_max_level+1, NULL);
       m_surfaceThicknessSource.resize(m_max_level+1, NULL);
       m_basalThicknessSource.resize(m_max_level+1, NULL);
@@ -1655,7 +1655,6 @@ AmrIce::initialize()
 	  m_faceVelTotal[lev] = new LevelData<FluxBox>;
 	  m_velBasalC[lev] = new LevelData<FArrayBox>;
 	  m_cellMuCoef[lev] = new LevelData<FArrayBox>;
-	  m_faceMuCoef[lev] = new LevelData<FluxBox>;
 	  m_velRHS[lev] = new LevelData<FArrayBox>;
 	  m_diffusivity[lev] = new LevelData<FluxBox>;
 	  m_internalEnergy[lev] = new LevelData<FArrayBox>;
@@ -1697,7 +1696,8 @@ AmrIce::initialize()
       restart(restart_file);
       // once we've set up everything, this lets us over-ride the
       // time and step number in the restart checkpoint file with
-      // one specified in the inputs
+      // one specified in the inputs      
+      
       
       if (ppAmr.contains("restart_time") )
         {
@@ -1993,6 +1993,29 @@ AmrIce::defineSolver()
 			   m_finest_level + 1 );
     }
 #endif
+  else if (m_solverType == InverseVerticallyIntegrated)
+    {
+      if (m_velSolver != NULL)
+        {
+	  //not sure if we are OK with rebuilding solvers?
+          delete m_velSolver;
+          m_velSolver = NULL;
+        }
+      InverseVerticallyIntegratedVelocitySolver* ptr 
+	= new InverseVerticallyIntegratedVelocitySolver;
+      
+      ptr->define( *this, 
+		   m_amrDomains[0],
+		   m_constitutiveRelation,
+		   m_basalFrictionRelation,
+		   m_amrGrids,
+		   m_refinement_ratios,
+		   m_amrDx[0]*RealVect::Unit,
+		   m_thicknessIBCPtr,
+		   m_finest_level + 1 );
+      m_velSolver = ptr;
+      
+    }
   else
     {
       MayDay::Error("unsupported velocity solver type");
@@ -2154,7 +2177,7 @@ AmrIce::timeStep(Real a_dt)
              << m_time << " ( " << time() << ")" " with dt = " << a_dt << endl;
     }
 
-  
+  m_dt = a_dt;
 
   // first copy thickness into old thickness   
   for (int lev=0; lev <= m_finest_level ; lev++)
@@ -2386,6 +2409,9 @@ AmrIce::timeStep(Real a_dt)
 			 m_layerSFaceXYVel,  a_dt, m_time,
 			 m_vect_coordSys, vectCoords_old, 
 			 m_surfaceThicknessSource, m_basalThicknessSource);
+
+  
+  notifyObservers(Observer::PostGeometryUpdate);
   
   // clean up temporary storage
   for (int lev=0; lev<=m_finest_level; lev++)
@@ -2420,6 +2446,9 @@ AmrIce::timeStep(Real a_dt)
       MayDay::Error("AmrIce::timestep -- un-defined temporal accuracy");
     }
 
+  //update time (velocity is to be computed at the step end)
+  m_time += a_dt;
+  m_cur_step += 1;
   // compute new ice velocity field
   if (m_evolve_velocity )
     {
@@ -2427,18 +2456,8 @@ AmrIce::timeStep(Real a_dt)
 	{
 	  pout() << "AmrIce::timeStep solveVelocityField() (step end) " << endl;
 	}
-
       solveVelocityField();
- 
-
-
-
-   }
-
-  // finally, update to new time and increment current step
-  m_dt = a_dt;
-  m_time += a_dt;
-  m_cur_step += 1;
+    }
   
   // write diagnostic info, like sum of ice
   if ((m_next_report_time - m_time) < (a_dt + TIME_EPS) && !(m_time < m_next_report_time))
@@ -2635,7 +2654,7 @@ AmrIce::computeThicknessFluxes(Vector<LevelData<FluxBox>* >& a_vectFluxes,
 // update  ice thickness *and* bedrock elevation
 void
 AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new, 
-		       Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoords_old, 
+		       Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_old, 
 		       const Vector<LevelData<FluxBox>* >& a_vectFluxes, 
 		       Real a_dt)
 {
@@ -2647,7 +2666,7 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
       LevelData<FluxBox>& levelFlux = *a_vectFluxes[lev];
       LevelSigmaCS& levelCoords = *(a_vect_coordSys_new[lev]);
       LevelData<FArrayBox>& levelNewH = levelCoords.getH();
-      LevelData<FArrayBox>& levelOldH = (*a_vectCoords_old[lev]).getH();
+      LevelData<FArrayBox>& levelOldH = (*a_vect_coordSys_old[lev]).getH();
       LevelData<FArrayBox>& levelDivThckFlux = *m_divThicknessFlux[lev];
       const RealVect& dx = levelCoords.dx();              
       
@@ -2681,7 +2700,7 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
           // with, the source term will be included then
           if (m_evolve_thickness)
             {
-              if (m_floating_ice_stable)
+              if (m_floating_ice_stable || m_floating_ice_basal_flux_is_dhdt)
                 {
                   //keep floating ice stable if required
                   const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
@@ -2690,13 +2709,17 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
                       const IntVect& iv = bit();
                       if (mask(iv) == FLOATINGMASKVAL)
                         {
-			  (*m_surfaceThicknessSource[lev])[dit](iv) = newH(iv);
-			  (*m_basalThicknessSource[lev])[dit](iv) = 0.0;
+			  (*m_surfaceThicknessSource[lev])[dit](iv) = 0.0;
+			  if (!m_floating_ice_basal_flux_is_dhdt)
+			    {
+			      (*m_basalThicknessSource[lev])[dit](iv) = 0.0;
+			    }
+			  (*m_basalThicknessSource[lev])[dit](iv) += newH(iv);
                         }
                     }
                 }
               
-              if (m_grounded_ice_stable)
+              if (m_grounded_ice_stable || m_grounded_ice_basal_flux_is_dhdt)
                 {
                   //keep grounded ice stable if required
                   const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
@@ -2705,9 +2728,12 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
                       const IntVect& iv = bit();
                       if (mask(iv) == GROUNDEDMASKVAL)
                         {
-                          (*m_surfaceThicknessSource[lev])[dit](iv) = newH(iv);
-			  (*m_basalThicknessSource[lev])[dit](iv) = 0.0;
-                          
+                          (*m_surfaceThicknessSource[lev])[dit](iv) = 0.0;
+			  if (!m_grounded_ice_basal_flux_is_dhdt)
+			    {
+			      (*m_basalThicknessSource[lev])[dit](iv) = 0.0;
+			    }
+			  (*m_basalThicknessSource[lev])[dit](iv) += newH(iv);
                         }
                     }
                 }
@@ -2747,6 +2773,7 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
 	          
 	  newH *= -1*a_dt;
           newH.plus(oldH, 0, 0, 1);
+
 
 	  for (BoxIterator bit(gridBox); bit.ok(); ++bit)
 	    {
@@ -2799,8 +2826,32 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
         }
       implicitThicknessCorrection(a_dt, m_surfaceThicknessSource,  m_basalThicknessSource);
     }
-  
-  //update the topography
+
+  //update the topography (fixed surface case)
+  if (m_evolve_topography_fix_surface)
+    {
+      // update the bedrock so that the surface remains constant on grounded ice
+      for (int lev=0; lev <= finestTimestepLevel() ; lev++)
+	{
+	  for (DataIterator dit(m_amrGrids[lev]);dit.ok();++dit)
+	    {
+	      FArrayBox& newH = a_vect_coordSys_new[lev]->getH()[dit];
+	      FArrayBox& oldH = a_vect_coordSys_old[lev]->getH()[dit];
+	      FArrayBox& topg = a_vect_coordSys_new[lev]->getTopography()[dit];
+	      
+	      const BaseFab<int>& mask = a_vect_coordSys_old[lev]->getFloatingMask()[dit];
+	      FORT_EVOLVEGROUNDEDBED(CHF_FRA1(newH,0), CHF_FRA1(oldH,0), 
+				     CHF_FRA1(topg,0), CHF_CONST_FIA1(mask,0), 
+				     CHF_BOX(topg.box()));
+	      FArrayBox& deltaTopg = (*m_deltaTopography[lev])[dit];
+	      deltaTopg += topg;
+	      deltaTopg -= a_vect_coordSys_old[lev]->getTopography()[dit];	      
+	    }
+	}
+    }
+
+
+  //update the topography (gia)
   if (m_topographyFluxPtr != NULL)
     {
       for (int lev=0; lev <= finestTimestepLevel() ; lev++)
@@ -2821,6 +2872,9 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
 	}
     }
   
+  
+
+
   // average down thickness and topography to coarser levels and fill in ghost cells
   // before calling recomputeGeometry. 
   int Hghost = 2;
@@ -3518,12 +3572,6 @@ AmrIce::regrid()
 		delete m_cellMuCoef[lev];
 	      }
 	    m_cellMuCoef[lev] = new LevelData<FArrayBox>(newDBL, 1, IntVect::Unit);
-  
-	    if (m_faceMuCoef[lev] != NULL)
-	      {
-		delete m_faceMuCoef[lev];
-	      }
-	    m_faceMuCoef[lev] = new LevelData<FluxBox>(newDBL, 1, IntVect::Unit);
 	     
 	    if (m_velRHS[lev] != NULL)
 	      {
@@ -4121,6 +4169,26 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
         } // end loop over grids
     } // end if tagging on velRHS
   
+  // tag cells  with thin cavities
+  if (m_tag_thin_cavity)
+    {
+      for (dit.begin(); dit.ok(); ++dit)
+	{
+	  const BaseFab<int>& mask = levelCS.getFloatingMask()[dit];
+	  Box gridBox = levelGrids[dit];
+	  const FArrayBox& H  = levelCS.getH()[dit];
+	  for (BoxIterator bit(gridBox); bit.ok(); ++bit)
+	    {
+	      const IntVect& iv = bit();
+	      if (mask(iv) == FLOATINGMASKVAL && 
+		  H(iv) <  m_tag_thin_cavity_thickness)
+		{
+		  local_tags |= iv;
+		}
+	    }
+	}
+    }
+
   // tag cells where thickness goes to zero
   if (m_tagMargin)
     {
@@ -4175,6 +4243,9 @@ AmrIce::tagCellsLevel(IntVectSet& a_tags, int a_level)
             } // end bit loop
         } // end loop over boxes
     } // end if tag all ice
+
+  
+
 
   // tag anywhere and everywhere
   if (m_tagEntireDomain)
@@ -4604,7 +4675,6 @@ AmrIce::levelSetup(int a_level, const DisjointBoxLayout& a_grids)
 
   levelAllocate(&m_velBasalC[a_level],a_grids, 1, ghostVect);
   levelAllocate(&m_cellMuCoef[a_level],a_grids, 1, ghostVect);
-  levelAllocate(&m_faceMuCoef[a_level],a_grids, 1, ghostVect);
   levelAllocate(&m_velRHS[a_level],a_grids, SpaceDim,  IntVect::Zero);
   levelAllocate(&m_surfaceThicknessSource[a_level], a_grids,   1, IntVect::Unit) ;
   levelAllocate(&m_basalThicknessSource[a_level], a_grids,  1, IntVect::Unit) ;
@@ -4773,7 +4843,7 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
     }
 
   //
-  setMuCoefficient(m_cellMuCoef,m_faceMuCoef);
+  setMuCoefficient(m_cellMuCoef);
 
   // set basal friction coeffs C,C0. C = 0 for floating ice. C0 != 0 at walls
   setBasalFriction(vectC, vectC0);
@@ -4869,9 +4939,9 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
               m_constitutiveRelation = static_cast<ConstitutiveRelation*>(newPtr);
 
 	      Real finalNorm = 0.0, initialNorm = 0.0, convergenceMetric = -1.0;
-	      Vector<LevelData<FluxBox>* > muCoef(m_finest_level + 1,NULL);
+	      //Vector<LevelData<FArrayBox>* > muCoef(m_finest_level + 1,NULL);
 	      int rc;
-	      if (m_initialGuessSolverType == JFNK && dynamic_cast<JFNKSolver*>(m_velSolver))
+	      if (m_initialGuessSolverType == JFNK)
 		{
 		  //JFNK can be instructed to assume a linear solve
 		  m_solverType = JFNK;
@@ -4886,7 +4956,7 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 		  rc = jfnkSolver->solve( m_velocity, 
 					  m_calvedIceThickness, m_addedIceThickness, m_removedIceThickness,
 					  initialNorm,finalNorm,convergenceMetric,
-					  linear , m_velRHS, m_velBasalC, vectC0, m_A, muCoef,
+					  linear , m_velRHS, m_velBasalC, vectC0, m_A, m_cellMuCoef,
 					  m_vect_coordSys, m_time, 0, m_finest_level);
 		}
 	      else if (m_initialGuessSolverType == Picard)
@@ -4907,7 +4977,7 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 		  rc = m_velSolver->solve(m_velocity, 
 					  m_calvedIceThickness, m_addedIceThickness, m_removedIceThickness,
 					  initialNorm,finalNorm,convergenceMetric,
-					  m_velRHS, m_velBasalC, vectC0, m_A, muCoef,
+					  m_velRHS, m_velBasalC, vectC0, m_A, m_cellMuCoef,
 					  m_vect_coordSys, m_time, 0, m_finest_level);
 		}
 	      else
@@ -5033,20 +5103,42 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 					      m_velocitySolveFinalResidualNorm,
 					      a_convergenceMetric,
 					      m_velRHS, m_velBasalC, vectC0,
-					      m_A, m_faceMuCoef,
+					      m_A, m_cellMuCoef,
 					      m_vect_coordSys,
 					      m_time,
 					      0, m_finest_level);
+
+
+	    for (int lev = 0; lev <= m_finest_level; lev++)
+	      {
+		m_thicknessIBCPtr->velocityGhostBC
+		  (*m_velocity[lev],*m_vect_coordSys[lev],
+		   m_amrDomains[lev], m_time);
+	      }
+	    
+	    //special case for inverse problems : read back C and muCoef
+	    InverseIceVelocitySolver* invPtr = dynamic_cast<InverseIceVelocitySolver*>(m_velSolver);
+	    if (invPtr)
+	      {
+		if (m_basalFrictionPtr)
+		  delete m_basalFrictionPtr; 
+		m_basalFrictionPtr = invPtr->basalFriction();
+		
+		if (m_muCoefficientPtr)
+		  delete m_muCoefficientPtr;
+		m_muCoefficientPtr = invPtr->muCoefficient();
+	      } // end special case for inverse problems
+
 	    //update calved ice thickness 
 	    for (int lev=0; lev<= m_finest_level; lev++)
 	      {
 		LevelData<FArrayBox>& thck = m_vect_coordSys[lev]->getH();
 		updateAccumulatedCalvedIce(thck, lev);
 	      }
-
+	    
 	  } // end if (a_forceSolve || ((m_cur_step+1)%m_velocity_solve_interval == 0))
-      
-    }
+
+    } // end if (m_doInitialSolve) 
 
   //allow calving model to modify geometry 
   applyCalvingCriterion(CalvingModel::PostVelocitySolve);
@@ -5061,6 +5153,12 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 	  delete vectC0[lev]; vectC0[lev] = NULL;
 	}
     }
+
+  /// This is probably the most useful notification, as a velocity 
+  /// solve is carried out at the end of every major stage
+  notifyObservers(Observer::PostVelocitySolve);
+
+
 #if 0  
   // debugging test -- redefine velocity as a constant field
   for (int lev=0; lev<m_velocity.size(); lev++)
@@ -5106,8 +5204,7 @@ void AmrIce::defineVelRHS(Vector<LevelData<FArrayBox>* >& a_vectRhs)
 
 /// set mu coefficient (phi) prior to velocity solve
 void
-AmrIce::setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef, 
-			 Vector<LevelData<FluxBox>* >& a_faceMuCoef)
+AmrIce::setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef)
 {
   CH_assert(m_muCoefficientPtr != NULL);
   for (int lev=0; lev<=m_finest_level; lev++)
@@ -5128,7 +5225,6 @@ AmrIce::setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef,
 				 1.0,0,0,1);
 	}
       a_cellMuCoef[lev]->exchange();
-      CellToEdge(*m_cellMuCoef[lev], *m_faceMuCoef[lev]);
     }
 }
 
@@ -5579,6 +5675,7 @@ AmrIce::computeDt()
 	      Box faceBox = levelGrids[levelDit];
 	      faceBox.surroundingNodes(dir);
 	      Real maxVel = 1.0 + levelVel[levelDit][dir].norm(faceBox,p, 0, 1);
+	      CH_assert(maxVel < HUGE_VEL);
 	      Real localDt = m_amrDx[lev]/maxVel;
 	      dtLev = min(dtLev, localDt);
 	    }
@@ -5625,7 +5722,11 @@ AmrIce::computeDt()
   }
   
   m_stable_dt = dt;
-
+  if (s_verbosity > 3) 
+    { 
+      pout() << "AmrIce::computeDt dt = " << dt << endl;
+    }
+  CH_assert(dt > TIME_EPS);
   return dt;// min(dt,2.0);
 
 }
@@ -6305,6 +6406,54 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 
 #ifdef CH_USE_HDF5
 
+void AmrIce::writeMetaDataHDF5(HDF5Handle& a_handle) const
+{
+  //Additional data (BISICLES specific)
+  HDF5HeaderData headerData = m_headerData;
+  headerData.m_int["max_level"] = m_max_level;
+  headerData.m_int["finest_level"] = m_finest_level;
+  headerData.m_int["current_step"] = m_cur_step; 
+  headerData.m_real["time"] = time();
+  headerData.m_real["dt"] = m_dt;
+  headerData.m_string["svn_version"] = SVN_REV;
+  headerData.m_string["svn_repository"] = SVN_REP;
+  headerData.m_string["svn_url"] = SVN_URL;
+ 
+  //m_headerData.writeToFile(a_handle);
+  headerData.writeToFile(a_handle);
+  
+}
+
+
+void AmrIce::writeAMRHierarchyHDF5(const string& filename,
+				   const Vector<DisjointBoxLayout>& a_grids,
+				   const Vector<LevelData<FArrayBox>* > & a_data,
+				   const Vector<string>& a_name,
+				   const Box& a_domain,
+				   const Real& a_dx,
+				   const Real& a_dt,
+				   const Real& a_time,
+				   const Vector<int>& a_ratio,
+				   const int& a_numLevels) const
+{
+ 
+  HDF5Handle handle(filename.c_str(), HDF5Handle::CREATE);
+     
+  //Chombo AMR data (VisIt compatible)
+  WriteAMRHierarchyHDF5(handle, a_grids, a_data, a_name, 
+			a_domain, a_dx, a_dt, a_time, a_ratio, 
+			a_numLevels);
+
+  
+  writeMetaDataHDF5(handle);
+ 
+  handle.close();
+  
+  
+
+}
+
+
 /// write hdf5 plotfile to the standard location
 void 
 AmrIce::writePlotFile() 
@@ -6314,12 +6463,17 @@ AmrIce::writePlotFile()
       pout() << "AmrIce::writePlotFile" << endl;
     }
   
-  // plot comps: thickness + horizontal velocity + zb + zs
-  // slc: + base velocity + 'flux' velocity
+  // plot comps: thickness + horizontal velocity + z_bottom + z_surface + z_base 
   int numPlotComps = 4 + SpaceDim;
 
+  if (m_reduced_plot)
+    {
+      // plot comps: thickness + horizontal velocity + zb + zs
+      numPlotComps = 3 + SpaceDim;
+    }
+
   // may need a zvel for visit to do "3d" streamlines correctly
-  bool writeZvel = true;
+  bool writeZvel = !m_reduced_plot;
   if (writeZvel) numPlotComps+=1;
 
   if (m_write_fluxVel)
@@ -6337,7 +6491,17 @@ AmrIce::writePlotFile()
   // write both integer and real-valued masks
   if (m_write_mask) numPlotComps += 2;
   if (m_write_dHDt) numPlotComps += 1;
-  if (m_write_solver_rhs) numPlotComps += (SpaceDim+2);
+  if (m_write_solver_rhs) 
+    {
+      numPlotComps += SpaceDim ;
+      // include basal_friction and C0 iff !m_reduced_plot 
+      if (!m_reduced_plot)
+        {
+          numPlotComps += 2;
+        }
+    }
+  
+  
 
   if (m_write_internal_energy) 
     numPlotComps += m_internalEnergy[0]->nComp();
@@ -6354,14 +6518,22 @@ AmrIce::writePlotFile()
 
   if (m_write_viscousTensor)
     {
-      numPlotComps += 1 + 1 + 1 + 1 + SpaceDim * SpaceDim;
+      // effective drag and viscosity coefficients
+      numPlotComps += 2;
+      if (!m_reduced_plot)
+	{
+	  numPlotComps += SpaceDim * SpaceDim; // viscous tensor components                        
+	}
     }
   
   if (m_write_thickness_sources)
     {
-      numPlotComps += 7;  // surface and basal sources, plus the divThicknessFlux, calving flux and accumulated calving
+      numPlotComps += 2;  // surface and basal sources
+      if (!m_reduced_plot)
+	{
+	  numPlotComps += 5; // divThicknessFlux, calving flux and accumulated calving
+	}
     }
-
 
 
 #endif
@@ -6376,8 +6548,8 @@ AmrIce::writePlotFile()
   string zbottomName("Z_bottom");
   string dthicknessName("dThickness/dt");
   string betaName("basal_friction");
-  string solverRhsxName("solverRHSx");
-  string solverRhsyName("solverRHSy");
+  string solverRhsxName("xRhs");
+  string solverRhsyName("yRhs");
   string C0Name("C0");
   string maskName("mask");
   string fracName("iceFrac");
@@ -6417,9 +6589,10 @@ AmrIce::writePlotFile()
   string activeSurfaceThicknessSourceName("activeSurfaceThicknessSource");
   string calvedIceThicknessName("calvingFlux");
   string accumCalvedIceThicknessName("accumCalvedIceThickness");
-
+  string calvedThicknessSourceName("calvedThicknessSource");
   string surfaceCrevasseName("surfaceCrevasse");
   string basalCrevasseName("basalCrevasse");
+
 
   Vector<string> vectName(numPlotComps);
   //int dThicknessComp;
@@ -6437,18 +6610,26 @@ AmrIce::writePlotFile()
 
   vectName[comp] = zsName;
   comp++;
-  vectName[comp] = zbottomName;
-  comp++;
+
+  if (!m_reduced_plot)
+    {
+      vectName[comp] = zbottomName;
+      comp++;
+    }
+
   vectName[comp] = zbName;
   comp++;
 
   if (m_write_solver_rhs)
     {
-      vectName[comp] = betaName;
-      comp++;
-
-      vectName[comp] = C0Name;
-      comp++;
+      if (!m_reduced_plot)
+	{
+	  vectName[comp] = betaName;
+	  comp++;
+	  
+	  vectName[comp] = C0Name;
+	  comp++;
+	}
 
       if (SpaceDim == 1)
         {
@@ -6560,31 +6741,30 @@ AmrIce::writePlotFile()
   }
 #endif
 
- 
   if (m_write_viscousTensor)
     {
       vectName[comp] = dragCoefName; comp++;
       vectName[comp] = viscosityCoefName; comp++;
-      vectName[comp] = surfaceCrevasseName;comp++;
-      vectName[comp] = basalCrevasseName;comp++;
-     
-      vectName[comp] = xxVTname;comp++;
-      if (SpaceDim > 1)
+      if (!m_reduced_plot)
 	{
-	  vectName[comp] = yxVTname;comp++;
-	  if (SpaceDim > 2)
+	  vectName[comp] = xxVTname;comp++;
+	  if (SpaceDim > 1)
 	    {
-	      vectName[comp] = zzVTname;comp++;
-	    }
-	  vectName[comp] = xyVTname;comp++;
-	  vectName[comp] = yyVTname;comp++;
-
-	  if (SpaceDim > 2)
-	    {
-	      vectName[comp] = zyVTname;comp++;
-	      vectName[comp] = xzVTname;comp++;
-	      vectName[comp] = yzVTname;comp++;
-	      vectName[comp] = zzVTname;comp++;
+	      vectName[comp] = yxVTname;comp++;
+	      if (SpaceDim > 2)
+		{
+		  vectName[comp] = zzVTname;comp++;
+		}
+	      vectName[comp] = xyVTname;comp++;
+	      vectName[comp] = yyVTname;comp++;
+	      
+	      if (SpaceDim > 2)
+		{
+		  vectName[comp] = zyVTname;comp++;
+		  vectName[comp] = xzVTname;comp++;
+		  vectName[comp] = yzVTname;comp++;
+		  vectName[comp] = zzVTname;comp++;
+		}
 	    }
 	}
     }
@@ -6594,12 +6774,17 @@ AmrIce::writePlotFile()
     {
       vectName[comp] = basalThicknessSourceName; comp++;
       vectName[comp] = surfaceThicknessSourceName; comp++;
-      vectName[comp] = divergenceThicknessFluxName; comp++;	
-      vectName[comp] = activeBasalThicknessSourceName; comp++;
-      vectName[comp] = activeSurfaceThicknessSourceName; comp++;
-      vectName[comp] = calvedIceThicknessName; comp++;
-      vectName[comp] = accumCalvedIceThicknessName; comp++;
+      
+      if (!m_reduced_plot)
+	{
+	  vectName[comp] = divergenceThicknessFluxName; comp++;	
+	  vectName[comp] = activeBasalThicknessSourceName; comp++;
+	  vectName[comp] = activeSurfaceThicknessSourceName; comp++;
+	  vectName[comp] = calvedIceThicknessName; comp++;
+	  vectName[comp] = accumCalvedIceThicknessName; comp++;
+	}
     }
+
 
   if (m_write_thickness_sources )
     {
@@ -6727,11 +6912,14 @@ AmrIce::writePlotFile()
           thisPlotData.plus(backgroundBase, 0, comp, 1);
           ++comp;
 
-          // zbottom (bottom of ice
-          thisPlotData.copy(zSurf, 0, comp, 1);
-          thisPlotData.minus(thisH, 0, comp, 1);
-          thisPlotData.plus(backgroundBase, 0, comp, 1);
-          ++comp;
+	  if (!m_reduced_plot)
+	    {
+	      // zbottom (bottom of ice
+	      thisPlotData.copy(zSurf, 0, comp, 1);
+	      thisPlotData.minus(thisH, 0, comp, 1);
+	      thisPlotData.plus(backgroundBase, 0, comp, 1);
+	      ++comp;
+	    }
 
           // zbase 
           thisPlotData.copy(zBase, 0, comp, 1);
@@ -6740,11 +6928,14 @@ AmrIce::writePlotFile()
 
           if (m_write_solver_rhs)
             {
-              thisPlotData.copy((*m_velBasalC[lev])[dit],0,comp,1);
-              comp++;
-              thisPlotData.copy((*vectC0[lev])[dit],0,comp,1);
-              comp++;
-              thisPlotData.copy((*m_velRHS[lev])[dit],0,comp,SpaceDim);
+	      if (!m_reduced_plot)
+		{
+		  thisPlotData.copy((*m_velBasalC[lev])[dit],0,comp,1);
+		  comp++;
+		  thisPlotData.copy((*vectC0[lev])[dit],0,comp,1);
+		  comp++;
+		}
+	      thisPlotData.copy((*m_velRHS[lev])[dit],0,comp,SpaceDim);
               comp += SpaceDim;
             }
 
@@ -6882,17 +7073,13 @@ AmrIce::writePlotFile()
 	      comp++;
 	      thisPlotData.copy( (*viscosityCoefficient(lev))[dit],0,comp);
 	      comp++;
-	      thisPlotData.copy( levelSurfaceCrevasseDepth[dit],0,comp);
-	      comp++;
-	      thisPlotData.copy( levelBasalCrevasseDepth[dit],0,comp);
-	      comp++;
-	      thisPlotData.copy( (*viscousTensor(lev))[dit],0,comp, SpaceDim*SpaceDim);
-	      comp += SpaceDim * SpaceDim;
+	      if (!m_reduced_plot)
+		{
+		  thisPlotData.copy( (*viscousTensor(lev))[dit],0,comp, SpaceDim*SpaceDim);
+		  comp += SpaceDim * SpaceDim;
+		}
 	    }
-	  
-
-
-
+	 
 	  if (m_write_thickness_sources)
 	    {
 	      thisPlotData.copy(levelBTS[dit], 0, comp, 1);
@@ -6910,32 +7097,36 @@ AmrIce::writePlotFile()
                 }
 	      comp++;
 
-	      thisPlotData.copy((*m_divThicknessFlux[lev])[dit], 0, comp, 1);
-	      comp++;
+	      if (!m_reduced_plot)
+		{
+		  thisPlotData.copy((*m_divThicknessFlux[lev])[dit], 0, comp, 1);
+		  comp++;
 
-	      thisPlotData.copy((*m_basalThicknessSource[lev])[dit], 0, comp, 1);
-              if (m_frac_sources)
-                {
-                  thisPlotData.mult( (*m_iceFrac[lev])[dit],0,comp,1);
-                }
+		  thisPlotData.copy((*m_basalThicknessSource[lev])[dit], 0, comp, 1);
+		  if (m_frac_sources)
+		    {
+		      thisPlotData.mult( (*m_iceFrac[lev])[dit],0,comp,1);
+		    }
 
-	      comp++;
-	      thisPlotData.copy((*m_surfaceThicknessSource[lev])[dit], 0, comp, 1);
-              if (m_frac_sources)
-                {
-                  // scale by ice fraction
-                  thisPlotData.mult( (*m_iceFrac[lev])[dit],0,comp,1);
-                }
-	      comp++;
-	      thisPlotData.copy((*m_calvedIceThickness[lev])[dit], 0, comp, 1);
-              if (m_dt > 0)
-                {
-                  thisPlotData.divide(m_dt, comp, 1);
-                }              
-	      comp++;
-	      thisPlotData.copy((*m_accumCalvedIceThickness[lev])[dit], 0, comp, 1);
-	      comp++;
+		  comp++;
 
+		  thisPlotData.copy((*m_surfaceThicknessSource[lev])[dit], 0, comp, 1);
+		  if (m_frac_sources)
+		    {
+		      // scale by ice fraction
+		      thisPlotData.mult( (*m_iceFrac[lev])[dit],0,comp,1);
+		    }
+		  comp++;
+
+		  thisPlotData.copy((*m_calvedIceThickness[lev])[dit], 0, comp, 1);
+		  if (m_dt > 0)
+		    {
+		      thisPlotData.divide(m_dt, comp, 1);
+		    }              
+		  comp++;
+		  thisPlotData.copy((*m_accumCalvedIceThickness[lev])[dit], 0, comp, 1);
+		  comp++;
+		}
 	    }
 
 	} // end loop over boxes on this level
@@ -6960,7 +7151,7 @@ AmrIce::writePlotFile()
                                   0, 0,  numPlotComps);
         }
       // just in case...
-      //plotData[lev]->exchange();
+      plotData[lev]->exchange();
     } // end loop over levels for computing plot data
   
   // generate plotfile name
@@ -6980,7 +7171,7 @@ AmrIce::writePlotFile()
   if (m_write_map_file)
     {
       WriteSigmaMappedAMRHierarchyHDF5(filename, m_amrGrids, plotData, vectName, 
-                                       vectCS, domain, dt, m_time,
+                                       vectCS, domain, m_dt, m_time,
                                        m_refinement_ratios,
                                        numLevels);
     }
@@ -6999,19 +7190,10 @@ AmrIce::writePlotFile()
           filename.append("3d.hdf5");
         }
 
-      HDF5Handle handle(filename.c_str(), HDF5Handle::CREATE);
-       //Chombo AMR data (VisIt compatible)
-      WriteAMRHierarchyHDF5(handle, m_amrGrids, plotData, vectName, 
-			    domain, m_amrDx[0], dt, time(), m_refinement_ratios, 
-			    numLevels);
-      //Additional data (BISICLES specific)
-      m_headerData.m_int["max_level"] = m_max_level;
-      m_headerData.m_int["finest_level"] = m_finest_level;
-      m_headerData.m_int["current_step"] = m_cur_step;
-      m_headerData.m_real["time"] = time();
-      m_headerData.m_real["dt"] = dt;
-      m_headerData.writeToFile(handle);
-      handle.close();
+      this->writeAMRHierarchyHDF5(filename, m_amrGrids, plotData, vectName, 
+				  domain, m_amrDx[0], m_dt, time(), m_refinement_ratios, 
+				  numLevels);
+
     }
 
   // need to delete plotData
@@ -7232,6 +7414,27 @@ AmrIce::writeCheckpointFile(const string& a_file)
     }
   nComp += m_velocity[0]->nComp() ;
 
+  string basalFrictionName("basalFriction");
+  for (int comp=0; comp < 1; comp++)
+    {
+      char idx[5]; sprintf(idx, "%04d", comp);
+      compName = basalFrictionName + string(idx);
+      sprintf(compStr, "component_%04d", comp + nComp);
+      header.m_string[compStr] = compName;
+    }
+  nComp++;
+
+  string muCoefName("muCoef");
+  for (int comp=0; comp < 1; comp++)
+    {
+      char idx[5]; sprintf(idx, "%04d", comp);
+      compName = muCoefName + string(idx);
+      sprintf(compStr, "component_%04d", comp + nComp);
+      header.m_string[compStr] = compName;
+    }
+  nComp++;
+
+
   string internalEnergyName("internalEnergy");
   for (int comp=0; comp < m_internalEnergy[0]->nComp() ; comp++) 
     {
@@ -7315,6 +7518,12 @@ AmrIce::writeCheckpointFile(const string& a_file)
 	  write(handle, *m_velocity[lev], "velocityData", 
 		m_velocity[lev]->ghostVect());
 
+	  write(handle, *m_velBasalC[lev], "basalFrictionData", 
+		m_velBasalC[lev]->ghostVect());
+
+	  write(handle, *m_cellMuCoef[lev], "muCoefData", 
+		m_cellMuCoef[lev]->ghostVect());
+	  
 	  write(handle, *m_internalEnergy[lev], "internalEnergyData", 
 		m_internalEnergy[lev]->ghostVect());
 
@@ -7360,7 +7569,9 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   bool containsInternalEnergy(false);
   bool containsTemperature(false);
   bool containsIceFrac(false);
-   
+  bool containsBasalFriction(false);
+  bool containsMuCoef(false);
+
   map<std::string, std::string>::const_iterator i;
   for (i = header.m_string.begin(); i!= header.m_string.end(); ++i)
     {
@@ -7383,6 +7594,14 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
       if (i->second == "iceFrac0000")
 	{
 	  containsIceFrac = true;
+	}
+      if (i->second == "basalFriction0000")
+	{
+	  containsBasalFriction = true;
+	}
+      if (i->second == "muCoef0000")
+	{
+	  containsMuCoef = true;
 	}
     }
 
@@ -7440,17 +7659,6 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
     }
 
   m_time = header.m_real["time"];
-  ParmParse pp("amr");
-  bool set_time = false;
-  pp.query("restart_set_time",set_time);
-  if (set_time)
-    pp.query("restart_time",m_time);
-  // read timestep
-  if (header.m_real.find("dt") == header.m_real.end())
-    {
-      MayDay::Error("checkpoint file does not contain dt");
-    }
-
   m_dt = header.m_real["dt"];
 
   // read num comps
@@ -7550,7 +7758,6 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   m_divThicknessFlux.resize(m_max_level+1,NULL);
   m_velBasalC.resize(m_max_level+1,NULL);
   m_cellMuCoef.resize(m_max_level+1,NULL);
-  m_faceMuCoef.resize(m_max_level+1,NULL);
   m_faceVelAdvection.resize(m_max_level+1,NULL);
   m_faceVelTotal.resize(m_max_level+1,NULL);
   m_internalEnergy.resize(m_max_level+1,NULL);
@@ -7680,7 +7887,6 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 
 	  m_velBasalC[lev] = new LevelData<FArrayBox>(levelDBL, 1, ghostVect);
 	  m_cellMuCoef[lev] = new LevelData<FArrayBox>(levelDBL, 1, ghostVect);
-	  m_faceMuCoef[lev] = new LevelData<FluxBox>(levelDBL, 1, ghostVect);
 	  m_velRHS[lev] = new LevelData<FArrayBox>(levelDBL, SpaceDim, IntVect::Zero);
 	  m_surfaceThicknessSource[lev] =  new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
 	  m_basalThicknessSource[lev] = new LevelData<FArrayBox>(levelDBL,   1, IntVect::Unit) ;
@@ -7846,7 +8052,26 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	      setIceFrac(levelThickness, lev);
 	    }
 
-        
+	  if (containsBasalFriction)
+	    {
+	      dataStatus = read<FArrayBox>(a_handle, *m_velBasalC[lev],
+					   "basalFrictionData", levelDBL);
+	    }
+	  else
+	    {
+	      MayDay::Warning("checkpoint file does not basal friction coefficient data"); 
+	    }
+
+	  if (containsMuCoef)
+	    {
+	      dataStatus = read<FArrayBox>(a_handle, *m_cellMuCoef[lev],
+					   "muCoefData", levelDBL);
+	    }
+	  else
+	    {
+	      MayDay::Warning("checkpoint file does not mu coefficient data"); 
+	    }
+
 	  {
 	    // read internal energy , or read temperature and convert to internal energy
  	    std::string dataName, sDataName, bDataName;
@@ -7926,6 +8151,25 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   defineSolver();
   m_doInitialVelSolve = false; // since we have just read the velocity field
   m_doInitialVelGuess = false; // ditto
+
+  
+  if (dynamic_cast<InverseIceVelocitySolver*>(m_velSolver))
+    {
+      //special case for inverse problems : in most cases the basal friction and
+      //mu coeffcient data read from the checkpoint file will be overwritten
+      //in solveVelocityField(). Here we want them to be input data 
+      if (containsBasalFriction)
+	{	
+	  if (m_basalFrictionPtr) delete m_basalFrictionPtr; 
+	  m_basalFrictionPtr = InverseIceVelocitySolver::basalFriction(m_velBasalC, refRatios(), dx(0));
+	}
+      
+      if (containsMuCoef)
+	{ 	
+	  if (m_muCoefficientPtr) delete m_muCoefficientPtr;
+	  m_muCoefficientPtr = InverseIceVelocitySolver::muCoefficient(m_cellMuCoef, refRatios(), dx(0));
+	}
+    }
 
   if (s_verbosity > 3) 
     {

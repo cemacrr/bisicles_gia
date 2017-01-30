@@ -8,8 +8,8 @@ CHOMBO_HOME = ../../../../Chombo/lib
 include $(CHOMBO_HOME)/mk/Make.defs
 include $(CHOMBO_HOME)/mk/Make.defs.config
 
-ebase := control
-BUILD_DIR = ../../controlproblem
+ebase := driver
+BUILD_DIR = ../../exec2D
 
 #set compiler and CHOMBO_HOME
 

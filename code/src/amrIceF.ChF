@@ -974,3 +974,29 @@ c     call ice floating if it is nor grounded (ie open sea or floating)
       return
       end 
 c#endif
+
+
+c----------------------------------------------------
+c set topg <- topg - dh for grounded ice, so that
+c surface remains constant
+c----------------------------------------------------
+
+      subroutine evolvegroundedbed(CHF_FRA1[newh],
+     &     CHF_FRA1[oldh], 
+     &     CHF_FRA1[topg],
+     &     CHF_CONST_FIA1[mask],  
+     &     CHF_BOX[box])
+
+      
+      integer CHF_AUTODECL[i]
+      REAL_T dh
+
+      CHF_AUTOMULTIDO[box; i]
+      if (mask (CHF_AUTOIX[i]) .eq. GROUNDEDMASKVAL) then
+        dh = newh(CHF_AUTOIX[i]) - oldh(CHF_AUTOIX[i])
+        topg(CHF_AUTOIX[i]) = topg(CHF_AUTOIX[i]) - dh
+      end if
+      CHF_ENDDO
+
+      return
+      end

@@ -28,30 +28,33 @@
 class BasalFriction
 {
 public:
-  /// constructor
-  BasalFriction() {};
-
-  /// destructor
+  /// virtual destructor
   virtual ~BasalFriction() {};
 
   /// factory method
-  /** return a pointer to a new BasalFriction object
-   */
+  /** 
+      @return a pointer to a new BasalFriction object
+  */
   virtual BasalFriction* new_basalFriction() const = 0;
 
-  /// define basal friction coefficient beta^2 and place in a_betaSqr
-  /** time and dt are included in case this is time-dependent. Units 
-      should be Pa*a/m (any conversion to mks units is internal to the
-      AmrIce code)       
+  /// compute basal friction coefficient beta^2 and place in a_betaSqr
+  /** 
+      time and dt are included in case this is time-dependent. Units
+      should usually be chosen so that the basal traction \f$\tau_b(\beta^2, u) \f$
+      is measured in Pascals when \f$u \f$ is measured in meters per year.
+
+      @param a_betaSqr basal friction coefficient beta^2 data
+      @param a_coordSys ice sheet geometry
+      @param a_time current time
+      @param a_dt current time step
+      
   */
   virtual void setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
                                 LevelSigmaCS& a_coordSys,
                                 Real a_time,
                                 Real a_dt) = 0;
 
-  class AmrIce;
-  static BasalFriction *parseBasalFriction(const char* a_prefix, 
-					   const RealVect& a_domainSize);
+  static BasalFriction *parse(const char* a_prefix, const RealVect& a_domainSize);
 
 private:
   // Disallowed for all the usual reasons
@@ -60,35 +63,25 @@ private:
     MayDay::Error("invalid operator");
   }
 
-  // Disallowed for all the usual reasons
-  BasalFriction(const BasalFriction& a_input)
-  {
-    MayDay::Error("invalid operator");
-  }
+  // // Disallowed for all the usual reasons
+  // BasalFriction(const BasalFriction& a_input)
+  // {
+  //   MayDay::Error("invalid operator");
+  // }
 };
 
 
-// simple version which sets basal friction to zero
+/// BasalFriction which sets basal friction to zero. Probably completely useless.
 class zeroFriction : public BasalFriction
 {
 public:
-  /// constructor
   zeroFriction() {};
 
-  /// destructor
-  virtual ~zeroFriction() {};
+  ~zeroFriction() {};
 
-  /// factory method
-  /** return a pointer to a new BasalFriction object
-   */
-  virtual BasalFriction* new_basalFriction() const;
+  BasalFriction* new_basalFriction() const;
 
-  /// define basal friction coefficient beta^2 and place in a_betaSqr
-  /** time and dt are included in case this is time-dependent. Units 
-      should be Pa*a/m (any conversion to mks units is internal to the
-      AmrIce code)       
-  */
-  virtual void setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
+  void setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
                                 LevelSigmaCS& a_coordSys,
                                 Real a_time,
                                 Real a_dt);
@@ -109,40 +102,44 @@ private:
 };
 
 
-// simple version which sets basal friction to a constant in space and time
+/// BasalFriction where \f$ \beta^2 \f$ is constant in space and time
+/**
+   Run time configuration is carried out in BasalFriction::parse(A, ... )
+   If the option `A.beta_type == constantBeta` is found, then the 
+   expected form is:
+   
+   - `A.betaValue = <float>` 
+
+ */
 class constantFriction : public BasalFriction
 {
 public:
-  /// constructor
   constantFriction();
 
-  constantFriction(Real a_value);
-
-  /// destructor
-  virtual ~constantFriction() {}
-
-  /// factory method
-  /** return a pointer to a new BasalFriction object
+  /// Construct a constant friction with a known value
+  /**
+     @param a_value basal friction coefficient
    */
-  virtual BasalFriction* new_basalFriction() const;
+  constantFriction(Real a_betaSqr);
 
+  ~constantFriction() {}
 
-  /// define basal friction coefficient beta^2 and place in a_betaSqr
-  /** time and dt are included in case this is time-dependent. Units 
-      should be Pa*a/m (any conversion to mks units is internal to the
-      AmrIce code)       
-  */
-  virtual void setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
+  BasalFriction* new_basalFriction() const;
+
+  void setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
                                 LevelSigmaCS& a_coordSys,
                                 Real a_time,
                                 Real a_dt);
 
-  /// set friction value in meters/year
+  /// Change the constanst basal friction coefficient
+  /**
+     @param a_betaSqr basal friction coefficient
+   */
   void setFrictionVal(const Real& a_betaSqr);
 
 protected:
-  Real m_frictionVal;
 
+  Real m_frictionVal;
   bool m_isValSet;
 
 private:

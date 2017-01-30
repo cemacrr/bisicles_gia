@@ -17,15 +17,21 @@
 
 
 #if BISICLES_Z == BISICLES_LAYERED
-/// class which encapsulates the L1L2 constitutive relation for ice
+/// Implemnets ConstitutiveRelation to give the effective viscosity in the L1L2 stress model.
 /** 
-    Described by Schoof, C and Hindmarsh, R C A, ...
-    Like GlensFlowRelation, this class computes \f$\mu_{AS}\f$ such that (stress =
-    \f$\mu_{AS}\f$*strainrate ) assuming that \f$\mu_{AS} = \mu(u,\theta)\f$.
-    But mu is now found by solving a nonlinear problem 
-    \f$1 - 2 \mu A (4 \mu ^2 \epsilon^2 + \tau^2)^((n-1)/2) = 0 \f$
+    The L1L2 stress model is described by Schoof and Hindmarsh 2010.
+
+    Like GlensFlowRelation, this class computes \f$\mu\f$ such that (stress =
+    \f$\mu\f$*strainrate ) assuming that \f$\mu = \mu(\nabla(\vec{u}),A(T))\f$.
+    But \f$\mu\f$\ is now found by solving a nonlinear problem 
+    \f$1 - 2 \mu A (4 \mu ^2 \epsilon^2 + \tau_d^2)^((n-1)/2) = 0 \f$
     numerically for mu at each point and integrating vertically.
-    Although an analytic solution does exist when n = 3, it is expensive/unreliable to compute
+    \f$\tau_d = \rho g h \nabla{s} \f$ is the gravitaional driving stress,
+    and its appearance means that vertical shear strains computed 
+    accoding to the shallow ice approximation are included in the 
+    effective viscosity (so that ice softens in the region of steep slopes).
+    Although an analytic solution does exist when n = 3, 
+    it is expensive/unreliable to compute
 */
 class L1L2ConstitutiveRelation : public ConstitutiveRelation
 {

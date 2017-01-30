@@ -176,8 +176,6 @@ public:
   {m_muCoefficientPtr = a_muCoefficientPtr->new_muCoefficient();}
 
   /// advance solution until either max_time or max_step are reached
-  /**
-   */
   void run(Real a_max_time, int a_max_step);
 
   /// compute one timestep
@@ -218,11 +216,15 @@ public:
 #ifdef CH_USE_HDF5
 
 private:
-  // General purpose storage for (small) metadata. Anything placed here
-  // will get written to the plot and checkpoint files on write 
-  // and read from checkpoint file on restart
-  
+  /// General purpose storage for (small) metadata.
+  /**  
+       Anything placed here will get written to the plot and 
+       checkpoint files on write and read from checkpoint file on restart 
+   */
   HDF5HeaderData m_headerData;
+
+  /// write BISICLES specific metadata to HDF5 attributes
+  void writeMetaDataHDF5(HDF5Handle& a_handle) const;
 
 public:
   void setHeader(const std::string& a_key, const std::string& a_val)
@@ -250,13 +252,23 @@ public:
   {
     a_val =  m_headerData.m_real[a_key];
   }
+
+  void writeAMRHierarchyHDF5(const string& filename,
+			     const Vector<DisjointBoxLayout>& a_grids,
+			     const Vector<LevelData<FArrayBox>* > & a_data,
+			     const Vector<string>& a_name,
+			     const Box& a_domain,
+			     const Real& a_dx,
+			     const Real& a_dt,
+			     const Real& a_time,
+			     const Vector<int>& a_ratio,
+			     const int& a_numLevels) const;
  
   /// write hdf5 plotfile to the standard location
   /** writes plotfile to the standard location; filename is
       <plot_root>.<step>.<DIM>d.hdf5
    */
   void writePlotFile();
-
 
   /// write checkpoint file out for later restarting
   /** writes checkpoint data to the standard location; filename is
@@ -308,6 +320,7 @@ public:
 			PetscNLSolver = 3,
 			FASMGAMR = 4,
 			Python = 5,
+			InverseVerticallyIntegrated = 6,
                         NUM_SOLVER_TYPES};
 
   void setTime(Real a_time)
@@ -320,6 +333,11 @@ public:
   {
     return m_time + m_offsetTime;
   };
+
+  Real dt() const
+  {
+    return m_dt;
+  }
 
   int finestLevel() const
   {
@@ -357,7 +375,7 @@ public:
     return m_velocity[a_level];
   };
 
-  const Vector<LevelData<FArrayBox>* >& amrVelocity() const
+  const Vector<LevelData<FArrayBox>* >& amrVelocity() 
   {
     return m_velocity;
   }
@@ -433,7 +451,7 @@ public:
   const LevelData<FArrayBox>* viscosityCoefficient(int a_level) const;
 
   /// access function for face-centered velocities
-  const Vector<LevelData<FluxBox>* >& faceVelocities() const {return m_faceVelTotal;}
+  const Vector<LevelData<FluxBox>* >& faceVelocities() {return m_faceVelTotal;}
 
   /// access function for layered face-centered velocities
   const Vector<LevelData<FluxBox>* >& faceVelocitiesLayered() const {return m_layerXYFaceXYVel;} 
@@ -496,8 +514,7 @@ protected:
   virtual void setBasalFriction(Vector<LevelData<FArrayBox>* >& a_C, Vector<LevelData<FArrayBox>* >& a_C0);
 
   /// set mu coefficient (phi) prior to velocity solve
-  virtual void setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef, 
-			Vector<LevelData<FluxBox>* >& a_faceMuCoef);
+  virtual void setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef);
 
   /// given the current cell centred velocity field, compute a face centred velocity field
   void computeFaceVelocity(Vector<LevelData<FluxBox>* >& a_faceVelAdvection,
@@ -885,6 +902,11 @@ protected:
   int m_velDx_tagVal_finestLevelGrounded;
   int m_velDx_tagVal_finestLevelFloating;
 
+  // tag thin ice shelf cavities. Refinining thin cavities 
+  // sometimes reveals pinning points
+  bool m_tag_thin_cavity;
+  Real m_tag_thin_cavity_thickness;
+
   /// tag at the ice margin
   bool m_tagMargin;
   int m_margin_tagVal_finestLevel;
@@ -994,7 +1016,7 @@ protected:
 
   //coefficient of mu in the stress tensor
   Vector<LevelData<FArrayBox>* > m_cellMuCoef;
-  Vector<LevelData<FluxBox>* > m_faceMuCoef;
+  //Vector<LevelData<FluxBox>* > m_faceMuCoef;
 
   // thickness diffusion coefficient
   Vector<LevelData<FluxBox>* > m_diffusivity;
@@ -1172,6 +1194,8 @@ protected:
   /// write a plot file every m_plot_time_interval years (rather than steps)
   Real m_plot_time_interval;
 
+  /// if true, reduce the number of fields written to plot files
+  bool m_reduced_plot;
 
   /// if true, include mask in plotfiles
   bool m_write_mask;
@@ -1214,9 +1238,15 @@ protected:
   //if true, allow velocity field to change in time
   bool m_evolve_velocity;
 
+  // if true, bedrock topogography evolves rather than surface in grounded ice
+  bool m_evolve_topography_fix_surface;
+
   //if true, keep floating or grounded ice stable;
   bool m_grounded_ice_stable ;
   bool m_floating_ice_stable ;
+  //if true, use the basal flux to set dhdt
+  bool m_floating_ice_basal_flux_is_dhdt;
+  bool m_grounded_ice_basal_flux_is_dhdt;
 
   /** if true, scale thickness sources (surface flux and basal flux) by 
       iceFrac values (allows for effective partial cells)
@@ -1283,6 +1313,75 @@ private:
   // Flag to stop double counting calved/removed ice
   bool m_thicknessIsRecorded;
 
+  // Observer-Observee implementation members.  
+  // Similar to the implementation in Chombo/lib/src/AMREllitic/Multigrid.H
+public:
+  class Observer {
+
+    friend class AmrIce;
+
+    AmrIce* m_observee;
+
+    // setObservee is private so that only friends (AmrIce) can access
+    void setObservee(AmrIce* a_amrIce)
+    {
+      m_observee = a_amrIce;
+    }
+
+    // clearObservee is private so that only friends (AmrIce) can access
+    void clearObservee()
+    {
+      m_observee = NULL;
+    }
+
+  public:
+
+    enum Notification {PostInitGrids,PostVelocitySolve,PostGeometryUpdate};
+    
+    virtual ~Observer()
+    {
+      if (m_observee != NULL)
+	{
+	  m_observee->removeObserver(this);
+	}
+    }
+
+    virtual void notify(const Notification, AmrIce&)=0;
+
+  };
+
+  void addObserver(Observer* a_observer)
+  {
+    // add a_observer to the list so long as it isn't there already
+    if (std::find(m_observers.begin(), m_observers.end(), a_observer) == m_observers.end())
+      {
+	m_observers.push_back(a_observer);
+	a_observer->setObservee(this);
+      }
+  }
+
+  void removeObserver(Observer* a_observer)
+  {
+    // remove observer from the list
+    std::vector<Observer*>::iterator it = std::find(m_observers.begin(), m_observers.end(), a_observer);
+    if ( it != m_observers.end())
+      {
+	a_observer->clearObservee();
+	m_observers.erase(it);
+      }
+  }
+
+
+private:
+
+  std::vector<Observer*> m_observers; //needs to be a std::vector for begin(), end()
+
+  /// notify observers that something or other has occured
+  void notifyObservers(const Observer::Notification a_n)
+  {
+    for (int i = 0; i < m_observers.size(); i++)
+      m_observers[i]->notify(a_n, *this);
+  }
 
 };  
   

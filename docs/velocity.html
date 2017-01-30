@@ -1,0 +1,84 @@
+<html>
+<head>
+  <title>BISICLES ice velocity</title>
+  <link href="bikedoc.css" rel="stylesheet" type="text/css"/>
+</head>
+<body>
+
+<div id="head">
+<ul>
+<li><a href='index.html'>Index page<a/> </li>
+<li><a href='#top'>Top of page<a/> </li>
+</ul>
+<h1>Contents</h1>
+  <ol start=0>
+    <li><a href='#jfnk'>JFNK Solver</a> 
+    <li><a href='#known'>Known Velocity</a>  
+    <li><a href='#snes'>Petsc Nonlinear Solver</a> [EXPERIMENTAL] 
+    <li><a href='#fas'>FASMGAMR</a> [EXPERIMENTAL] 
+    <li><a href='#python'>Python</a>  </li>
+    <li><a href='#inversevi'>Inverse Vertically Integrated Velocity Solver</a></li>
+  </ol>
+</div>
+
+<div id="main">
+
+<h1>BISICLES ice velocity</h1>
+
+<p>
+  The ice velocity  calculation depends at minumum on the <a href='geometry.html'>ice sheet geometry</a> and 
+  <a href='stress.html'>the in-ice and basal stresses</a>. It may also depend on 
+  the <a href='thermodynamics.html'>thermodynamics</a> and other factors that influence the in-ice and basal stresses.
+</p>
+
+<p>
+  If you have built the doxygen code documentation, the C++ class hierarchy underlying
+  the ice velocity calculation is described at
+  <a href='../code/doc/doxygen/html/classIceVelocitySolver.html'>classIceVelocitySolver.html</a>
+</p>
+
+<p>
+  An ice velocity model is specified at run time by setting
+</p>
+<pre>
+  amr.velocity_solver_type = &lt integer solver_type, default 1 &gt
+</pre>
+<p>
+  Additional options include
+</p>
+<pre>
+  amr.velocity_solver_interval = &lt integer n, default 1 &gt recompute the velocity every n timesteps.
+  amr.regrid_interval = &lt integer m, default 1 &gt recompute the mesh and velocity every m timesteps.
+</pre>
+
+<p>
+Options for  &lt solver_type &gt are
+</p> 
+  <ol start=0>
+    <li><a href='#picard'>Picard Solver</a> [deprecated, because the JFNKSolver provides the same functionality]
+    <li><a href='#jfnk'>JFNK Solver</a> (the default) solves the vertically integrated (SSA, L1L2) stress equations using a matrix-free Newton method. 
+    <li><a href='#known'>Known Velocity</a>  specifies a known velocity  
+    <li><a href='#snes'>Petsc Nonlinear Solver</a> [EXPERIMENTAL] solves the vertically integrated (SSA, L1L2) stress equations using a PETSc SNES. 
+    <li><a href='#fas'>FASMGAMR</a> [EXPERIMENTAL] A full-approximation storage solver for   the vertically integrated (SSA, L1L2) stress equations.
+    <li><a href='#python'>Python</a> specifies velocity through the python interface </li>
+    <li><a href='#inversevi'>Inverse Vertically Integrated Velocity Solver</a> Estimates the basal friction and stiffness coefficents in order to 
+      provide a velocity field that fits observations.
+  </ol>
+
+
+
+<h2><a name='jfnk'>JFNK Solver </a></h2>
+
+<h2><a name='#known'>Known Velocity</a> </h2>
+
+<h2><a name='snes'>Petsc Nonlinear Solver</a></h2>
+
+<h2><a name='fas'>FASMGAMR</a></h2>
+
+<h2><a name='pythin'>Python</a></h2>
+
+<h2><a name='inversevi'>Inverse Vertically Integrated Velocity Solver </a></h2>
+</div>
+
+</body>
+</html>

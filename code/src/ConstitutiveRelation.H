@@ -20,9 +20,16 @@
 
 
 
-/// class which encapsulates the constitutive relation for ice
-/** This class is computes \f$\mu_{AS}\f$ such that (stress =
-    \f$\mu_{AS}\f$*strainrate ) assuming that \f$\mu_{AS}\f$ = mu(vel,theta)
+/// Abstract class around the englacial constitutive relations for ice
+/** 
+    Specifies an interface for the calculation of the effecive viscosity
+    \f$\mu\f$ such that (stress = \f$\mu\f$*strainrate ) assuming that \f$\mu = \mu(\nabla(\vec{u}),A(T)) \f$. 
+    
+    Also specifies (and provides a default implementation) for the default rate of strain heating (mu * stress * strainrate)
+
+    Run-time configuration is carried out in ConstitutiveRelation::parse.
+  
+
 */
 class 
 ConstitutiveRelation
@@ -32,20 +39,18 @@ public:
 
   static ConstitutiveRelation* parse(const char* a_prefix);
 
-  /// default constructor
   ConstitutiveRelation() {;}
 
-  /// 
   virtual ~ConstitutiveRelation() {;}
-  
-  /// computes cell-centered \f$\mu_{AS}\f$ based on the cell-centered velocity
+ 
+  /// Compute cell-centered \f$\mu\f$ based on the cell-centered velocity
   /** 
-     \param a_mu -- \f$\mu_{AS}\f$ based on the local velocity field. 
-     \param a_vel -- Cell-centered velocity field.
-     \param a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-                         (NULL if no coarser level)
-     \param a_nRefCrse -- refinement ratio to next coarser level
-     \param a_A: Cell-centered flow law coefficient (glenn's A) field
+      
+     \param a_mu \f$\mu\f$ based on the local velocity field. 
+     \param a_vel Cell-centered velocity field.
+     \param a_crseVel Next coarser level velocity field (for coarse-fine bc's). (NULL if no coarser level)
+     \param a_nRefCrse refinement ratio to next coarser level
+     \param a_A Cell- and layer-centered flow law coefficient (Glenn's \f$ A \f$ )  field
      \param a_coordSys: LevelSigmaCS object containing the ice-sheet geometry
      \param a_ghostVect: how the boxes on which we want to compute mu compare
                          with the DisjointBoxLayout. (can be negative)
@@ -60,19 +65,19 @@ public:
                          const IntVect& a_ghostVect = IntVect::Zero) const = 0;
 
   
-  /// Compute a cell centred bulk dissipation 
-  /// \f$\Phi/(\rho _i c _i) = \sigma_ij \epsilon _ji /(\rho _i c _i) \f$ 
-  /// (heat source) at the cell centres. This ought to have the same dependencies 
-  /// as cell centred mu
+
   /**
-     a_dissipation -- \f$\Phi\f$ based on the local velocity field.
-     a_vel -- Cell-centered velocity field.
-     a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-                         (NULL if no coarser level)
-     a_nRefCrse -- refinement ratio to next coarser level
-     a_A: Cell-centered flow law coefficient (glenn's A) field
-     a_coordSys:  SigmaCS object containing the geometry of this patch.
-     a_box: cell-centered box over which to do this computation
+
+     \brief Compute a cell centred bulk dissipation \f$\Phi/(\rho _i c _i) = \tau_{ij} \epsilon _{ji} /(\rho _i c _i) \f$ 
+     (heat source) at the cell centres. This ought to have the same dependencies  as cell centred mu
+
+     \param a_dissipation  \f$\Phi\f$ based on the local velocity field.
+     \param a_vel Cell-centered velocity field.
+     \param a_crseVel Next coarser level velocity field for coarse-fine bc's (NULL if no coarser level)
+     \param a_nRefCrse refinement ratio to next coarser level
+     \param a_A Cell- and layer-centered flow law coefficient (Glenn's \f$ A \f$ )  field
+     \param a_coordSys  LevelSigmaCS object containing the geometry of this level.
+     \param a_box cell-centered box over which to do this computation
   **/
   virtual void computeDissipation(LevelData<FArrayBox>& a_dissipation,
 				  const LevelData<FArrayBox>& a_cellVel,
@@ -83,16 +88,16 @@ public:
 				  const ProblemDomain& a_domain,
 				  const IntVect& a_ghostVect = IntVect::Zero) const = 0; 
 
-  // computes face-centered \f$\mu_{AS}\f$ based on cell-centered velocity
+  /// compute face-centered effective viscosity \f$\mu\f$ based on cell-centered velocity
   /** 
-      \param a_mu: face-centered \f$\mu_{AS}\f$ based on the local velocity field.
-      \param a_vel: Cell-centered velocity field.
-      \param a_A: Cell-centered flow law coefficient (glenn's A) field
-      \param a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-                          (NULL if no coarser level)
-      \param a_nRefCrse -- refinement ratio to next coarser level
-      \param a_coordSys: LevelSigmaCS object containing the geometry of this patch
-      \param a_ghostVect: how the boxes on which we want to compute mu compare
+      \param a_mu face-centered \f$\mu\f$ based on the local velocity field.
+      \param a_vel Cell-centered velocity field.
+      \param a_A Cell- and layer-centered flow law coefficient (Glenn's \f$ A \f$ )  field
+      \param a_crseVel Next coarser level velocity field for coarse-fine bc's (NULL if no coarser level)
+                   
+      \param a_nRefCrse refinement ratio to next coarser level
+      \param a_coordSys LevelSigmaCS object containing the geometry of this level
+      \param a_ghostVect how the boxes on which we want to compute mu compare
                          with the DisjointBoxLayout. (can be negative)
   */  
   virtual void computeFaceMu(LevelData<FluxBox>& a_mu,
@@ -108,7 +113,7 @@ public:
   /// creates a new copy of this  ConstitutiveRelation object.
   virtual ConstitutiveRelation* getNewConstitutiveRelation() const = 0;
 
-  /// compute cell-centered epsilon^2
+  /// compute cell-centered strainrate invariant epsilon^2
   void computeStrainRateInvariant(LevelData<FArrayBox>& a_epsilonSquared,
                                   const LevelData<FArrayBox>& a_velocity,
                                   const LevelData<FArrayBox>* a_crseVel,
@@ -116,7 +121,7 @@ public:
                                   const LevelSigmaCS& a_coordSys,
                                   const IntVect& a_ghostVect = IntVect::Zero) const;
 
-  /// compute face-centered epsilon^2 based on cell-centered velocity
+  /// compute face-centered strainrate invariant epsilon^2 based on cell-centered velocity
   void computeStrainRateInvariantFace(LevelData<FluxBox>& a_epsilonSquared,
                                       LevelData<FArrayBox>& a_velocity,
                                       const LevelData<FArrayBox>* a_crseVel,
@@ -124,8 +129,7 @@ public:
                                       const LevelSigmaCS& a_coordSys,
                                       const IntVect& a_ghostVect = IntVect::Zero) const;  
 
-  /// compute cell-centered epsilon^2 and velocity gradients.
-  /// no more costly than just computing epsilon^2
+  /// compute cell-centered strainrate invariant epsilon^2 and velocity gradients. No  more costly than just computing epsilon^2
   void computeStrainRateInvariant(LevelData<FArrayBox>& a_epsilonSquared,
 				  LevelData<FArrayBox>& a_gradVelocity,
                                   const LevelData<FArrayBox>& a_velocity,
@@ -134,8 +138,7 @@ public:
                                   const LevelSigmaCS& a_coordSys,
                                   const IntVect& a_ghostVect = IntVect::Zero) const;
 
-  /// compute face-centered epsilon^2 and velocity gradients
-  /// based on cell-centered velocity. no more costly than just computing epsilon^2
+  /// compute face-centered strainrate invariant epsilon^2 and velocity gradients based on cell-centered velocity. No more costly than just computing epsilon^2
   void computeStrainRateInvariantFace(LevelData<FluxBox>& a_epsilonSquared,
 				      LevelData<FluxBox>& a_gradVelocity,
                                       LevelData<FArrayBox>& a_velocity,
@@ -144,15 +147,10 @@ public:
                                       const LevelSigmaCS& a_coordSys,
                                       const IntVect& a_ghostVect = IntVect::Zero) const;  
 
-  //virtual Real power() const = 0;
-
 protected:
 
 };
  
-
-
-
 /// rate factor A(T) in (e.g) Glen's law  
 class RateFactor 
 {
@@ -383,32 +381,32 @@ public:
 };
 
 
-/// implementation of Glen's flow law constitutive relation
-/** The  GlensFlowRelation class is publicly derived from the 
-    ConstitutiveRelation Class and uses Glen's flow law, as described
-    in Dukowicz, Et Al (2009)
+/// Implements  ConstitutiveRelation to give Glen's flow law.
+/** 
+    Glen's flow law. Computes an effective viscosity from strain-rate \f$ \dot{\epsilon}_{ij} \f$ 
+    such that the stress \f$ \tau _ij \f$ satifies
+    
+    \f $\tau^2 \tau _ij = 2 A \dot{\epsilon}_{ij} \f$ 
+    
+    Run-time configuration is carried out in ConstitutiveRelation::parse
+    A  GlensFlowRelation object will be created if the string
+    `A.constitutiveRelation =  GlensLaw` is found. Options are:
+    
+     - GlensLaw.n = <float> - the power in Glen's flow law, default (3.0)
+     - GlensLaw.epsSqr0 = <float> - regularization at low strain rates. Default 1e-12
+     - GlensLaw.delta = <float> - regularization at high strain rates. Default 0.0
+
 */
 class GlensFlowRelation: public ConstitutiveRelation
 {
 public:
-  ///
+
   GlensFlowRelation();
 
   virtual ~GlensFlowRelation();
 
 
-  /// computes cell-centered \f$\mu_{AS}\f$ based on the cell-centered velocity
-  /**
-     a_mu -- \f$\mu_{AS}\f$ based on the local velocity field.
-     a_vel -- Cell-centered velocity field.
-     a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-                         (NULL if no coarser level)
-     a_nRefCrse -- refinement ratio to next coarser level
-     a_A: Cell-centered flow law coefficient (glenn's A) field
-     a_coordSys:  SigmaCS object containing the geometry of this patch.
-     a_ghostVect -- how the boxes over which we want to compute mu relate 
-                    to those in the DisjointBoxLayout (can be negative)
-  */
+
   virtual void computeMu(LevelData<FArrayBox>& a_mu,
                          const LevelData<FArrayBox>& a_vel, 
                          const LevelData<FArrayBox>* a_crseVel,
@@ -418,20 +416,6 @@ public:
 			 const ProblemDomain& a_domain,
                          const IntVect& a_ghostVect = IntVect::Zero) const;
   
-  /// Compute a cell centred bulk dissipation 
-  /// \f$\Phi/(\rho _i c _i) = \sigma_ij \epsilon _ji /(\rho _i c _i) \f$ 
-  /// (heat source) at the cell centres. This ought to have the same dependencies 
-  /// as cell centred mu
-  /**
-     a_dissipation -- \f$\Phi\f$ based on the local velocity field.
-     a_vel -- Cell-centered velocity field.
-     a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-                         (NULL if no coarser level)
-     a_nRefCrse -- refinement ratio to next coarser level
-     a_A: Cell-centered flow law coefficient (glenn's A) field
-     a_coordSys:  SigmaCS object containing the geometry of this patch.
-     a_box: cell-centered box over which to do this computation
-  **/
   virtual void computeDissipation(LevelData<FArrayBox>& a_dissipation,
 				  const LevelData<FArrayBox>& a_vel, 
 				  const LevelData<FArrayBox>* a_crseVel,
@@ -441,17 +425,6 @@ public:
 				  const ProblemDomain& a_domain,
 				  const IntVect& a_ghostVect = IntVect::Zero) const;
 
-  // computes face-centered \f$\mu_{AS}\f$ based on cell-centered velocity
-  /** a_mu: face-centered \f$\mu_{AS}\f$ based on the local velocity field.
-      a_vel: Cell-centered velocity field.
-      a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-                         (NULL if no coarser level)
-      a_nRefCrse -- refinement ratio to next coarser level
-      a_A: Cell-centered flow law coefficient (glenn's A) field
-      a_coordSys: SigmaCS object containing the geometry of this patch.
-      a_ghostVect -- how the boxes over which we want to compute mu relate 
-                     to those in the DisjointBoxLayout (can be negative) 
-  */  
   virtual void computeFaceMu(LevelData<FluxBox>& a_mu,
                              LevelData<FArrayBox>& a_vel, 
                              const LevelData<FArrayBox>* a_crseVel,
@@ -461,78 +434,6 @@ public:
 			     const ProblemDomain& a_domain,
                              const IntVect& a_ghostVect = IntVect::Zero) const;
 
-#if 0 // getting rid of computeFaceFluxVelocity
-#if BISICLES_Z == BISICLES_LAYERED
-  // in the 2D case, we need two velocities : a 2D, 2 component field which appears
-  // in the thickness evolution equation and a 3D field for temperature advection.
-  // The 3D field is split into a LevelData<FluxBox> a_layerXYFaceXYVel  of 
-  // horizontal velocities at horizontal faces,
-  // each FluxBox having n components, and a LevelData<FArrayBox> a_layerSFaceXYVel of 
-  // horizontal velocities at sigma faces, each FArrayBox having (n+1)*SpaceDim 
-  // components, and 0 < direction index < SpaceDim running faster than layer index 
-  
-  // In the SSA case, the velocity doesn't vary in z, so we just can copy it
-  virtual void computeFaceFluxVelocity(const LevelData<FArrayBox>& a_cellVel,
-                                       const LevelData<FArrayBox>* a_crseVel,
-                                       int nRefCrse,
-				       const LevelSigmaCS& a_coordSys,
-				       const DisjointBoxLayout& a_grids,
-				       const ProblemDomain& a_domain,
-				       const LevelData<FArrayBox>& a_A,
-				       const LevelData<FArrayBox>& a_sTheta,
-				       const LevelData<FArrayBox>& a_bTheta,
-				       LevelData<FluxBox>& a_faceVel,
-				       LevelData<FluxBox>& a_layerXYFaceXYVel,
-				       LevelData<FArrayBox>& a_layerSFaceXYVel) const
-  {
-    CellToEdge(a_cellVel, a_faceVel);
-    
-    for (int j = 0; j < a_layerXYFaceXYVel.nComp(); ++j)
-      {
-	a_faceVel.copyTo(Interval(0,0), a_layerXYFaceXYVel, Interval(j,j));
-      }
-
-    for (int j = 0; j < a_layerSFaceXYVel.nComp(); j+=SpaceDim)
-      {
-	a_cellVel.copyTo(Interval(0,SpaceDim-1), a_layerSFaceXYVel, 
-			 Interval(j,j+SpaceDim-1));
-      }
-
-
-  }  
-#elif BISICLES_Z == BISICLES_FULLZ
-  virtual void computeFaceFluxVelocity(const LevelData<FArrayBox>& a_cellVel,
-                                       const LevelData<FArrayBox>* a_crseVel,
-                                       int nRefCrse,
-				       const LevelSigmaCS& a_coordSys,
-				       const DisjointBoxLayout& a_grids,
-				       const ProblemDomain& a_domain,
-				       const LevelData<FArrayBox>& a_A,
-				       LevelData<FluxBox>& a_faceVel) const
-  {
-    MayDay::Error(" 3D face velocities not done");
-  }
-  
-#endif
-#endif  // getting rid of computeFaceFluxVelocity
-
-
-#if 0
-  /// computes face-centered \f$\mu_{AS}\f$ for a single face direction 
-  /**
-     a_mu: face-centered \f$\mu_{AS}\f$ based on the local velocity field.
-     a_vel: Cell-centered velocity field.
-     a_coordSys: SigmaCS object containing the geometry of this patch.
-     a_box: face-centered box over which to do this computation
-     a_dir: face direction
-  */
-  virtual void computeFaceMu(FArrayBox& a_mu,
-                             const FArrayBox& a_vel, 
-                             const FArrayBox& a_A,
-                             const LevelSigmaCS& a_coordSys,
-                             const Box& a_box,
-                             int a_dir) const;
-#endif
 
   virtual void setDefaultParameters();
 
@@ -542,10 +443,6 @@ public:
 
   /// creates a new copy of this ConstitutiveRelation object.
   virtual ConstitutiveRelation* getNewConstitutiveRelation() const;
-
-  /* these are all parameters used to compute the temprature-dependent
-     part of the effective viscosity mu_0, based on (Pattyn, 2003)
-  */
   
   /// Power law exponent
   Real m_n;
@@ -583,17 +480,6 @@ public:
   virtual ~constMuRelation();
 
 
-  /// computes cell-centered \f$\mu_{AS}\f$ based on the cell-centered velocity
-  /**
-     a_mu -- \f$\mu_{AS}\f$ based on the local velocity field.
-     a_vel -- Cell-centered velocity field.
-     a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-                         (NULL if no coarser level)
-     a_nRefCrse -- refinement ratio to next coarser level
-     a_A: Cell-centered flow law coefficient (glenn's A) field
-     a_coordSys:  SigmaCS object containing the geometry of this patch.
-     a_box: cell-centered box over which to do this computation
-  */
   virtual void computeMu(LevelData<FArrayBox>& a_mu,
                          const LevelData<FArrayBox>& a_vel, 
                          const LevelData<FArrayBox>* a_crseVel,
@@ -603,20 +489,7 @@ public:
 			 const ProblemDomain& a_domain,
                          const IntVect& a_ghostVect = IntVect::Zero) const;
 
-  /// Compute a cell centred bulk dissipation 
-  /// \f$\Phi/(\rho _i c _i) = \sigma_ij \epsilon _ji /(\rho _i c _i) \f$ 
-  /// (heat source) at the cell centres. This ought to have the same dependencies 
-  /// as cell centred mu
-  /**
-     a_dissipation -- \f$\Phi\f$ based on the local velocity field.
-     a_vel -- Cell-centered velocity field.
-     a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-                         (NULL if no coarser level)
-     a_nRefCrse -- refinement ratio to next coarser level
-     a_A: Cell-centered flow law coefficient (glenn's A) field
-     a_coordSys:  SigmaCS object containing the geometry of this patch.
-     a_box: cell-centered box over which to do this computation
-  **/
+
   virtual void computeDissipation(LevelData<FArrayBox>& a_dissipation,
 				  const LevelData<FArrayBox>& a_vel, 
 				  const LevelData<FArrayBox>* a_crseVel,
@@ -626,16 +499,7 @@ public:
 				  const ProblemDomain& a_domain,
 				  const IntVect& a_ghostVect = IntVect::Zero) const;
 
-  // computes face-centered \f$\mu_{AS}\f$ based on cell-centered velocity
-  /** a_mu: face-centered \f$\mu_{AS}\f$ based on the local velocity field.
-      a_vel: Cell-centered velocity field.
-     \param a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-                         (NULL if no coarser level)
-     \param a_nRefCrse -- refinement ratio to next coarser level
-      a_A: Cell-centered flow law coefficient (glenn's A) field
-      a_coordSys: SigmaCS object containing the geometry of this patch.
-      a_box: cell-centered box over which to do this computation
-  */  
+ 
   virtual void computeFaceMu(LevelData<FluxBox>& a_mu,
                              LevelData<FArrayBox>& a_vel, 
                              const LevelData<FArrayBox>* a_crseVel,
@@ -646,92 +510,13 @@ public:
                              const IntVect& a_ghostVect = IntVect::Zero) const;
 
 
-#if 0
-  /// computes face-centered \f$\mu_{AS}\f$ for a single face direction 
-  /**
-     a_mu: face-centered \f$\mu_{AS}\f$ based on the local velocity field.
-     a_vel: Cell-centered velocity field.
-     \param a_crseVel -- coarse-level velocity field (for coarse-fine bc's).
-                         (NULL if no coarser level)
-     \param a_nRefCrse -- refinement ratio to next coarser level
-     a_coordSys: SigmaCS object containing the geometry of this patch.
-     a_box: face-centered box over which to do this computation
-     a_dir: face direction
-  */
-  virtual void computeFaceMu(FArrayBox& a_mu,
-                             const FArrayBox& a_vel, 
-                             const FArrayBox& a_A,
-                             const LevelSigmaCS& a_coordSys,
-                             const Box& a_box,
-                             int a_dir) const;
-#endif
-#if 0 // getting rid of computeFaceFluxVelocity
-  #if BISICLES_Z == BISICLES_LAYERED
-  // in the 2D case, we need two velocities : a 2D, 2 component field which appears
-  // in the thickness evolution equation and a 3D field for temperature advection.
-  // The 3D field is split into a LevelData<FluxBox> a_layerXYFaceXYVel  of 
-  // horizontal velocities at horizontal faces,
-  // each FluxBox having n components, and a LevelData<FArrayBox> a_layerSFaceXYVel of 
-  // horizontal velocities at sigma faces, each FArrayBox having (n+1)*SpaceDim 
-  // components, and 0 < direction index < SpaceDim running faster than layer index 
-  
-  // In the const mu case, 
-  // the velocity doesn't vary in z, so we just can copy it
-  virtual void computeFaceFluxVelocity(const LevelData<FArrayBox>& a_cellVel,
-                                       const LevelData<FArrayBox>* a_crseVel,
-                                       int nRefCrse,
-				       const LevelSigmaCS& a_coordSys,
-				       const DisjointBoxLayout& a_grids,
-				       const ProblemDomain& a_domain,
-				       const LevelData<FArrayBox>& a_A,
-				       const LevelData<FArrayBox>& a_sTheta,
-				       const LevelData<FArrayBox>& a_bTheta,
-				       LevelData<FluxBox>& a_faceVel,
-				       LevelData<FluxBox>& a_layerXYFaceXYVel,
-				       LevelData<FArrayBox>& a_layerSFaceXYVel) const
-  {
-    CellToEdge(a_cellVel, a_faceVel);
-    
-    for (int j = 0; j < a_layerXYFaceXYVel.nComp(); ++j)
-      {
-	a_faceVel.copyTo(Interval(0,0), a_layerXYFaceXYVel, Interval(j,j));
-      }
 
-    for (int j = 0; j < a_layerSFaceXYVel.nComp(); j+=SpaceDim)
-      {
-	a_cellVel.copyTo(Interval(0,SpaceDim-1), a_layerSFaceXYVel, 
-			 Interval(j,j+SpaceDim-1));
-      }
-
-
-  }  
-#elif BISICLES_Z == BISICLES_FULLZ
-  virtual void computeFaceFluxVelocity(const LevelData<FArrayBox>& a_cellVel,
-                                       const LevelData<FArrayBox>* a_crseVel,
-                                       int nRefCrse,
-				       const LevelSigmaCS& a_coordSys,
-				       const DisjointBoxLayout& a_grids,
-				       const ProblemDomain& a_domain,
-				       const LevelData<FArrayBox>& a_A,
-				       LevelData<FluxBox>& a_faceVel) const
-  {
-    MayDay::Error(" 3D face velocities not done");
-  }
-  
-#endif
-#endif  // getting rid of computeFaceFluxVelocity
   virtual void setDefaultParameters();
 
   virtual void setConstVal(Real a_mu) {m_mu = a_mu;}
 
-
-  /// creates a new copy of this  ConstitutiveRelation object.
   virtual ConstitutiveRelation* getNewConstitutiveRelation() const;
 
-  /* these are all parameters used to compute the temprature-dependent
-     part of the effective viscosity mu_0, based on (Pattyn, 2003)
-  */
-  
   // constant value of mu
   Real m_mu;
 

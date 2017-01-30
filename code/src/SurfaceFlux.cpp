@@ -9,6 +9,7 @@
 #endif
 
 #include "SurfaceFlux.H"
+#include "ComplexSurfaceFlux.H"
 #include "LevelDataSurfaceFlux.H"
 #include "GroundingLineLocalizedFlux.H"
 #include "HotspotFlux.H"
@@ -19,6 +20,7 @@
 #include "IceConstants.H"
 #include "FineInterp.H"
 #include "CoarseAverage.H"
+#include "computeNorm.H"
 #include "BisiclesF_F.H"
 #include "ParmParse.H"
 #include "AmrIceBase.H"
@@ -611,7 +613,64 @@ void PiecewiseLinearFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 }
 
 
-SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
+
+
+
+/// factory method
+/** return a pointer to a new SurfaceFlux object
+ */
+SurfaceFlux* NormalizedFlux::new_surfaceFlux()
+{
+  return static_cast<SurfaceFlux*>(new NormalizedFlux(m_direction, m_amplitude));
+}
+
+NormalizedFlux::NormalizedFlux(SurfaceFlux* a_direction, const Real& a_amplitude)
+{
+  m_direction = a_direction->new_surfaceFlux();
+  m_amplitude = a_amplitude;
+}
+
+NormalizedFlux::~NormalizedFlux()
+{
+  if (m_direction != NULL)
+    {
+      delete m_direction; m_direction = NULL;
+    }
+}
+
+void NormalizedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+					  const AmrIceBase& a_amrIce, 
+					  int a_level, Real a_dt)
+{
+  // Need to compute the norm over *all* the levels, which will
+  // mean that under typical circumstances the flux and its norm is computed n_level times.
+  // alternatives would involve risky assumptions or interface redesign
+
+  Vector<LevelData<FArrayBox>*>  flux;
+  for (int lev = 0; lev <= a_amrIce.finestLevel(); lev++)
+    {
+      flux.push_back(new LevelData<FArrayBox>(a_amrIce.grids(lev), a_flux.nComp(), a_flux.ghostVect()));
+      m_direction->surfaceThicknessFlux(*flux[lev], a_amrIce, lev, a_dt );
+    }
+  Real norm = computeNorm(flux, a_amrIce.refRatios(), a_amrIce.dx(0)[0],  Interval(0,0), 1);
+  for (int lev = 0; lev <= a_amrIce.finestLevel(); lev++)
+    {
+      if (flux[lev] != NULL)
+	{
+	  delete flux[lev]; flux[lev] = NULL;
+	}
+    }			  
+  m_direction->surfaceThicknessFlux(a_flux, a_amrIce, a_level, a_dt );
+  Real factor = m_amplitude/norm;
+  for (DataIterator dit (a_flux.disjointBoxLayout()); dit.ok(); ++dit)
+    {
+      a_flux[dit] *= factor;
+    }
+}
+
+
+
+SurfaceFlux* SurfaceFlux::parse(const char* a_prefix)
 {
   
   SurfaceFlux* ptr = NULL;
@@ -713,7 +772,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
     {
       std::string flux1Prefix(a_prefix);
       flux1Prefix += ".flux1";
-      SurfaceFlux* flux1Ptr = parseSurfaceFlux(flux1Prefix.c_str());
+      SurfaceFlux* flux1Ptr = parse(flux1Prefix.c_str());
       if (flux1Ptr == NULL)
 	{
 	  MayDay::Error("undefined flux1 in productFlux");
@@ -721,7 +780,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
 
       std::string flux2Prefix(a_prefix);
       flux2Prefix += ".flux2";
-      SurfaceFlux* flux2Ptr = parseSurfaceFlux(flux2Prefix.c_str());
+      SurfaceFlux* flux2Ptr = parse(flux2Prefix.c_str());
       if (flux2Ptr == NULL)
 	{
 	  MayDay::Error("undefined flux2 in productFlux");
@@ -740,7 +799,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
     {
       std::string groundedPrefix(a_prefix);
       groundedPrefix += ".grounded";
-      SurfaceFlux* groundedPtr = parseSurfaceFlux(groundedPrefix.c_str());
+      SurfaceFlux* groundedPtr = parse(groundedPrefix.c_str());
       if (groundedPtr == NULL)
 	{
 	  groundedPtr = new zeroFlux;
@@ -748,7 +807,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
  
       std::string floatingPrefix(a_prefix);
       floatingPrefix += ".floating";
-      SurfaceFlux* floatingPtr = parseSurfaceFlux(floatingPrefix.c_str());
+      SurfaceFlux* floatingPtr = parse(floatingPrefix.c_str());
       if (floatingPtr == NULL)
 	{
 	  floatingPtr = new zeroFlux;
@@ -756,7 +815,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
 
       std::string openLandPrefix(a_prefix);
       openLandPrefix += ".openLand";
-      SurfaceFlux* openLandPtr = parseSurfaceFlux(openLandPrefix.c_str());
+      SurfaceFlux* openLandPtr = parse(openLandPrefix.c_str());
       if (openLandPtr == NULL)
 	{
 	  openLandPtr = groundedPtr->new_surfaceFlux();
@@ -765,7 +824,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
       
       std::string openSeaPrefix(a_prefix);
       openSeaPrefix += ".openSea";
-      SurfaceFlux* openSeaPtr = parseSurfaceFlux(openSeaPrefix.c_str());
+      SurfaceFlux* openSeaPtr = parse(openSeaPrefix.c_str());
       if (openSeaPtr == NULL)
 	{
 	  openSeaPtr = floatingPtr->new_surfaceFlux();
@@ -797,7 +856,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
            
       std::string prefix(a_prefix);
       prefix += ".flux";
-      SurfaceFlux* fluxPtr = parseSurfaceFlux(prefix.c_str());
+      SurfaceFlux* fluxPtr = parse(prefix.c_str());
       CH_assert(fluxPtr != NULL);
       BoxBoundedFlux bbf(lo,hi,time[0],time[1],fluxPtr);
       ptr = static_cast<SurfaceFlux*>(bbf.new_surfaceFlux());
@@ -810,14 +869,14 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
      
      std::string xpre(a_prefix);
      xpre += ".x";
-     SurfaceFlux* x = parseSurfaceFlux(xpre.c_str());
+     SurfaceFlux* x = parse(xpre.c_str());
      
      Real b; 
      pp.get("b",b);
      
      std::string ypre(a_prefix);
      ypre += ".y";
-     SurfaceFlux* y = parseSurfaceFlux(ypre.c_str());
+     SurfaceFlux* y = parse(ypre.c_str());
     
      AxbyFlux axbyFlux(a,x,b,y);
      ptr = static_cast<SurfaceFlux*>(axbyFlux.new_surfaceFlux());
@@ -841,7 +900,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
 	 sprintf(s,"%i",i);
 	 prefix += s;
 	 ParmParse pe(prefix.c_str());
-	 elements[i] = parseSurfaceFlux(prefix.c_str());
+	 elements[i] = parse(prefix.c_str());
 	 CH_assert(elements[i] != NULL);
 	 
        }
@@ -849,6 +908,19 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
      ptr = static_cast<SurfaceFlux*>(compositeFlux.new_surfaceFlux());
    
    }
+  else if (type == "normalizedFlux")
+   {
+     
+     Real amplitude;
+     pp.get("amplitude",amplitude);
+     std::string prefix(a_prefix);
+     prefix += ".direction";
+     SurfaceFlux* direction = parse(prefix.c_str());
+     NormalizedFlux flux(direction, amplitude);
+     ptr = static_cast<SurfaceFlux*>(flux.new_surfaceFlux());
+   
+   }
+
   else if (type == "groundingLineLocalizedFlux")
     {
       Real powerOfThickness = 0.0;
@@ -856,7 +928,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
 
       std::string glPrefix(a_prefix);
       glPrefix += ".groundingLine";
-      SurfaceFlux* glPtr = parseSurfaceFlux(glPrefix.c_str());
+      SurfaceFlux* glPtr = parse(glPrefix.c_str());
       if (glPtr == NULL)
 	{
 	  glPtr = new zeroFlux;
@@ -864,7 +936,7 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
        
       std::string ambientPrefix(a_prefix);
       ambientPrefix += ".ambient";
-      SurfaceFlux* ambientPtr = parseSurfaceFlux(ambientPrefix.c_str());
+      SurfaceFlux* ambientPtr = parse(ambientPrefix.c_str());
       if (ambientPtr == NULL)
 	{
 	  ambientPtr = new zeroFlux;
@@ -917,6 +989,8 @@ SurfaceFlux* SurfaceFlux::parseSurfaceFlux(const char* a_prefix)
   return ptr;
   
 }
+
+
 
 
 #ifdef HAVE_PYTHON

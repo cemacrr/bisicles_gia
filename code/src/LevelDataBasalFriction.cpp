@@ -13,8 +13,8 @@
 #include "ReadLevelData.H"
 #include "NamespaceHeader.H"
 
-/// define basal friction coefficient C and place in a_betaSqr
-/** Either copy data from a single stored level, or load files as needed
+// define basal friction coefficient C and place in a_betaSqr
+/* Either copy data from a single stored level, or load files as needed
     depending on a_time
 */
 void LevelDataBasalFriction::setBasalFriction(LevelData<FArrayBox>& a_C,
@@ -94,8 +94,8 @@ void LevelDataBasalFriction::setBasalFriction(LevelData<FArrayBox>& a_C,
     } // end if (m_timeFileMap != NULL)
 }
 
-/// define basal friction coefficient C and place in a_betaSqr
-/** Copy data from a single stored AMR HIerarchy
+// define basal friction coefficient C and place in a_betaSqr
+/* Copy data from a single stored AMR HIerarchy
  */
 void MultiLevelDataBasalFriction::setBasalFriction(LevelData<FArrayBox>& a_C, 
 						   RealVect a_dx,

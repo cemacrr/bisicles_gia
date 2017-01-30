@@ -3,9 +3,28 @@
   <title>
     BISICLES Pine Island Glacier application
   </title>
+  <link href="bikedoc.css" rel="stylesheet" type="text/css"/>
 <head>
 <body>
-<a href='index.html'>User documentation index<a/>
+
+<div id="head">
+<ul>
+<li><a href='index.html'>Index page<a/> </li>
+<li><a href='#top'>Top of page<a/> </li>
+</ul>
+
+<h1>Contents</h1>
+<ol>
+<li><a href='#preprocess'>Creating input data</a></li>
+<li><a href='#convert'>netcdf to hdf5 conversion</a></li>
+<li><a href='#configure'>Configuration file</a></li>
+<li><a href='#runpig'>Running the simulation</a></li>
+</ol>
+
+</div>
+
+<div id="main">
+
   <H1>BISICLES Pine Island Glacier application</H1>
   <p> These instructions assume that you have working BISICLES executable, including both driver 
      and nctoamr. If that is not the case, there are some <a href='readme.html'>BISICLES build instructions</a> to follow.
@@ -19,10 +38,10 @@
       <li>
 	<a href='#preprocess'>preprocess some data</a>, that is, pull together data 
 	from a few sources, do a few simple calculations, and create  a single netCDF file that
-	contains just the data that BISICLES needs.Note however that we will <strong>not</strong> 
+	contains just the data that BISICLES needs. Note however that we will <strong>not</strong> 
 	get an especially realistic velocity field this way - for that we need to find our initial 
 	values of the basal friction coefficient (C) and the damage coefficient (phi, or muCoef)
-	by solving the <a href='pineislandcontrol.html'>control problem</a>. 
+	by solving an <a href='pineislandinverse.html'>inverse problem</a>. 
       </li>
       <li> 
 	<a href='#convert'>Convert</a> the data from the netCDF file into the hdf5 based format that BISICLES can read
@@ -119,7 +138,7 @@ data:
     <li>beta : the basal traction coefficient</li>
     <li>tempXXXXXX : temperatures at the mid-point of layer XXXXXX</li>
     </ol>
-    The remainder are only needed by the <a href='pineislandcontrol.html'>control problem</a>
+    The remainder are only needed by the <a href='pineislandinverse.html'>inverse problem</a>
     In fact, only thk,topg, and beta are essential : it is easy enough to specify either a constant rate 
     factor A, or a constant ice temperature, in BISICLES configuration file. If you are starting
     a new problem, it is likely easiest to start with thk, topg, and beta (possibly a constant beta, though
@@ -429,6 +448,7 @@ On a serial computer, run a simulation with 2 or 3 levels of refinement. e.g
 <pre>
 > $BISICLES_HOME/BISICLES/code/exec2D/driver2d.Linux.64.g++.gfortran.DEBUG.OPT.ex inputs.pigv5.1km.l1l2.l2 > sout.0 2>err.0 &
 </pre>
+<p>
 In both cases, you can view the resulting plot*2d.hdf5 files in visit. You should see
 the grounding line of Pine Island Glacier retreat rather rapidly in either case, and the
 AMR mesh changing to follow it.
@@ -436,4 +456,7 @@ If you do have the time, try running the simulation for a range of finest meshes
 way that the grounding line motion differs. You should see that the rate of retreat grows
 as the finest mesh spacing decreases, with the difference between no refinement and one level of refinement being much 
 larger than the difference between four and five levels of refinement.
+</p>
+</div>
 </body>
+</html>

@@ -4,45 +4,13 @@
 ### This makefile produces an executable for each 
 ### name in the `ebase' variable
 
-
-
-DIM=2
-
+ebase :=  nctoamr amrtotxt amrtoplot flatten extract merge addbox amrtocf stats glfaces faces rescale sum pythonf
+src_dirs = src
+all:  libbike 
 include ../mk/Make.defs
+ 
 
-ebase :=  nctoamr amrtotxt amrtoplot flatten extract merge addbox amrtocf stats glfaces faces rescale sum
+libbike:
+	cd ../lib; $(MAKE) lib
 
-ifneq ($(PYTHON_INC),)
-ebase += pythonf
-
-endif
-
-##
-## names of Chombo libraries needed by this program, in order of search.
-##
-LibNames := AMRElliptic AMRTimeDependent AMRTools BoxTools BaseTools 
-
-base_dir = .
-
-BASE_DIR = ../
-
-EXEC_DIR = .
-
-src_dirs =  ../src ../util  src
-
-XTRACPPFLAGS=-I$(NETCDF_HOME)/include
-XTRALIBFLAGS=-L$(NETCDF_HOME)/lib $(NETCDF_LIBS)
-
-include $(CHOMBO_HOME)/mk/Make.example
-#CPPFLAGS+=-I$(NETCDF_HOME)/include 
-#LIBFLAGS+=-L$(NETCDF_HOME)/lib -lnetcdf -lhdf5_hl -lhdf5
-
-ifeq ($(USE_GDAL),TRUE)
-XTRACPPFLAGS+=-I$(GDAL_HOME)/include -DHAVE_GDAL 
-XTRALIBFLAGS+=-L$(GDAL_HOME)/lib -lgdal
-endif
-
-ifneq ($(PYTHON_INC),)
-CPPFLAGS+=-I$(PYTHON_INC) -DHAVE_PYTHON	
-LIBFLAGS+=$(PYTHON_LIBS)
-endif
+LIBFLAGS := -L../lib/ -lBisicles$(config) $(NETCDF_LIBS)  $(LIBFLAGS)

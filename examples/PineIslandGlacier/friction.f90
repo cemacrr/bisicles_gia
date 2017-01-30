@@ -345,7 +345,7 @@ program t
        glen_n = 3.0, maxseabeta = 100.0, lambda = 4.0e+3
   
   real (kind = 8), dimension(1:ewn,1:nsn) :: topg, lsrf, usrf, thck, uvel, vvel, velc,divuh, &
-       divuhc, beta, betar, dsx, dsy, umod, umodsia, bheatflux, bdiss
+       divuhc, beta, betar, dsx, dsy, umod, umodsia, bheatflux, bdiss, tmp
   
   real (kind = 8), dimension(1:ewn,1:nsn,1:upn) :: temp, flwa
 
@@ -363,11 +363,11 @@ program t
 
   typ = typ_grounded ! 0 for grounded ice
 
-  x(1) = 0.0
+  x(1) = -1707000.0d0 + 0.5d0*dx
   do ew = 2,ewn
      x(ew) = x(ew-1) + dx
   end do
-  y(1) = 0.0
+  y(1) =  -384000.0d0 + 0.5d0*dx
   do ns = 2,nsn
      y(ns) = y(ns-1) + dy
   end do
@@ -441,7 +441,7 @@ program t
      vvel = 0.0
      velc = 0.0d0
   end where
-  radius = 5
+  radius = 2
   !set velc = 0 close to open sea
   do ew = 1+radius,ewn-radius
      do  ns = 1+radius,nsn-radius
@@ -457,17 +457,19 @@ program t
 
 
   !expand the region where velc = 0 by a few cells
-  do iter = 1,5
+  tmp = velc
+  do iter = 1,1
      do ew = 2,ewn-1
         do ns = 2,nsn-1
            if (velc(ew,ns).gt.0.1) then
-           velc(ew,ns) = 0.25 * ( &
+           tmp(ew,ns) = 0.25 * ( &
                 velc(ew-1,ns) + velc(ew+1,ns) &
                 +velc(ew,ns-1) + velc(ew,ns+1))
            end if
         end do
      end do
   end do
+  velc = tmp
 
   where (velc.lt.0.95)
      velc = 0.0d0

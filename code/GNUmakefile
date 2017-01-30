@@ -30,7 +30,7 @@
 ###
 ##################################################################################
 
-export makefiles+=example/IAMR
+export makefiles+=bisicles
 
 ## This causes all commands to be executed with `csh' instead of the
 ## default `sh'.  The `-f' option makes csh load faster by skipping
@@ -39,17 +39,17 @@ export makefiles+=example/IAMR
 SHELL = /bin/csh -f
 
 ## This variable specifies where to find the Chombo libraries and source dirs
-export CHOMBO_HOME := ../../Chombo/lib
+##export CHOMBO_HOME := ../../Chombo/lib
 
 ##
 ## Default values of configuration variables.
 ##
-include $(CHOMBO_HOME)/mk/Make.defs.defaults
+##include $(CHOMBO_HOME)/mk/Make.defs.defaults
 
 
 ## This variable defines the names of the subdirectories to be built by default.
 ## One or more can be used as a target on the command line.
-dirs = exec2D benchmark
+dirs = lib exec2D benchmark filetools cdriver test 
 
 
 ##
@@ -102,9 +102,11 @@ vars:
 doc:
 	cd doc ; ./mkdoc
 
+ifeq ($(DOXYGEN),)
+DOXYGEN=doxygen
+endif
+
 doxygen:
 	mkdir -p doc/doxygen
-	sed s@../../Chombo/lib@$(CHOMBO_HOME)@g doxygen.config > /tmp/doxygen.config.tmp.$$$$ ; \
-	$(DOXYGEN) /tmp/doxygen.config.tmp.$$$$ | \grep -v '^\(Preprocessing\|Parsing\|Generating code\|Generating docs\)' ; \
-	$(RM) /tmp/doxygen.config.tmp.$$$$
-	@echo "" ; echo "point browser at doc/doxygen/html/index.html" ; echo ""
+	$(DOXYGEN) doxygen.config ; @echo "" ; echo "point browser at doc/doxygen/html/index.html" ;
+

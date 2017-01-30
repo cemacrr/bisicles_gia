@@ -1,14 +1,31 @@
 <html>
 <head>
   <title>BISICLES LevelData interface</title>
-<style type="text/css">
-ol { counter-reset: item }
-li { display: block; padding: 0.5em; }
-li:before { content: counters(item, ".") " "; counter-increment: item }
-</style>
+   <link href="bikedoc.css" rel="stylesheet" type="text/css"/>
 </head>
 <body>
-<a href='index.html'>User documentation index<a/>
+
+<div id="head">
+<ul>
+<li><a href='index.html'>Index page<a/> </li>
+<li><a href='#top'>Top of page<a/> </li>
+</ul>
+
+<h1>Contents</h1>
+<ol>
+<li><a href='#ibc'>Initial geometry and boundary conditions</a></li>
+<li><a href='#tempibc'>Initial temperature</a>,</li>
+<li><a href='#btrc'>Basal traction coefficient</a>,</li>
+<li><a href='#mucoef'>Englacial stiffness coefficient</a>,</li>
+<li> <a href='#sflux'>Surface fluxes</a></li>
+<li> <a href='#inverse'>Inputs to the inverse problem</a></li>
+</ol>
+
+</div>
+
+<div id="main">
+
+
 <h1>BISICLES LevelData interface</h1>
 
 BISICLES LevelData interface can load various kinds of gridded data from files in order to specify some
@@ -17,9 +34,9 @@ of 2D and 3D fields. Currently, these are:
 <li>the <a href='#ibc'>initial geometry and boundary conditions</a> (topography and thickness),</li>
 <li>the <a href='#tempibc'>initial temperature</a>,</li>
 <li>the <a href='#btrc'>basal traction coefficient</a>,</li>
-<li>the <a href='#mucoef'>viscosity modifier coefficient</a>,</li>
+<li>the <a href='#mucoef'>englacial stiffness coefficient</a>,</li>
 <li> <a href='#sflux'>surface fluxes</a>, that is, accumulation and melting, and</li>
-<li> all inputs to the <a href='control.html'>control problem</a></li>
+<li> all inputs to the <a href='#inverse'>inverse problem</a></li>
 </ol>
 
 All of these require the same kind of input file, namely a Chombo amr file stored as hdf5, with
@@ -73,6 +90,9 @@ below 1m in the rest of the domain.
 
 <h2><a name='tempibc'>Initial temperature</a></h2>
 
+<p>See also the description of <a href='thermodynamics.html'>thermodynamics</a></p>
+
+<p>
 Temperature is a three dimensional field which is discretized over
 a fixed number N of layers in the current version of BISICLES.
 Each layer comprises a multi-level 2D field of cell-centered values which
@@ -81,9 +101,11 @@ consecutive components, and the input file should give the name of the first.
 BISICLES will then derive the temperature of the top layer from that 
 first component, and the temperature of the remaining N-1 layers from the 
 following N-1 components.
- 
+</p>
+
+<p>
 In the <a href='pineisland.html'>Pine Island Glacier example</a>, the following
-lines are relevant.
+lines are relevant.</p>
 <pre>
 amr.num_cells = 64 96 10
 amr.sigma = 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0
@@ -94,5 +116,22 @@ inputLevelData.temperatureName = temp000000
 Note the 11 values of sigma; these are the values at the layer faces. 
 The temperature values are stored at the layer midpoint, so 10 are needed, with
 the first called &quot;temp000000&quot;.
+
+<h2><a name='btrc'>Basal traction coefficient</a></h2>
+
+<p>See also the the description of <a href='stress.html'>stresses</a></p>
+
+<h2><a name='mucoef'>Englacial stiffness coefficient</a>,</h2>
+
+<p>See also the the description of <a href='stress.html'>stresses</a></p>
+
+<h2><a name='sflux'>Surface fluxes</a></h2>
+
+<p>See also the the description of <a href='surfaceflux.html'>surface fluxes</a></p>
+
+<h2>Inputs to the <a name='#inverse'>inverse problem</a></h2>
+
+<p>See also the the description of <a href='velocity.html#inversevi'>inverse problem</a></p>
+
 </body>
 </html>

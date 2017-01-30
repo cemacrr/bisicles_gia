@@ -1,7 +1,7 @@
 #domain details
 main.domain_size = 256e+3 384e+3 1.0e+3
 amr.num_cells = 320 320 11
-amr.num_cells = 64 96 10 #quarter data resolution
+amr.num_cells = 128 192 10 #2km (half data) resolution
 amr.is_periodic = 0 0 0
 
 #bulk constitutive relation and parameters

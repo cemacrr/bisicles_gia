@@ -6,37 +6,13 @@
 makefiles += BISICLES_test
 
 # the base name(s) of the application(s) in this directory
-#ebase = testLevelSigmaCS testSigmaCS testConstitutive testL1L2 testVelOp testLinearSolver testPicardSolver testFortranThicknessIBC
-ebase = testPetsc testLevelSigmaCS testConstitutive testL1L2 testFortranInterfaceIBC 
-# testVelOp testLinearSolver 
+ebase = testPetsc testLevelSigmaCS testConstitutive testL1L2 testFortranInterfaceIBC testAVCPoisson testCGOptimize
 
-# the location of Chombo lib dir
-CHOMBO_HOME = $(shell pwd)/../../../Chombo/lib
+# general stuff....
+include ../mk/Make.defs
 
-# names of Chombo libraries needed by this program, in order of search.
-LibNames = AMRElliptic AMRTimeDependent AMRTools  BoxTools
+lib:
+	cd ../lib; $(MAKE) lib
 
-# relative paths to source code directories
-base_dir = .
+LIBFLAGS := -L../lib/ -lBisicles$(config)  $(LIBFLAGS)
 
-
-src_dirs = ../src ../util   
-
-# input file for 'run' target
-INPUT = inputs
-
-
-# shared code for building example programs
-include $(CHOMBO_HOME)/mk/Make.example
-
-VERBOSE=-v
-BISICLES_MK = ../mk/
-#include ../mk/Make.example
-
-# application-specific variables
-
-# Note: tell Make.rules to not use -q for 'run' target
-_space = # # NOTE: keep the space after the "=" or bad things happen
-VERBOSE = $(_space)
-
-# application-specific targets

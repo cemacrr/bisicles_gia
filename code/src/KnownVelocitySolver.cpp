@@ -65,7 +65,7 @@ int KnownVelocitySolver::solve(Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 			       const Vector<LevelData<FArrayBox>* >& a_beta,
 			       const Vector<LevelData<FArrayBox>* >& a_beta0,
 			       const Vector<LevelData<FArrayBox>* >& a_A,
-			       const Vector<LevelData<FluxBox>* >& a_muCoef,
+			       const Vector<LevelData<FArrayBox>* >& a_muCoef,
 			       Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
 			       Real a_time,
 			       int a_lbase, int a_maxLevel)

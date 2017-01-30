@@ -248,7 +248,7 @@ CrevasseCalvingModel::CrevasseCalvingModel(ParmParse& a_pp)
   //a_pp.get("waterDepth",m_waterDepth);
 
   std::string prefix (a_pp.prefix());
-  m_waterDepth = SurfaceFlux::parseSurfaceFlux( (prefix + ".CrevasseWaterDepth").c_str());
+  m_waterDepth = SurfaceFlux::parse( (prefix + ".CrevasseWaterDepth").c_str());
 
   if (m_waterDepth == NULL)
     {

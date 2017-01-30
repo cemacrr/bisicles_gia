@@ -1,0 +1,3 @@
+NETCDF_HOME = /usr/local/netcdf
+NETCDF_LIBS=  -lnetcdf -lhdf5_hl
+PYTHON_VERSION = 2.7

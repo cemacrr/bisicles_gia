@@ -40,6 +40,8 @@
 #include "PiecewiseLinearFlux.H"
 #include "SurfaceFlux.H"
 #include "IceConstants.H"
+#include "AMRDamage.H"
+//#include "FileMangler.H"
 #ifdef HAVE_PYTHON
 #include "PythonInterface.H"
 #endif
@@ -51,6 +53,7 @@
 #ifdef CH_USE_PETSC
 #include "petsc.h"
 #endif 
+#include "Regression.H"
 
 /// types of basal friction (beta) distributions
 /** SinusoidalBeta is the one for exp C in Pattyn et al (2008)
@@ -64,10 +67,10 @@ enum basalFrictionTypes {constantBeta = 0,
 			 singularStream,
                          NUM_BETA_TYPES};
 
-//===========================================================================
-// 2D shallow-shelf ice sheet model
-//
-//===========================================================================
+/// main program for 2D ice sheet models
+/**
+   \callgraph
+ */
 int main(int argc, char* argv[]) {
   
   int ierr = 0;
@@ -99,6 +102,11 @@ int main(int argc, char* argv[]) {
     if(argc < 2) 
       { std::cerr << " usage: " << argv[0] << " <input_file>\n"; exit(0); }
     char* in_file = argv[1];
+    //std::string in_file_mangled(in_file);
+    //in_file_mangled += "_mangled";
+    //FileMangler(in_file,in_file_mangled.c_str());
+    //ParmParse pp(argc-2,argv+2,NULL,in_file_mangled.c_str());
+    
     ParmParse pp(argc-2,argv+2,NULL,in_file);
     ParmParse pp2("main");
 
@@ -170,7 +178,7 @@ int main(int argc, char* argv[]) {
     // set surface flux. 
     // ---------------------------------------------
 
-    SurfaceFlux* surf_flux_ptr = SurfaceFlux::parseSurfaceFlux("surfaceFlux");
+    SurfaceFlux* surf_flux_ptr = SurfaceFlux::parse("surfaceFlux");
     if (surf_flux_ptr == NULL)
       {
 	const std::string err("failed to parse surfaceFlux (maybe you have the old style surface_flux_type?");
@@ -184,7 +192,7 @@ int main(int argc, char* argv[]) {
     // set basal (lower surface) flux. 
     // ---------------------------------------------
     
-    SurfaceFlux* basal_flux_ptr = SurfaceFlux::parseSurfaceFlux("basalFlux");
+    SurfaceFlux* basal_flux_ptr = SurfaceFlux::parse("basalFlux");
     if (basal_flux_ptr == NULL)
       {
 	const std::string err("failed to parse basalFlux (maybe you have the old style basal_flux_type?");
@@ -198,7 +206,7 @@ int main(int argc, char* argv[]) {
     // set topography (bedrock) flux. 
     // ---------------------------------------------
     
-    SurfaceFlux* topg_flux_ptr = SurfaceFlux::parseSurfaceFlux("topographyFlux");
+    SurfaceFlux* topg_flux_ptr = SurfaceFlux::parse("topographyFlux");
     if (topg_flux_ptr == NULL)
       {
 	topg_flux_ptr = new zeroFlux();
@@ -229,7 +237,7 @@ int main(int argc, char* argv[]) {
     ParmParse geomPP("geometry");
     
     BasalFriction* basalFrictionPtr 
-      = BasalFriction::parseBasalFriction("geometry", domainSize);
+      = BasalFriction::parse("geometry", domainSize);
     
     if (basalFrictionPtr == NULL)
       {
@@ -239,7 +247,7 @@ int main(int argc, char* argv[]) {
     amrObject.setBasalFriction(basalFrictionPtr);
     
     BasalFrictionRelation* basalFrictionRelationPtr 
-      = BasalFrictionRelation::parseBasalFrictionRelation("main",0);
+      = BasalFrictionRelation::parse("main",0);
 
     amrObject.setBasalFrictionRelation(basalFrictionRelationPtr);
 
@@ -690,7 +698,7 @@ int main(int argc, char* argv[]) {
       // set surface heat boundary data 
       // ---------------------------------------------
 
-      SurfaceFlux* surf_heat_boundary_data_ptr = SurfaceFlux::parseSurfaceFlux("surfaceHeatBoundaryData");
+      SurfaceFlux* surf_heat_boundary_data_ptr = SurfaceFlux::parse("surfaceHeatBoundaryData");
       ParmParse pps("surfaceHeatBoundaryData");
       bool diri = false; // flux boundary data by default
       pps.query("Dirichlett",diri);
@@ -729,7 +737,7 @@ int main(int argc, char* argv[]) {
       // set basal (lower surface) heat boundary data. 
       // ---------------------------------------------
       
-      SurfaceFlux* basal_heat_boundary_data_ptr = SurfaceFlux::parseSurfaceFlux("basalHeatBoundaryData");
+      SurfaceFlux* basal_heat_boundary_data_ptr = SurfaceFlux::parse("basalHeatBoundaryData");
       if (basal_heat_boundary_data_ptr == NULL)
        	{
        	  basal_heat_boundary_data_ptr = new zeroFlux();
@@ -795,9 +803,24 @@ int main(int argc, char* argv[]) {
 
     amrObject.setDomainSize(domainSize);
 
+    {
+      //// TODO this is just a temporary means of initializing a 
+      //// damage model observer. Once we have it working, it 
+      //// probably needs to be bound up with MuCoefficient
+      bool damage_model = false;
+      pp2.query("damage_model",damage_model);
+      if (damage_model)
+	{
+	  ///currently not deleting this, need to decide
+	  ///how that will be done
+	  DamageIceObserver* ptr = new DamageIceObserver();
+	  amrObject.addObserver(ptr);
+	}
+    }
+
     // set up initial grids, initialize data, etc.
     amrObject.initialize();
-  
+ 
 
     int maxStep;
     Real maxTime;
@@ -849,6 +872,30 @@ int main(int argc, char* argv[]) {
         delete thicknessIBC;
         thicknessIBC=NULL;
       }
+
+#ifdef CH_USE_HDF5
+    {
+      // finally, carry out an optional regression test
+      
+      ParmParse ppr("regression");
+      
+      std::string result_hdf5("");
+      ppr.query("result_hdf5", result_hdf5);
+
+      if (result_hdf5 != "")
+	{
+	  std::string reference_hdf5;
+	  ppr.get("reference_hdf5", reference_hdf5);
+
+	  Real tol = 1.0e-10;
+	  ppr.query("tol",tol);
+      	  if (tol > HDF5NormTest(result_hdf5, reference_hdf5))
+	    {
+	      ierr = 1;
+	    }
+	}
+    }
+#endif
 
   }  // end nested scope
   

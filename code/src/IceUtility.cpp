@@ -352,6 +352,10 @@ void IceUtility::extrapVelocityToMargin(LevelData<FluxBox>& a_faceVel,
 	  Box faceBox = grids[dit];
 	  faceBox.surroundingNodes(dir);
 	  FArrayBox& faceVel = a_faceVel[dit][dir];
+	  {
+	    Real maxFaceVelocity = faceVel.norm(faceBox,0);
+	    CH_assert(maxFaceVelocity < 0.5 * HUGE_VEL);
+	  }
 	  Box grownFaceBox = faceBox;
 	  CH_assert(faceVel.box().contains(grownFaceBox));
 	  FArrayBox vface(faceBox,1);
@@ -365,11 +369,10 @@ void IceUtility::extrapVelocityToMargin(LevelData<FluxBox>& a_faceVel,
 			      CHF_CONST_FRA1(thk,0),
 			      CHF_CONST_INT(dir),
 			      CHF_BOX(faceBox));
-
-	  Real maxFaceVelocity = faceVel.norm(faceBox,0);
-	  CH_assert(maxFaceVelocity < HUGE_VEL);
-
-
+	  {
+	    Real maxFaceVelocity = faceVel.norm(faceBox,0);
+	    CH_assert(maxFaceVelocity < HUGE_VEL);
+	  }
 
 	}
 
@@ -557,6 +560,10 @@ void IceUtility::eliminateFastIce
     }
   int nEliminated = 0;
   Real fastIceTolSq = a_fastIceTol * a_fastIceTol;
+
+  for (int iter = 0; iter < 10; iter++)
+    {
+
   for (int lev=0; lev <= a_finestLevel ; ++lev)
     {
       for (DataIterator dit(a_grids[lev]); dit.ok(); ++dit)
@@ -567,6 +574,7 @@ void IceUtility::eliminateFastIce
 	  FArrayBox& added = (*a_addedIce[lev])[dit];
 	  FArrayBox& removed = (*a_removedIce[lev])[dit];
 	  FArrayBox& u = (*a_vel[lev])[dit];
+	  FArrayBox HH(H.box(),1); HH.copy(H);
 	  
 	  for (BoxIterator bit(a_grids[lev][dit]);bit.ok();++bit)
 	    {
@@ -577,8 +585,8 @@ void IceUtility::eliminateFastIce
 		  bool elim = !a_edgeOnly;
 		  int dir = 0;
 		  while ( (!elim) && dir < SpaceDim) {
-		    elim |= (H(iv+BASISV(dir)) < a_thinIceTol);
-		    elim |= (H(iv-BASISV(dir)) < a_thinIceTol);
+		    elim |= (HH(iv+BASISV(dir)) < a_thinIceTol);
+		    elim |= (HH(iv-BASISV(dir)) < a_thinIceTol);
 		    dir++;
 		  }
 		    
@@ -603,7 +611,7 @@ void IceUtility::eliminateFastIce
 	{
 	  pout() << "... (this cpu) eliminated " << nEliminated << " cells " << endl;
 	}
-
+    }
 #ifdef CH_MPI
   {
     int tmp = 1.;
@@ -789,6 +797,8 @@ void IceUtility::eliminateRemoteIce
 	      */
 	    }
 	}
+      levelCS.getH().exchange();
+      
       levelCS.getH().exchange();
       LevelSigmaCS* crseCS = (lev > 0)?&(*a_coordSys[lev-1]):NULL;
       int refRatio = (lev > 0)?a_refRatio[lev-1]:-1;

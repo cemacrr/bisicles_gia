@@ -1,14 +1,17 @@
 <html>
 <head>
   <title>BISICLES solver benchmark executable</title>
-<style type="text/css">
-ol { counter-reset: item }
-li { display: block; padding: 0.5em; }
-li:before { content: counters(item, ".") " "; counter-increment: item }
-</style>
+  <link href="bikedoc.css" rel="stylesheet" type="text/css"/>
 </head>
 <body>
-<a href='index.html'>User documentation index<a/>
+
+<div id="head">
+<ul>
+<li><a href='index.html'>Index page<a/> </li>
+<li><a href='#top'>Top of page<a/> </li>
+</ul>
+</div>
+<div id="main">
 <h1>BISICLES solver benchmark executable</h1>
 </body>
 Since the vast majority of the CPU time in a typical BISICLES run is spent in the velocity solver, it can be useful to run the solver as a standalone code to examine performance and convergence issues.  The code in BISICLES/code/benchmark is designed to read in a BISICLES plotfile written out as a part of a standard BISICLES run and perform the momentum balance velocity solve based on the configuration in the plotfile. In order for this to work, the option  
@@ -33,4 +36,5 @@ To see how this all works (assuming that Chombo, etc are all set up already), tr
   </ol>
 
 </ol> 
+<div>
 <head>

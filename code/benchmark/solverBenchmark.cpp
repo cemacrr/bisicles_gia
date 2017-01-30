@@ -1086,7 +1086,7 @@ int main(int argc, char* argv[]) {
     // set convergence metric to zero here 
     Real convergenceMetric = 0;
     Real initialResidNorm, finalResidNorm;
-    Vector<LevelData<FluxBox>* > vectMuCoef(max_level + 1,NULL);
+    Vector<LevelData<FArrayBox>* > vectMuCoef(max_level + 1,NULL);
     solverPtr->solve(velocity,
 		     calvedIceThickness, addedIceThickness, removedIceThickness,
                      initialResidNorm, finalResidNorm,

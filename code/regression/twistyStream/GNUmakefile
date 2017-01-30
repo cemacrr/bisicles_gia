@@ -15,6 +15,7 @@ BUILD_DIR = ../../exec2D
 
 all: 
 	cd $(BUILD_DIR); $(MAKE) $(ebase)
+	rm -f ./$(ebase)$(config).ex
 	ln -s $(BUILD_DIR)/$(ebase)$(config).ex ./$(ebase)$(config).ex
 
 example-only: all

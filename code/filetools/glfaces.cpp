@@ -159,7 +159,7 @@ int main(int argc, char* argv[]) {
     
     //basal friction relation
     BasalFrictionRelation* basalFrictionRelationPtr 
-      = BasalFrictionRelation::parseBasalFrictionRelation("main",0);
+      = BasalFrictionRelation::parse("main",0);
 
     //we only need this for the velocity boundary condition
     IceThicknessIBC* thicknessIBC;

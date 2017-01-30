@@ -129,8 +129,9 @@ PressureLimitedBasalFrictionRelation::computeAlpha
     
 }
 
+
 BasalFrictionRelation* 
-BasalFrictionRelation::parseBasalFrictionRelation(const char* a_prefix, int a_recursion)
+BasalFrictionRelation::parse(const char* a_prefix, int a_recursion)
 {
   //can't do more than one recursion without changing the input file syntax
   CH_assert(a_recursion < 2);
@@ -182,7 +183,7 @@ BasalFrictionRelation::parseBasalFrictionRelation(const char* a_prefix, int a_re
       Real p = 1.0;
       ppPLL.query("power",p);
        
-      BasalFrictionRelation* innerLaw = parseBasalFrictionRelation(prefix.c_str(), a_recursion + 1);
+      BasalFrictionRelation* innerLaw = BasalFrictionRelation::parse(prefix.c_str(), a_recursion + 1);
       PressureLimitedBasalFrictionRelation* ptr = 
 	new PressureLimitedBasalFrictionRelation(a, p, model, innerLaw);
 

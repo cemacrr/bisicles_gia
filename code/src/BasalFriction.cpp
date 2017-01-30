@@ -27,10 +27,6 @@
 // -----------------------------------------------------------------
 //   zeroFriction
 // -----------------------------------------------------------------
-
-/// factory method
-/** return a pointer to a new BasalFriction object
- */
 BasalFriction* 
 zeroFriction::new_basalFriction() const
 {
@@ -38,12 +34,8 @@ zeroFriction::new_basalFriction() const
   return static_cast<BasalFriction*>(newPtr);
 }
 
-/// define source term for thickness evolution and place it in flux
-/** dt is included in case one needs integrals or averages over a
-    timestep
-*/
-void
-zeroFriction::setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
+
+void zeroFriction::setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
                                LevelSigmaCS& a_coordSys,
                                Real a_time,
                                Real a_dt)
@@ -58,7 +50,6 @@ zeroFriction::setBasalFriction(LevelData<FArrayBox>& a_betaSqr,
 // -----------------------------------------------------------------
 //   constantFriction
 // -----------------------------------------------------------------
-
 constantFriction::constantFriction() : m_isValSet(false)
 {
 }
@@ -200,8 +191,7 @@ sinusoidalFriction::setSinParameters(const Real& a_betaVal,
 
 
 
-BasalFriction* BasalFriction::parseBasalFriction(const char* a_prefix, 
-						 const RealVect& a_domainSize)
+BasalFriction* BasalFriction::parse(const char* a_prefix, const RealVect& a_domainSize)
 {
   BasalFriction* basalFrictionPtr = NULL;
   std::string type = "";

@@ -460,7 +460,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 		       const Vector<LevelData<FArrayBox>* >& a_beta,
 		       const Vector<LevelData<FArrayBox>* >& a_beta0, 
 		       const Vector<LevelData<FArrayBox>* >& a_A,
-		       const Vector<LevelData<FluxBox>* >& a_muCoef,
+		       const Vector<LevelData<FArrayBox>* >& a_muCoef,
 		       Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
 		       Real a_time, int a_lbase, int a_maxLevel )
 {
@@ -471,8 +471,9 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
   Real residNorm0,levelNorm;
   IntVect ghostVect = a_horizontalVel[0]->ghostVect(); // can this be Zero???
 
-  // copy betas and form faceA
+  // copy betas and form faceA, faceMuCoef
   Vector<RefCountedPtr<LevelData<FluxBox> > > faceAs(a_maxLevel+1);
+  Vector<RefCountedPtr<LevelData<FluxBox> > > faceMuCoef(a_maxLevel+1);
   for (ilev=a_lbase;ilev<=a_maxLevel;ilev++)
     {
       m_Beta[ilev] = a_beta[ilev];
@@ -484,6 +485,14 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 								      IntVect::Zero));
       CellToEdge(*a_A[ilev], *faceA);
       faceAs[ilev] = faceA;
+
+      RefCountedPtr<LevelData<FluxBox> > ref(new LevelData<FluxBox>(m_grids[ilev], 
+								      a_A[ilev]->nComp(), 
+								      IntVect::Zero));
+      CellToEdge(*a_muCoef[ilev], *ref);
+      faceMuCoef[ilev] = ref;
+
+
     }
 
   Vector<RefCountedPtr<LevelData<FArrayBox> > > resid(a_maxLevel+1);
@@ -509,7 +518,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
   // update coeficients to get correct residuals, sets c-f values
   computeMu( *a_horizontalVel[ilev],
 	     *faceAs[ilev],
-	     a_muCoef[ilev],
+	     *faceMuCoef[ilev],
 	     a_coordSys[ilev], 
 	     0,
 	     0,
@@ -525,7 +534,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
   m_twork1 = tempv2[ilev];
   m_twork2 = tempv3[ilev];
   m_tfaceA = faceAs[ilev];
-  m_tmuCoef = a_muCoef[ilev];
+  m_tmuCoef = faceMuCoef[ilev];
   m_tcoordSys = a_coordSys[ilev];
   m_ttime = a_time;
   m_tphi0 = 0;    // not defect correction form
@@ -562,7 +571,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       // update coeficients to get correct residuals, sets c-f values
       computeMu( *a_horizontalVel[ilev],
 		 *faceAs[ilev],
-		 a_muCoef[ilev],
+		 *faceMuCoef[ilev],
 		 a_coordSys[ilev], 
 		 ilev==a_lbase ? 0 : a_horizontalVel[ilev-1],
 		 0,
@@ -578,7 +587,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
       //m_twork1 = tempv2[ilev];
       //m_twork2 = tempv3[ilev];
       m_tfaceA = faceAs[ilev];
-      m_tmuCoef = a_muCoef[ilev];
+      m_tmuCoef = faceMuCoef[ilev];
       m_tcoordSys = a_coordSys[ilev];
       m_ttime = a_time;
       //m_tphi0 = a_horizontalVel[ilev]; // cache phi_0 to get correct linearization
@@ -766,7 +775,7 @@ PetscIceSolver::solve( Vector<LevelData<FArrayBox>* >& a_horizontalVel,
 		res[ilev] = &(*resid[ilev]);
 		computeMu( *a_horizontalVel[ilev],
 			   *faceAs[ilev],
-			   a_muCoef[ilev],
+			   *faceMuCoef[ilev],
 			   a_coordSys[ilev], 
 			   ilev==a_lbase ? 0 : a_horizontalVel[ilev-1],
 			   ilev==a_maxLevel ? 0 : a_horizontalVel[ilev+1],
@@ -898,7 +907,7 @@ PetscIceSolver::updateCoefs( LevelData<FArrayBox> &a_horizontalVel, int a_ilev )
 {
   computeMu( a_horizontalVel, 
 	     *m_tfaceA, 
-	     m_tmuCoef,
+	     *m_tmuCoef,
 	     m_tcoordSys, 
 	     m_tcrseVel, 
 	     0,
@@ -915,7 +924,7 @@ PetscIceSolver::updateCoefs( LevelData<FArrayBox> &a_horizontalVel, int a_ilev )
 void 
 PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
 			   const LevelData<FluxBox> &a_faceA, 
-			   const LevelData<FluxBox> *a_muCoef,
+			   const LevelData<FluxBox> &a_muCoef,
 			   const RefCountedPtr<LevelSigmaCS> &a_coordSys,
 			   LevelData<FArrayBox>* crseVelPtr,
 			   LevelData<FArrayBox>* fineVelPtr,
@@ -1004,10 +1013,8 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
 	  // 	       CHF_BOX(box));
 	  
 	  thisMu.mult(faceH[dit][dir],box,0,0,1);
-	  if (a_muCoef != NULL)
-	    {
-	      thisMu.mult((*a_muCoef)[dit][dir],box,0,0,1);
-	    }
+	  thisMu.mult((a_muCoef)[dit][dir],box,0,0,1);
+	    
 	  // FORT_MINFAB1(CHF_FRA(thisMu),
 	  // 	       CHF_CONST_REAL(muMax),
 	  // 	       CHF_BOX(box));

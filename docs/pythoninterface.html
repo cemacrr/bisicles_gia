@@ -1,14 +1,30 @@
 <html>
 <head>
   <title>BISICLES Python Interface</title>
+  <link href="bikedoc.css" rel="stylesheet" type="text/css"/>
 </head>
 <body>
-<a href='index.html'>User documentation index<a/>
+
+<div id="head">
+<ul>
+<li><a href='index.html'>Index page<a/> </li>
+<li><a href='#top'>Top of page<a/> </li>
+</ul>
+
+<h1>Contents</h1>
+<ol>
+<li><a href='#flux'>Surface fluxes</a></li>
+<li><a href='#ibc'>Initial geometry</a></li>
+<li><a href='#ibctemp'>Initial temperature</a></li>
+<li><a href='#btrc'>Basal traction coefficient</a></li>
+</ol>
+
+</div>
+
+<div id="main">
+
 <h1>BISICLES Python Interface</h1>
-<p>
-<strong>The Python Interface is new and might change. You might need 
-change your python function prototypes as it evolves.</strong>
-</p>
+
 
 <p>BISICLES' python interface is intended to make some of less performance intensive
 parts of BISICLES easier to program. It is fairly crude : at certain points during a run BISICLES 
@@ -18,7 +34,7 @@ fluxes</a> (that is, accumulation and melting), the <a href='#ibc'>initial geome
 the <a href='#ibctemp'>initial temperature</a>
 and the <a href='#btrc'>basal traction coefficient</a>. 
 The most likely application of the Python
-interface is in defining idealized problems, where the use of the <a href='leveldatainterface'>LevelData interface</a>
+interface is in defining idealized problems, where the use of the <a href='leveldatainterface.html'>LevelData interface</a>
 would lead to undesirable numerical error</p> 
 
 <p>You should have included the python interface when <a href='readme.html'>building BISICLES</a>, otherwise
@@ -180,5 +196,6 @@ PythonBasalFriction.function = friction
 </pre>
 in the configuration file.
 </p>
+</div>
 </body>
 </html>
