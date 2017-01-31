@@ -5,7 +5,9 @@
 ebase := solverBenchmark
 include ../mk/Make.defs
 
-lib:
+all: libbike
+
+libbike:
 	cd ../lib; $(MAKE) lib
 
 LIBFLAGS := -L../lib/ -lBisicles$(config)  $(LIBFLAGS)
