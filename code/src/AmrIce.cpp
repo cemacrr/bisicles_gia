@@ -6408,19 +6408,22 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 
 void AmrIce::writeMetaDataHDF5(HDF5Handle& a_handle) const
 {
-  //Additional data (BISICLES specific)
-  HDF5HeaderData headerData = m_headerData;
-  headerData.m_int["max_level"] = m_max_level;
-  headerData.m_int["finest_level"] = m_finest_level;
-  headerData.m_int["current_step"] = m_cur_step; 
-  headerData.m_real["time"] = time();
-  headerData.m_real["dt"] = m_dt;
-  headerData.m_string["svn_version"] = SVN_REV;
-  headerData.m_string["svn_repository"] = SVN_REP;
-  headerData.m_string["svn_url"] = SVN_URL;
+
  
-  //m_headerData.writeToFile(a_handle);
-  headerData.writeToFile(a_handle);
+      //Additional data (BISICLES specific)
+      HDF5HeaderData headerData = m_headerData;
+      headerData.m_int["max_level"] = m_max_level;
+      headerData.m_int["finest_level"] = m_finest_level;
+      headerData.m_int["current_step"] = m_cur_step; 
+      headerData.m_real["time"] = time();
+      headerData.m_real["dt"] = m_dt;
+      headerData.m_string["svn_version"] = SVN_REV;
+      headerData.m_string["svn_repository"] = SVN_REP;
+      headerData.m_string["svn_url"] = SVN_URL;
+ 
+      //m_headerData.writeToFile(a_handle);
+      headerData.writeToFile(a_handle);
+    
   
 }
 

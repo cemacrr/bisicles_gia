@@ -112,8 +112,17 @@ SVN_REV=unknown
 SVN_REP=unknown
 SVN_URL=unknown
 else
+
 SVN_REP=$(shell cd $(BISICLES_BRANCH) ; svn info | awk '/Repository Root:/ {print $$3}')
-SVN_URL=$(shell cd $(BISICLES_BRANCH) ; svn info | awk '/Relative URL:/ {print $$3}')
+ifeq ($(SVN_REP),)
+SVN_REP=unknown
+endif
+
+SVN_URL=$(shell cd $(BISICLES_BRANCH) ; svn info | awk '/^URL:/ {print $$2}')
+ifeq ($(SVN_URL),)
+SVN_URL=unknown
+endif
+
 endif
 
 CPPFLAGS+=-DSVN_REV='"$(SVN_REV)"'
