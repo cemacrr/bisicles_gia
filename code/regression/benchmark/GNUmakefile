@@ -14,7 +14,7 @@ BUILD_DIR = ../../benchmark
 #set compiler and CHOMBO_HOME
 
 all: 
-	cd $(BUILD_DIR); $(MAKE) $(ebase)
+	cd $(BUILD_DIR); $(MAKE) all
 	ln -s $(BUILD_DIR)/$(ebase)$(config).ex ./$(ebase)$(config).ex
 
 example-only: all
