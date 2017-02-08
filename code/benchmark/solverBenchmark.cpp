@@ -261,6 +261,7 @@ int main(int argc, char* argv[]) {
     Vector<LevelData<FArrayBox>* > calvedIceThickness(numLevels, NULL);
     Vector<LevelData<FArrayBox>* > removedIceThickness(numLevels, NULL);
     Vector<LevelData<FArrayBox>* > addedIceThickness(numLevels, NULL);
+    Vector<LevelData<FArrayBox>* > vectMuCoef(max_level + 1,NULL);
 
     Real iceDensity = 910.0;
     Real seaWaterDensity = 1028.0;
@@ -317,7 +318,7 @@ int main(int argc, char* argv[]) {
         removedIceThickness[lev] = new LevelData<FArrayBox>(amrGrids[lev],1,
                                                  IntVect::Unit);
         addedIceThickness[lev] = new LevelData<FArrayBox>(amrGrids[lev],1,
-                                                 IntVect::Unit);
+							  IntVect::Unit);
         {
           DataIterator dit = amrGrids[lev].dataIterator();
           for (dit.begin(); dit.ok(); ++dit)
@@ -327,6 +328,18 @@ int main(int argc, char* argv[]) {
               (*addedIceThickness[lev])[dit].setVal(0.0);
             }
         }
+
+	// default muCoef is 1.0
+	vectMuCoef[lev] = new LevelData<FArrayBox>(amrGrids[lev],1,
+						   IntVect::Unit);
+
+	{
+          DataIterator dit = amrGrids[lev].dataIterator();
+          for (dit.begin(); dit.ok(); ++dit)
+            {
+              (*vectMuCoef[lev])[dit].setVal(1.0);
+	    }
+	}
 
 	vectSurface[lev] = new LevelData<FArrayBox>(amrGrids[lev],1,
 						    2*IntVect::Unit);
@@ -391,6 +404,11 @@ int main(int argc, char* argv[]) {
                     (*vectRhs[lev])[ditDest].copy(plotDataFab,
                                                   comp, 0, SpaceDim);
                   }
+                else if (vectNames[comp] == "muCoef")
+                  {
+                    (*vectMuCoef[lev])[ditDest].copy(plotDataFab,
+						     comp, 0, SpaceDim);
+                  }		
               } // end loop over plot components
           } // end loop over boxes
 
@@ -1086,7 +1104,7 @@ int main(int argc, char* argv[]) {
     // set convergence metric to zero here 
     Real convergenceMetric = 0;
     Real initialResidNorm, finalResidNorm;
-    Vector<LevelData<FArrayBox>* > vectMuCoef(max_level + 1,NULL);
+    
     solverPtr->solve(velocity,
 		     calvedIceThickness, addedIceThickness, removedIceThickness,
                      initialResidNorm, finalResidNorm,
