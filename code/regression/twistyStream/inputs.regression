@@ -114,5 +114,6 @@ main.filename = stream.regression.preSolve.000000.2d.hdf5
 
 
 regression.result_hdf5 = stream.regression.000000.2d.hdf5
-regression.reference_hdf5 = stream.reference.000000.2d.hdf5
+# use "H5" instead of "hdf5" as suffix to hide from "make clean"
+regression.reference_hdf5 = stream.reference.000000.2d.H5
 regression.tol = -1.0
