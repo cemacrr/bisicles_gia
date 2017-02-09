@@ -5,6 +5,9 @@
 ebase := driver
 all:  libbike 
 
+.NOTPARALLEL: all
+
+
 include ../mk/Make.defs
 
 libbike:
