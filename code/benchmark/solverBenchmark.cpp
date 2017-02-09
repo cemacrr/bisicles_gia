@@ -399,7 +399,7 @@ int main(int argc, char* argv[]) {
                     (*vectC0[lev])[ditDest].copy(plotDataFab,
                                                  comp, 0, 1);
                   }                    
-                else if (vectNames[comp] == "solverRHSx")
+                else if (vectNames[comp] == "xRhs")
                   {
                     (*vectRhs[lev])[ditDest].copy(plotDataFab,
                                                   comp, 0, SpaceDim);
