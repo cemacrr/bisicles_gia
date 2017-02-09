@@ -110,3 +110,4 @@ doxygen:
 	mkdir -p doc/doxygen
 	$(DOXYGEN) doxygen.config ; @echo "" ; echo "point browser at doc/doxygen/html/index.html" ;
 
+.NOTPARALLEL: all
