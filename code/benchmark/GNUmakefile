@@ -9,9 +9,15 @@ all:  libbike
 
 include ../mk/Make.defs
 
+reallyclean: realclean libclean
+
 libbike:
 	cd ../lib; $(MAKE) lib
 
+libclean:
+	cd ../lib; $(MAKE) realclean
+
 LIBFLAGS := -L../lib/ -lBisicles$(config)  $(LIBFLAGS)
+
 
 
