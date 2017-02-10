@@ -122,4 +122,4 @@ control.minLevelForOptimization = 1
 
 regression.result_hdf5 = ControlOuter01lev.000000000001.2d.hdf5
 regression.reference_hdf5 = ase-ctrl-reference.H5
-regression.tol = 1.0e-10
+regression.tol = 1.0e-6
