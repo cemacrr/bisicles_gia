@@ -889,7 +889,7 @@ int main(int argc, char* argv[]) {
 
 	  Real tol = 1.0e-10;
 	  ppr.query("tol",tol);
-      	  if (tol > HDF5NormTest(result_hdf5, reference_hdf5))
+      	  if (tol < HDF5NormTest(result_hdf5, reference_hdf5))
 	    {
 	      ierr = 1;
 	    }
