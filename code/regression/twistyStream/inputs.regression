@@ -84,7 +84,6 @@ JFNKSolver.switchRate = 5.0
 #JFNKSolver.numMGSmooth = 48
 JFNKSolver.numMGSmooth = 8
 JFNKSolver.maxIter = 100
-JFNKSolver.maxIter = 1
 JFNKSolver.absTol = 1.0e-2
 JFNKSolver.relTol = 1.0e-10
 #JFNKSolver.BiCGStabRelTol = 4.0e-3
