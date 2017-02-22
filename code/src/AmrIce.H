@@ -456,8 +456,8 @@ public:
   /// access function for layered face-centered velocities
   const Vector<LevelData<FluxBox>* >& faceVelocitiesLayered() const {return m_layerXYFaceXYVel;} 
 
-  /// access function for calved ice thickness
-  const  Vector<LevelData<FArrayBox>* >& accumCalvedIceThickness() const {return m_accumCalvedIceThickness; }
+  /// access function for melange thickness
+  const  Vector<LevelData<FArrayBox>* >& melangeThickness() const {return m_melangeThickness; }
   const  Vector<LevelData<FArrayBox>* >& calvedIceThickness() const {return m_calvedIceThickness; }
   const  Vector<LevelData<FArrayBox>* >& removedIceThickness() const {return m_removedIceThickness; }
   const  Vector<LevelData<FArrayBox>* >& addedIceThickness() const {return m_addedIceThickness; }
@@ -1069,7 +1069,7 @@ protected:
   
   Vector<LevelData<FArrayBox>* > m_divThicknessFlux; // set to -dH/dt
   //(accumulated) thickness of calved ice 
-  Vector<LevelData<FArrayBox>* > m_accumCalvedIceThickness;
+  Vector<LevelData<FArrayBox>* > m_melangeThickness;
   Vector<LevelData<FArrayBox>* > m_calvedIceThickness;
   Vector<LevelData<FArrayBox>* > m_removedIceThickness;
   Vector<LevelData<FArrayBox>* > m_addedIceThickness;

@@ -58,7 +58,7 @@ surfaceHeatBoundaryData.Dirichlett = false
 
 #calving model
 CalvingModel.type = FixedFrontCalvingModel
-CalvingModel.min_thickness = 1.0
+CalvingModel.min_thickness = 0.0
 
 #velocity solve type -- 0 = Picard, 1 = JFNK
 amr.velocity_solver_type = 1
