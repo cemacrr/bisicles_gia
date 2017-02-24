@@ -215,10 +215,11 @@ int CGOptimize(ObjectiveWithGradient<X>& a_F, X& a_x,
   a_F.create(y,x);
   a_F.create(p,x);
 
-  Real fm,fp, fmOld, fpOld; // these are just for retreiving the the misfit norm and penalty norm, 
+  Real fm,fp, fmOld;// fpOld; // these are just for retreiving the the misfit norm and penalty norm, 
               // and play no part in the method
   a_F.computeObjectiveAndGradient(fm,fp,r,x,false);
-  fmOld = fm; fpOld = fp;
+  fmOld = fm;
+  //fpOld = fp;
   a_F.scale(r,-1.0);
   a_F.preCond(s,r);
   a_F.assign(d,s);
@@ -247,7 +248,7 @@ int CGOptimize(ObjectiveWithGradient<X>& a_F, X& a_x,
       pout() << std::endl;
 
       fmOld = fm;
-      fpOld = fp;
+      //fpOld = fp;
 
       //find the (approximate) root of f'(y).f'(x)
       secantLineSearch(a_F, x, r, d, y, p, fm+fp,  a_secantMaxIter, 

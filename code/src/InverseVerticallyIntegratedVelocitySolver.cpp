@@ -35,8 +35,14 @@
 #define NXCOMP MUCOMP + 1
 
 InverseVerticallyIntegratedVelocitySolver::Configuration::Configuration()
-  :m_velObs_x(NULL),  m_velObs_y(NULL), m_velObs_c(NULL), 
-   m_divuhObs_a(NULL),  m_divuhObs_c(NULL), m_gradientFactor(NULL)
+  :m_velObs_c(NULL),
+   m_velObs_x(NULL),
+#if CH_SPACEDIM > 1
+   m_velObs_y(NULL), 
+#endif
+   m_divuhObs_c(NULL),
+   m_divuhObs_a(NULL),
+   m_gradientFactor(NULL)
 {
 
 }
@@ -64,7 +70,7 @@ InverseVerticallyIntegratedVelocitySolver::Configuration::~Configuration()
 
 
 InverseVerticallyIntegratedVelocitySolver::InverseVerticallyIntegratedVelocitySolver()
-  : m_time(0.0), m_prev_time(0.0), m_config()
+  : m_config(), m_time(0.0), m_prev_time(0.0)
 {
   
 }
@@ -507,7 +513,7 @@ int InverseVerticallyIntegratedVelocitySolver::solve
      
   free(X);
 
-
+  return 0;
 }
 
 // duplicate storage of a_b in a_a
