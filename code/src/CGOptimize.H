@@ -94,7 +94,7 @@ public:
 
  */
 template < class X>
-int secantLineSearch
+void secantLineSearch
 (ObjectiveWithGradient<X>& a_F, X& x, X& r, X& d, X& y, X& p, Real a_fx, 
  int a_maxIter, Real a_initialStep, Real a_stepMaxGrow, Real a_tol)
 {
@@ -179,6 +179,7 @@ int secantLineSearch
     j++;
   } while (j < a_maxIter 
 	   && sqr(alpha) * deltaD > sqr(a_tol));
+  
   
 }
 
