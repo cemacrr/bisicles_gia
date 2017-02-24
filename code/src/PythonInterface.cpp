@@ -1020,6 +1020,8 @@ int PythonInterface::PythonVelocitySolver::solve
 	}
       
     }
+
+  return 0;
 }
 
 PythonInterface::PythonVelocitySolver::~PythonVelocitySolver()
