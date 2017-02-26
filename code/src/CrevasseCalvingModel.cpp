@@ -36,7 +36,6 @@ void CrevasseCalvingModel::computeStressMeasure(LevelData<FArrayBox>& a_stressMe
       const FArrayBox& thck = levelCoords.getH()[dit];
       const FArrayBox& vt = levelVT[dit];
       const FArrayBox& vel = levelVel[dit];
-      const FArrayBox& Hab = levelCoords.getThicknessOverFlotation()[dit];
       Box b = levelCoords.grids()[dit];
       b.grow(1); // need one layer of ghosts
 
@@ -202,7 +201,6 @@ void CrevasseCalvingModel::applyCriterion
 	  FArrayBox& added = a_addedIce[dit];
 	  FArrayBox& removed = a_removedIce[dit];
 	  FArrayBox& iceFrac = a_iceFrac[dit];
-	  const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
 	  
 	  Box b = thck.box();
 	  b &= iceFrac.box();
@@ -385,7 +383,6 @@ void VdVCalvingModel::computeRemnant(LevelData<FArrayBox>& a_remnant,
   for (DataIterator dit(a_coords.grids());dit.ok();++dit)
     {
       FArrayBox& remnant = a_remnant[dit];
-      const FArrayBox& Hab = a_hab[dit];
       const FArrayBox& usrf = a_usrf[dit];
       const FArrayBox& thck = a_thck[dit];
       const FArrayBox& wd = a_waterDepth[dit];

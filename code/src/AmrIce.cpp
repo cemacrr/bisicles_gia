@@ -1469,7 +1469,8 @@ AmrIce::initialize()
                         {
                           // read in info for the level we're ignoring
                           //advance to next line
-                          while (is.get() != '\n');lineno++;
+                          while (is.get() != '\n');
+			  lineno++;
                           int nboxes;
                           is >> nboxes;
                           if (nboxes > 0)
@@ -1477,7 +1478,9 @@ AmrIce::initialize()
                               for (int i = 0; i < nboxes; ++i)
                                 {
                                   Box box;
-                                  is >> box;while (is.get() != '\n');lineno++;
+                                  is >> box;
+				  while (is.get() != '\n');
+				  lineno++;
                                 }
                             } 
                           is >> s;
@@ -1499,7 +1502,8 @@ AmrIce::initialize()
   		  MayDay::Error("bad input file");
   		}
               //advance to next line
-              while (is.get() != '\n');lineno++;
+              while (is.get() != '\n');
+	      lineno++;
               int nboxes;
               is >> nboxes;
               if (nboxes > 0)
@@ -1507,13 +1511,16 @@ AmrIce::initialize()
                   for (int i = 0; i < nboxes; ++i)
                     {
                       Box box;
-                      is >> box;while (is.get() != '\n');lineno++;
+                      is >> box;
+		      while (is.get() != '\n');
+		      lineno++;
                       m_vectTagSubset[lev] |= box;
                       pout() << " level " << lev << " refine box : " << box << std::endl;
                     }
                 }
               //advance to next line
-              while (is.get() != '\n');lineno++;
+              while (is.get() != '\n');
+	      lineno++;
               
               if (lev > 0)
 		{
@@ -4363,12 +4370,8 @@ AmrIce::initGrids(int a_finest_level)
   initData(m_vect_coordSys,
            m_velocity);
 
-  int numLevels = 1;
   bool moreLevels = (m_max_level > 0);
-
   int baseLevel = 0;
-  //int topLevel = m_finest_level;
-  
   
   BRMeshRefine meshrefine;
   if (moreLevels)
@@ -4435,9 +4438,7 @@ AmrIce::initGrids(int a_finest_level)
                                                oldBoxes);
         }
       
-      numLevels = Min(new_finest_level, m_max_level)+1;
-      
-
+  
       // now loop through levels and define
       for (int lev=baseLevel+1; lev<= new_finest_level; ++lev)
         {
@@ -4912,7 +4913,6 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 
 	      // compute initial guess by solving a linear problem with a
 	      // modest constant viscosity
-	      RealVect dxCrse = m_amrDx[0]*RealVect::Unit;
 	      constMuRelation* newPtr = new constMuRelation;
 	      newPtr->setConstVal(m_initialGuessConstMu);
 	      for (int lev=0; lev < m_finest_level + 1; lev++)
@@ -4940,7 +4940,7 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 
 	      Real finalNorm = 0.0, initialNorm = 0.0, convergenceMetric = -1.0;
 	      //Vector<LevelData<FArrayBox>* > muCoef(m_finest_level + 1,NULL);
-	      int rc;
+	      int rc = -1;
 	      if (m_initialGuessSolverType == JFNK)
 		{
 		  //JFNK can be instructed to assume a linear solve
@@ -5108,7 +5108,12 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 					      m_time,
 					      0, m_finest_level);
 
-
+	    if (solverRetVal != 0)
+	      {
+		pout() << " solver return value = "
+		       << solverRetVal << std::endl;
+		MayDay::Warning("solver return value != 0"); 
+	      }
 	    for (int lev = 0; lev <= m_finest_level; lev++)
 	      {
 		m_thicknessIBCPtr->velocityGhostBC
@@ -6802,7 +6807,6 @@ AmrIce::writePlotFile()
 
     }
   Box domain = m_amrDomains[0].domainBox();
-  Real dt = 1.;
   int numLevels = m_finest_level +1;
   // compute plot data
   Vector<LevelData<FArrayBox>* > plotData(m_velocity.size(), NULL);
@@ -7670,7 +7674,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
       MayDay::Error("checkpoint file does not contain num_comps");
     }
   
-  int numComps = header.m_int["num_comps"];
+  //int numComps = header.m_int["num_comps"];
 
   // read cfl
   if (header.m_real.find("cfl") == header.m_real.end())
@@ -7705,21 +7709,21 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   // read periodicity info
   // Get the periodicity info -- this is more complicated than it really
   // needs to be in order to preserve backward compatibility 
-  bool isPeriodic[SpaceDim];
-  D_TERM(if (!(header.m_int.find("is_periodic_0") == header.m_int.end()))
-           isPeriodic[0] =  (header.m_int["is_periodic_0"] == 1);
-         else
-           isPeriodic[0] = false; ,
+  // bool isPeriodic[SpaceDim];
+  // D_TERM(if (!(header.m_int.find("is_periodic_0") == header.m_int.end()))
+  //          isPeriodic[0] =  (header.m_int["is_periodic_0"] == 1);
+  //        else
+  //          isPeriodic[0] = false; ,
 
-         if (!(header.m_int.find("is_periodic_1") == header.m_int.end()))
-           isPeriodic[1] =  (header.m_int["is_periodic_1"] == 1);
-         else
-           isPeriodic[1] = false; ,
+  //        if (!(header.m_int.find("is_periodic_1") == header.m_int.end()))
+  //          isPeriodic[1] =  (header.m_int["is_periodic_1"] == 1);
+  //        else
+  //          isPeriodic[1] = false; ,
 
-         if (!(header.m_int.find("is_periodic_2") == header.m_int.end()))
-           isPeriodic[2] =  (header.m_int["is_periodic_2"] == 1);
-         else
-           isPeriodic[2] = false;);
+  //        if (!(header.m_int.find("is_periodic_2") == header.m_int.end()))
+  //          isPeriodic[2] =  (header.m_int["is_periodic_2"] == 1);
+  //        else
+  //          isPeriodic[2] = false;);
 
 #if BISICLES_Z == BISICLES_LAYERED
   //retrieve sigma data
@@ -9397,10 +9401,12 @@ AmrIce::endTimestepDiagnostics()
 	  Real sumCalvedIce = 0.0, sumRemovedIce = 0.0, sumAddedIce = 0.0;
 	  Real sumAccumCalvedIce = 0.0;
 	  Real diffAccumCalvedIce;
-	  Real totalLostIce = 0.0, totalLostOverIce = 0.0;
+	  Real totalLostIce = 0.0;
+	  //Real totalLostOverIce = 0.0;
 	  Real sumSurfaceFluxOverIce = 0.0, sumSurfaceFlux = 0.0;
 	  Real sumDivThckFluxOverIce = 0.0, sumDivThckFlux = 0.0;
-	  Real sumCalvedOverIce = 0.0, sumRemovedOverIce = 0.0, sumAddedOverIce = 0.0;
+	  //Real sumCalvedOverIce = 0.0;
+	  Real sumRemovedOverIce = 0.0, sumAddedOverIce = 0.0;
 	  if (m_report_grounded_ice)
 	    {
 	      sumGroundedIce = computeTotalGroundedIce();
@@ -9443,11 +9449,11 @@ AmrIce::endTimestepDiagnostics()
 					 Interval(0,0), 0);
 	      sumAddedIce = computeSum(m_addedIceThickness, m_refinement_ratios,m_amrDx[0],
 					 Interval(0,0), 0);
-	      sumCalvedOverIce = computeFluxOverIce(m_calvedIceThickness);
+	      //sumCalvedOverIce = computeFluxOverIce(m_calvedIceThickness);
 	      sumRemovedOverIce = computeFluxOverIce(m_removedIceThickness);
 	      sumAddedOverIce = computeFluxOverIce(m_addedIceThickness);
 	      totalLostIce = sumCalvedIce+sumRemovedIce+sumAddedIce;
-	      totalLostOverIce = sumCalvedOverIce+sumRemovedOverIce+sumAddedOverIce;
+	      //totalLostOverIce = sumCalvedOverIce+sumRemovedOverIce+sumAddedOverIce;
 
 	      m_lastSumCalvedIce = sumAccumCalvedIce;
 

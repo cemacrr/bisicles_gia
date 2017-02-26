@@ -252,15 +252,16 @@ public:
     CH_assert( H5Sis_simple(space_id) > 0);
     CH_assert( H5Sget_simple_extent_ndims(space_id) == 1);
     hsize_t n,nmax;
-    status = H5Sget_simple_extent_dims(space_id,&n,&nmax);
+    status = H5Sget_simple_extent_dims(space_id,&n,&nmax);CH_assert(status == 0);
     m_flowlineF.resize(n);
     status = H5Dread(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&m_flowlineF[0]);
+    CH_assert(status == 0);
 #ifdef CH_MPI
   MPI_Barrier(Chombo_MPI::comm);
 #endif
-    status = H5Dclose(dset_id);
-    status = H5Sclose(space_id);
-    status = H5Fclose(file_id); 
+    status = H5Dclose(dset_id);CH_assert(status == 0);
+    status = H5Sclose(space_id);CH_assert(status == 0);
+    status = H5Fclose(file_id);CH_assert(status == 0);
 #else
     MayDay::Error("ExtrudedPieceWiseLinearFlowline(std::string a_file,  std::string a_set, Real a_dx) requires CH_USE_HDF5");
 #endif    

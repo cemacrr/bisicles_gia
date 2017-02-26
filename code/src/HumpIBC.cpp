@@ -423,17 +423,17 @@ HumpIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
   Box refbox(IntVect::Zero,
              (initRef-1)*IntVect::Unit);
 
-  // to switch back to 2nd order, set factor to be zero...
+  // // to switch back to 2nd order, set factor to be zero...
 
-  Real factor;
-  if (IC_ORDER == 4)
-    {
-      factor = 1.0/24.0;
-    }
-  else
-    {
-      factor = 0.0;
-    }
+  // Real factor;
+  // if (IC_ORDER == 4)
+  //   {
+  //     factor = 1.0/24.0;
+  //   }
+  // else
+  //   {
+  //     factor = 0.0;
+  //   }
 
   for (dit.begin(); dit.ok(); ++dit)
     { 

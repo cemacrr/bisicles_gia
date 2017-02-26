@@ -147,7 +147,6 @@ NyeCrevasseConstitutiveRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
 	  //todo : these all need to be class args of some sort]
 	  Real waterDepth = m_NyeWaterDepth; // water depth
 	  FArrayBox depth0(box, 1); depth0.setVal(waterDepth);
-	  Real rhow = 1.0e3; // fresh water density
 	  Real a = m_NyeA; // weight for old crevasses / water filling of crevasses
 	  Real b = 1.0e0; // weight for nye crevasses
 	  Real eps = 1.0e-10; // minimum denominator
@@ -181,8 +180,6 @@ NyeCrevasseConstitutiveRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
 			  CHF_CONST_FRA1(depth,0),
 			  CHF_CONST_REAL(eps),
 			  CHF_BOX(box));
-
-	   int dbg = 0;
 
 	} //end loop of face directions
     } //end loop over boxes

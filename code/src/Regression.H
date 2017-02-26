@@ -101,7 +101,7 @@ Real HDF5NormTest(std::string a_result, std::string a_ref)
 
   return maxnorm;
 
-};
+}
 #endif
 
 

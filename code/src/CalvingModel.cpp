@@ -656,7 +656,6 @@ void FlotationCalvingModel::applyCriterion
 	{
 	  const IntVect& iv = bit();
 	  Real prevThck = thck(iv);
-	  Real extraMelt = 0.0;
 	  if (mask(iv) == FLOATINGMASKVAL)
 	    {
 	      thck(iv) = 0.0; 

@@ -1268,7 +1268,6 @@ void LevelSigmaCS::interpFromCoarse(const LevelSigmaCS& a_crseCoords,
 	     {
 	       
 	       const BaseFab<int>& mask = fineMask[dit];
-	       const FArrayBox& usrf = fineSurf[dit];
 	       const FArrayBox& topg = fineTopg[dit];
 	       FArrayBox& lsrf = fineBase[dit];
 	       const Box& b = m_grids[dit];

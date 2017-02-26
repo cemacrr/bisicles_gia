@@ -953,7 +953,7 @@ FortranInterfaceIBC::setGrids(DisjointBoxLayout& a_grids,
                        filteredBoxes,
                        a_gridBox,
                        numProc());
-
+  CH_assert(status == 0);
   // define DisjointBoxLayout
   a_grids.define(filteredBoxes, filteredProcAssign, a_domain);
   
@@ -1096,7 +1096,6 @@ FortranInterfaceIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 	}
       a_coords.setBackgroundSlope(basalSlope);
 
-      RealVect unitShift = basalSlope * a_domainSize;
       if (m_verbose)
 	{      
 	  pout() << " a_domainSize[0] = "  

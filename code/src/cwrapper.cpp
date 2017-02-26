@@ -361,14 +361,14 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
   //Chombo_MPI::comm = a_wrapper.mpi_comm;
   MPI_Barrier(Chombo_MPI::comm);
 #endif
-  int rank, number_procs;
-#ifdef CH_MPI
-  MPI_Comm_rank(Chombo_MPI::comm, &rank);
-  MPI_Comm_size(Chombo_MPI::comm, &number_procs);
-#else
-  rank=0;
-  number_procs=1;
-#endif
+//   int rank, number_procs;
+// #ifdef CH_MPI
+//   MPI_Comm_rank(Chombo_MPI::comm, &rank);
+//   MPI_Comm_size(Chombo_MPI::comm, &number_procs);
+// #else
+//   rank=0;
+//   number_procs=1;
+// #endif
   
   #define NARGS 2
   int argc = NARGS;
@@ -644,7 +644,7 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
 
   amrObject.setBasalFriction(basalFrictionPtr);
     
-  BasalFrictionRelation* basalFrictionRelationPtr;
+  BasalFrictionRelation* basalFrictionRelationPtr = NULL;
   std::string basalFrictionRelType = "powerLaw";
   pp2.query("basalFrictionRelation", basalFrictionRelType);
     
@@ -672,7 +672,7 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
   // ---------------------------------------------
 
     
-  IceThicknessIBC* thicknessIBC;
+  IceThicknessIBC* thicknessIBC = NULL;
 
   std::string problem_type;
   geomPP.get("problem_type", problem_type);

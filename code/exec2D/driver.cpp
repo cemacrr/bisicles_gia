@@ -113,8 +113,10 @@ int main(int argc, char* argv[]) {
     std::string poutBaseName = "pout";
     pp2.query("poutBaseName",poutBaseName);
     setPoutBaseName(poutBaseName);
+    //make use of number_procs and rank for at least something.
+    pout() << "number_procs = " << number_procs << ", rank = " << rank << std::endl;
 
-
+    
     RealVect domainSize;
     Vector<Real> domSize(SpaceDim);
     pp2.getarr("domain_size", domSize, 0, SpaceDim);
@@ -257,7 +259,7 @@ int main(int argc, char* argv[]) {
     // ---------------------------------------------
 
     
-    IceThicknessIBC* thicknessIBC;
+    IceThicknessIBC* thicknessIBC = NULL;
 
     std::string problem_type;
     geomPP.get("problem_type", problem_type);

@@ -578,8 +578,6 @@ MarineIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
 void 
 MarineIBC::setupBCs()
 {
-  int dirichletBCs = true;
-  int freeShearBCs = true;
   ParmParse ppBC("bc");
   Vector<int> loBCvect(SpaceDim);
   Vector<int> hiBCvect(SpaceDim);

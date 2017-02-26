@@ -1,4 +1,3 @@
-
 #ifdef CH_LANG_CC
 /*
 *      _______              __
@@ -342,7 +341,7 @@ void IceUtility::extrapVelocityToMargin(LevelData<FluxBox>& a_faceVel,
   for (DataIterator dit(grids); dit.ok(); ++dit)
     {
       const FArrayBox& cellVel = a_cellVel[dit];
-      const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
+      //const BaseFab<int>& mask = a_coordSys.getFloatingMask()[dit];
       const FArrayBox& usrf = a_coordSys.getSurfaceHeight()[dit];
       const FArrayBox& topg = a_coordSys.getTopography()[dit];
       const FArrayBox& thk = a_coordSys.getH()[dit];
