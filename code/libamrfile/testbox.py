@@ -25,7 +25,7 @@ plt.xticks([0,250e+3,500e+3])
 plt.yticks([0,250e+3,500e+3],rotation=90)
 
 #color and contour plot
-fig = plt.pcolormesh(x0,y0,thk0,norm=thklim,figure=fig)
+plt.pcolormesh(x0,y0,thk0,norm=thklim,figure=fig)
 cs = plt.contour(x0,y0,thk0,thkc,figure=fig,norm=thklim,colors='black')
 
 plt.clabel(cs, inline=1, fontsize=10)
