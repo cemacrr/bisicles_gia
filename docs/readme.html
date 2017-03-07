@@ -441,7 +441,11 @@ To build with PETSc support, add "USE_PETSC=TRUE" to your build line, e.g.
 
 <h3><a name="makeclean">Make clean</a></h3>
 <p>On occasion it might be necessary to rebuild BISICLES entirely, rather than just those parts where a file
-has changed. To do so, run
+  has changed. To do so, run</p>
+  <pre>cd $BISICLES_HOME/BISICLES/code</pre>
+
+  <p> then </p>
+  
 <pre>make clean</pre>
 for unoptimized, serial builds, 
 <pre>make clean OPT=TRUE</pre>
