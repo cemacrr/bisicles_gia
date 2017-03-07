@@ -401,7 +401,7 @@ and the correct linker flags (for fortran and C), e.g edit  Make.defs.mymachine 
 </p>
 <pre>
 NETCDF_INC=$(BISICLES_HOME)/netcdf/serial/include
-NETCDF_LIBS=-L$(BISICLES_HOME)/netcdf/serial/include -lnetcdff -lnetcdf -lhdf5_hl
+NETCDF_LIBS=-L$(BISICLES_HOME)/netcdf/serial/lib -lnetcdff -lnetcdf -lhdf5_hl
 </pre>
 
 <h2><a name="bisicles">Building basic (standalone) BISICLES</a></h2>
