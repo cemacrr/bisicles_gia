@@ -23,7 +23,9 @@
 
 #include "NamespaceHeader.H"
 
-/** virtual base for classes which encapsulate a nonlinear viscosity tensor. 
+/** 
+    Virtual base for classes which encapsulate a nonlinear viscosity tensor. 
+   
     States are defined by the velocity, and the important dependents are the 
     coefficients in the linear ViscousTensorOp: alpha, mu, lambda. 
 */ 
@@ -31,30 +33,74 @@ class NonlinearViscousTensor
 {
 public:
   virtual ~NonlinearViscousTensor(){};
-  //factory method
+  ///factory method
   virtual NonlinearViscousTensor* newNonlinearViscousTensor()=0;
-  // set the state 
+  /// set the state (velocity)
+  /**
+     Modify state, and thus the  coefficients in the linear ViscousTensorOp: alpha, mu, lambda. 
+
+     @param[in] a_state an amr hierarchy of velocity data
+   */
   virtual void setState(const Vector<LevelData<FArrayBox>*>& a_state)=0;
-  // fill ghost cells of a_state as per the boundary conditions
+
+  /// fill ghost cells of a_state as per the boundary conditions
   virtual void applyBC(Vector<LevelData<FArrayBox>*>& a_phi)=0;
-  // retrieve the state 
+
+  /// retrieve the state
+  /**
+     @return a reference to the current state (velocity)
+   */
   virtual const Vector<LevelData<FArrayBox>*>& getState() = 0;
-  //retrieve the coefficient alpha
+
+  ///Retrieve the drag coefficient,  alpha
+  /**
+     @return an amr hierarchy representing the coefficient \f$ \alpha(x,y) \f$, 
+     that appears in ViscousTensorOp as the coeffcient of the velocity \f$ u \f$.
+   */
   virtual Vector<RefCountedPtr< LevelData<FArrayBox> > >& alpha() =0;
-  //retrieve the coefficient mu 
+
+  ///Retrieve the viscosity coefficient, mu
+  /**
+     @return an amr hierarchy representing the coefficient \f$ \mu(x,y) \f$, 
+     that appears in ViscousTensorOp as the coeffcient of the strain rate 
+     \f$ \nabla \vec{u}  + ( \nabla \vec{u})^T \f$.
+   */  
   virtual Vector<RefCountedPtr< LevelData<FluxBox> > >& mu()  =0;
-  //retrieve the coefficient lambda
+
+  ///Retrieve the compressibility coefficient, lambda
+  /**
+     @return an amr hierarchy representing the coefficient \f$ \lambda(x,y) \f$, 
+     that appears in ViscousTensorOp as the coeffcient of the compression rate 
+     \f$ \nabla. \vec{u} I \f$.
+   */
   virtual Vector<RefCountedPtr< LevelData<FluxBox> > >& lambda() =0;
-  // provide a pointer to an AMRLevelOpFactory<LevelData<FArrayBox> >
-  // defined at the current state
+
+  /// provide a pointer to an AMRLevelOpFactory<LevelData<FArrayBox> > defined at the current state
   virtual RefCountedPtr< AMRLevelOpFactory<LevelData<FArrayBox> > > opFactoryPtr()=0;
 };
 
-//manage coeffients mu(u), lambda(u) = 2*mu(u) and alpha(u) 
-//in L[u] = div( mu(theta) * (grad(u) + grad(u)^T) + lambda * div(u)*I)  - alpha*u
-//and provide the appropriate ViscousTensorOpFactory
-//alpha(u) and mu(u),lambda(u) are determined by BasalFrictionRelation and 
-//ConstitutiveRelation members.
+/// Implement NonlinearViscousTensor for typical (velocity-depenendent) ice rheology
+/** 
+    Provides the means to compute the coefficients \f$ \mu(u) \f$, 
+    \f$ \lambda(u)  = 2*\mu(u) \f$ and \f$ \alpha(u) \f$ 
+    in \f$ L[u] = \nabla \cdot ( \mu(h,A(T),u)  (\nabla u + (\nabla u)^T + \lambda  \nabla. u I)  
+    - \alpha(u) u \f$
+    and provide the appropriate ViscousTensorOpFactory for a given \f$u\f$. Also provides
+    the means to compute the stress tensor components 
+    
+    The velocity dependencies of \f$\alpha(u)\f$ and \f$\mu(u)\f$, \f$\lambda(u)\f$ are determined 
+    by BasalFrictionRelation and ConstitutiveRelation  objects, while the velocity 
+    independent parts are set seperately, in 
+    the contructor and can be modified using setState, and setFaceViscCoef.
+
+    The effective basal drag coefficient is computed as \f$alpha(u) = C  f_b(u)  + C_0\f$ , 
+    with fb defined by a BasalFrictionRelation, ie \f$ \tau _b = [ C  f_b(u)  + C_0 ]  u \f$
+
+    The effective viscosity is computed as \f$ \mu(u) = \phi  h  f_v(A(T),u)\f$,
+    with \f$f_v \f$
+    defined by a ConstitutiveRelation, and \f$ \lambda(u) = 2  \mu(u)\f$
+  
+*/
 class IceNonlinearViscousTensor : public NonlinearViscousTensor
 {
  
@@ -116,6 +162,27 @@ public:
 
   IceNonlinearViscousTensor(const IceNonlinearViscousTensor&);
 
+  /**
+     The usual constructor.
+     @param a_grids hierarchy of AMR layouts
+     @param a_refRatio refinement ratio from levels l to levels l + 1
+     @param a_domains domain boundaries for each level
+     @param a_dxs     mesh spacing for each level
+     @param a_coordSys the ice sheet geometry
+     @param a_u ice  velocity
+     @param a_C velocity independent part of the basal friction 
+     @param a_C0 additional basal friction, such that Tb = C * fb(u)*u + C0 * u
+     @param a_finestLevel finest AMR level
+     @param a_constRel velocity dependent part of the viscosity, fv(A, u)
+     @param a_basalFrictionRel velocity dependent part of the basal friction, fb(u)
+     @param a_bc Ice thickness and velocity boundary conditions
+     @param a_A velocity independent part of the viscosity, A
+     @param a_faceFlowLawCoefficient another velocity independent part of the viscosity, phi
+     @param a_time 
+     @param a_vtopSafety [DEPRECATE?]
+     
+
+   */
   IceNonlinearViscousTensor(const Vector<DisjointBoxLayout>& a_grids,
 	       const Vector<int>& a_refRatio,
 	       const Vector<ProblemDomain>& a_domains,
@@ -143,7 +210,6 @@ public:
   //implementation of NonlinearViscousTensor interface 
   virtual void setState(const Vector<LevelData<FArrayBox>*>& a_u);
 
-  // fill ghost cells of a_state as per the boundary conditions
   virtual void applyBC(Vector<LevelData<FArrayBox>*>& a_phi)
   {
     for (int lev =0; lev < a_phi.size(); lev++)
@@ -161,10 +227,7 @@ public:
   {
     return m_u;
   }
-  virtual Vector<LevelData<FArrayBox>*>& getC() 
-  {
-    return m_C;
-  }
+ 
   virtual Vector<RefCountedPtr<LevelData<FluxBox> > >& mu()
   {
     return m_mu;
@@ -183,7 +246,17 @@ public:
     return m_opFactoryPtr;
   } 
 
-  //an overloaded setState, because beta changes with time
+  /** 
+      Retrieve the basal friction coeffcient (not the effective drag coeffient, alpha() ) 
+   */
+  virtual Vector<LevelData<FArrayBox>*>& getC() 
+  {
+    return m_C;
+  }
+
+  /** 
+      An overloaded setState, because beta changes with time
+   */
   virtual void setState(const Vector<LevelData<FArrayBox>*>& a_u, 
 			const Vector<LevelData<FArrayBox>*>& a_basalFrictionCoefficent)
   {
@@ -191,8 +264,10 @@ public:
     setState(a_u);
   }
 
-  //allows an additional coefficient f of the face-centered viscosity to be specified,
-  // so that H*mu*(grad(u) ... ) is replaced with  f*H*mu*(grad(u) ... ).
+  /** 
+      Allows an additional coefficient f of the face-centered viscosity to be specified,
+      so that H*mu*(grad(u) ... ) is replaced with  f*H*mu*(grad(u) ... ).
+  */
   virtual void setFaceViscCoef(const Vector<LevelData<FluxBox>*>& a_muCoef)
   {
     int nlev = min(a_muCoef.size(),m_muCoef.size());
@@ -202,6 +277,10 @@ public:
 	m_muCoef[lev] = a_muCoef[lev];
       }
   }
+
+  /** 
+      Reset to default (NULL) the coefficient set in setFaceViscCoef
+  */
   virtual void unsetFaceViscCoef()
   {
     for (int lev=0; lev < m_muCoef.size(); lev++)
@@ -210,8 +289,10 @@ public:
       }
   }
 
-  //provide the components of the Visocus Tensor G[ij] at cell faces, such that
-  //at j-faces we have G[ij] for all i and so on
+  /** 
+      Provide the components of the Viscous Tensor G[ij] at cell faces, such that
+      j-faces we have G[ij] for all i and so on
+  */
   virtual void computeViscousTensorFace(const Vector<LevelData<FluxBox>*>& a_viscousTensor);
     
 };
