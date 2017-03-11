@@ -3,7 +3,8 @@
 ### This makefile produces an executable for each 
 ### name in the `ebase' variable
 ebase := driver
-all:  libbike 
+all:  libbike clean
+driver:  libbike clean
 
 .NOTPARALLEL: all
 
@@ -19,4 +20,4 @@ libclean:
 
 LIBFLAGS := -L../lib/ -lBisicles$(config)  $(LIBFLAGS)
 
-
+.PHONY: libbike libclean
