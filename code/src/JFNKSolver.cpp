@@ -957,6 +957,24 @@ JFNKSolver::linearSolve(LinearizedVTOp& a_op,
 						a_op.current().lambda(),a_op.current().alpha());
 
       PetscErrorCode ierr = m_petscSolver->solve_mfree(a_u,a_rhs,&a_op);
+
+      //coarse average, as there is no guarantee that the solver did
+      for (int lev = a_u.size()-1; lev > 0; lev--)
+	{		 
+	  CoarseAverage avg(m_grids[lev],SpaceDim,m_refRatios[lev-1]);
+	  avg.averageToCoarse(*a_u[lev-1],*a_u[lev]);
+	}
+
+
+      
+      for (int lev = 0; lev < a_u.size()-1; lev++)
+	{
+	  QuadCFInterp qcfi(m_grids[lev+1], &m_grids[lev],
+                            m_dxs[lev][0], m_refRatios[lev], 
+                            SpaceDim, m_domains[lev+1]);
+          qcfi.coarseFineInterp(*a_u[lev+1], *a_u[lev]);
+	}
+      
       //CHKERRQ(ierr);
 #else
       MayDay::Error("linearSolverType is petsc, but code compiled w/o PETSC=TRUE");
