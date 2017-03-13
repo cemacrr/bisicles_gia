@@ -3,7 +3,8 @@
 ### This makefile produces an executable for each 
 ### name in the `ebase' variable
 ebase := solverBenchmark
-all:  libbike 
+all:  clean libbike  solverBenchmark
+solverBenchmark: clean libbike
 
 .NOTPARALLEL: all
 

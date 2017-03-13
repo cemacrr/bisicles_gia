@@ -6,7 +6,7 @@
 
 ebase :=  nctoamr amrtotxt amrtoplot flatten extract merge addbox amrtocf stats glfaces faces rescale sum pythonf
 src_dirs = src
-all:  libbike 
+all:  clean libbike 
 
 .NOTPARALLEL: all
 

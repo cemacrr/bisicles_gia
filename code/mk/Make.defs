@@ -72,7 +72,7 @@ endif
 
 else
 NETCDF_INC=$(NETCDF_HOME)/include
-NETCDF_LIBS := -I$(NETCDF_HOME)/libs $(NETCDF_LIBS)
+NETCDF_LIBS := -L$(NETCDF_HOME)/lib $(NETCDF_LIBS)
 endif
 
 endif
