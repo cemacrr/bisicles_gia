@@ -277,36 +277,36 @@ Possibly, building two versions of netcdf is a waste of time.
 </p>
 <h3><a name="petsc">Installing PETSc</a></h3>
 <p>
-If we're planning to use the PETSc solver interface, it's a good idea to install PETSc before building Chombo. It's likely that some version of petsc may be pre-installed on your system -- we need petsc version 3.3.4 or later,
-
+If we're planning to use the PETSc solver interface, it's a good idea to install PETSc before building Chombo. It's likely that some version of petsc may be pre-installed on your system -- we need petsc version 3.3.4 or later, configured with hypre. If that is not available, you will need to build it.
+</P>
 <ol>
-<li> First, download PETSc:
+  <li> First, download PETSc:
 <pre>
-git clone -b maint https://bitbucket.org/petsc/petsc petsc
+> cd $BISICLES_HOME
+> git clone -b maint https://bitbucket.org/petsc/petsc petsc-src
 </pre>
 
-<li>  Configure petsc. This is the configure command that I used (this builds a parallel version and installs it in /usr/local/petsc/petsc-maint-mpi):
-<pre>
-cd petsc
-./configure --download-fblaslapack=yes --download-hypre=yes -with-x=0 --with-c++support=yes --with-mpi=yes --with-hypre=yes --prefix=/usr/local/petsc/petsc-maint-mpi --with-c2html=0 --with-ssl=0
-</pre> 
+<li>  Configure petsc. To build a parallel version and install it in $BISICLES_HOME/petsc, 
 
+<pre>
+> mkdir -p $BISICLES_HOME/petsc
+> cd $BISICLES_HOME/petsc-src
+> ./configure --download-fblaslapack=yes --download-hypre=yes -with-x=0 --with-c++support=yes --with-mpi=yes --with-hypre=yes --prefix=$BISICLES_HOME/petsc --with-c2html=0 --with-ssl=0
+</pre> 
 
 The petsc install system is pretty helpful and will tell you what to do
 if it runs into problems (unlike, say, Chombo)
 
-<li> Follow the instructions to make and install the library
+<li> Follow the instructions to make and install the library</li>
 
-<li> Finally, set the PETSC_DIR and PETSC_ARCH environment variables, which Chombo will use in order to find your PETSc installation. For my installation (I'm using tcsh) 
+  <li> Finally, set the PETSC_DIR environment variable,
+    which Chombo will use in order to find your PETSc installation. If using bash, 
 <pre>
-setenv PETSC_DIR /usr/local/petsc/petsc-maint-mpi
-setenv PETSC_ARCH arch-linux2-c-debug
+> export PETSC_DIR=$BISICLES_HOME/petsc
 </pre>
-if using bash 
-<pre>
-export PETSC_DIR=/usr/local/petsc/petsc-maint-mpi
-export PETSC_ARCH=arch-linux2-c-debug
-</pre>
+Use setenv rather than export in csh, tcsh etc.
+These variables need to be set whenever you compile against petsc, so consider adding them to
+.bash_profile or .bashrc or the startup script for your shell.
 </ol>
 
 
@@ -505,32 +505,6 @@ and eventually, you will get a series of plot*2d.hdf5 files that you can view in
 <h3>Running on a cluster</h3>
 
 See the <a href='sites.html'>Site specific notes</a>
-
-<h3> Using the PETSc solvers</h3> 
-The examples presented in this tutorial all use the default Chombo geometric multigrid (GMG) solvers. If you find that convergence of the velocity solver is stalling (or even diverging), you might want to try a PETSc algebraic multigrid (AMG) solver. To switch to the PETSc solvers,
-<ol>
-<li> You will need a <pre>.petsrc</pre> file to tell the PETSc solvers what to do. There is an example one in the exec2D directory which is set to parameters which have worked well for us. For example, it uses the <a href='http://computation.llnl.gov/casc/linear_solvers/sls_hypre.html'>HYPRE </a> BoomerAMG solver. 
-
-<li> Edit your BISICLES input file. There are two ways to use PETSC:
-<ul>
-<li> As a bottom solver in the Chombo GMG solver. (if you don't know what that means, don't worry -- suffice it to say that in many cases, this option occupies the middle ground between the Chombo native GMG solvers and a full AMR AMG solver.). Assuming you are using the JFNKSolver for your velocity solve, add the following line to your inputs file:
-<pre>
-JFNKSolver.bottom_solver_type = 1
-</pre>
-
-<li> If that doesn't help, then you're ready for the full AMR PETSc solver. Assuming once again that you're using the JFNKSolver, then change 
-<pre> 
-JFNKSolver.solverType = 0
-</pre>
-to 
-<pre> 
-JFNKSolver.solverType = 4
-<\pre>
-
-<\ul>
-
-</ol>
-
 
 
 <h2><a name='all'>Building all of BISICLES</a></h2>

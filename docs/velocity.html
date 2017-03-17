@@ -12,7 +12,8 @@
 </ul>
 <h1>Contents</h1>
   <ol start=0>
-    <li><a href='#jfnk'>JFNK Solver</a> 
+    <li><a href='#jfnk'>JFNK Solver</a>
+      (<a href='#jfnk-petsc'>PETSc option</a>)
     <li><a href='#known'>Known Velocity</a>  
     <li><a href='#snes'>Petsc Nonlinear Solver</a> [EXPERIMENTAL] 
     <li><a href='#fas'>FASMGAMR</a> [EXPERIMENTAL] 
@@ -66,8 +67,78 @@ Options for  &lt solver_type &gt are
   </ol>
 
 
+  <h2><a name='jfnk'>JFNK Solver </a></h2>
+<p>
+  BISICLES JFNK (Jacobian-free Newton-Krylov) solver
+  solves the nonlinear vertically integrated (SSA, L1L2) stress equations
+  using a matrix-free Newton method. It is the default for conventional (forward)
+  simulations, and is also used by the <a href='#inversevi'>Inverse Vertically Integrated Velocity Solver</a>.
+  BISICLES spends around 95% of its time solving the stress equations, and it is also
+  the calculation most likely to fail. That said, it often fails or perform poorly
+  when the input conditions - basal traction, ice thickness, boundary conditions - are
+  incorrect in some way. For example, a region of floating ice unconnected to either grounded
+  ice, a rocky wall, or a domain boundary with Dirichlet conditions does not have
+  a unique solution - it is an ill-posed problem. So if you have problems - especially on
+  time step 0 - check the input data first, especially the <a href='geometry.html'>geometry</a>
+  and the <a href='stress.html#basal'>basal traction</a>.
+</p>
+<p>
+  However, problems that are in theory well-posed but ill-conditioned -
+  for example the Drygalski ice tongue - can see their iterations
+  diverge, and in those cases paying attention to the JFNKSolver options can be useful.
+  The most useful course in such cases is to try the <a href='#jfnk-petsc'>PETSc linear solvers </a>
+</p>
+</p>
+<h3><a name='jfnk-petsc'> Option: PETSc linear solvers </a></h3> 
+By default, the JFNK solver uses the  Chombo geometric multigrid (GMG)
+linear solvers to compute the Newton step.
+If you find that convergence of the velocity solver is stalling (or even diverging), you might want
+to try a PETSc algebraic multigrid (AMG) solver. To switch to the PETSc solvers,
+<ol>
+  <li>
+    You will need a .petsrc file to tell the PETSc solvers what to do. PETSc has an enormous range
+    of options, but the important thing is to use a suitable preconditioner because the PETSc default
+    does not work well in many cases. We usually find
+    the <a href='http://computation.llnl.gov/casc/linear_solvers/sls_hypre.html'>HYPRE </a> BoomerAMG solver. 
+    to work well. A minimal .petscrc file would be something like
+    <pre>
+#.petsrc
+#use the hypre / boomeramg preconditioner
+-pc_type hypre
+-pc_hypre_type boomeramg
+#gmres is the safe (and default) option for a KSP method. bcgs is sometimes quicker
+-ksp_type gmres
+#this makes the output less confusing, but it is optional
+-ksp_norm_type unpreconditioned
+#sensible values? depends what you are doing
+-ksp_max_it 20
+-ksp_rtol 1.0e-4
+#include this to see log the PETSc solver progres in pout.X etc
+-ksp_monitor
+    </pre>
+  </li>
+    <li> Edit your BISICLES input file. There are two ways to use PETSC:
+<ul>
+<li> As a bottom solver in the Chombo GMG solver. (if you don't know what that means, don't worry -- suffice it to say that in many cases, this option occupies the middle ground between the Chombo native GMG solvers and a full AMR AMG solver.). Assuming you are using the JFNKSolver for your velocity solve, add the following line to your inputs file:
+<pre>
+JFNKSolver.bottom_solver_type = 1
+</pre>
 
-<h2><a name='jfnk'>JFNK Solver </a></h2>
+<li> If that doesn't help, then you're ready for the full AMR PETSc solver. Assuming once again that you're using the JFNKSolver, then change 
+<pre> 
+  JFNKSolver.solverType = 0
+  JFNKSolver.normType = 0
+</pre>
+to 
+<pre> 
+  JFNKSolver.solverType = 4
+  JNKKSolver.normType = 2
+</pre>
+
+</ol>
+
+
+
 
 <h2><a name='#known'>Known Velocity</a> </h2>
 
