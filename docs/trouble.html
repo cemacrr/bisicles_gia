@@ -21,6 +21,26 @@
 
 <h2><a name='norun'>The code compiles but does not run</a> </h2>
 
+<ol>
+
+  <li>
+    <strong>ImportError: No module named xyz</strong>. For some reason
+  the python interpreter was unable to read xyz.py, e.g
+  <pre>
+ImportError: No module named rift
+failed to import Python module rift
+failed to import Python module  !!!
+  </pre>
+  In this case, either rift.py does not exists, or, it is in a directory
+  outside $PYTHONPATH. By default $PYTHONPATH does not include
+  the current working directory, so this is an easy mistake to make.
+  Try e.g
+  <pre>
+    export PYTHONPATH=$PWD:$PYTHONPATH
+  </pre>
+  </li>
+</ol>
+
 <h2><a name='crashes'>The code compiles and runs but crashes or fails
     in some spectacular way</a> </h2>
 
