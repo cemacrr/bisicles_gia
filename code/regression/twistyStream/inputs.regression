@@ -99,8 +99,8 @@ JFNKSolver.h = 0.025
 JFNKSolver.hAdaptive = true 
 JFNKSolver.mgProlongType = 1
 
-# 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = MultiGrid
-JFNKSolver.solverType = 0
+# 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = MultiGrid, 4 = petsc
+JFNKSolver.solverType = 4
 JFNKSolver.maxBiCGStabIter = 50
 JFNKSolver.MGtol = 1.0e-5
 JFNKSolver.RelaxTol = 1.0e-5
