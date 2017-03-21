@@ -374,7 +374,7 @@ int main(int argc, char* argv[]) {
 			for (int sign = -1; sign <=1; sign+=2)
 			  {
 			    const IntVect ivp = iv+sign*BASISV(fdir);
-			    if (floatingMask(ivp) == FLOATINGMASKVAL)
+			    if ((floatingMask(ivp) == FLOATINGMASKVAL) || (floatingMask(ivp) == OPENSEAMASKVAL))
 			      {
 				//face centred point between iv amd ivp
 				int off = (sign<0)?0:1;
