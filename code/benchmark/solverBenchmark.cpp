@@ -67,11 +67,11 @@ int main(int argc, char* argv[]) {
 
   int ierr = 0;
   
-#ifdef CH_MPI
 
 #ifdef CH_USE_PETSC
  ierr = PetscInitialize(&argc, &argv,"./.petscrc",PETSC_NULL); CHKERRQ(ierr);
 #else
+#ifdef CH_MPI
   MPI_Init(&argc, &argv);
 #endif // end petsc conditional
 
