@@ -56,15 +56,39 @@ conditions: 1 paper or May 16, 2014
  
 subscribers: LBNL
 
+------------------------------------------------------------
+
+sainan:
+
+description: Branch for Sainan Sun to use for development work
+
+initial date: November 6, 2015
+(originally in public/branches, moved to private branch on Nov 17, 2015)
+
+
+conditions: None -- at Sainan's discretion
+ 
+subscribers: LBNL(Martin), Bristol(Cornford, Sun)
+
+------------------------------------------------------------
+
 
 ----------------------------------------------------------
 
 
 Stale private branches (already-merged to the public trunk)
 
-levelSigmaCS: development branch for the transition from a
+levelSigmaCS:
+
+description: development branch for the transition from a
 gridbox-based coordinate system (SigmaCS) to one which is based on the
 entire level (levelSigmaCS)
+
+conditions: None
+
+subscribers: LBNL
+
+removed: March 23, 2017
 
 ------------------------------------------------------------
 
@@ -73,7 +97,7 @@ Gunter-devel:
 description: Branch for Gunter Leguy to use for development work
 
 initial date: March 6, 2014
-removed: March 21, 2017
+removed: March 22, 2017
 
 conditions: None -- at Gunter's discretion
  
@@ -86,7 +110,7 @@ KevinCarlson:
 description: Branch for Kevin Carlson to use for performance work
 
 initial date: October 18, 2014
-removed: March 21, 2017
+removed: March 22, 2017
 
 conditions: None -- at Kevin's discretion
  
