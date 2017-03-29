@@ -14,7 +14,7 @@ W3 = W - W1 - W2
 #pinning point 
 r_pin = 4.0e+3
 x_pin = W - W3 + r_pin
-y_pin = L1 - r_pin
+y_pin = L1 
 rsq_pin  = r_pin**2
 
 #berg in end of rift
@@ -37,9 +37,9 @@ def topography(x,y):
 
 def thickness(x,y):
 
-    h = 400.0
+    h = 600.0
     h = h + 16.0 * ( (x-W/2.0) / W )**2.0
-    h = h - 200 * y/L
+    h = h - 300 * y/L
     
     if ( y > L):
         h = 0.0
