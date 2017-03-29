@@ -41,7 +41,7 @@
 #include "SurfaceFlux.H"
 #include "IceConstants.H"
 #include "AMRDamage.H"
-//#include "FileMangler.H"
+#include "DamageConstitutiveRelation.H"
 #ifdef HAVE_PYTHON
 #include "PythonInterface.H"
 #endif
@@ -807,7 +807,7 @@ int main(int argc, char* argv[]) {
 
     {
       //// TODO this is just a temporary means of initializing a 
-      //// damage model observer. Once we have it working, it 
+      //// damage model observer etc. Once we have it working, it 
       //// probably needs to be bound up with MuCoefficient
       bool damage_model = false;
       pp2.query("damage_model",damage_model);
@@ -817,8 +817,17 @@ int main(int argc, char* argv[]) {
 	  ///how that will be done
 	  DamageIceObserver* ptr = new DamageIceObserver();
 	  amrObject.addObserver(ptr);
+
+	  //whatever the constitutive relation was, wrap
+	  //it up in a DamageConstitutiveRelation tied
+	  //to the DamageIceObserver components
+	  DamageConstitutiveRelation* dcrptr = 
+	    new DamageConstitutiveRelation(constRelPtr, &ptr->damage());
+	  amrObject.setConstitutiveRelation(dcrptr);
+	  
 	}
     }
+
 
     // set up initial grids, initialize data, etc.
     amrObject.initialize();
@@ -896,6 +905,7 @@ int main(int argc, char* argv[]) {
 	      ierr = 1;
 	    }
 	}
+
     }
 #endif
 

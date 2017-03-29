@@ -18,7 +18,6 @@
 #include "ViscousTensorOp.H"
 #include "ParmParse.H"
 #include "L1L2ConstitutiveRelation.H"
-#include "NyeCrevasseConstitutiveRelation.H"
 #include "NamespaceHeader.H"
 
 void
@@ -845,22 +844,6 @@ ConstitutiveRelation* ConstitutiveRelation::parse(const char* a_prefix)
       {
         L1L2ConstitutiveRelation* ptr = new L1L2ConstitutiveRelation;
         ptr->parseParameters();
-        constRelPtr = static_cast<ConstitutiveRelation*>(ptr);
-      }
-    else if (constRelType == "NyeCrevasse")
-      {
-	CH_assert(a_prefix != constRelType); //don't allow more recursion here
-	ConstitutiveRelation* crptr = ConstitutiveRelation::parse(constRelType.c_str());
-	ParmParse ncpp("NyeCrevasse");
-	Real NyeWaterDepth = 0.0;
-	ncpp.query("NyeWaterDepth",NyeWaterDepth);
-	Real NyeA = 0.0;
-	ncpp.query("NyeA",NyeA);
-	//("NyeWaterDepth",NyeWaterDepth);
-	//pp.get("NyeA",NyeA);
-	NyeCrevasseConstitutiveRelation* ptr = 
-	  new NyeCrevasseConstitutiveRelation(crptr,NyeWaterDepth,NyeA);
-	delete crptr;
         constRelPtr = static_cast<ConstitutiveRelation*>(ptr);
       }
     else 

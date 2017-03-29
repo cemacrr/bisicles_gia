@@ -9,12 +9,19 @@
 #endif
 
 #include "AMRDamage.H"
+#include "DamageConstitutiveRelation.H"
+#include "AmrIce.H"
 #include "FineInterp.H"
 #include "CoarseAverageFace.H"
 #include "AdvectPhysics.H"
 #include "PatchGodunov.H"
 #include "PiecewiseLinearFillPatch.H"
 #include "DivergenceF_F.H"
+#include "ParmParse.H"
+#include "LevelMappedDerivatives.H"
+#include "NyeCrevasseF_F.H"
+#include "SigmaCSF_F.H"
+#include "CH_HDF5.H"
 #include "NamespaceHeader.H"
 
 DamageIceObserver::DamageIceObserver()
@@ -31,7 +38,7 @@ DamageIceObserver::~DamageIceObserver()
     }
 }
 
-const AMRDamage& DamageIceObserver::damage() const
+AMRDamage& DamageIceObserver::damage() const
 {
   return *m_damagePtr;
 }
@@ -41,23 +48,125 @@ void DamageIceObserver::notify(AmrIce::Observer::Notification a_n, AmrIce& a_amr
 
   pout() <<  "DamageIceObserver::notify" << std::endl;
 
-  if (a_n == AmrIce::Observer::PostGeometryUpdate)
+  if (a_n == AmrIce::Observer::PreVelocitySolve)
     {
-      m_damagePtr->define(a_amrIce.grids(), a_amrIce.refRatios(), a_amrIce.finestLevel(), 
-			  a_amrIce.dx(0));
+      // the velocity solve will need the damage field
+      m_damagePtr->define(a_amrIce.grids(), a_amrIce.refRatios(), 
+			  a_amrIce.finestLevel(), a_amrIce.dx(0));
+    }
+  else if (a_n == AmrIce::Observer::PostGeometryUpdate)
+    {
+      //m_damagePtr->define(a_amrIce.grids(), a_amrIce.refRatios(), a_amrIce.finestLevel(), 
+      //			  a_amrIce.dx(0));
       const Vector<LevelData<FluxBox>* >& faceVel = a_amrIce.faceVelocities();
       const Vector<LevelData<FArrayBox>* >& cellVel = a_amrIce.amrVelocity();
-      m_damagePtr->timestep(a_amrIce.dt(), cellVel, faceVel);
+
+
+      Vector<LevelData<FArrayBox>const * > visTensor(a_amrIce.finestLevel() + 1, NULL);
+      for (int lev =0; lev <= a_amrIce.finestLevel(); lev++)
+	{
+	  visTensor[lev] = a_amrIce.viscousTensor(lev);
+	}
+
+      Vector<LevelData<FArrayBox>const * > surfThickSource(a_amrIce.finestLevel() + 1, NULL);
+      for (int lev =0; lev <= a_amrIce.finestLevel(); lev++)
+	{
+	  surfThickSource[lev] = a_amrIce.surfaceThicknessSource(lev);
+	}
+
+      Vector<LevelData<FArrayBox>const * > baseThickSource(a_amrIce.finestLevel() + 1, NULL);
+      for (int lev =0; lev <= a_amrIce.finestLevel(); lev++)
+	{
+	  baseThickSource[lev] = a_amrIce.basalThicknessSource(lev);
+	}
+
+      const Vector<RefCountedPtr<LevelSigmaCS> >& geometry = a_amrIce.amrGeometry();
+
+ 
+      m_damagePtr->timestep(a_amrIce.dt(), visTensor, geometry, surfThickSource, baseThickSource, cellVel, faceVel);
+     
+      
 
     }
 
 
 }
+#ifdef CH_USE_HDF5
+void DamageIceObserver::addPlotVars(Vector<std::string>& a_vars)
+{
+  m_damagePtr->addPlotVars(a_vars);
+}
 
+void DamageIceObserver::writePlotData(LevelData<FArrayBox>& a_data, int a_level)
+{
+  m_damagePtr->writePlotData(a_data, a_level);
+}
+
+/// fill a_var with the names of variables to add to the checkpoint file 
+void DamageIceObserver::addCheckVars(Vector<std::string>& a_vars)
+{
+  m_damagePtr->addCheckVars(a_vars);
+}
+  
+/// copy level a_level checkpoint data to  LevelData<FArrayBox>& a_data
+void DamageIceObserver::writeCheckData(HDF5Handle& a_handle, int a_level)
+{
+  m_damagePtr->writeCheckData(a_handle, a_level);
+}
+  
+/// read level a_level checkpoint data from  LevelData<FArrayBox>& a_data
+void DamageIceObserver::readCheckData(HDF5Handle& a_handle, HDF5HeaderData& a_header, int a_level, const DisjointBoxLayout& a_grids)
+{
+  m_damagePtr->readCheckData(a_handle, a_header, a_level, a_grids);
+}
+#endif
+
+
+AMRDamage::~AMRDamage()
+{
+  
+  for (int lev = 0; lev < m_damage.size(); lev++)
+    {
+      if (m_damage[lev] != NULL)
+	{
+	  delete m_damage[lev]; m_damage[lev] = NULL;
+	}
+    }
+
+  for (int lev =0; lev < m_faceMinDamage.size(); lev++)
+    {
+      if (m_faceMinDamage[lev] != NULL)
+	{
+	  delete m_faceMinDamage[lev];m_faceMinDamage[lev]=NULL; 
+	}
+    }
+ 
+}
 AMRDamage::AMRDamage()
 {
   m_time_step = 0;
   m_time = 0.0;
+}
+
+const LevelData<FArrayBox>* AMRDamage::damage(int a_level) const
+{
+  if (!(m_damage.size() > a_level))
+    {
+      std::string msg("AMRDamage::damage !(m_damage.size() > a_level)");
+      pout() << msg <<endl;
+      CH_assert((m_damage.size() > a_level));
+      MayDay::Error(msg.c_str());
+    }
+
+  LevelData<FArrayBox>* ptr = m_damage[a_level];
+  if (ptr == NULL)
+    {
+      std::string msg("AMRDamage::damage m_damage[a_level] == NULL");
+      pout() << msg << endl;
+      CH_assert(ptr != NULL);
+      MayDay::Error(msg.c_str());
+    }
+  return ptr;
 }
 
 void AMRDamage::define
@@ -111,22 +220,20 @@ void AMRDamage::define
   m_damage.resize(m_finestLevel + 1);
   for (int lev = 0; lev <= m_finestLevel; lev++)
     {
-      m_damage[lev] = new LevelData<FArrayBox>(m_grids[lev],1,4 * IntVect::Unit);
+      m_damage[lev] = new LevelData<FArrayBox>(m_grids[lev],  DAMAGE_N_COMP , DAMAGE_N_GHOST * IntVect::Unit);
     }
   if (prevDamage.size() == 0)
     {
-      // for now, make up some stripes. needs to be something sensible.
+     
+      // for now, set to zero, but need to set initial conditions from input data of some sort, 
+      // or read checkpoints
       for (int lev = 0; lev <= m_finestLevel; lev++)
-	{
-	  for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
-	    {
-	      FArrayBox& damage = (*m_damage[lev])[dit];
-	      for (BoxIterator bit(damage.box());bit.ok();++bit)
-		{
-		  const IntVect& iv = bit();
-		  Real x = (Real(iv[0]) + 0.5)*m_dx[lev][0];
-		  damage(iv) = sin(2.0*M_PI*x/(40.0e+3));
-		}
+       	{
+       	  for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+       	    {
+       	      FArrayBox& damage = (*m_damage[lev])[dit];
+	      damage.setVal(0.0);
+	      
 	    }
 	}
     }
@@ -136,14 +243,35 @@ void AMRDamage::define
       // if previous damage data exists, interpolate onto the new mesh
       for (int lev = 0; lev <= m_finestLevel; lev++)
 	{
+
+	  //FIXME : only doing this to avoid stupid value outside the domain, should be a BC thing....
+	  for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+       	    {
+       	      FArrayBox& damage = (*m_damage[lev])[dit];
+	      damage.setVal(0.0);  
+	    }
+
+
 	  if (lev > 0)
 	    {
 	      FineInterp fi(m_grids[lev], m_damage[lev]->nComp(), 
 			    m_ratio[lev-1], m_grids[lev].physDomain());
 	      fi.interpToFine(*m_damage[lev], *m_damage[lev-1]);
+
+	      //need to fill the ghost cells on CF-interfaces now, because *m_damage[lev] has to be
+	      //in good shape at all times if the interface with DamageConstitutiveRelation is to work
+	      
+	      PiecewiseLinearFillPatch ghostFiller(m_grids[lev],m_grids[lev-1],m_damage[lev]->nComp(),
+						   m_grids[lev-1].physDomain(), m_ratio[lev-1], m_damage[lev]->ghostVect()[0]);
+	      ghostFiller.fillInterp(*m_damage[lev], *m_damage[lev-1],*m_damage[lev-1],1.0,0,0,m_damage[lev]->nComp());
+
 	    }
 	  Interval ival(0,m_damage[lev]->nComp()-1);
-	  prevDamage[lev]->copyTo(ival,  *m_damage[lev], ival);
+
+	  if (prevDamage.size() > lev && prevDamage[lev])
+	    prevDamage[lev]->copyTo(ival,  *m_damage[lev], ival);
+	  m_damage[lev]->exchange();
+
 	}
       //free old data
       for (int lev =0; lev < prevDamage.size(); lev++)
@@ -156,9 +284,29 @@ void AMRDamage::define
 
     }
 
+  //update storage for m_faceMinDamage : I think we don't care what it contains....
+   for (int lev =0; lev < m_faceMinDamage.size(); lev++)
+     {
+       if (m_faceMinDamage[lev] != NULL)
+	 {
+	   delete m_faceMinDamage[lev];m_faceMinDamage[lev]=NULL; 
+	 }
+     }
+   m_faceMinDamage.resize(m_finestLevel + 1);
+    for (int lev =0; lev < m_faceMinDamage.size(); lev++)
+     {
+       m_faceMinDamage[lev] = new LevelData<FluxBox>(m_grids[lev],1, IntVect::Zero);
+     }
+  
+
+
 }
 
-void AMRDamage::timestep(Real a_dt, 
+void AMRDamage::timestep(Real a_dt,
+			 const Vector<LevelData<FArrayBox>const * >& a_visTensor,
+			 const Vector<RefCountedPtr<LevelSigmaCS> >& geometry,
+			 const Vector<LevelData<FArrayBox>const * >& a_surfThickSource,
+			 const Vector<LevelData<FArrayBox>const * >& a_baseThickSource,
 			 const Vector<LevelData<FArrayBox>* >& a_cellVel, 
 			 const Vector<LevelData<FluxBox>* >& a_faceVel)
 {
@@ -179,8 +327,13 @@ void AMRDamage::timestep(Real a_dt,
       m_damage[lev]->exchange();
     }
       
-
-  computeSource(a_dt);
+  Vector<LevelData<FArrayBox>* >  source;
+  source.resize(m_finestLevel + 1);
+  for (int lev=0; lev<= m_finestLevel; lev++)
+    {
+      source[lev] = new LevelData<FArrayBox>(m_grids[lev],1,IntVect::Unit);
+    }
+  computeSource(source, m_damage,geometry, a_visTensor, a_surfThickSource, a_baseThickSource, a_dt);
   
   Vector<LevelData<FluxBox>* >  faceFlux;
   faceFlux.resize(m_finestLevel + 1);
@@ -189,48 +342,78 @@ void AMRDamage::timestep(Real a_dt,
       faceFlux[lev] = new LevelData<FluxBox>(m_grids[lev],1,IntVect::Unit);
     }
   
-  computeFlux(faceFlux, m_damage, a_cellVel, a_faceVel, a_dt );
- 
-  updateDamage(m_damage, faceFlux, a_dt);
+  computeFlux(faceFlux, m_damage, source, a_cellVel, a_faceVel, a_dt );
 
-  //free flux data
+  updateDamage(m_damage, faceFlux, m_faceMinDamage , a_faceVel, source, geometry, a_visTensor,  a_dt);
+
+
+  //free temporary data.
   for (int lev=0; lev<= m_finestLevel; lev++)
     {
+      if (source[lev] != NULL)
+	{
+	  delete source[lev]; source[lev] = NULL;
+	}
+    
       if (faceFlux[lev] != NULL)
 	{
 	  delete faceFlux[lev]; faceFlux[lev] = NULL;
 	}
+
+     
     }
 
-
-  //just for now, some output
-  {
-    Vector<std::string> name(1,"damage");
-    std::stringstream ss;
-    ss << "damage.";
-    ss.width(6);
-    ss.fill('0');
-    ss << m_time_step;
-    std::string filename(ss.str());
-    filename.append(".2d.hdf5");
-    WriteAMRHierarchyHDF5(filename, m_grids, m_damage, name, 
-			  m_grids[0].physDomain().domainBox(), 
-			  m_dx[0][0], a_dt, m_time, m_ratio, 
-			  m_finestLevel + 1);
-  }
   m_time_step++;
   m_time += a_dt;
 
 }
 
-void AMRDamage::computeSource(Real a_dt)
+///Compute the source part of equation dD/dt + div(uD) = source.
+/**
+   There are two obvious source/sink terms : reduction in dh damage removal due to the 
+   loss of new surface or basal ice, and damage removal due to time dependent healing.
+   For now we have only the first. Damage reduction due to surface/basal accretion
+   does not need a source: D will remian constant while h grows, so D/h drops.
+ */
+void AMRDamage::computeSource(Vector<LevelData<FArrayBox>* >& a_source, 
+			      const Vector<LevelData<FArrayBox>* >& a_damage,
+			      const Vector<RefCountedPtr<LevelSigmaCS> >& a_geometry,
+			      const Vector<LevelData<FArrayBox> const * >& a_visTensor,
+			      const Vector<LevelData<FArrayBox>const * >& a_surfThickSource,
+			      const Vector<LevelData<FArrayBox>const * >& a_baseThickSource,
+			      Real a_dt)
 {
-
+ 
+  for (int lev = 0 ; lev <= m_finestLevel; lev++)
+    {
+      const LevelSigmaCS& levelCoords = *a_geometry[lev];
+      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	{
+	  FArrayBox& source = (*a_source[lev])[dit];
+	  FArrayBox& damage = (*a_damage[lev])[dit];
+	  const FArrayBox& smb = (*a_surfThickSource[lev])[dit];
+	  const FArrayBox& bmb = (*a_baseThickSource[lev])[dit];
+	  const FArrayBox& thick = levelCoords.getH()[dit];
+	  for (BoxIterator bit(source.box());bit.ok();++bit)
+	    {
+	      const IntVect& iv = bit();
+	      Real surfDamageSource;
+	      surfDamageSource = 0.0;
+	      if (smb(iv)<0.0){surfDamageSource = smb(iv);}
+	      Real baseDamageSource;
+	      baseDamageSource = 0.0;
+	      if (bmb(iv)<0.0){baseDamageSource = bmb(iv);}
+	      //damage source removed by surface and basal melting
+	      source(iv) = (surfDamageSource + baseDamageSource)*damage(iv)/thick(iv);
+	    }
+	}
+    }
 }
-
+//compute the half time damage face flux
 void AMRDamage::computeFlux
 (Vector<LevelData<FluxBox>* >& a_faceFlux,
  const Vector<LevelData<FArrayBox>* >& a_damage,
+ const Vector<LevelData<FArrayBox>* >& a_source,
  const Vector<LevelData<FArrayBox>* >& a_cellVel, 
  const Vector<LevelData<FluxBox>* >& a_faceVel,
  Real a_dt)
@@ -282,6 +465,7 @@ void AMRDamage::computeFlux
 	  advectPhysPtr->setVelocities( cv, fv  );
 	  
 	  //todo : compute source terms
+	  //FArrayBox& source = (*a_source[lev])[dit]; 
 	  FArrayBox source(m_grids[lev][dit],1); source.setVal(0.0);
 
 	  FluxBox faceDamage(flux.box(),1);
@@ -301,6 +485,9 @@ void AMRDamage::computeFlux
 	}
     }
 
+ 
+
+
   for (int lev = m_finestLevel ; lev > 0; lev--)
     {
       CoarseAverageFace faceAverager(m_grids[lev],1, m_ratio[lev-1]);
@@ -309,38 +496,128 @@ void AMRDamage::computeFlux
 
 }
 
+
+
 void AMRDamage::updateDamage
 (Vector<LevelData<FArrayBox>* >& a_damage,
  const Vector<LevelData<FluxBox>* >& a_faceFlux,
+ const Vector<LevelData<FluxBox>* >& a_faceMinDamage,
+ const Vector<LevelData<FluxBox>* >& a_faceVel,
+ const Vector<LevelData<FArrayBox>* >& a_source,
+ const Vector<RefCountedPtr<LevelSigmaCS> >& geometry,
+ const Vector<LevelData<FArrayBox>const * >& a_vt,
  Real a_dt)
 {
-
+ 
   //compute damage = damage - div(faceFlux)*a_dt (+ source*dt);
   for (int lev=0; lev <= m_finestLevel; lev++)
     {
+      //usual advection / source transport
       for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
        {
-	  FArrayBox& damage = (*a_damage[lev])[dit]; 
-	  const FluxBox& flux =  (*a_faceFlux[lev])[dit];
-	  
-	  FArrayBox div(m_grids[lev][dit],1);
-	  div.setVal(0.0);
-	  for (int dir=0; dir<SpaceDim; dir++)
-            {
-	      FORT_DIVERGENCE(CHF_CONST_FRA(flux[dir]),
-                              CHF_FRA(div),
-                              CHF_BOX(m_grids[lev][dit]),
-                              CHF_CONST_REAL(m_dx[lev][dir]),
-                              CHF_INT(dir));
-	    }
+	 const Box& box = m_grids[lev][dit];
+	 FArrayBox& damage = (*a_damage[lev])[dit]; 
+	 const FluxBox& flux =  (*a_faceFlux[lev])[dit];
+
+	 FArrayBox& source = (*a_source[lev])[dit];
+	 //FIXME : no sources, just testing
+	 source.setVal(0.0);
+
+	 FArrayBox div(box,1);
+	 div.setVal(0.0);
+	 for (int dir=0; dir<SpaceDim; dir++)
+	   {
+	     FORT_DIVERGENCE(CHF_CONST_FRA(flux[dir]),
+			     CHF_FRA(div),
+			     CHF_BOX(m_grids[lev][dit]),
+			     CHF_CONST_REAL(m_dx[lev][dir]),
+			     CHF_INT(dir));
+	   }
 	  
 	  div *= -a_dt;
+	  source *= a_dt;
 	  damage += div;
+	  damage += source;
 	  
-       }
-    }
- 
+	  FArrayBox localDamage(box,1);
+	  DamageConstitutiveRelation::computeLocalDamageVT
+	    (localDamage, (*a_vt[lev])[dit], geometry[lev]->getH()[dit], 
+	     geometry[lev]->getTopography()[dit],  geometry[lev]->iceDensity(),
+	     geometry[lev]->waterDensity(), geometry[lev]->gravity(), 
+	     geometry[lev]->seaLevel(), box);
+	
+	  // set D = max(D_tranport,D_local) 
+	  FORT_FABMAX(CHF_FRA1(damage, 0), CHF_FRA1(localDamage, 0), CHF_BOX(box));
+
+	  //limit to thickness
+	  FArrayBox max_damage(damage.box(), 1);
+	  max_damage.copy(geometry[lev]->getH()[dit]);
+	  max_damage *= DAMAGE_MAX_VAL;
+	  FORT_FABMIN(CHF_FRA1(damage, 0), CHF_FRA1(max_damage, 0), CHF_BOX(damage.box()));
+
+       } // end loop over boxes
+    } // end loop over levels
+       
 }
+#ifdef CH_USE_HDF5
+void AMRDamage::addPlotVars(Vector<std::string>& a_vars)
+{
+  a_vars.push_back("VIDamage");
+}
+
+void AMRDamage::writePlotData(LevelData<FArrayBox>& a_data, int a_level)
+{
+  for (DataIterator dit(m_grids[a_level]);dit.ok();++dit)
+    {
+      a_data[dit].copy( (*m_damage[a_level])[dit],0,0,1);
+    }
+}
+
+
+
+/// fill a_var with the names of variables to add to the checkpoint file 
+void AMRDamage::addCheckVars(Vector<std::string>& a_vars)
+{
+  a_vars.push_back("VIDamage");
+}
+  
+/// copy level a_level checkpoint data to  LevelData<FArrayBox>& a_data
+void AMRDamage::writeCheckData(HDF5Handle& a_handle, int a_level)
+{
+  write(a_handle, *m_damage[a_level], "DamageData", m_damage[a_level]->ghostVect());
+}
+  
+/// read level a_level checkpoint data from  LevelData<FArrayBox>& a_data
+void AMRDamage::readCheckData(HDF5Handle& a_handle, HDF5HeaderData&  a_header, int a_level, const DisjointBoxLayout& a_grids)
+{
+  bool containsDamageData(false);
+  map<std::string, std::string>::const_iterator i;
+  for (i = a_header.m_string.begin(); i!= a_header.m_string.end(); ++i)
+    {
+      containsDamageData |= (i->second == "VIDamage");
+    }
+
+  if (containsDamageData)
+    {
+
+      if (m_damage.size() <= a_level)
+	{
+	  m_damage.resize(a_level + 1, NULL);
+	  if (m_damage[a_level] != NULL)
+	    {
+	      delete m_damage[a_level];
+	    }
+	  
+	}
+      m_damage[a_level] = new LevelData<FArrayBox>(a_grids, DAMAGE_N_COMP, DAMAGE_N_GHOST * IntVect::Unit); 
+      int dataStatus =  read<FArrayBox>(a_handle, *m_damage[a_level], "DamageData", a_grids);
+      if (dataStatus != 0)
+	{
+	  MayDay::Error("failed to read damage data from checkpoint, but the header indicated its presence");
+	}
+    }
+}
+#endif
 
 
 void DamagePhysIBC::define(const ProblemDomain& a_domain,

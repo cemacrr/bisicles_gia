@@ -71,6 +71,9 @@ public:
   void setConstitutiveRelation(ConstitutiveRelation* a_constRelPtr) 
   {m_constitutiveRelation = a_constRelPtr->getNewConstitutiveRelation(); }
 
+  //const ConstitutiveRelation* constitutiveRelation() const
+  //{return m_constitutiveRelation;}
+
    /// set rate factor
   /** needs to be done before calling initialize
    */
@@ -446,6 +449,8 @@ public:
   }
   
 
+  const LevelData<FArrayBox>* surfaceThicknessSource(int a_level) const;
+  const LevelData<FArrayBox>* basalThicknessSource(int a_level) const;
   const LevelData<FArrayBox>* viscousTensor(int a_level) const;
   const LevelData<FArrayBox>* dragCoefficient(int a_level) const;
   const LevelData<FArrayBox>* viscosityCoefficient(int a_level) const;
@@ -1064,8 +1069,8 @@ protected:
   //the thickness source will have two components, from the surface and base.
   //Although they are combined for thickness evolution, they must
   //be kept seperate for the internalEnergy calculation. 
-  Vector<LevelData<FArrayBox>* > m_surfaceThicknessSource;
-  Vector<LevelData<FArrayBox>* > m_basalThicknessSource;
+  mutable Vector<LevelData<FArrayBox>* > m_surfaceThicknessSource;
+  mutable Vector<LevelData<FArrayBox>* > m_basalThicknessSource;
   
   Vector<LevelData<FArrayBox>* > m_divThicknessFlux; // set to -dH/dt
   //(accumulated) thickness of calved ice 
@@ -1313,9 +1318,13 @@ private:
   // Flag to stop double counting calved/removed ice
   bool m_thicknessIsRecorded;
 
-  // Observer-Observee implementation members.  
-  // Similar to the implementation in Chombo/lib/src/AMREllitic/Multigrid.H
+
+
 public:
+  /// part of Observer-Observee implementation
+  /** 
+      Similar to the implementation in Chombo/lib/src/AMREllitic/Multigrid.H
+   */
   class Observer {
 
     friend class AmrIce;
@@ -1336,7 +1345,7 @@ public:
 
   public:
 
-    enum Notification {PostInitGrids,PostVelocitySolve,PostGeometryUpdate};
+    enum Notification {PostInitGrids,PreVelocitySolve,PostVelocitySolve,PostGeometryUpdate};
     
     virtual ~Observer()
     {
@@ -1346,8 +1355,32 @@ public:
 	}
     }
 
+    /// General purpose notify method
     virtual void notify(const Notification, AmrIce&)=0;
 
+
+    /// Fat interface members.
+    /** For now, these allow observers to add data
+	to the plot and checkpoint files, and read checkpoint data. This
+	might not be the most graceful design, but it fits with the 
+	way plot and checkpoint files have been done up till now 
+    */
+#ifdef CH_USE_HDF5
+    /// add the names of variables to add to the plot file to a_var, in the order they will be written
+    virtual void addPlotVars(Vector<std::string>& a_vars){;}
+    
+    /// copy level a_level plot data to   LevelData<FArrayBox>& a_data
+    virtual void writePlotData(LevelData<FArrayBox>& a_data, int a_level){;}
+
+    /// fill a_var with the names of variables to add to the checkpoint file 
+    virtual void addCheckVars(Vector<std::string>& a_vars){;}
+    
+    /// copy level a_level checkpoint data to  LevelData<FArrayBox>& a_data
+    virtual void writeCheckData(HDF5Handle& a_handle, int a_level){;}
+
+    /// read level a_level checkpoint data from  LevelData<FArrayBox>& a_data
+    virtual void readCheckData(HDF5Handle& a_handle, HDF5HeaderData& a_header, int a_level, const DisjointBoxLayout& a_grids){;}
+#endif
   };
 
   void addObserver(Observer* a_observer)
@@ -1382,6 +1415,8 @@ private:
     for (int i = 0; i < m_observers.size(); i++)
       m_observers[i]->notify(a_n, *this);
   }
+
+
 
 };  
   

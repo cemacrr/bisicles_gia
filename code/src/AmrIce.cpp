@@ -4814,7 +4814,8 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 
   CH_TIME("AmrIce::solveVelocityField");
 
-  
+  notifyObservers(Observer::PreVelocitySolve);
+
   if (m_eliminate_remote_ice)
     eliminateRemoteIce();
 
@@ -5975,6 +5976,51 @@ const LevelData<FArrayBox>* AmrIce::viscosityCoefficient(int a_level) const
 
 }
 
+const LevelData<FArrayBox>* AmrIce::surfaceThicknessSource(int a_level) const
+{
+  if (!(m_surfaceThicknessSource.size() > a_level))
+    {
+      std::string msg("AmrIce::surfaceThicknessSource !(m_surfaceThicknessSource.size() > a_level))");
+      pout() << msg << endl;
+      CH_assert((m_surfaceThicknessSource.size() > a_level));
+      MayDay::Error(msg.c_str());
+    }
+
+  LevelData<FArrayBox>* ptr = m_surfaceThicknessSource[a_level];
+  if (ptr == NULL)
+    {
+      std::string msg("AmrIce::surfaceThicknessSource m_surfaceThicknessSource[a_level] == NULL ");
+      pout() << msg << endl;
+      CH_assert(ptr != NULL);
+      MayDay::Error(msg.c_str());
+    }
+
+  return ptr;
+}
+
+const LevelData<FArrayBox>* AmrIce::basalThicknessSource(int a_level) const
+{
+  if (!(m_basalThicknessSource.size() > a_level))
+    {
+      std::string msg("AmrIce::basalThicknessSource !(m_basalThicknessSource.size() > a_level))");
+      pout() << msg << endl;
+      CH_assert((m_basalThicknessSource.size() > a_level));
+      MayDay::Error(msg.c_str());
+    }
+
+  LevelData<FArrayBox>* ptr = m_basalThicknessSource[a_level];
+  if (ptr == NULL)
+    {
+      std::string msg("AmrIce::basalThicknessSource m_basalThicknessSource[a_level] == NULL ");
+      pout() << msg << endl;
+      CH_assert(ptr != NULL);
+      MayDay::Error(msg.c_str());
+    }
+
+  return ptr;
+}
+
+
 //access the drag coefficient (cell-centered)
 const LevelData<FArrayBox>* AmrIce::dragCoefficient(int a_level) const
 {
@@ -6598,9 +6644,6 @@ AmrIce::writePlotFile()
   string calvedIceThicknessName("calvingFlux");
   string melangeThicknessName("melangeThickness");
   string calvedThicknessSourceName("calvedThicknessSource");
-  string surfaceCrevasseName("surfaceCrevasse");
-  string basalCrevasseName("basalCrevasse");
-
 
   Vector<string> vectName(numPlotComps);
   //int dThicknessComp;
@@ -6806,6 +6849,12 @@ AmrIce::writePlotFile()
 	}
 
     }
+  // allow observers to add variables to the plot file
+  for (int i = 0; i < m_observers.size(); i++)
+    m_observers[i]->addPlotVars(vectName);
+  numPlotComps = vectName.size();
+
+
   Box domain = m_amrDomains[0].domainBox();
   int numLevels = m_finest_level +1;
   // compute plot data
@@ -7114,9 +7163,9 @@ AmrIce::writePlotFile()
 		    {
 		      thisPlotData.mult( (*m_iceFrac[lev])[dit],0,comp,1);
 		    }
-
 		  comp++;
-
+		  
+	 
 		  thisPlotData.copy((*m_surfaceThicknessSource[lev])[dit], 0, comp, 1);
 		  if (m_frac_sources)
 		    {
@@ -7124,19 +7173,37 @@ AmrIce::writePlotFile()
 		      thisPlotData.mult( (*m_iceFrac[lev])[dit],0,comp,1);
 		    }
 		  comp++;
-
+	      
 		  thisPlotData.copy((*m_calvedIceThickness[lev])[dit], 0, comp, 1);
 		  if (m_dt > 0)
 		    {
 		      thisPlotData.divide(m_dt, comp, 1);
 		    }              
 		  comp++;
+		  
 		  thisPlotData.copy((*m_melangeThickness[lev])[dit], 0, comp, 1);
 		  comp++;
+      
 		}
 	    }
-
+		
 	} // end loop over boxes on this level
+
+      
+      //allow observers to write data. 
+      for (int i = 0; i < m_observers.size(); i++)
+	{
+	  Vector<std::string> vars;
+	  m_observers[i]->addPlotVars(vars);
+	  if (vars.size() > 0)
+	    {
+	      Interval interval(comp, comp + vars.size() - 1);
+	      LevelData<FArrayBox> obsPlotData;
+	      aliasLevelData( obsPlotData, plotData[lev], interval);
+	      m_observers[i]->writePlotData(obsPlotData, lev);
+	    }
+	}
+
 
       // this is just so that visit surface plots look right
       // fill coarse-fine ghost-cell values with interpolated data
@@ -7474,6 +7541,19 @@ AmrIce::writeCheckpointFile(const string& a_file)
   }
 #endif
 
+  //allow observers to add checkpoint variables
+  for (int i = 0; i < m_observers.size(); i++)
+    {
+      Vector<std::string> vars;
+      m_observers[i]->addCheckVars(vars);
+      for (int j = 0; j < vars.size(); j++)
+	{
+	  nComp++;
+	  sprintf(compStr, "component_%04d", nComp);
+	  header.m_string[compStr] = vars[j].c_str();
+	}
+    }
+
   header.writeToFile(handle);
 
   // now loop over levels and write out each level's data
@@ -7540,7 +7620,11 @@ AmrIce::writeCheckpointFile(const string& a_file)
 	  write(handle, *m_bInternalEnergy[lev], "bInternalEnergyData", 
 		m_bInternalEnergy[lev]->ghostVect());
 #endif
-
+	  //allow observers to write to the checkpoint
+	  for (int i = 0; i < m_observers.size(); i++)
+	    {
+	      m_observers[i]->writeCheckData(handle, lev);
+	    }
         }
     }// end loop over levels
   
@@ -7790,24 +7874,24 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
       a_handle.setGroup(label);
 
       // read header info
-      HDF5HeaderData header;
-      header.readFromFile(a_handle);
+      HDF5HeaderData levheader;
+      levheader.readFromFile(a_handle);
       
       if (s_verbosity >= 3)
         {
           pout() << "level " << lev << " header data" << endl;
-          pout() << header << endl;
+          pout() << levheader << endl;
         }
 
       // Get the refinement ratio
       if (lev < m_max_level)
         {
           int checkRefRatio;
-          if (header.m_int.find("ref_ratio") == header.m_int.end())
+          if (levheader.m_int.find("ref_ratio") == levheader.m_int.end())
             {
               MayDay::Error("checkpoint file does not contain ref_ratio");
             }
-          checkRefRatio = header.m_int["ref_ratio"];
+          checkRefRatio = levheader.m_int["ref_ratio"];
 
           // check for consistency
           if (checkRefRatio != m_refinement_ratios[lev])
@@ -7818,22 +7902,22 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
         }
       
       // read dx
-      if (header.m_real.find("dx") == header.m_real.end())
+      if (levheader.m_real.find("dx") == levheader.m_real.end())
         {
           MayDay::Error("checkpoint file does not contain dx");
         }
       
-      if ( Abs(m_amrDx[lev] - header.m_real["dx"]) > TINY_NORM )
+      if ( Abs(m_amrDx[lev] - levheader.m_real["dx"]) > TINY_NORM )
 	{
 	  MayDay::Error("restart file dx != input file dx");
 	}
       
       // read problem domain box
-      if (header.m_box.find("prob_domain") == header.m_box.end())
+      if (levheader.m_box.find("prob_domain") == levheader.m_box.end())
         {
           MayDay::Error("checkpoint file does not contain prob_domain");
         }
-      Box domainBox = header.m_box["prob_domain"];
+      Box domainBox = levheader.m_box["prob_domain"];
 
       if (m_amrDomains[lev].domainBox() != domainBox)
 	{ 
@@ -8146,6 +8230,12 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	      }
 	    CH_assert(m_internalEnergy[lev]->nComp() == sigma.size() -1);
 	  }
+
+	  //allow observers to read from the checkpoint
+	  for (int i = 0; i < m_observers.size(); i++)
+	    {
+	      m_observers[i]->readCheckData(a_handle, header,  lev, levelDBL);
+	    }
 
 
 	} // end if this level is defined

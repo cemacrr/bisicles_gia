@@ -12,51 +12,116 @@
 #define _AMRDAMAGE_H_
 
 #include "AmrIce.H"
+#include "LevelSigmaCS.H"
 #include "NamespaceHeader.H"
 
+class DamageConstitutiveRelation;
+
+#define DAMAGE_MAX_VAL 0.9
+#define DAMAGE_N_GHOST 4
+#define DAMAGE_N_COMP 1
 /// Continuum damage model. 
 class AMRDamage
 {
+
+  friend class DamageConstitutiveRelation;
 
   int m_time_step;
   Real m_time;
 
   /// cell-centered damage 
-  Vector<LevelData<FArrayBox>*> m_damage;
+  //Vector<LevelData<FArrayBox>*> m_damage;
   /// AMR mesh hierarchy
   int m_finestLevel;
   Vector<DisjointBoxLayout> m_grids;
   Vector<int> m_ratio;
   Vector<RealVect> m_dx;
   
+  //storage for the face-centered minimum damage. This
+  //actaully gets written to by an externall object (a DamageConstitutiveRelation), 
+  //so, maybe a be of redisign is in order... for now:
+  Vector<LevelData<FluxBox>*> m_faceMinDamage;
+
 
 public:
+  ~AMRDamage();
   AMRDamage();
 
+  const LevelData<FArrayBox>* damage(int a_level) const;
+  const int finestLevel() const
+  {
+    return m_finestLevel;
+  }
   void define(const Vector<DisjointBoxLayout>& a_grids, 
 	      const Vector<int>& a_ratio,
 	      int a_finestLevel,
 	      const RealVect& a_crseDx);
 
-  // advance by timestep a_dt. a_dt must satisfy CFL
-  void timestep(Real a_dt, const Vector<LevelData<FArrayBox>* >& a_cellVel, 
+  /// advance by timestep a_dt. a_dt must satisfy CFL
+  void timestep(Real a_dt,
+		const Vector<LevelData<FArrayBox>const *>& a_visTensor,
+		const Vector<RefCountedPtr<LevelSigmaCS> >& geometry,
+		const Vector<LevelData<FArrayBox>const * >& a_surfThickSource,
+		const Vector<LevelData<FArrayBox>const * >& a_baseThickSource,
+		const Vector<LevelData<FArrayBox>* >& a_cellVel,
 		const Vector<LevelData<FluxBox>* >& a_faceVel);
 
+#ifdef CH_USE_HDF5 
+  //plot file methods
+
+  /// add the names of variables to add to the plot file to a_var, in the order they will be written
+  void addPlotVars(Vector<std::string>& a_vars);
+
+  /// copy level a_level plot data to   LevelData<FArrayBox>& a_data
+  void writePlotData(LevelData<FArrayBox>& a_data, int a_level);
+
+  //check point methods
+  
+  /// fill a_var with the names of variables to add to the checkpoint file 
+  void addCheckVars(Vector<std::string>& a_vars);
+  
+  /// copy level a_level checkpoint data to  LevelData<FArrayBox>& a_data
+  void writeCheckData(HDF5Handle& a_handle, int a_level);
+  
+  /// read level a_level checkpoint data from  LevelData<FArrayBox>& a_data
+  void readCheckData(HDF5Handle& a_handle,  HDF5HeaderData& a_header, int a_level, const DisjointBoxLayout& a_grids);
+#endif
+
+protected:
+  //cell-centered damage
+  mutable Vector<LevelData<FArrayBox>* > m_damage;
+
 private:
-  void computeSource(Real a_dt);
+  
+  Real m_B;
+  Real m_sth;
+  void computeSource(Vector<LevelData<FArrayBox>* >& a_source, 
+		     const Vector<LevelData<FArrayBox>* >& a_damage,
+		     const Vector<RefCountedPtr<LevelSigmaCS> >& geometry,
+		     const Vector<LevelData<FArrayBox>const *>& a_visTensor,
+		     const Vector<LevelData<FArrayBox>const * >& a_surfThickSource,
+		     const Vector<LevelData<FArrayBox>const * >& a_baseThickSource,
+		     Real a_dt);
 
   void computeFlux( Vector<LevelData<FluxBox>* >& a_faceFlux,
 		    const Vector<LevelData<FArrayBox>* >& a_damage,
+		    const Vector<LevelData<FArrayBox>* >& a_source,
 		    const Vector<LevelData<FArrayBox>* >& a_cellVel, 
 		    const Vector<LevelData<FluxBox>* >& a_faceVel,
 		    Real a_dt);
 
   void updateDamage(Vector<LevelData<FArrayBox>* >& a_damage,
 		    const Vector<LevelData<FluxBox>* >& a_faceFlux,
+		    const Vector<LevelData<FluxBox>* >& a_faceMinDamage,
+		    const Vector<LevelData<FluxBox>* >& a_faceVel,
+		    const Vector<LevelData<FArrayBox>* >& a_source,
+		    const Vector<RefCountedPtr<LevelSigmaCS> >& geometry,
+		    const Vector<LevelData<FArrayBox> const * >& a_vt,
 		    Real a_dt);
-  
-  
+
 };
+  
+  
 
 /// Contains an AMRDamage, responds to changes in the ice sheet state
 class DamageIceObserver : public AmrIce::Observer 
@@ -69,13 +134,34 @@ public:
   
   ~DamageIceObserver();
 
-  const AMRDamage& damage() const;
-
+  AMRDamage& damage() const;
+  
+  /// General purpose notify method: do something in response to a signal from an AmrIce
   void notify(AmrIce::Observer::Notification a_n, AmrIce& a_amrIce);
+
+  // plot file methods 
+  
+  /// add the names of variables to add to the plot file to a_var, in the order they will be written
+  void addPlotVars(Vector<std::string>& a_vars);
+
+  /// copy level a_level plot data to   LevelData<FArrayBox>& a_data
+  void writePlotData(LevelData<FArrayBox>& a_data, int a_level);
+
+  //check point methods
+  
+  /// fill a_var with the names of variables to add to the checkpoint file 
+  void addCheckVars(Vector<std::string>& a_vars);
+  
+  /// copy level a_level checkpoint data to  LevelData<FArrayBox>& a_data
+  void writeCheckData(HDF5Handle& a_handle, int a_level);
+  
+  /// read level a_level checkpoint data from  LevelData<FArrayBox>& a_data
+  void readCheckData(HDF5Handle& a_handle,  HDF5HeaderData& a_header, int a_level, const DisjointBoxLayout& a_grids);
+
 };
 
 
-
+/// PhysIBC for the damage model
 class DamagePhysIBC : public PhysIBC
 {
 
