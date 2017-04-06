@@ -14,10 +14,12 @@
 <h1>Contents</h1>
 
 <ol>
+  <li><a href='#debian'>Debian based systems (e.g Ubuntu) </a></li>
   <li><a href='#uob'>University of Bristol</a></li>
   <li><a href='#nersc'>NERSC</a></li>
   <li><a href='#archer'>ARCHER (Cray XC30,</li>
-  <li><a href='#monsoon'>UKMO Monsoon (Cray XC40)</a></li> 
+  <li><a href='#monsoon'>UKMO Monsoon (Cray XC40)</a></li>
+  <li><a href='#hpcwales'>HPC Wales (Swansea University) </a></li>
   <li><a href='#monsoonaix'>UKMO Monsoon (AIX, defunct)</li>
 </ol>
 </div>
@@ -26,6 +28,42 @@
 <div id="main">
 <h1><a name='top'>BISICLES site specific notes</a></h1>
 
+<h2><a name='debian'>Debian based systems (e.g Ubuntu)</a></h2>
+
+<p>
+  Recent Debian GNU/Linux derivatives (from around 2016), including Ubuntu 16.04 and 16.10, allow an mpi environment ,
+  hdf5, and netcdf to be installed in a way that works well for BISICLES. On Ubuntu 16.xx, run
+</p>
+<pre>
+  sudo apt-get install csh mpi-default-bin mpi-default-dev libhdf5-mpi-dev libhdf5-dev hdf5-tools libnetcdff-dev libnetcdf-dev
+</pre>
+<p>
+  The file $BISICLES_HOME/Chombo/lib/mk/Make.defs.local should contain:
+</p>
+<pre>
+PRECISION     = DOUBLE  
+CXX           = g++
+FC            = gfortran
+MPICXX        = mpiCC
+USE_HDF       = TRUE
+HDFINCFLAGS   = -I/usr/include/hdf5/serial/
+HDFLIBFLAGS   = -L/usr/lib/x86_64-linux-gnu/hdf5/serial/ -lhdf5 -lz
+HDFMPIINCFLAGS= -I/usr/include/hdf5/openmpi/ 
+HDFMPILIBFLAGS= -L/usr/lib/x86_64-linux-gnu/hdf5/openmpi/ -lhdf5  -lz
+cxxdbgflags    = -g -fPIC 
+cxxoptflags    = -fPIC -O2
+fdbgflags     =  -g -fPIC 
+foptflags     = -fPIC -O3 -ffast-math -funroll-loops 
+</pre>
+<p>
+  and the file $BISICLES_HOME/BISICLES/code/mk/Make.defs.$mymachine (where $mymachine is
+  the output from 'uname -n') should contain
+</p>
+<pre>
+NETCDF_HOME=$(shell nc-config --prefix)
+NETCDF_LIBS=-lnetcdff -lnetcdf -lhdf5_hl
+PYTHON_VERSION=2.7
+</pre>
 
 
 <h2><a name='uob'>University of Bristol</a>
@@ -211,6 +249,51 @@ make all OPT=TRUE MPI=TRUE DEBUG=FALSE USE_PETSC=TRUE
 The binary will be called driver2d.Linux.64.CC.ftn.OPT.MPI.PETSC.INTEL.ex
 </p>
 
+<h2><a name='hpcwales'>HPC Wales (Swansea University)</a></h2>
+<p>
+  HPC Wales providea number of clusters, including two at Swansea University. To login to the Swansea
+  systems, first login to the HPC Wales login node, then a Swansea login node, e.g
+</p>
+<pre>
+  ssh user.name@login.HPCWales.co.uk
+  ssh ssl001
+</pre>
+<p>
+  To use subversion (svn), we need to setup a proxy for http/https. There
+  is an http-proxy module, but subversion ignores the environment variable it sets.
+  However, it can be used to see what the proxy should be. e.g
+</p>
+<pre>
+>module show http-proxy
+-------------------------------------------------------------------
+/app/modules/system/http-proxy:
+
+module-whatis	 set http proxy environment variables 
+setenv		 http_proxy http://10.211.143.6:8080 
+setenv		 https_proxy http://10.211.143.6:8080 
+setenv		 ftp_proxy http://10.211.143.6:8080 
+setenv		 all_proxy http://10.211.143.6:8080 
+---------------------------------------------------------
+</pre>
+<p>
+and then edit $HOME/subversion/servers to include    
+</p>
+<pre>
+http-proxy-host = 10.211.143.6
+http-proxy-port = 8080
+</pre>
+
+<p>
+Although hdf5 etc are provided, there are only a few valid combinations of compiler, mpi, hdf5, python etc. We will assume GNU 4.8.0 with openmpi 1.8.5:
+</p>
+<pre>
+module load subversion
+module load compiler/gnu/4.8.0
+module load mpi/openmpi/1.8.5
+module load hdf5/1.8.13
+module load python/2.7.9
+module load petsc
+</pre>
 
 
 <h2><a name='monsoonaix'>The Monsoon AIX machine at the UK Met Office</a></h2>

@@ -54,7 +54,7 @@
   <a href='https://wci.llnl.gov/codes/visit/home.html'>VisIt</a></li> to view the data BISICLES 
 produces (other programs can be put to use, but VisIt is by far the most convenient)</p>
 <p>
-  There are some <a href='sites.html'>site specific notes</a> 
+  There are some <a href='sites.html'>site specific notes</a>
 </p>
 <h2><a name="svnco"> Check out the source code.</a> </h2>
 <p> Since this readme file lives in the source code repository, you might have already checked the source code
@@ -74,18 +74,23 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
 
 <h2><a name="deps"> Dependencies.</a> </h2>
 <p>
-  If you're working on a system which is maintained by somebody else (like, for example, the supercomputers at NERSC), it's likely that most, if not all, of these dependencies have been built and installed already, which can save you some effort. So, check to see what's already installed, with an eye open to the possibility that things have been configured in some odd way which makes them unusable for us, in which case you you're back to where you were anyway)
-
-  Chombo requires the hdf5 libraries. As of the Chombo 3.2 release, Chombo builds against the current hdf5 1.8 interface directly. (Chombo 3.1 and earlier built against the older hdf5 1.6 interface, which required some effort when building)
-
+  If you're working on a system which is maintained by somebody else (like, for example, the supercomputers at NERSC),
+  it's likely that most, if not all, of these dependencies have been built and installed already, which can save you some effort.
+  So, check to see what's already installed, with an eye open to the possibility that things have been configured in some
+  odd way which makes them unusable for us, in which case you you're back to where you were anyway). See the
+  <a href='sites.html'>site specific notes</a>, because certain common environments, such as the Cray XC30/40,
+  and recent versions of Debian and Ubuntu GNU/Linux, have well designed systems for satifying these dependencies.
 </p>
-Chombo 3.2 also contains an optional interface to the <a href='http://www.mcs.anl.gov/petsc/'> PETSc</a>  solver library. We have found that using the Chombo AMR interface to the petsc algebraic multigrid solvers (either GAMG or Hypre's BoomerAMG) can substantially improve the performance of the nonlinear ice velocity solve for problems where the native Chombo geometric multigrid (GMG) solvers struggle. 
-
+<p>
+  Chombo requires the hdf5 libraries. As of the Chombo 3.2 release, Chombo builds against the
+  current hdf5 1.8 interface directly. (Chombo 3.1 and earlier built against the older hdf5 1.6 interface, which required some effort when building)
+  Chombo 3.2 also contains an optional interface to the <a href='http://www.mcs.anl.gov/petsc/'> PETSc</a>  solver library.
+  We have found that using the Chombo AMR interface to the petsc algebraic multigrid solvers (either GAMG or Hypre's BoomerAMG) can
+  substantially improve the performance of the nonlinear ice velocity solve for problems where the native Chombo geometric multigrid (GMG) solvers struggle. 
 </p>
-<p>  Glimmer-CISM also requires netcdf, and in a non-standard configuration to boot. BISICLES
-  includes some complementary tools which require netcdf. So, while you could use the
-  version installed on your system 
-  it is often simpler to compile netCDF from source.
+<p> BISICLES includes some complementary tools which require netcdf, and can be linked with the Glimmer-CISM model,
+  which also requires netcdf. As with hdf5, there may be a suitauble version installed on your system
+  but you may need to compile netCDF from source.
 </p>
 <p>
   There should be a script, download_dependencies.sh (in the same directrory as this file, 
@@ -505,7 +510,6 @@ and eventually, you will get a series of plot*2d.hdf5 files that you can view in
 <h3>Running on a cluster</h3>
 
 See the <a href='sites.html'>Site specific notes</a>
-
 
 <h2><a name='all'>Building all of BISICLES</a></h2>
 
