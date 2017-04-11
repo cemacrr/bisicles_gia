@@ -22,7 +22,7 @@ using std::cin;
 using std::cerr;
 using std::endl;
 using std::string;
-
+#include "BISICLES_VERSION.H"
 #include "Box.H"
 #include "Vector.H"
 #include "DisjointBoxLayout.H"
@@ -4852,6 +4852,10 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 
   // right hand side of the stress-balance
   defineVelRHS(vectRhs);
+
+
+
+
   
   // write out sumRhs if appropriate
   if (s_verbosity > 3)
@@ -6471,7 +6475,12 @@ void AmrIce::writeMetaDataHDF5(HDF5Handle& a_handle) const
       headerData.m_string["svn_version"] = SVN_REV;
       headerData.m_string["svn_repository"] = SVN_REP;
       headerData.m_string["svn_url"] = SVN_URL;
- 
+      headerData.m_int["bisicles_version_major"] = BISICLES_VERSION_MAJOR;
+      headerData.m_int["bisicles_version_minor"] = BISICLES_VERSION_MINOR;
+      headerData.m_int["bisicles_patch_number"] = BISICLES_PATCH_NUMBER;
+      headerData.m_int["chombo_version_major"] = CHOMBO_VERSION_MAJOR;
+      headerData.m_int["chombo_version_minor"] = CHOMBO_VERSION_MINOR;
+      headerData.m_int["chombo_patch_number"] = CHOMBO_PATCH_NUMBER;
       //m_headerData.writeToFile(a_handle);
       headerData.writeToFile(a_handle);
     
