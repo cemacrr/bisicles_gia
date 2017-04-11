@@ -21,7 +21,9 @@
 /**
    The Chombo version that this BISICLES version is intended for
  */
-#define BISICLES_CHOMBO_VERSION 3.2
+#define BISICLES_CHOMBO_VERSION 3.2.5
+#define BISICLES_CHOMBO_SVN_REVISION 23113
+
 /** signal that this is the svn trunk version of BISICLES, rather than 
     the release version. This should be changed in the release version 
     of this file */
