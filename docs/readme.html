@@ -68,9 +68,41 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
   > mkdir -p $BISICLES_HOME
   > cd $BISICLES_HOME
   > svn co https://anag-repo.lbl.gov/svn/Chombo/release/3.2 Chombo 
-  > svn co https://anag-repo.lbl.gov/svn/BISICLES/public/trunk BISICLES 
+  > svn co https://anag-repo.lbl.gov/svn/BISICLES/release/1.0 BISICLES 
 </pre>
 </p> 
+<p>
+  Here we have assumed that you want the most recently released versions of
+  Chombo and BISICLES. You may want a previous version or development branch,
+  but in that case you will probably know which one you need. Note also
+  that you do not need to layout your source directories as indicated above, or even
+  follow the rest of these notes exactly. If you want some other layout, note
+  the following
+  <ul>
+    <li>
+      Chombo needs to know where your hdf5 includes and libraries are to be found. It expects
+      these to be defined in variables HDFINCFLAGS , HDFLIBFLAGS , HDFMPIINCFLAGS, HDFMPILIBFLAGS, which
+      are read from a file <tt>/path/to/Chombo/lib/mk/Make.defs.local</tt>, which you must create.
+    </li>
+    <li>
+      Chombo will determine the location of PETSc (if needed) from the PETSC_DIR environment variable
+    </li>
+    <li>
+      BISICLES needs to know where
+      the Chombo includes and libraries are to be found (and possibly the same for python and netcdf).
+      By default it assumes that there is a <tt>Chombo</tt> source tree at the same level as
+      the BISICLES source tree, but this can be overidden by setting the environment variable
+      <tt>$CHOMBO_HOME</tt>. e.g if you have Chombo in
+      <tt>/path/to/Chombo/3.2</tt> then set <tt>CHOMBO_HOME=/path/to/Chombo/3.2/lib</tt>
+    </li>
+    <li>
+      BISICLES may need to know where python and netcdf includes and libraries are to be found,
+      these are defined in <tt>/path/to/BISICLES/code/mk/Make.defs</tt> (as is <tt>$CHOMBO_HOME</tt>)  which will attempt to read them
+      from a file called <tt>/path/to/BISICLES/code/mk/Make.defs.$UNAMEN</tt>, where
+      <tt>$UNAME</tt> is the output from <tt>uname -n</tt> or <tt>Make.defs.none</tt> if there is no such file.  
+    </li>
+</ul>
+</p>
 
 <h2><a name="deps"> Dependencies.</a> </h2>
 <p>

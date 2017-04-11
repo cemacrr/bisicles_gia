@@ -132,17 +132,19 @@ To compile with GNU, switch to the correct PrgEnv and load an hdf5 module
 </p>
 <pre>
 > module swap PrgEnv-cray PrgEnv-gnu
-> module load cray-hdf5-parallel 
+> module load cray-hdf5-parallel
+> module load python-compute
+> module load cray-netcdf-hdf5parallel
 </pre>
 
-If you want the python interface, make sure that  $BISICLES_HOME/BISICLES/code/mk/Make.defs includes 
-the following
+<p>
+$BISICLES_HOME/BISICLES/code/mk/Make.defs.archer
+includes the following details for the python interface
+and netcdf. Copy this file to Make.defs.none or Make.defs.$UNAMEN
+(where $UNAMEN is the output from uname -n)
+</p>
 <pre>   
-#hopefully, works for anaconda type installs        
-ifneq ($(PYTHONHOME),)                                                                               
-PYTHON_INC=$(PYTHONHOME)/include                                                                       
-PYTHON_LIBS=-L$(PYTHONHOME)/lib -lpython2.7                                                            
-endif 
+
 </pre>
 <p>
 Then compile 
@@ -169,7 +171,7 @@ export PBS_O_WORKDIR=$(readlink -f $PBS_O_WORKDIR)
 #load modules needed to get GLIBCXX, HDF5, python where the compute nodes can see them
 module swap PrgEnv-cray PrgEnv-gnu
 module load cray-hdf5-parallel
-module swap anaconda python-compute
+module load python-compute
 
 cd $PBS_O_WORKDIR
 
