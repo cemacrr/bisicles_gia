@@ -6480,7 +6480,11 @@ void AmrIce::writeMetaDataHDF5(HDF5Handle& a_handle) const
       headerData.m_int["bisicles_patch_number"] = BISICLES_PATCH_NUMBER;
       headerData.m_int["chombo_version_major"] = CHOMBO_VERSION_MAJOR;
       headerData.m_int["chombo_version_minor"] = CHOMBO_VERSION_MINOR;
+#ifdef CHOMBO_TRUNK
+      headerData.m_int["chombo_patch_number"] = -1;
+#else
       headerData.m_int["chombo_patch_number"] = CHOMBO_PATCH_NUMBER;
+#endif
       //m_headerData.writeToFile(a_handle);
       headerData.writeToFile(a_handle);
     
