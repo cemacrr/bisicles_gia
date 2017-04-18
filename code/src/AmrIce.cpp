@@ -5221,7 +5221,7 @@ AmrIce::setMuCoefficient(Vector<LevelData<FArrayBox>* >& a_cellMuCoef)
     {
       m_muCoefficientPtr->setMuCoefficient(*a_cellMuCoef[lev],
 					   *m_vect_coordSys[lev],
-                                           m_time,
+                                           this->time(),
                                            m_dt);
       if (lev > 0)
 	{

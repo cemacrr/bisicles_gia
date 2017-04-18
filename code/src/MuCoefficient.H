@@ -146,7 +146,26 @@ private:
   }
 };
 
-
+/// MuCoeffcient that computes \f$ \phi \f$ from data on a uniform grid
+/**
+   
+   Run time configuration is carried out in BasalFriction::parse(A, ... )
+   If the option `A.type = LevelData` is found, then the 
+   expected form is:
+   
+   - `inputLevelData.frictionFile = <string>` 
+   - `inputLevelData.frictionName = <string>` 
+   
+   for a single file or
+   
+   - `inputLevelData.frictionFileFormat = <string>` 
+   - `inputLevelData.frictionName = <string>` 
+   - `inputLevelData.frictionFileStartTime = <int>`
+   - `inputLevelData.frictionFileTimeStep = <int>`
+   
+   for a sequence of files
+   
+*/
 class LevelDataMuCoefficient : public MuCoefficient
 {
 
@@ -155,9 +174,26 @@ public:
   LevelDataMuCoefficient
   (RefCountedPtr<LevelData<FArrayBox> > a_muCoef,
    const RealVect& a_dx)
-    :m_muCoef(a_muCoef),m_dx(a_dx),m_verbose(true)
+    :m_timeFileMap(NULL),m_startTime(-1.2345678e+300),m_endTime(1.2345678e+300),
+    m_muCoef(a_muCoef),m_endMuCoef(a_muCoef),m_dx(a_dx),m_verbose(true),m_name("")
   {
   }
+
+   /// construct from a sequence of files
+  /**
+     @param a_timeFileMap maps model times to filenames
+     @param a_name  name of the field in all hdf5 files
+     
+   */
+  LevelDataMuCoefficient(RefCountedPtr<std::map<Real, std::string> >& a_timeFileMap, 
+		       const std::string& a_name)
+    :m_timeFileMap(a_timeFileMap),m_startTime(1.2345678e+299),m_endTime(-1.2345678e+299),
+     m_muCoef(new LevelData<FArrayBox>()),m_endMuCoef(new LevelData<FArrayBox>())
+    ,m_verbose(true),m_name(a_name)
+  {
+    
+  }
+  
     /// factory method
   /** return a pointer to a new Mucoefficient object
    */
@@ -170,9 +206,13 @@ public:
    Real a_dt) ;
 
 protected:
-  RefCountedPtr< LevelData<FArrayBox> > m_muCoef;
+  RefCountedPtr<std::map<Real,std::string> > m_timeFileMap;
+  Real m_startTime, m_endTime;
+  RefCountedPtr< LevelData<FArrayBox> > m_muCoef; // P at t = m_startTime
+  RefCountedPtr< LevelData<FArrayBox> > m_endMuCoef; // P at t = m_endTime
   RealVect m_dx;
   bool m_verbose;
+  std::string m_name;
 
 private:
   void operator=(const LevelDataMuCoefficient& a_input)
