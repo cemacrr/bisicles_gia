@@ -59,13 +59,13 @@ amr.initial_velocity_guess_const_vel = 1.0 0.0
 #JFNK parameters
 JFNKSolver.vtopSafety = 0.95
 JFNKSolver.minPicardIterations = 3
-JFNKSolver.maxIter = 10
-JFNKSolver.absTol = 10.0e+0
+JFNKSolver.maxIter = 30
+JFNKSolver.absTol = 0.0
 JFNKSolver.relTol = 1.0e-4
 JFNKSolver.solverType = 0 #Relax solver
-JFNKSolver.RelaxRelTol = 2.0e-3
+JFNKSolver.RelaxRelTol = 1.0e-3
 JFNKSolver.RelaxHang = 0.975
-JFNKSolver.maxRelaxIter = 10
+JFNKSolver.maxRelaxIter = 30
 JFNKSolver.normType = 0
 JFNKSolver.verbosity = 5
 JFNKSolver.vtopRelaxTol = 0.005
