@@ -1701,29 +1701,6 @@ AmrIce::initialize()
       m_do_restart = true;
 #ifdef CH_USE_HDF5
       restart(restart_file);
-      // once we've set up everything, this lets us over-ride the
-      // time and step number in the restart checkpoint file with
-      // one specified in the inputs      
-      
-      
-      if (ppAmr.contains("restart_time") )
-        {
-	  bool set_time = true;
-	  ppAmr.query("restart_set_time",set_time); // set amr.restart_set_time = false to prevent time reset
-	  if (set_time){
-	    Real restart_time;
-	    ppAmr.get("restart_time", restart_time);
-	    m_time = restart_time;
-	  }
-        }
-      
-      if (ppAmr.contains("restart_step") )
-        {
-          int restart_step;
-          ppAmr.get("restart_step", restart_step);
-          m_cur_step = restart_step;
-          m_restart_step = restart_step;
-        }
 #endif // hdf5
     }
 
@@ -7756,6 +7733,17 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   m_cur_step = header.m_int["current_step"];
   m_restart_step = m_cur_step;
 
+  // optionally, over-ride the step number in the restart checkpoint file with one specified in the inputs
+  ParmParse ppAmr("amr");
+  if (ppAmr.contains("restart_step") )
+    {
+      int restart_step;
+      ppAmr.get("restart_step", restart_step);
+      m_cur_step = restart_step;
+      m_restart_step = restart_step;
+    }
+
+  
   // read time
   if (header.m_real.find("time") == header.m_real.end())
     {
@@ -7763,6 +7751,20 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
     }
 
   m_time = header.m_real["time"];
+
+  //optionally, over-ride the time in the restart checkpoint file with one specified in the inputs      
+  if (ppAmr.contains("restart_time") )
+    {
+      bool set_time = true;
+      ppAmr.query("restart_set_time",set_time); // set amr.restart_set_time = false to prevent time reset
+      if (set_time){
+	Real restart_time;
+	ppAmr.get("restart_time", restart_time);
+	m_time = restart_time;
+      }
+    }
+  
+
   m_dt = header.m_real["dt"];
 
   // read num comps
