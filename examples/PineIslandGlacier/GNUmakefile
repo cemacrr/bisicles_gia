@@ -2,13 +2,13 @@ FC = gfortran
 
 include ../../code/mk/Make.defs
 
-FFLAGS = -g -I. -I$(NETCDF_INC) $(HDFINCFLAGS)   
+FFLAGS = -fPIC -g -I. -I$(NETCDF_INC) $(HDFINCFLAGS)   
 LIBFLAGS = $(NETCDF_LIBS) -lhdf5_hl $(HDFLIBFLAGS)
 LDFLAGS = -g
 
 OBJS = mgrelax.o friction.o
 
-all: $(OBJS)
+friction: $(OBJS)
 	$(FC) $(FFLAGS) -o friction mgrelax.o friction.o $(LIBFLAGS)
 
 %.o : %.f90 
