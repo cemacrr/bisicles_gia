@@ -68,13 +68,19 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
   > mkdir -p $BISICLES_HOME
   > cd $BISICLES_HOME
   > svn co https://anag-repo.lbl.gov/svn/Chombo/release/3.2 Chombo 
-  > svn co https://anag-repo.lbl.gov/svn/BISICLES/release/current BISICLES 
+  > svn co https://anag-repo.lbl.gov/svn/BISICLES/public/release/current BISICLES 
 </pre>
 </p> 
 <p>
   Here we have assumed that you want the most recently released versions of
-  Chombo and BISICLES. You may want a previous version or development branch,
-  but in that case you will probably know which one you need. Note also
+  Chombo and BISICLES. You may want a different version, for example,
+  the main development branch
+</p>
+<pre>
+   > svn co https://anag-repo.lbl.gov/svn/BISICLES/public/trunk BISICLES
+</pre>
+<p>
+  but in that case you will probably know which one you need. Note
   that you do not need to layout your source directories as indicated above, or even
   follow the rest of these notes exactly. If you want some other layout, note
   the following
