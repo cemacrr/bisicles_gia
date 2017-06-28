@@ -508,6 +508,7 @@ AmrIce::setDefaults()
   m_grounded_ice_stable = false;
   m_floating_ice_stable = false;
   m_floating_ice_basal_flux_is_dhdt = false;
+  m_floating_ice_basal_flux_is_min_dhdt = false;
   m_grounded_ice_basal_flux_is_dhdt = false;
   m_frac_sources = false;
 
@@ -1027,6 +1028,11 @@ AmrIce::initialize()
   ppAmr.query("grounded_ice_stable", m_grounded_ice_stable);
   ppAmr.query("floating_ice_stable", m_floating_ice_stable);
   ppAmr.query("floating_ice_basal_flux_is_dhdt", m_floating_ice_basal_flux_is_dhdt);
+  ppAmr.query("floating_ice_basal_flux_is_min_dhdt", m_floating_ice_basal_flux_is_min_dhdt);
+  CH_assert( ! (m_floating_ice_basal_flux_is_dhdt && m_floating_ice_basal_flux_is_min_dhdt) ); 
+  CH_assert( ! (m_floating_ice_basal_flux_is_dhdt && m_floating_ice_stable) );
+  CH_assert( ! (m_floating_ice_stable && m_floating_ice_basal_flux_is_min_dhdt) );
+
   ppAmr.query("grounded_ice_basal_flux_is_dhdt",m_grounded_ice_basal_flux_is_dhdt);
   ppAmr.query("mask_sources", m_frac_sources);
 
@@ -2684,7 +2690,7 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
           // with, the source term will be included then
           if (m_evolve_thickness)
             {
-              if (m_floating_ice_stable || m_floating_ice_basal_flux_is_dhdt)
+              if (m_floating_ice_stable || m_floating_ice_basal_flux_is_dhdt || m_floating_ice_basal_flux_is_min_dhdt)
                 {
                   //keep floating ice stable if required
                   const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
@@ -2694,11 +2700,19 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
                       if (mask(iv) == FLOATINGMASKVAL)
                         {
 			  (*m_surfaceThicknessSource[lev])[dit](iv) = 0.0;
-			  if (!m_floating_ice_basal_flux_is_dhdt)
+
+			  if ( m_floating_ice_stable )
 			    {
-			      (*m_basalThicknessSource[lev])[dit](iv) = 0.0;
+			      (*m_basalThicknessSource[lev])[dit](iv) = newH(iv);
 			    }
-			  (*m_basalThicknessSource[lev])[dit](iv) += newH(iv);
+			  else if (m_floating_ice_basal_flux_is_dhdt)
+			    {
+			      (*m_basalThicknessSource[lev])[dit](iv) += newH(iv);
+			    }
+			  else if (m_floating_ice_basal_flux_is_min_dhdt)
+			    {
+			      (*m_basalThicknessSource[lev])[dit](iv) -= std::max(0.0,-newH(iv));
+			    }
                         }
                     }
                 }

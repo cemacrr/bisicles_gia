@@ -1251,6 +1251,7 @@ protected:
   bool m_floating_ice_stable ;
   //if true, use the basal flux to set dhdt
   bool m_floating_ice_basal_flux_is_dhdt;
+  bool m_floating_ice_basal_flux_is_min_dhdt;
   bool m_grounded_ice_basal_flux_is_dhdt;
 
   /** if true, scale thickness sources (surface flux and basal flux) by 
