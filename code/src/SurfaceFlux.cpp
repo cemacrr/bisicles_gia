@@ -916,6 +916,12 @@ SurfaceFlux* SurfaceFlux::parse(const char* a_prefix)
      std::string prefix(a_prefix);
      prefix += ".direction";
      SurfaceFlux* direction = parse(prefix.c_str());
+     if (direction == NULL)
+       {
+	 pout() << " no flux defined in " << prefix  << std::endl;
+	 
+       }
+       MayDay::Error("no flux definied in <normalized flux>.direction");
      NormalizedFlux flux(direction, amplitude);
      ptr = static_cast<SurfaceFlux*>(flux.new_surfaceFlux());
    
