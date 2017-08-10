@@ -41,10 +41,34 @@
 <p>
 Every BISICLES simulation requires both <a href='#basal'>basal</a>
 and <a href='#basal'>englacial</a> stress models to be defined. These
-relate basal and englacial stresses to the velocity field.
+relate basal and englacial stresses to the velocity field. There
+are also options to modify the <a href='#driving'>driving</a> stress
 </p>
 
+<h2><a name='driving'>Driving stress</a></h2>
 
+<p>
+The driving stress is determined by the geometry, however there are some options
+that can be used to modify it.  Input geoemtry may lead to isolated ares of
+implausible driving stress, for example at tall ice cliffs. The option
+</p>
+<pre>
+  velocity_rhs.max_rhs_dx = 1.0e+10 #(Pa m) :any floating point number > 1
+</pre>
+<p>
+  is diasabled by default but will ensure that rho * g * h * |grad(s)| * dx &lt; velocity_rhs.max_rhs_dx
+  1.0e+10 Pa m: roughly speaking a value of1.0e+10 Pa m:  corresponds
+  to a 1 km high ice grounded cliff.
+</p>
+<p>
+  Driving stresses are modified immediately upstream and downstream of the grounding line
+  to avoid the combination of steep slopes and zero basal frcition that would otherwise
+  arise. This is the one-sided scheme descibed in Cornford, J. Comput. Phys. 2013, and is enabled
+  by default. It can be disabled with.
+</p>
+<pre>
+  velocity_rhs.gl_correction = false # true is the default
+</pre>
 
 <h2><a name='basal'>Basal stresses</a></h2>
 
@@ -66,6 +90,30 @@ relate basal and englacial stresses to the velocity field.
   the basal friction coefficient is described at <a href='../code/doc/doxygen/html/classBasalFriction.html'>classBasalFriction.html</a>.
 
 </p>
+
+<h4>Floating and grounded ice</h4>
+
+<p>
+  By default, BISICLES sets  beta^2 = 0 for every cell whose center is grounded. Setting
+</p>
+<pre>
+  basal_friction.grounding_line_subdivision = 4 # (any interger > 0, but 4 is recommended)
+</pre>
+<p>
+  selects a sub-grid interpolation scheme, which proves useful in some circumstances (see e.g Cornford et at, Ann, Glac. 2016).
+  The thickness above flotation is interploated between cell centers to compute a grounded-ice fraction w, with &lt; w &lt; 1,
+  which is used to weight beta^2. At some point we may make this the default.
+</p>
+
+<p>
+  The subgrid scheme typically means that a factor of two coarser mesh can be used. Note that BISICLES does not suffer
+  from the much more severe truncation errors noted in Seroussi, The Cryopshere, 2014 when the subrgid scheme
+  is not used: we attribute this to the one-sided difference scheme for the driving stress described in Cornford, J. Comput. Phys. 2013.
+  This is enabled by default, but can be disbaled with
+</p>
+<pre>
+  velocity_rhs.gl_correction = false # true is the default
+</pre>
 
 <h4>Constant Friction</h4>
 

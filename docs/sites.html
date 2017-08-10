@@ -104,11 +104,71 @@ The US DOE-run National Energy Research Supercomputing Center ( <a href='http://
 
 <h3>Edison -- GNU compilers</h3>
 
-The Cray XC30 (Edison) at NERSC offers Cray, GNU, and Intel compilers. All three compilers can be supported with a single
-Make.def.locals, it only only necessary to load the correct PrgEnv module and the cray-hdf5-parallel.
-Since it is so much like <a href='#archer'>ARCHER</a>, we run on it in the same way
+<p>
+  The Cray XC30 (Edison) at NERSC offers Cray, GNU, and Intel compilers. All three compilers can be supported with a single
+  Make.defs.local, it only only necessary to load the correct PrgEnv module and the cray-hdf5-parallel.
+</p>
 
+<p>
+  To compile with GNU, switch to the correct PrgEnv and load an hdf5 module, plus netcdf and python if desired
+</p>
+<pre>
+> module swap PrgEnv-intel PrgEnv-gnu
+> module load cray-hdf5-parallel
+> module load python
+> module load cray-netcdf-hdf5parallel
+> module unload module unload cray-shmem #needed for python only
+</pre>
+<p>
+  To have the python interface work, the compiler needs the -shared and -fPIC flags, and
+  the linker needs the -dynamic flag. An example $BISICLES_HOME/Chombo/lib/mk/local/Make.defs.local would be:
+</p>
+<pre>
+makefiles+=Make.defs.local
 
+#default to MPI=TRUE,OPT=TRUE,DEBUG=FALSE 
+MPI=TRUE
+OPT=TRUE
+DEBUG=FALSE
+
+#this seems to be the Cray way
+CXX=CC
+FC=ftn
+MPICXX=CC
+USE_64=TRUE
+
+ifeq ($(PE_ENV),GNU)
+
+CH_CPP=$(CXX) -E -P -C
+XTRACONFIG=.GNU
+cxxoptflags += -shared -fPIC
+foptflags += -shared -fPIC
+ldoptflags += -dynamic
+cxxoptflags += -march=ivybridge -O2 -mavx -ftree-vectorize -ffast-math -funroll-loops
+foptflags += -march=ivybridge -O2 -mavx -ftree-vectorize -ffast-math -funroll-loops
+
+else
+$(ECHO) "UNKNOWN PROGRAMMING ENVIRONMENT!"
+endif
+
+# The appropriate module (cray-hdf5-parallel) must be loaded for this to work.
+USE_HDF=TRUE
+HDFLIBFLAGS=   -L$(HDF5_DIR)/lib     $(HDF_POST_LINK_OPTS)  -lhdf5 -lz
+HDFMPILIBFLAGS=-L$(HDF5_DIR)/lib     $(HDF_POST_LINK_OPTS)  -lhdf5 -lz
+HDFINCFLAGS=   -I$(HDF5_DIR)/include $(HDF_INCLUDE_OPTS)
+HDFMPIINCFLAGS=-I$(HDF5_DIR)/include $(HDF_INCLUDE_OPTS)
+</pre>
+
+<p>
+  For python and netcdf, $BISICLES_HOME/BISICLES/code/mk/Make.defs.edison should include:
+</p>
+<pre>
+PYTHON_INC=/usr/common/usg/python/2.7.9/include/python2.7
+PYTHON_LIBS=-L/usr/common/usg/python/2.7.9/lib/ -lpython2.7 -ldl -lutil -lm -Xlinker -export-dynamic
+NETCDF_INC=$(shell nc-config --includedir)
+NETCDF_LIBS=$(shell nc-config --flibs)
+</pre>
+  
 <h3>Hopper -- GNU compilers</h3>
 
 The admiral has now been dismantled, and it was pretty similar to another Cray, <a href='#archer'>ARCHER</a>,
@@ -135,6 +195,7 @@ To compile with GNU, switch to the correct PrgEnv and load an hdf5 module
 > module load cray-hdf5-parallel
 > module load python-compute
 > module load cray-netcdf-hdf5parallel
+> module unload module unload cray-shmem # need this for dynamic linking
 </pre>
 
 <p>
