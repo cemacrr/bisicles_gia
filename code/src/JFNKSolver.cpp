@@ -333,7 +333,7 @@ JFNKSolver::Configuration::Configuration()
   m_eliminateFastIceEdgeOnly = false;
   m_eliminateRemoteIceTol = 1.0;
   m_eliminateRemoteIceMaxIter = 10;
-
+  
   // these ones don't need to be stored (at least for now), but should be set
   int mgAverageType  = CoarseAverageFace::arithmetic;
   ViscousTensorOpFactory::s_coefficientAverageType = mgAverageType;
@@ -372,9 +372,19 @@ void JFNKSolver::Configuration::parse(const char* a_prefix)
   pp.query("eliminateFastIce",m_eliminateFastIce);
   pp.query("eliminateFastIceSpeed",m_eliminateFastIceSpeed);
   pp.query("eliminateFastIceEdgeOnly",m_eliminateFastIceEdgeOnly);
-  pp.query("eliminateRemoteIceTol",m_eliminateRemoteIceTol);
-  pp.query("eliminateRemoteIceMaxIter",m_eliminateRemoteIceMaxIter);
 
+  {
+    ParmParse ppAmr("amr"); // ugly, but we generally want to inherit these if the are not specified
+    ppAmr.query("eliminate_remote_ice_tol",m_eliminateRemoteIceTol);
+    ppAmr.query("eliminate_remote_ice_max_iter",m_eliminateRemoteIceMaxIter);
+
+
+    pp.query("eliminateRemoteIceTol",m_eliminateRemoteIceTol);
+    pp.query("eliminateRemoteIceMaxIter",m_eliminateRemoteIceMaxIter);
+  }
+  
+
+  
   if (pp.contains("solverType") )
     {
       int solverIntType = m_linearSolverType;
@@ -644,18 +654,21 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	  // optionally get rid of ice with excessive |u|
 	  if ( m_config.m_eliminateFastIce)
 	    {
-	      IceUtility::eliminateFastIce(a_coordSys, localU, 
-					   a_calvedIce, a_addedIce, a_removedIce,
-					   m_grids , m_domains, 
-					   m_refRatios, m_dxs[0][0], a_maxLevel, 
-					   m_config.m_eliminateRemoteIceMaxIter,  m_config.m_eliminateRemoteIceTol, 
-					   m_config.m_eliminateFastIceSpeed,  m_config.m_eliminateFastIceEdgeOnly, m_config.m_verbosity);
+	      int eliminated = IceUtility::eliminateFastIce(a_coordSys, localU, 
+							    a_calvedIce, a_addedIce, a_removedIce,
+							    m_grids , m_domains, 
+							    m_refRatios, m_dxs[0][0], a_maxLevel, 
+							    m_config.m_eliminateRemoteIceMaxIter,  m_config.m_eliminateRemoteIceTol, 
+							    m_config.m_eliminateFastIceSpeed,  m_config.m_eliminateFastIceEdgeOnly, m_config.m_verbosity);
 
 	      
 	      //need to redfine RHS
-	      IceUtility::defineRHS(localRhs, a_coordSys, m_grids, m_dxs);
-
-	      current.setState(localU);
+	      if (eliminated > 0)
+		{
+		  IceUtility::defineRHS(localRhs, a_coordSys, m_grids, m_dxs);
+		  current.setState(localU);
+		  
+		}
 	    }
 	 
 	  //create a linearization (either the Jacobian of f or an approximation to it) around the current a_u
@@ -929,6 +942,9 @@ Real JFNKSolver::lineSearch(Vector<LevelData<FArrayBox>* >& a_u,
   
 return resNorm;
 }
+
+
+
 
 void 
 JFNKSolver::linearSolve(LinearizedVTOp& a_op, 

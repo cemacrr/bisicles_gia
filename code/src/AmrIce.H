@@ -714,8 +714,6 @@ protected:
   bool m_wallDrag;
   Real m_wallDragExtra;
 
-  //use one sided diffs at the grounding line?
-  bool m_groundingLineCorrection;
   //set m_groundingLineSubdivision > 0 to 
   //interpolate the grounding line position and reduce friction near the GL
   int m_groundingLineSubdivision;
@@ -810,17 +808,6 @@ protected:
   /// regrid interval
   int m_regrid_interval;
   int m_n_regrids;
-
-  /// if true, limit velocity RHS to try to deal with noisy initial conditions
-  /** for now, use max(abs(RHS)) = max(Z_s/gradLimitRadius/dx)
-   */
-  bool m_limitVelRHS;
-  int m_gradLimitRadius;
-
-  /// if m_limitFluxSpeed > 0, impose a maximum on the magnitude of  *flux* velocity,
-  /// that is, the vertically averaged face-centered velocity which appears in the 
-  /// thickness transport equation . 
-  Real m_limitFluxSpeed;
 
   /// if false, don't do initial velocity solve during problem setup. 
   /// (default is true)

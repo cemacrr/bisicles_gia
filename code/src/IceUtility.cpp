@@ -24,6 +24,7 @@
 #include "L1L2ConstitutiveRelation.H"
 #include "IceThermodynamics.H"
 #include "computeSum.H"
+#include "ParmParse.H"
 #include "NamespaceHeader.H"
 
 /// compute RHS for velocity field solve
@@ -33,6 +34,25 @@ void IceUtility::defineRHS(Vector<LevelData<FArrayBox>* >& a_rhs,
 			   const Vector<RealVect>& a_dx)
 			    
 {
+
+  // options that uses to get set in AmrIce, have established defaults, but only
+  // apply to this function
+  Real maxRhsDx = -1.0; // don't limit RHS
+  bool glCorrection = true; //GL correction (one sided differences) by default
+  int nLimited = 0;
+  
+  {
+    // for backward compatibility
+    ParmParse pp("amr");
+    pp.query("max_rhs_dx", maxRhsDx);
+    pp.query("gl_correction", glCorrection);
+  }
+
+  {
+    ParmParse pp("velocity_rhs");
+    pp.query("max_rhs_dx", maxRhsDx);
+    pp.query("gl_correction", glCorrection);
+  }
  
   CH_assert(a_rhs.size() <= a_CS.size());
   for (int lev = 0; lev < a_rhs.size(); ++lev)
@@ -58,7 +78,7 @@ void IceUtility::defineRHS(Vector<LevelData<FArrayBox>* >& a_rhs,
 
 	  const bool& anyFloating = levelCS.anyFloating()[dit];
 	  
-	  if (anyFloating)
+	  if (anyFloating && glCorrection)
 	    {
 	      const Box& box = levelGrids[dit];
 	      const FArrayBox& usrf = levelCS.getSurfaceHeight()[dit];
@@ -76,10 +96,52 @@ void IceUtility::defineRHS(Vector<LevelData<FArrayBox>* >& a_rhs,
 				    CHF_BOX(box));
 		}
 	    }
+
+	  if (maxRhsDx > 0.0)
+	    {
+
+	      
+	      for (BoxIterator bit(rhs.box()); bit.ok(); ++bit)
+		{
+		  Real modRhsDx = 0.0;
+		  for (int dir=0; dir<SpaceDim; dir++)
+		    {
+		      modRhsDx += std::pow( rhs(bit(),dir) * levelDx[dir],2) ;
+		    } // end loop over dir
+		  modRhsDx = std::sqrt(modRhsDx);
+		  if (modRhsDx > maxRhsDx)
+		    {
+		      //this should be rare, so count
+		      nLimited++;
+		     
+		      Real f = maxRhsDx/modRhsDx;
+		      for (int dir=0; dir<SpaceDim; dir++)
+			{
+			  rhs(bit(),dir)*=f;
+			} // end loop over dir
+		    } // end if (modRhsDx > maxRhsDx)
+		} // end loop over cells
+	    } // end if (maxRhsDx > 0.0)
 	} // loop over boxes
     }//loop over levels
 
-
+#ifdef CH_MPI
+  {
+    int tmp = 1.;
+    int result = MPI_Allreduce(&nLimited, &tmp, 1, MPI_INT,
+			       MPI_SUM, Chombo_MPI::comm);
+    
+    CH_assert(result == MPI_SUCCESS);
+    if (result != MPI_SUCCESS)
+      {
+	MayDay::Error("communication error on MPI_Allreduce");
+      }
+    nLimited = tmp;
+  }
+#endif
+  if (nLimited > 0)
+    pout() << "IceUtility::defineRHS: rhs was limited to " << maxRhsDx << "/dx in " << nLimited << " cells " << endl;
+  
 }
 
 
@@ -540,7 +602,7 @@ void IceUtility::computeFaceVelocity
 /**
    implies a call to IceUtility::eliminateRemoteIce iff any fast ice is removed
  */
-void IceUtility::eliminateFastIce
+int IceUtility::eliminateFastIce
 (Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
  Vector<LevelData<FArrayBox>* >& a_vel,
  Vector<LevelData<FArrayBox>* >& a_calvedIce,
@@ -640,6 +702,7 @@ void IceUtility::eliminateFastIce
 			 a_grids,a_domain,a_refRatio, a_crseDx,
 			 a_finestLevel,a_maxIter,a_thinIceTol,  a_verbosity);
     }
+  return nEliminated;
 }
 
 ///Identify regions of floating ice that are remote

@@ -362,7 +362,6 @@ public:
     Real m_muMin;
     ///largest effective viscosity in ice-covered regions
     Real  m_muMax;
-
     //dont solve, just evaluate the residual
     bool m_residualOnly;
 
@@ -508,6 +507,8 @@ public:
   
 private:
 
+
+  
   void imposeMaxAbs(Vector<LevelData<FArrayBox>*>& a_u,
 		  Real a_limit);
   

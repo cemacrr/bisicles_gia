@@ -70,7 +70,7 @@ InverseVerticallyIntegratedVelocitySolver::Configuration::~Configuration()
 
 
 InverseVerticallyIntegratedVelocitySolver::InverseVerticallyIntegratedVelocitySolver()
-  : m_config(), m_time(0.0), m_prev_time(0.0)
+  : m_config(), m_time(0.0), m_prev_time(-1.0)
 {
   
 }
@@ -373,7 +373,7 @@ int InverseVerticallyIntegratedVelocitySolver::solve
   m_A = a_A;
   m_C0 = a_C0;
   m_rhs = a_rhs;
-  m_prev_time = m_time;
+ 
   m_time = a_time;
   
   //best fit velocity is to be output
@@ -489,6 +489,7 @@ int InverseVerticallyIntegratedVelocitySolver::solve
     }
   else
     {
+       m_prev_time = m_time;
       // attempt the optmization
       if (false && m_outerCounter > 0) // \todo : decide how to do restarts....
 	{

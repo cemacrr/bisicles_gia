@@ -116,8 +116,8 @@ namespace IceUtility
    const ConstitutiveRelation* a_constitutiveRelation,
    const bool a_additionalVelocity); 
 
-  ///Identify regions of fast ice  and eliminate them.
-  void eliminateFastIce
+  ///Identify regions of fast ice  and eliminate them. return the total number of cells eliminated
+  int eliminateFastIce
   (Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
    Vector<LevelData<FArrayBox>* >& a_vel,
    Vector<LevelData<FArrayBox>* >& a_calvedIce,

@@ -480,11 +480,6 @@ AmrIce::setDefaults()
   m_timeStepTicks = false;
   m_fixed_dt  = 0.0;
 
-  m_limitVelRHS = false;
-  m_gradLimitRadius = 10;
-  
-  m_limitFluxSpeed = -1.0;
-
   m_velocitySolveInitialResidualNorm = -1.0;
   m_doInitialVelSolve = true; 
   m_doInitialVelGuess = false; 
@@ -500,7 +495,6 @@ AmrIce::setDefaults()
   m_wallDrag = true; //compute additional drag due to contact with rocky walls 
   m_wallDragExtra = 0.0; // assume wall drag proportional to basal drag;
 
-  m_groundingLineCorrection = true;
   m_groundingLineSubdivision = 0;
   m_evolve_thickness = true;
   m_evolve_velocity = true;
@@ -1277,15 +1271,8 @@ AmrIce::initialize()
 
   // get solver type
   ppAmr.query("velocity_solver_type", m_solverType);
-
   ppAmr.query("max_solver_iterations",m_maxSolverIterations);
-
   ppAmr.query("velocity_solver_tolerance", m_velocity_solver_tolerance);
-
-  ppAmr.query("limit_velocity_rhs", m_limitVelRHS);
-  ppAmr.query("limit_rhs_radius", m_gradLimitRadius);
-
-  ppAmr.query("limit_flux_speed",m_limitFluxSpeed);
 
   ppAmr.query("do_initial_velocity_solve", m_doInitialVelSolve);
   ppAmr.query("do_initial_velocity_guess", m_doInitialVelGuess);
@@ -1323,7 +1310,6 @@ AmrIce::initialize()
   ppAmr.query("wallDrag",m_wallDrag);
   ppAmr.query("wallDragExtra",m_wallDragExtra);
 
-  ppAmr.query("grounding_line_correction",m_groundingLineCorrection);
   ppAmr.query("grounding_line_subdivision", m_groundingLineSubdivision);
 
   //calving model options
