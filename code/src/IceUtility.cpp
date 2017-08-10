@@ -950,14 +950,29 @@ void IceUtility::multiplyByGroundedFraction
  */ 
 void IceUtility::setFloatingBasalFriction
 (LevelData<FArrayBox>& a_C, const LevelSigmaCS& a_coords,
- const DisjointBoxLayout& a_grids, int a_subdivision)
+ const DisjointBoxLayout& a_grids)
 {
   CH_TIME("IceUtility::setFloatingBasalFriction");
 
-  if (a_subdivision > 0)
+  // options that uses to get set in AmrIce, have established defaults, but only
+  // apply to this function. 
+  int subdivision = 0; // > 0 for sub-grid interpolation
+  
+  {
+    // for backward compatibility
+    ParmParse pp("amr");
+    pp.query("grounding_line_subdivision", subdivision);
+  }
+
+  {
+    ParmParse pp("basal_friction");
+    pp.query("grounding_line_subdivision", subdivision);
+  }
+ 
+  if (subdivision > 0)
     {
       pout() << " IceUtility::setFloatingBasalFriction : interpolation... " << std::endl;
-      IceUtility::multiplyByGroundedFraction(a_C,  a_coords, a_grids,  a_subdivision);
+      IceUtility::multiplyByGroundedFraction(a_C,  a_coords, a_grids,  subdivision);
       pout() << " IceUtility::setFloatingBasalFriction : done interpolation " << std::endl;
     }
   

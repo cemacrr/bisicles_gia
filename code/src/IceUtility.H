@@ -151,7 +151,7 @@ namespace IceUtility
   /// set C = 0 in floating region, potentially using subgrid interpolation 
   void setFloatingBasalFriction
   (LevelData<FArrayBox>& a_C, const LevelSigmaCS& a_coords,
-   const DisjointBoxLayout& a_grids, int a_subdivision);
+   const DisjointBoxLayout& a_grids);
 
 }
 

@@ -714,13 +714,6 @@ protected:
   bool m_wallDrag;
   Real m_wallDragExtra;
 
-  //set m_groundingLineSubdivision > 0 to 
-  //interpolate the grounding line position and reduce friction near the GL
-  int m_groundingLineSubdivision;
-#if 0
-  /// BCFunc for velSolver. Eventually would like this to be a BCHolder
-  BCFunc m_velBCs;
-#endif
 
   /// pointer to a GodunovPhysics for thickness advection
   GodunovPhysics* m_thicknessPhysPtr;

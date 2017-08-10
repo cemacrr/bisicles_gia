@@ -800,15 +800,14 @@ InverseVerticallyIntegratedVelocitySolver::mapX(const Vector<LevelData<FArrayBox
   }
 
   //Usual adjustments to C : set to 0 in shelves. add wall drag
-  ParmParse ppamr("amr");
-  int subdiv = 0;
-  ppamr.query("grounding_line_subdivision",subdiv);
+
   for (int lev=0; lev <= m_finest_level;lev++)
     {	
-      IceUtility::setFloatingBasalFriction(*m_Cmasked[lev], *m_coordSys[lev], m_grids[lev], subdiv);
+      IceUtility::setFloatingBasalFriction(*m_Cmasked[lev], *m_coordSys[lev], m_grids[lev]);
     }
 
   // add drag due to ice in contact with ice-free rocky walls
+  ParmParse ppamr("amr");
   bool wallDrag = true; 
   ppamr.query("wallDrag", wallDrag);
   if (wallDrag)
