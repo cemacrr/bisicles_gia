@@ -711,10 +711,6 @@ protected:
   */
   bool  m_reset_floating_friction_to_zero;
 
-  bool m_wallDrag;
-  Real m_wallDragExtra;
-
-
   /// pointer to a GodunovPhysics for thickness advection
   GodunovPhysics* m_thicknessPhysPtr;
 

@@ -18,7 +18,31 @@
 /// IceUtility namespace : general purpose ice sheet functions common to the 'big' classes (AmrIce, JFNKSolver, etc)
 namespace IceUtility
 {
-
+  
+  /// Compute a C0 such that basal traction Tb = C0 u + f(C,u)
+  /** 
+      Basal traction Tb = C0 u + f(C,u)
+      
+      f(C,u) is the conventional part of the basal traction.
+      
+      the C0 u term is used to add a linear drag, and for now is used
+      only for 'wall drag', which allows for a crude representation
+      of ice friction along rocky walls. Two Parmparse parameters, 
+      wall_drag.basic and wall_drag.extra, determine the calculation.
+      
+      if (wall_drag.basic) is true, then C0 = (C + wall_drag.extra) u
+      
+      For backward compatibility, wall_drag.basic == amr.WallDrag
+      and wall_drag.extra = amr.wallDragExtra
+      
+  */
+  void computeC0(Vector<LevelData<FArrayBox>* >& a_vectC0,
+		 const Vector<LevelData<FArrayBox>* >& a_vectC,
+		 const Vector<DisjointBoxLayout>& a_grids,
+		 const Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSys,
+		 const Vector<Real> a_dx, int a_finest_level);
+  
+  
   void addWallDrag(FArrayBox& a_drag, 
 		   const BaseFab<int>& a_mask,
 		   const FArrayBox& a_usrf,

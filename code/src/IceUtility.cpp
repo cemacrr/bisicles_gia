@@ -322,6 +322,53 @@ void IceUtility::computeA
     }
 }
 
+
+void IceUtility::computeC0(Vector<LevelData<FArrayBox>* >& a_vectC0,
+			   const Vector<LevelData<FArrayBox>* >& a_vectC,
+			   const Vector<DisjointBoxLayout>& a_grids,
+			   const Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSys,
+			   const Vector<Real> a_dx, int a_finest_level)
+ 
+{
+
+  bool wallDrag = true; //compute additional drag due to contact with rocky walls
+  Real wallDragExtra = 0.0; // assume wall drag proportional to basal drag only;
+
+  {
+    //backward compatiblity
+    ParmParse ppAmr("amr");
+    ppAmr.query("wallDrag",wallDrag);
+    ppAmr.query("wallDragExtra",wallDragExtra);
+  }
+  
+  {
+    ParmParse pp("wall_drag");
+    pp.query("basic", wallDrag);
+    pp.query("extra", wallDragExtra);
+  }
+
+  
+  for (int lev=0; lev <= a_finest_level; lev++)
+    {
+      const LevelSigmaCS& levelCS = *a_coordSys[lev];
+      const DisjointBoxLayout& grids = a_grids[lev];
+      for (DataIterator dit(grids); dit.ok(); ++dit)
+        {
+	  FArrayBox& thisC0 = (*a_vectC0[lev])[dit];
+	  const FArrayBox& thisC = (*a_vectC[lev])[dit];
+	  thisC0.setVal(0.0);
+	  if (wallDrag)
+	    {
+	      IceUtility::addWallDrag(thisC0, levelCS.getFloatingMask()[dit], 
+				  levelCS.getSurfaceHeight()[dit], levelCS.getH()[dit], 
+				  levelCS.getTopography()[dit], thisC, wallDragExtra,
+				  RealVect::Unit*a_dx[lev], grids[dit]);
+	    }
+	}
+    }
+}
+			   
+
 void IceUtility::addWallDrag(FArrayBox& a_drag, 
 			      const BaseFab<int>& a_mask,
 			      const FArrayBox& a_usrf,
@@ -332,6 +379,9 @@ void IceUtility::addWallDrag(FArrayBox& a_drag,
 			      const RealVect& a_dx,
 			      const Box& a_box)
 {
+  
+
+  
   for (int dir = 0; dir < SpaceDim; ++dir)
     {
       for (int sign = -1; sign <= 1; sign+=2)

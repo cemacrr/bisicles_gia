@@ -492,9 +492,6 @@ AmrIce::setDefaults()
  
   m_basalLengthScale = 0.0; // don't mess about with the basal friction / rhs by default
  
-  m_wallDrag = true; //compute additional drag due to contact with rocky walls 
-  m_wallDragExtra = 0.0; // assume wall drag proportional to basal drag;
-
   m_evolve_thickness = true;
   m_evolve_velocity = true;
   m_evolve_topography_fix_surface = false;
@@ -1306,10 +1303,6 @@ AmrIce::initialize()
   ppAmr.query("reset_floating_friction", m_reset_floating_friction_to_zero);
   ppAmr.query("basal_length_scale", m_basalLengthScale);
  
-  ppAmr.query("wallDrag",m_wallDrag);
-  ppAmr.query("wallDragExtra",m_wallDragExtra);
-
-
   //calving model options
   m_calvingModelPtr = CalvingModel::parseCalvingModel("CalvingModel");
   if (m_calvingModelPtr == NULL)
@@ -5242,25 +5235,10 @@ AmrIce::setBasalFriction(Vector<LevelData<FArrayBox>* >& a_vectC,Vector<LevelDat
       a_vectC[lev]->exchange();
     }
 
-  // compute C0 (wall drag) before setting C = 0 in floating regions
-  for (int lev=0; lev<=m_finest_level; lev++)
-    {
-      LevelSigmaCS& levelCS = *m_vect_coordSys[lev];
-      const DisjointBoxLayout& grids = m_amrGrids[lev];
-      for (DataIterator dit(grids); dit.ok(); ++dit)
-        {
-	  FArrayBox& thisC0 = (*a_vectC0[lev])[dit];
-	  const FArrayBox& thisC = (*a_vectC[lev])[dit];
-	  thisC0.setVal(0.0);
-	  if (m_wallDrag)
-	    {
-	      IceUtility::addWallDrag(thisC0, levelCS.getFloatingMask()[dit], 
-				      levelCS.getSurfaceHeight()[dit], levelCS.getH()[dit], 
-				      levelCS.getTopography()[dit], thisC, m_wallDragExtra,
-				      RealVect::Unit*m_amrDx[lev], grids[dit]);
-	    }
-	}
-    }
+  // compute C0
+  // C0 include a term (wall drag) that depends on C,
+  // so needs to be computed before setting C = 0 in floating regions
+  IceUtility::computeC0(a_vectC0, a_vectC, m_amrGrids, m_vect_coordSys, m_amrDx, m_finest_level);
 
   if ( m_reset_floating_friction_to_zero )
     {
