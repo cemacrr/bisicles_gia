@@ -1235,14 +1235,14 @@ void bisicles_get_2d_data
 	  
 	  break;
 
-	case BISICLES_FIELD_MELANGE_THICKNESS:
+	// case BISICLES_FIELD_MELANGE_THICKNESS:
 	  
-	  for (int lev = 0; lev < n ; lev++)
-	    {
-	      data[lev] = const_cast<LevelData<FArrayBox>* >
-		(amrIce.melangeThickness()[lev]);
-	      amrDx[lev] = amrIce.dx(lev);
-	    }
+	//   for (int lev = 0; lev < n ; lev++)
+	//     {
+	//       data[lev] = const_cast<LevelData<FArrayBox>* >
+	// 	(amrIce.melangeThickness()[lev]);
+	//       amrDx[lev] = amrIce.dx(lev);
+	//     }
 	  
 	  flattenCellData(*ptr,dxv,data,amrDx,true);	
 	  

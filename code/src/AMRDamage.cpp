@@ -520,9 +520,7 @@ void AMRDamage::updateDamage
 	 const FluxBox& flux =  (*a_faceFlux[lev])[dit];
 
 	 FArrayBox& source = (*a_source[lev])[dit];
-	 //FIXME : no sources, just testing
-	 source.setVal(0.0);
-
+       
 	 FArrayBox div(box,1);
 	 div.setVal(0.0);
 	 for (int dir=0; dir<SpaceDim; dir++)

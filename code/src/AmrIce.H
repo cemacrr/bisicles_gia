@@ -461,15 +461,10 @@ public:
   /// access function for layered face-centered velocities
   const Vector<LevelData<FluxBox>* >& faceVelocitiesLayered() const {return m_layerXYFaceXYVel;} 
 
-  /// access function for melange thickness
-  const  Vector<LevelData<FArrayBox>* >& melangeThickness() const {return m_melangeThickness; }
+  /// access function for calved ice data
   const  Vector<LevelData<FArrayBox>* >& calvedIceThickness() const {return m_calvedIceThickness; }
   const  Vector<LevelData<FArrayBox>* >& removedIceThickness() const {return m_removedIceThickness; }
   const  Vector<LevelData<FArrayBox>* >& addedIceThickness() const {return m_addedIceThickness; }
-  /// access function for recorded thickness
-  const  Vector<LevelData<FArrayBox>* >& recordThickness() const {return m_recordThickness; }
-  // access private flag 
-  bool getIsThckRecorded() const {return m_thicknessIsRecorded; }
   
   /// access function for surface temperature
   const  Vector<LevelData<FArrayBox>* >& surfaceInternalEnergy() const {return m_sInternalEnergy; }
@@ -579,15 +574,7 @@ protected:
 				   );
   
   void applyCalvingCriterion(CalvingModel::Stage a_stage);
-
-  /// Copy thickness before ice is removed  
-  void resetRecordThickness(const LevelData<FArrayBox>& a_thickness, int a_level);
-  /// Set private flag
-  void setIsThckRecorded(const bool a_thicknessIsRecorded);
-
-  /// Keep track of calved ice
-  void updateAccumulatedCalvedIce(LevelData<FArrayBox>& a_thickness, int a_level);
-
+  
   void eliminateRemoteIce();
 
   /// solve a_alpha * phi - a_beta * laplacian(phi) = a_rhs
@@ -1049,14 +1036,12 @@ protected:
   mutable Vector<LevelData<FArrayBox>* > m_basalThicknessSource;
   
   Vector<LevelData<FArrayBox>* > m_divThicknessFlux; // set to -dH/dt
-  //(accumulated) thickness of calved ice 
-  Vector<LevelData<FArrayBox>* > m_melangeThickness;
+  //thickness of calved ice 
   Vector<LevelData<FArrayBox>* > m_calvedIceThickness;
   Vector<LevelData<FArrayBox>* > m_removedIceThickness;
   Vector<LevelData<FArrayBox>* > m_addedIceThickness;
   Vector<LevelData<FArrayBox>* > m_calvedThicknessSource;
-  // Record thickness before ice is removed.
-  Vector<LevelData<FArrayBox>* > m_recordThickness;
+
 
   //cell centered storage for the stress-balance equation coefficients
   mutable Vector<LevelData<FArrayBox>* > m_dragCoef;
@@ -1291,10 +1276,6 @@ private:
       delete *a_ptrPtr;
     *a_ptrPtr = new LevelData<T>(a_grids, a_nComp, a_ghost);
   }
-  
-  // Flag to stop double counting calved/removed ice
-  bool m_thicknessIsRecorded;
-
 
 
 public:
@@ -1322,7 +1303,7 @@ public:
 
   public:
 
-    enum Notification {PostInitGrids,PreVelocitySolve,PostVelocitySolve,PostGeometryUpdate};
+    enum Notification {PostInitGrids,PreVelocitySolve,PostVelocitySolve,PostGeometryUpdate,PreCalving,PostCalving};
     
     virtual ~Observer()
     {

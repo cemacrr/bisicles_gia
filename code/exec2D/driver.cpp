@@ -41,6 +41,7 @@
 #include "SurfaceFlux.H"
 #include "IceConstants.H"
 #include "AMRDamage.H"
+#include "AMRMelange.H"
 #include "DamageConstitutiveRelation.H"
 #ifdef HAVE_PYTHON
 #include "PythonInterface.H"
@@ -828,7 +829,18 @@ int main(int argc, char* argv[]) {
 	}
     }
 
+    {
+      /// initialize the melange model
+      bool melange_model = false;
+      pp2.query("melange_model",melange_model);
+      if (melange_model)
+	{
+	  MelangeIceObserver* ptr = new MelangeIceObserver();
+	  amrObject.addObserver(ptr);
+	}
+    }
 
+    
     // set up initial grids, initialize data, etc.
     amrObject.initialize();
  
