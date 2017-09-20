@@ -31,6 +31,8 @@ MelangeIceObserver::MelangeIceObserver()
 {
 }
 
+
+
 MelangeIceObserver::~MelangeIceObserver()
 {
   if (m_melangePtr != NULL)

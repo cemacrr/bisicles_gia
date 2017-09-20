@@ -117,6 +117,11 @@ public:
   void readCheckData(HDF5Handle& a_handle,  HDF5HeaderData& a_header, int a_level, const DisjointBoxLayout& a_grids);
 #endif
 
+  const LevelData<FArrayBox>* melangeThickness(int lev)
+  {
+    return m_melange[lev];
+  }
+  
 protected:
   //cell-centered melange
   mutable Vector<LevelData<FArrayBox>* > m_melange;
@@ -144,7 +149,6 @@ class MelangeIceObserver : public AmrIce::Observer
 public:
 
   MelangeIceObserver();
-  
   ~MelangeIceObserver();
 
   AMRMelange& melange() const;

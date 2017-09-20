@@ -39,6 +39,9 @@
 #include "PiecewiseLinearFlux.H"
 #include "ComplexSurfaceFlux.H"
 #include "IceConstants.H"
+#include "AMRDamage.H"
+#include "AMRMelange.H"
+#include "DamageConstitutiveRelation.H"
 #include "IceThermodynamics.H"
 #ifdef HAVE_PYTHON
 #include "PythonInterface.H"
@@ -65,6 +68,7 @@ public:
   MPI_Comm mpi_comm;
 #endif
   AmrIce m_amrIce;
+  AMRMelange* m_amrMelange;
   std::string m_input_fname;
   LevelDataSurfaceFlux* m_surface_flux;
   LevelDataSurfaceFlux* m_basal_flux;
@@ -89,6 +93,7 @@ public:
 
 BisiclesWrapper::BisiclesWrapper()
 {
+  
    m_surface_flux = NULL;
    m_basal_flux = NULL;
    m_floating_ice_basal_flux = NULL;
@@ -951,6 +956,41 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
      
   amrObject.setDomainSize(domainSize);
 
+  {
+    /// initialize the damge model
+    bool damage_model = false;
+    pp2.query("damage_model",damage_model);
+    if (damage_model)
+      {
+	///currently not deleting this, need to decide
+	///how that will be done
+	DamageIceObserver* ptr = new DamageIceObserver();
+	amrObject.addObserver(ptr);
+	
+	//whatever the constitutive relation was, wrap
+	//it up in a DamageConstitutiveRelation tied
+	//to the DamageIceObserver components
+	DamageConstitutiveRelation* dcrptr = 
+	  new DamageConstitutiveRelation(constRelPtr, &ptr->damage());
+	amrObject.setConstitutiveRelation(dcrptr);
+	
+      }
+  }
+
+  {
+      /// initialize the melange model
+    bool melange_model = false;
+    pp2.query("melange_model",melange_model);
+    if (melange_model)
+      {
+	
+	MelangeIceObserver* ptr = new MelangeIceObserver();
+	a_wrapper.m_amrMelange = & ptr->melange();
+	amrObject.addObserver(ptr);
+      }
+  }
+
+
   // set up initial grids, initialize data, etc. 
   amrObject.initialize();
 
@@ -1235,18 +1275,19 @@ void bisicles_get_2d_data
 	  
 	  break;
 
-	// case BISICLES_FIELD_MELANGE_THICKNESS:
+	 case BISICLES_FIELD_MELANGE_THICKNESS:
 	  
-	//   for (int lev = 0; lev < n ; lev++)
-	//     {
-	//       data[lev] = const_cast<LevelData<FArrayBox>* >
-	// 	(amrIce.melangeThickness()[lev]);
-	//       amrDx[lev] = amrIce.dx(lev);
-	//     }
+	   for (int lev = 0; lev < n ; lev++)
+	     {
+	       data[lev] = const_cast<LevelData<FArrayBox>* >
+	 	 (  wrapper_ptr->m_amrMelange->melangeThickness(lev) );
+	       
+	       amrDx[lev] = amrIce.dx(lev);
+	     }
 	  
-	  flattenCellData(*ptr,dxv,data,amrDx,true);	
+	 //  flattenCellData(*ptr,dxv,data,amrDx,true);	
 	  
-	  break;
+	 //  break;
 
 	case BISICLES_FIELD_SURFACE_TEMPERATURE:
 	  
