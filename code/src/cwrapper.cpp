@@ -1276,19 +1276,28 @@ void bisicles_get_2d_data
 	  break;
 
 	 case BISICLES_FIELD_MELANGE_THICKNESS:
-	  
-	   for (int lev = 0; lev < n ; lev++)
-	     {
-	       data[lev] = const_cast<LevelData<FArrayBox>* >
-	 	 (  wrapper_ptr->m_amrMelange->melangeThickness(lev) );
-	       
-	       amrDx[lev] = amrIce.dx(lev);
-	     }
-	  
-	 //  flattenCellData(*ptr,dxv,data,amrDx,true);	
-	  
-	 //  break;
 
+	   if (wrapper_ptr->m_amrMelange)
+	     {
+	       for (int lev = 0; lev < n ; lev++)
+		 {
+		   data[lev] = const_cast<LevelData<FArrayBox>* >
+		     (  wrapper_ptr->m_amrMelange->melangeThickness(lev) );
+		   
+	       amrDx[lev] = amrIce.dx(lev);
+		 }
+	  
+	       flattenCellData(*ptr,dxv,data,amrDx,true);	
+	  
+	       
+	     }
+	   else
+	     {
+	       MayDay::Warning("bisicles_get_2d_data: no melange model");
+	     }
+
+	   break;
+	   
 	case BISICLES_FIELD_SURFACE_TEMPERATURE:
 	  
 	  for (int lev = 0; lev < n ; lev++)
