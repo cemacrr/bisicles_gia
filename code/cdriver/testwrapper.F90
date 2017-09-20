@@ -14,7 +14,7 @@ program fwrapper
   integer, dimension(1:2) :: dims, boxlo, boxhi
   real(kind=8) :: dx, max_time,start_time
   integer, parameter :: nx = 64, ny = 96
-  real(kind=8), dimension(:,:), allocatable :: smb, bmbf, bmbg, usrf, seb
+  real(kind=8), dimension(:,:), allocatable :: smb, bmbf, bmbg, usrf, seb, melange
   integer ixlo,ixhi,iylo,iyhi
   
   integer :: rank,nrank,ierr,comm
@@ -138,6 +138,8 @@ program fwrapper
      
   end do
 
+  call f_bisicles_get_2d_data(instance_id, melange, BISICLES_FIELD_MELANGE_THICKNESS, dx, dims, boxlo, boxhi)
+  
   !free any memory allocated on the C++ side
   call f_bisicles_free_instance(instance_id)
 #ifdef CH_MPI
