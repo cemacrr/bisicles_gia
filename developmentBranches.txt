@@ -72,6 +72,18 @@ subscribers: LBNL(Martin), Bristol(Cornford, Sun)
 
 ------------------------------------------------------------
 
+damage:
+
+description: private branch for Jeremy Bassis's DOE-funded damage model work
+
+initial date: October 12, 2017
+
+conditions: Currently none -- at Jeremy's discretion, although expected to follow ProsPecT code release guidelines.
+ 
+subscribers: LBNL, LANL, University of Michigan
+
+------------------------------------------------------------
+
 
 ----------------------------------------------------------
 
