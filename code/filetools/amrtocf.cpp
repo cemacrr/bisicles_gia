@@ -25,6 +25,7 @@
 void AMRtoCF(const std::string& ifile, const std::string& ofile,
 	     const std::string& a_createdBy, 
 	     const RealVect& a_origin,
+	     const RealVect& a_loXYGrid,
 	     const Real& a_timeOffset,
 	     bool a_validOnly);
 
@@ -91,13 +92,23 @@ int main(int argc, char* argv[]) {
 	  D_TERM(origin[0] = t[0];, origin[1] = t[1];, origin[2] = t[2];);
 	}
 
+	// Provide the x,y coordinates of the lower left hand corner of the grid to calculate the Polar Stereographic projection.
+	// The grid in the plotfiles start from (0,0).
+	// e.g. Origin for MCdataset-2015-03-03.nc is (-638000.0,-3349500.0, 0.0)
+	RealVect loXYGrid = RealVect::Zero;
+	{
+	  Vector<Real> t(SpaceDim,0.0);
+	  pp.queryarr("lo_XY_grid",t,0,SpaceDim);
+	  D_TERM(loXYGrid[0] = t[0];, loXYGrid[1] = t[1];, loXYGrid[2] = t[2];);
+	}
+
 	std::string created;
 	for (int i =0; i < argc; i++)
 	  {
 	    created += std::string(argv[i]) + " ";
 	  }
 	
-	AMRtoCF(ifile,ofile,created,origin,timeOrigin,validOnly);
+	AMRtoCF(ifile,ofile,created,origin,loXYGrid,timeOrigin,validOnly);
       }
     else if ((ifile.size() >= 3) && (ifile.find(".nc") == ifile.size()-3))
       {
@@ -126,6 +137,7 @@ int main(int argc, char* argv[]) {
 void AMRtoCF(const std::string& ifile, const std::string& ofile,
 	     const std::string& a_created, 
 	     const RealVect& a_origin,
+	     const RealVect& a_loXYGrid,
 	     const Real& a_timeOrigin,
 	     bool a_validOnly)
 {
@@ -155,9 +167,10 @@ void AMRtoCF(const std::string& ifile, const std::string& ofile,
  
 #ifdef HAVE_GDAL 
 
-  int epsgval = 3413;  // ESPG number for Polar Sterographic North (70 degN, 45 degW) projection.
-  Real x0 = -654650.0; // Origin of the geometry dataset. Assumes the grid in BISICLES plotfiles start from (0,0).
-  Real y0 = -3385950.0;
+  int epsgval = 3413;  // ESPG number for Polar Stereographic North (70 degN, 45 degW) projection.
+
+  Real x0 = a_loXYGrid[0];
+  Real y0 = a_loXYGrid[1];
 
   gdalxytolatlon transformation
   (epsgval, x0, y0);
