@@ -1,0 +1,3 @@
+NETCDF_HOME =$(NETCDF_DIR)
+NETCDF_LIBS= -lnetcdff -lnetcdf
+#PYTHON_VERSION=2.7
