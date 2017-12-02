@@ -17,6 +17,8 @@ module column_thermodynamics
   integer, parameter :: groundedmaskval = 1, floatingmaskval = 2, openseamaskval = 4, openlandmaskval = 8
   real(kind=8), parameter :: temp_eps = 1.0e-3, max_delta_energy = 200.0
   real(kind=8), parameter :: zero_debug = 0.0d0
+  real(kind=8), parameter :: water_fraction_drain = 0.01d0, water_fraction_max = 0.05d0, drain_factor = 0.5d0
+  real(kind=8), parameter :: temperature_min = 200.0d0
 contains
 
   real(kind=8) function fo_upwind(u,sminus,splus)
@@ -125,9 +127,10 @@ contains
     logical, intent(in) :: sdiric
     !locals
     real(kind=8), dimension(1:n) :: a,c,b,r,a2,c2,b2,r2 ! TDMA coefficients
-    real(kind=8), dimension(1:n) :: csig,cdsig,epmp,drain,energy2,energy0
+    real(kind=8), dimension(1:n) :: csig,cdsig,epmp,drain,energy2,energy0,emax
     real(kind=8), dimension(1:n+1) :: fdsig,  kcc, ktt, kct, ktc
-    real(kind=8) :: bmb, eps,k, kr,bepmp,sepmp, kb
+    real(kind=8) :: bmb, eps,k, kr,bepmp,sepmp, kb,  emin
+    
     integer :: i
     logical :: btemperate
    
@@ -277,22 +280,29 @@ contains
     c2 = c
     r2 = r
     
-    !drainage
-    where (energy2 .gt. epmp + 0.01 * lhci)
-       drain = 0.5d0 * dt
+    !drainage.  \fixme
+    where (energy2 .gt. epmp + water_fraction_drain * lhci)
+       drain = drain_factor * dt
     elsewhere
        drain = 0.0d0
     end where
-
+   
+    
+    !re-solve with drainage sink.
     b = b + thcknew*drain
     r = r + thcknew*drain*epmp
     call tdmasolve(n,energy,a,b,c,r)
-    if ( ( abs(thcknew - 2.3781568151838943) .lt. 0.0001) .and. & 
-         (maxval(abs(energy0-energy)) .gt. 10000.0)) then
-       write(*,*) maxval(abs(energy0-energy)), thcknew, thckold, minval(energy)/2009.0
-    end if
 
- 
+    !bodge upper and lower limits. ugly, but hopefully only important in stupid zones
+    emax = epmp + lhci * water_fraction_max
+    where (energy .gt. emax)
+       energy = emax
+    end where
+    emin = shci * temperature_min
+    where (energy .lt. emin)
+       energy = emin
+    end where
+
     drain = (energy2 - energy)/lhci
  
     !compute surface energy density or heat flux
@@ -338,6 +348,7 @@ subroutine column_thermodynamics_set_constants( ascyr , arhoi , arhoo, agrav , a
   conm = aconm
   pmlt = apmlt
   trpt = atrpt
+  
 end subroutine column_thermodynamics_set_constants
 
 subroutine column_thermodynamics_update_internal_energy(energy, senergy, sflux, sdiric, benergy, mask, &
