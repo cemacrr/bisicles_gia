@@ -911,6 +911,7 @@ void
 AmrIce::initialize()
 {
 
+  CH_TIME("AmrIce::initialize");
   if (s_verbosity > 3) 
     {
       pout() << "AmrIce::initialize" << endl;
@@ -2004,6 +2005,8 @@ void
 AmrIce::run(Real a_max_time, int a_max_step)
 {
 
+  CH_TIME("AmrIce::run");
+  
   if (s_verbosity > 3) 
     {
       pout() << "AmrIce::run -- max_time= " << a_max_time 
@@ -2127,6 +2130,8 @@ void
 AmrIce::timeStep(Real a_dt)
 {
 
+  CH_TIME("AmrIce::timestep");
+    
   if (s_verbosity >=2) 
     {
       pout() << "Timestep " << m_cur_step 
@@ -2475,6 +2480,8 @@ AmrIce::timeStep(Real a_dt)
 void
 AmrIce::computeH_half(Vector<LevelData<FluxBox>* >& a_H_half, Real a_dt)
 {
+  CH_TIME("AmrIce::computeH_half");
+  
   for (int lev=0; lev<= finestTimestepLevel();  lev++)
     {
       
@@ -2574,6 +2581,9 @@ AmrIce::computeThicknessFluxes(Vector<LevelData<FluxBox>* >& a_vectFluxes,
                                const Vector<LevelData<FluxBox>* >& a_H_half,
                                const Vector<LevelData<FluxBox>* >& a_faceVelAdvection)
 {
+
+  CH_TIME("AmrIce::computeThicknessFluxes");
+  
   for (int lev=0; lev<=finestTimestepLevel(); lev++)
     {
       LevelData<FluxBox>& levelFaceVel = *a_faceVelAdvection[lev];
@@ -2616,7 +2626,7 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
 		       Real a_dt)
 {
 
-
+  CH_TIME("AmrIce::updateGeometry");
   for (int lev=0; lev <= finestTimestepLevel() ; lev++)
     {
       DisjointBoxLayout& levelGrids = m_amrGrids[lev];
@@ -4249,6 +4259,8 @@ void
 AmrIce::initGrids(int a_finest_level)
 {
 
+  CH_TIME("AmrIce::initGrids");
+  
   if (s_verbosity > 3) 
     { 
       pout() << "AmrIce::initGrids" << endl;
@@ -4643,6 +4655,8 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
                  Vector<LevelData<FArrayBox>* >& a_velocity)
 {
 
+  CH_TIME("AmrIce::initData");
+  
   if (s_verbosity > 3) 
     { 
       pout() << "AmrIce::initData" << endl;
@@ -6106,7 +6120,7 @@ void AmrIce::applyCalvingCriterion(CalvingModel::Stage a_stage)
 {
 
   // observers (e.g AMRMelange) may care about the calved ice
-  if (a_stage != CalvingModel::Stage::Initialization)
+  if (a_stage != CalvingModel::Initialization)
     notifyObservers(Observer::PreCalving);
 
   //allow calving model to modify geometry 
@@ -6122,7 +6136,7 @@ void AmrIce::applyCalvingCriterion(CalvingModel::Stage a_stage)
    }
   
   // observers (e.g AMRMelange) may care about the calved ice
-  if (a_stage != CalvingModel::Stage::Initialization)
+  if (a_stage != CalvingModel::Initialization)
   notifyObservers(Observer::PostCalving);
   
   // usually a good time to eliminate remote ice
@@ -6355,6 +6369,8 @@ void AmrIce::writeAMRHierarchyHDF5(const string& filename,
 void 
 AmrIce::writePlotFile() 
 {
+  CH_TIME("AmrIce::writePlotFile");
+  
   if (s_verbosity > 3) 
     { 
       pout() << "AmrIce::writePlotFile" << endl;
@@ -8286,6 +8302,8 @@ void AmrIce::computeInternalEnergyHalf(Vector<LevelData<FluxBox>* >& a_layerEH_h
 				       const Real a_dt, const Real a_time)
 {
 
+  CH_TIME("AmrIce::computeInternalEnergyHalf");
+  
   //delete and re-create storage for a_layerEH_half and a_layerH_half.
   for (int lev = 0 ; lev <= m_finest_level; lev++)
     {
@@ -8452,6 +8470,7 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
 				  const Vector<LevelData<FArrayBox>*>& a_basalThicknessSource)
 {
 
+  CH_TIME("AmrIce::updateInternalEnergy");
   //update the internalEnergy fields, 2D case
   Vector<LevelData<FluxBox>* > vectLayerFluxes(m_finest_level+1, NULL);
   Vector<LevelData<FluxBox>* > vectLayerThicknessFluxes(m_finest_level+1, NULL);
