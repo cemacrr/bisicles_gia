@@ -16,6 +16,64 @@
 <div id="main">
 
 <h1>BISICLES Thermodynamics</h1>
+
+<p>
+BISICLES has an optional thermodynamics component along the lines of Aschwanden et al, 2012
+(doi: 10.3189/2012JoG11J088). It can be enabled by setting
+</p>
+<pre>
+amr.isothermal = false
+</pre>
+<p>
+  Following the Aschwanden et al 2012 model, the state variable, an energy density E
+  (measured in J/kg), is composed from the temperature T and the water fraction w,
+  such that E = CT + Lw, where C is the specific heat capacity, and L is
+  the specific latent heat of fusion. 
+</p>
+<p>
+  There are relatively few options to set for the thermodyanmics component:
+  the initial energy density or temperature, and the boundary conditions
+  at the upper and lower surface. The initial temperature
+  is set in the same manner as a constant-in-time tempeartue. In the
+  Pine Island Glacier example, temperature is read from an hdf5
+  file with temperatures specified at the centers of layers which
+  subdivide the ice thickness evenly, with the options
+</p>
+<pre>
+amr.sigma = 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0
+temperature.type = LevelData
+inputLevelData.temperatureFile = pig-bisicles-1km.2d.hdf5
+inputLevelData.temperatureName = temp000000
+</pre>
+<p>
+  The file contains 10 variables, temp000000 to temp000009,
+  specifying the temperature at sigma = 0.5,1.5, etc
+</p>
+<p>
+  By default, the boundary condition at the upper surface
+  prescribes zero heat flux. At the lower surface, the
+  default geothermal flux is also zero, but the heat
+  flux due to sliding friction is always imposed.
+  The same means used to specify <a href='surfaceflux.html'>surface flux<a>
+      for mass can be employed to set this fluxes, with
+</p>
+<pre>
+  surfaceHeatBoundaryData.type = ...
+  basalHeatBundaryData.type = ...
+</pre>
+<p>
+  It is also possible to set an upper surface temperature, by
+  setting
+</p>
+<pre>
+    SurfaceHeatBoundaryData.Dirichlett = true
+</pre>
+<p>
+  which then intpretts the field specified as a temperature rather
+  than a heat flux.
+</p>
 </div>
+
+
 </body>
 </html>
