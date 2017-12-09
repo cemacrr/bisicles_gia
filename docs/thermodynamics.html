@@ -28,22 +28,35 @@ amr.isothermal = false
   Following the Aschwanden et al 2012 model, the state variable, an energy density E
   (measured in J/kg), is composed from the temperature T and the water fraction w,
   such that E = CT + Lw, where C is the specific heat capacity, and L is
-  the specific latent heat of fusion. 
+  the specific latent heat of fusion. E is a 3D field: the ice sheet
+  is subdivided into n layers and  n values for E stored at the centre
+  of each mesh cell. The uppermost layer is labelled layer 0,
+  and the vertical distribution of layer interfaces is specified
+  through the amr.sigma option. E.g, for 10 evenly spaced layers, set
 </p>
+<pre>
+  amr.sigma = 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 
+</pre>
 <p>
   There are relatively few options to set for the thermodyanmics component:
-  the initial energy density or temperature, and the boundary conditions
+  the initial temperature, and the boundary conditions
   at the upper and lower surface. The initial temperature
-  is set in the same manner as a constant-in-time tempeartue. In the
+  is set in the same manner as a constant-in-time temperature. In the
   Pine Island Glacier example, temperature is read from an hdf5
   file with temperatures specified at the centers of layers which
   subdivide the ice thickness evenly, with the options
 </p>
 <pre>
-amr.sigma = 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0
-temperature.type = LevelData
-inputLevelData.temperatureFile = pig-bisicles-1km.2d.hdf5
-inputLevelData.temperatureName = temp000000
+  temperature.type = LevelData
+  inputLevelData.temperatureFile = pig-bisicles-1km.2d.hdf5
+  inputLevelData.temperatureName = temp000000
+</pre>
+<p>
+  For a uniform initial temperature, set
+</p>
+<pre>
+  temperature.type = constant
+  temperature.value = 268
 </pre>
 <p>
   The file contains 10 variables, temp000000 to temp000009,
@@ -55,21 +68,24 @@ inputLevelData.temperatureName = temp000000
   default geothermal flux is also zero, but the heat
   flux due to sliding friction is always imposed.
   The same means used to specify <a href='surfaceflux.html'>surface flux<a>
-      for mass can be employed to set this fluxes, with
+      for mass can be employed to set these fluxes, with
 </p>
 <pre>
   surfaceHeatBoundaryData.type = ...
   basalHeatBundaryData.type = ...
 </pre>
 <p>
-  It is also possible to set an upper surface temperature, by
-  setting
+  The fluxes are measured in J/a/m^2.
+  It is also possible to set an upper surface temperature, rather
+  than a heat flux, by setting
 </p>
 <pre>
-    SurfaceHeatBoundaryData.Dirichlett = true
+  SurfaceHeatBoundaryData.Dirichlett = true  # false by default
+  SurfaceHeatBoundaryData.Temperature = true # true by default
 </pre>
 <p>
-  which then intpretts the field specified as a temperature rather
+  In that case the field specified by SurfaceHeatBoundaryData is
+  taken to be as a temperature rather
   than a heat flux.
 </p>
 </div>
