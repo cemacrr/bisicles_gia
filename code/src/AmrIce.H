@@ -312,10 +312,6 @@ public:
   /// compute flux domain
   Real computeTotalFlux(const Vector<LevelData<FArrayBox>*> a_flux);
 
-  /// compute crevasses depths
-  void computeCrevasseDepths(LevelData<FArrayBox>& a_surfaceCrevasse,
-			     LevelData<FArrayBox>& a_basalCrevasse,
-			     int a_level) const;
 
   enum velSolverTypes { Picard = 0,
 			JFNK = 1,
@@ -588,16 +584,6 @@ protected:
   void helmholtzSolve(Vector<LevelData<FArrayBox>* >& a_phi,
 		      Real a_alpha, Real a_beta) const;
  
-
-  // 1D SSA flux across the grounding line from  Schoof (2007) J Geophys. Res. vol 112, p F03S28
-  Real glFluxSchoof(Real a_H, Real a_A, Real a_C, Real a_n, Real a_m, Real a_rho, Real a_rhow, Real a_g)
-  {
-    return std::pow(a_H, (a_n+a_m+3)/(a_m+1.0)) 
-      * std::pow( a_A * std::pow(a_rho*a_g,a_n+1.0) 
-		  * std::pow(1.0-a_rho/a_rhow,a_n) 
-		  / (std::pow(4.0,a_n)*a_C), 1.0/(a_m+1.0));
-  }
-
 
 #if BISICLES_Z == BISICLES_LAYERED
  
