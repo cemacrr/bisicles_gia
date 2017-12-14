@@ -36,6 +36,7 @@ L1L2ConstitutiveRelation::getNewConstitutiveRelation() const
   newPtr->m_effectiveViscositySIAGradSLimit = m_effectiveViscositySIAGradSLimit;
   newPtr->m_additionalVelocitySIAOnly = m_additionalVelocitySIAOnly;
   newPtr->m_startFromAnalyticMu = m_startFromAnalyticMu;
+  newPtr->m_layerCoarsening = m_layerCoarsening;
   GlensFlowRelation* gfr =  newPtr->getGlensFlowRelationPtr();
   gfr->setParameters(glensFlowRelation.m_n, 
 		     glensFlowRelation.m_epsSqr0, 
@@ -58,6 +59,7 @@ L1L2ConstitutiveRelation::parseParameters()
   ppL1L2.query("additionalVelocitySIAGradSLimit", m_additionalVelocitySIAGradSLimit);
   ppL1L2.query("additionalVelocitySIAOnly", m_additionalVelocitySIAOnly);
   ppL1L2.query("startFromAnalyticMu",m_startFromAnalyticMu);
+  ppL1L2.query("layerCoarsening",m_layerCoarsening);
   
   //underlying glen's flow flaw parameters
   Real n = 3.0;
@@ -67,7 +69,10 @@ L1L2ConstitutiveRelation::parseParameters()
   Real delta = 0.0;
   ppL1L2.query("delta",delta);
   glensFlowRelation.setParameters(n, epsSqr0, delta);
- 
+
+
+  
+  
 }
 
 void
@@ -192,13 +197,6 @@ L1L2ConstitutiveRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
       
       for (int faceDir=0; faceDir<SpaceDim; faceDir++)
         {
-          //trapezium rule inegration over sigma to find integral(mu,dz)/H
-          //for (int l = 0; l < nLayer; l++){
-          //  Real s = 0.5 * (sigma[l+1] - sigma[l]);
-          //  thisMu[faceDir].plus(mu[dit][faceDir], s ,l ,0 );
-          //  thisMu[faceDir].plus(mu[dit][faceDir], s ,l+1 ,0 );
-	  //}
-
 	  //midpoint rule inegration over sigma to find integral(mu,dz)/H
 	  for (int l = 0; l < nLayer; l++)
 	    {
@@ -243,7 +241,7 @@ L1L2ConstitutiveRelation::computeMuZ(LevelData<FArrayBox>& a_mu,
       muBox &= domBox;
       
       computeEitherMuZ(a_mu[dit], a_sigma,  G[dit], a_epsSqr[dit], a_A[dit], 
-		       H[dit] ,a_coordSys.iceDensity()*a_coordSys.gravity(), muBox);
+		       H[dit] ,a_coordSys.iceDensity()*a_coordSys.gravity(), muBox,m_layerCoarsening);
     }
 
   a_mu.exchange();
@@ -289,7 +287,7 @@ L1L2ConstitutiveRelation::computeFaceMuZ(LevelData<FluxBox>& a_mu,
                            a_epsSqr[dit][faceDir], a_A[dit][faceDir],  
                            faceH[dit][faceDir], 
 			   a_coordSys.iceDensity()*a_coordSys.gravity(),
-			   faceBox);  
+			   faceBox,m_layerCoarsening);  
         }
 
     }
@@ -297,6 +295,9 @@ L1L2ConstitutiveRelation::computeFaceMuZ(LevelData<FluxBox>& a_mu,
 
 
 }
+
+
+
 
 
 void  
@@ -307,7 +308,8 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
                                            const FArrayBox& a_A,
                                            const FArrayBox& a_H,
 					   const Real& a_rhog,
-                                           const Box& a_box) const
+                                           const Box& a_box,
+					   int a_layerCoarsen) const
 {
 
   CH_TIME("L1L2ConstitutiveRelation::computeEitherMuZ");
@@ -315,136 +317,162 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
   CH_assert(a_sigma.size() == a_mu.nComp());
   CH_assert(a_A.nComp() == 1 || a_sigma.size() == a_A.nComp());
 
- 
-    
-  //SIA approximation to vertical contribution to second invariant of
-  //deviatoric stress (rho * g * H * grad(s))^2 
-  const Real& rhog = a_rhog;
-  FArrayBox phiTildeSqr(a_box,1);
-  int nComp = a_grads.nComp();
-
-  FArrayBox grads(a_box,nComp);
-  grads.copy(a_grads,0,0,nComp);
-  if (m_effectiveViscositySIAGradSLimit > 0.0)
+  if (a_layerCoarsen > 0 && a_sigma.size()%2 == 0)
     {
-      FORT_L1L2MODLIMIT(CHF_FRA(grads),
-			CHF_CONST_REAL(m_effectiveViscositySIAGradSLimit),
-			CHF_BOX(a_box),
-			CHF_CONST_INT(nComp));
+      // Save time by computing mu in only half of the layers
+      int nCrseLayer = a_sigma.size() / 2;
+      FArrayBox crseMu(a_mu.box(), nCrseLayer);
+      FArrayBox crseA(a_mu.box(), nCrseLayer);
+      Vector<Real> crseSigma(nCrseLayer);
+
+      for (int crseLayer = 0, layer = 0; crseLayer < nCrseLayer; crseLayer++, layer+=2)
+	{
+	  crseA.copy(a_A, layer, crseLayer, 1);
+	  crseA.plus(a_A, layer+1, crseLayer, 1);
+	  crseSigma[crseLayer] = 0.5*( a_sigma[layer] + a_sigma[layer+1]) ;
+	}
+      crseA *= 0.5;
+      computeEitherMuZ(crseMu, crseSigma, a_grads, a_epsSqr,  crseA, a_H, a_rhog, a_box, a_layerCoarsen-1); 
+
+      for (int crseLayer = 0, layer = 0; crseLayer < nCrseLayer; crseLayer++, layer+=2)
+	{
+	  a_mu.copy(crseMu, crseLayer, layer, 1);
+	  a_mu.copy(crseMu, crseLayer, layer+1, 1);
+	}
+
+      nCrseLayer = 0;
+      
     }
-
-  FORT_L1L2PHITILDESQR(CHF_FRA1(phiTildeSqr,0),
-		       CHF_CONST_FRA1(a_H,0),
-		       CHF_CONST_FRA(grads),
-		       CHF_CONST_REAL(rhog),
-		       CHF_INT(nComp),
-		       CHF_BOX(a_box));
-
- 
-
-  FArrayBox epsSqr(a_box,1);
-  epsSqr.copy(a_epsSqr);
+  else
+    {
+      //SIA approximation to vertical contribution to second invariant of
+      //deviatoric stress (rho * g * H * grad(s))^2 
+      const Real& rhog = a_rhog;
+      FArrayBox phiTildeSqr(a_box,1);
+      int nComp = a_grads.nComp();
   
-  FArrayBox A(a_box,1);
-  FArrayBox res(a_box,1);
-  
-  const int maxIter = 150;
-  //const Box& muBox = a_box;
-
-  for (unsigned int l = 0; l < a_mu.nComp(); ++l){
-    
-
-    A.copy(a_A,l,0);
-    if (l == 0)
-      {
-	// could be the top of the ice sheet (if sigma[l] == 0.0)
-        // midpoint of layer 0 or 1
-
-	//calling FORT_COMPUTEL1L2MU with sigma = 0.0 will 
-        //get us Glen's mu 
-	Real sigma0 = 0.0;
+      FArrayBox grads(a_box,nComp);
+      grads.copy(a_grads,0,0,nComp);
+      if (m_effectiveViscositySIAGradSLimit > 0.0)
+	{
+	  FORT_L1L2MODLIMIT(CHF_FRA(grads),
+			    CHF_CONST_REAL(m_effectiveViscositySIAGradSLimit),
+			    CHF_BOX(a_box),
+			    CHF_CONST_INT(nComp));
+	}
+      
+      FORT_L1L2PHITILDESQR(CHF_FRA1(phiTildeSqr,0),
+			   CHF_CONST_FRA1(a_H,0),
+			   CHF_CONST_FRA(grads),
+			   CHF_CONST_REAL(rhog),
+			   CHF_INT(nComp),
+			   CHF_BOX(a_box));
+      
+      
+      
+      FArrayBox epsSqr(a_box,1);
+      epsSqr.copy(a_epsSqr);
+      
+      FArrayBox A(a_box,1);
+      FArrayBox res(a_box,1);
+      
+      const int maxIter = 150;;
+      
+      for (unsigned int l = 0; l < a_mu.nComp(); ++l){
 	
-	FORT_COMPUTEL1L2MU(CHF_FRA1(a_mu,l),
-			   CHF_FRA1(res,0),
-			   CHF_CONST_FRA1(A, 0),
-			   CHF_CONST_FRA1(epsSqr,0),
-			   CHF_CONST_FRA1(phiTildeSqr,0),
-			   CHF_BOX(a_box),
-			   CHF_CONST_REAL(sigma0),
-			   CHF_CONST_REAL(glensFlowRelation.m_n),
-			   CHF_CONST_REAL(glensFlowRelation.m_epsSqr0),
-			   CHF_CONST_REAL(glensFlowRelation.m_delta),
-			   CHF_CONST_REAL(m_solverTol),
-			   CHF_CONST_INT(maxIter));
-      }
-
-    if (a_sigma[l] > TINY_NORM)
-      {
-	// various cases below the surface of the ice, which 
-	// differ  only in the two values used to initialize the 
-        // secant solve in FORT_COMPUTEL1L2MU
-	//Real factor = 0.95;
+	
+	A.copy(a_A,l,0);
 	if (l == 0)
 	  {
-	    //use Glen's mu, twice - the secant solve will check and change this
-	    res.copy(a_mu,l,0);
-	  } 
-	else if ( l == 1)
-	  {
-	    // use mu from the previous layer, twice
-	    res.copy(a_mu,l-1,0); 
-	    a_mu.copy(a_mu,l-1,l);
-	    //	    a_mu.mult(0.95,l,1);
-	    if (m_startFromAnalyticMu)
-	      FORT_ANALYTICL1L2MU(CHF_FRA1(a_mu,l),
-				  CHF_CONST_FRA1(A, 0),
-				  CHF_CONST_FRA1(epsSqr,0),
-				  CHF_CONST_FRA1(phiTildeSqr,0),
-				  CHF_BOX(a_box),
-				  CHF_CONST_REAL(a_sigma[l]),
-				  CHF_CONST_REAL(glensFlowRelation.m_n),
-				  CHF_CONST_REAL(glensFlowRelation.m_epsSqr0));
-
-	  } 
-	else 
-	  {
-	    // use mu from the previous two layers
-	    res.copy(a_mu,l-2,0);
-	    a_mu.copy(a_mu,l-1,l);
-
-	    if (m_startFromAnalyticMu)
-	      FORT_ANALYTICL1L2MU(CHF_FRA1(a_mu,l),
-				  CHF_CONST_FRA1(A, 0),
-				  CHF_CONST_FRA1(epsSqr,0),
-				  CHF_CONST_FRA1(phiTildeSqr,0),
-				  CHF_BOX(a_box),
-				  CHF_CONST_REAL(a_sigma[l]),
-				  CHF_CONST_REAL(glensFlowRelation.m_n),
-				  CHF_CONST_REAL(glensFlowRelation.m_epsSqr0));
-
-	  } 
-
-    
-	FORT_COMPUTEL1L2MU(CHF_FRA1(a_mu,l),
-			   CHF_FRA1(res,0),
-			   CHF_CONST_FRA1(A, 0),
-			   CHF_CONST_FRA1(epsSqr,0),
-			   CHF_CONST_FRA1(phiTildeSqr,0),
-			   CHF_BOX(a_box),
-			   CHF_CONST_REAL(a_sigma[l]),
-			   CHF_CONST_REAL(glensFlowRelation.m_n),
-			   CHF_CONST_REAL(glensFlowRelation.m_epsSqr0),
-			   CHF_CONST_REAL(glensFlowRelation.m_delta),
-			   CHF_CONST_REAL(m_solverTol),
-			   CHF_CONST_INT(maxIter));
+	    // could be the top of the ice sheet (if sigma[l] == 0.0)
+	    // midpoint of layer 0 or 1
+	    
+	    //calling FORT_COMPUTEL1L2MU with sigma = 0.0 will 
+	    //get us Glen's mu 
+	    Real sigma0 = 0.0;
+	    
+	    FORT_COMPUTEL1L2MU(CHF_FRA1(a_mu,l),
+			       CHF_FRA1(res,0),
+			       CHF_CONST_FRA1(A, 0),
+			       CHF_CONST_FRA1(epsSqr,0),
+			       CHF_CONST_FRA1(phiTildeSqr,0),
+			       CHF_BOX(a_box),
+			       CHF_CONST_REAL(sigma0),
+			       CHF_CONST_REAL(glensFlowRelation.m_n),
+			       CHF_CONST_REAL(glensFlowRelation.m_epsSqr0),
+			       CHF_CONST_REAL(glensFlowRelation.m_delta),
+			       CHF_CONST_REAL(m_solverTol),
+			       CHF_CONST_INT(maxIter));
+	  }
 	
-
-
-        Real resNorm = res.norm(0);
-        CH_assert(resNorm < 2.0 * m_solverTol);
-	CH_assert(a_mu.min(a_box,l) > 0.0e0);
-      } // end general case
-  }
+	if (a_sigma[l] > TINY_NORM)
+	  {
+	    // various cases below the surface of the ice, which 
+	    // differ  only in the two values used to initialize the 
+	    // secant solve in FORT_COMPUTEL1L2MU
+	    //Real factor = 0.95;
+	    if (l == 0)
+	      {
+		//use Glen's mu, twice - the secant solve will check and change this
+		res.copy(a_mu,l,0);
+	      } 
+	    else if ( l == 1)
+	      {
+		// use mu from the previous layer, twice
+		res.copy(a_mu,l-1,0); 
+		a_mu.copy(a_mu,l-1,l);
+		//	    a_mu.mult(0.95,l,1);
+		if (m_startFromAnalyticMu)
+		  FORT_ANALYTICL1L2MU(CHF_FRA1(a_mu,l),
+				      CHF_CONST_FRA1(A, 0),
+				      CHF_CONST_FRA1(epsSqr,0),
+				      CHF_CONST_FRA1(phiTildeSqr,0),
+				      CHF_BOX(a_box),
+				      CHF_CONST_REAL(a_sigma[l]),
+				      CHF_CONST_REAL(glensFlowRelation.m_n),
+				      CHF_CONST_REAL(glensFlowRelation.m_epsSqr0));
+		
+	      } 
+	    else 
+	      {
+		// use mu from the previous two layers
+		res.copy(a_mu,l-2,0);
+		a_mu.copy(a_mu,l-1,l);
+		
+		if (m_startFromAnalyticMu)
+		  FORT_ANALYTICL1L2MU(CHF_FRA1(a_mu,l),
+				      CHF_CONST_FRA1(A, 0),
+				      CHF_CONST_FRA1(epsSqr,0),
+				      CHF_CONST_FRA1(phiTildeSqr,0),
+				      CHF_BOX(a_box),
+				      CHF_CONST_REAL(a_sigma[l]),
+				      CHF_CONST_REAL(glensFlowRelation.m_n),
+				      CHF_CONST_REAL(glensFlowRelation.m_epsSqr0));
+		
+	      } 
+	    
+	    
+	    FORT_COMPUTEL1L2MU(CHF_FRA1(a_mu,l),
+			       CHF_FRA1(res,0),
+			       CHF_CONST_FRA1(A, 0),
+			       CHF_CONST_FRA1(epsSqr,0),
+			       CHF_CONST_FRA1(phiTildeSqr,0),
+			       CHF_BOX(a_box),
+			       CHF_CONST_REAL(a_sigma[l]),
+			       CHF_CONST_REAL(glensFlowRelation.m_n),
+			       CHF_CONST_REAL(glensFlowRelation.m_epsSqr0),
+			       CHF_CONST_REAL(glensFlowRelation.m_delta),
+			       CHF_CONST_REAL(m_solverTol),
+			       CHF_CONST_INT(maxIter));
+	    
+	    
+	    
+	    Real resNorm = res.norm(0);
+	    CH_assert(resNorm < 2.0 * m_solverTol);
+	    CH_assert(a_mu.min(a_box,l) > 0.0e0);
+	  } // end general case
+      } // end loop over layers
+    } // end else if a_layerCoarsen = 0
 }
 
 // compute the velocities at layer faces. To do so, we need A

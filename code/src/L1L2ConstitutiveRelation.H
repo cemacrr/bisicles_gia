@@ -45,7 +45,8 @@ public:
      m_additionalVelocitySIAGradSLimit(1.0e-2),
      m_effectiveViscositySIAGradSLimit(1.0e+10),
      m_additionalVelocitySIAOnly(true),
-     m_startFromAnalyticMu(false)
+     m_startFromAnalyticMu(false),
+     m_layerCoarsening(0)
   {;}
   ///
   
@@ -220,7 +221,8 @@ private:
 				const FArrayBox& a_A,
 				const FArrayBox& a_H,
 				const Real& a_rhog,
-				const Box& a_box) const;
+				const Box& a_box,
+				int a_layerCoarsen) const;
 
   /// computes the vertically averaged, face-centred, face direction
   /// component of the velocity field
@@ -265,6 +267,9 @@ private:
   // it is preferable to start from that value
   bool m_startFromAnalyticMu;
 
+  // Set m_layerCoarsening > 0 to skip layers in expensive calculations and interpolate instead
+  int m_layerCoarsening;
+  
 
 };
 #endif 
