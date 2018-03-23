@@ -667,6 +667,11 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 		{
 		  IceUtility::defineRHS(localRhs, a_coordSys, m_grids, m_dxs);
 		  current.setState(localU);
+                  // also may need to recompute residual
+                  LinearizedVTOp tempOp
+                    (&current, localU, m_config.m_h, m_config.m_err, m_config.m_umin, m_config.m_hAdaptive,  m_grids, m_refRatios, 
+                     m_domains, m_dxs, a_lbase, m_config.m_numMGSmooth, m_config.m_numMGIter, PICARD_LINEARIZATION_MODE);
+                  tempOp.outerResidual(residual, localU, localRhs);
 		  
 		}
 	    }
