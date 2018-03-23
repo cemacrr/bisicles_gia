@@ -61,7 +61,7 @@ using std::string;
 #include "PetscIceSolver.H"
 #include "RelaxSolver.H"
 #ifdef CH_USE_FAS
-#include "FASIceSolverI.H"
+#include "FASIceSolver.H"
 #endif
 #include "KnownVelocitySolver.H"
 #include "VCAMRPoissonOp2.H"
