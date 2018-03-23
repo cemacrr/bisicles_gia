@@ -38,8 +38,8 @@ class AMRDamage
   Vector<RealVect> m_dx;
   
   //storage for the face-centered minimum damage. This
-  //actaully gets written to by an externall object (a DamageConstitutiveRelation), 
-  //so, maybe a be of redisign is in order... for now:
+  //actually gets written to by an external object (a DamageConstitutiveRelation), 
+  //so, maybe a be of redesign is in order... for now:
   Vector<LevelData<FluxBox>*> m_faceMinDamage;
 
 
