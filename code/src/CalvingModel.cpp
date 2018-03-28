@@ -354,9 +354,21 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
       ptr = new ThicknessCalvingModel
 	(calvingThickness,  calvingDepth, minThickness, startTime, endTime); 
     }
+  else if (type == "CliffCollapseCalvingModel")
+    {  
+      Real maxCliffHeight = 100.0;
+      pp.get("max_cliff_height", maxCliffHeight);
+      Real recessionRate = 0.0;
+      pp.get("recession_rate", recessionRate );
+      Real startTime = -1.2345678e+300;
+      pp.query("start_time",  startTime);
+      Real endTime = 1.2345678e+300;
+      pp.query("end_time",  endTime);
+      ptr = new CliffCollapseCalvingModel
+	(maxCliffHeight, recessionRate, startTime, endTime); 
+    }
   else if (type == "MaxiumumExtentCalvingModel")  
     {
-
       Real startTime = -1.2345678e+300;
       pp.query("start_time",  startTime);
       Real endTime = 1.2345678e+300;
@@ -607,13 +619,13 @@ MaximumExtentCalvingModel::applyCriterion(LevelData<FArrayBox>& a_thickness,
 //alter the thickness field at the end of a time step
 void 
 CompositeCalvingModel::applyCriterion(LevelData<FArrayBox>& a_thickness, 
-			      LevelData<FArrayBox>& a_calvedIce,
-			      LevelData<FArrayBox>& a_addedIce,
-			      LevelData<FArrayBox>& a_removedIce, 
-			      LevelData<FArrayBox>& a_iceFrac, 
-			      const AmrIce& a_amrIce,
-			      int a_level,
-			      Stage a_stage)
+				      LevelData<FArrayBox>& a_calvedIce,
+				      LevelData<FArrayBox>& a_addedIce,
+				      LevelData<FArrayBox>& a_removedIce, 
+				      LevelData<FArrayBox>& a_iceFrac, 
+				      const AmrIce& a_amrIce,
+				      int a_level,
+				      Stage a_stage)
 {
   for (int n=0; n<m_vectModels.size(); n++)
     {
@@ -691,6 +703,113 @@ CalvingModel::updateCalvedIce(const Real& a_thck, const Real a_prevThck, const i
 	}
     } 
 
+}
+
+
+void 
+CliffCollapseCalvingModel::applyCriterion(LevelData<FArrayBox>& a_thickness,
+					  LevelData<FArrayBox>& a_calvedIce,
+					  LevelData<FArrayBox>& a_addedIce,
+					  LevelData<FArrayBox>& a_removedIce,  
+					  LevelData<FArrayBox>& a_iceFrac, 
+					  const AmrIce& a_amrIce,
+					  int a_level,
+					  Stage a_stage)
+{
+
+  // only do this at the end of a timestep
+  // (since that's the only time a time-integrated recession rate makes any sense)
+  if (a_stage == PostThicknessAdvection)
+    {
+      Real dt = a_amrIce.dt();
+      Real dx = a_amrIce.amrDx()[a_level];
+      
+      const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
+      const LevelData<FArrayBox>& surfaceHeight = levelCoords.getSurfaceHeight();
+      
+      for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
+	{
+	  const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+	  FArrayBox& iceFrac = a_iceFrac[dit];
+	  FArrayBox& thck = a_thickness[dit];
+	  FArrayBox& calved = a_calvedIce[dit];
+	  FArrayBox& added = a_addedIce[dit];
+	  FArrayBox& removed = a_removedIce[dit];
+	  const FArrayBox& surface = surfaceHeight[dit];
+	  FArrayBox effectiveSurface(surface.box(),1);
+	  effectiveSurface.copy(surface);
+	  FArrayBox effectiveThickness(thck.box(), 1);
+	  effectiveThickness.copy(thck);
+	  Box b = thck.box();
+	  b &= iceFrac.box();
+	  
+	  // keep track of which cells we've already done in order to avoid double-counting
+	  BaseFab<int> alreadyDone(b,1);
+	  alreadyDone.setVal(0);
+	  
+	  Real phiNew;
+	  
+	  for (BoxIterator bit(b); bit.ok(); ++bit)
+	    {
+	      const IntVect& iv = bit();          
+	      // if iceFrac > 0, then rescale effectiveThickness
+	      // by dividing by iceFrac value, which gives "actual" thickness
+	      // in the partial cell. Probably eventually want to move this to 
+	      // fortran
+	      // also compute "effective surface", which is the upper surface height based
+	      // on the effective thickness rather than the cell-averaged thickness
+	      // Probably eventually want to move this to fortran
+	      Real prevThck = thck(iv);
+	      if (iceFrac(iv,0) > 0.0)
+		{
+		  effectiveThickness(iv,0) /= iceFrac(iv,0);
+		  effectiveSurface(iv,0) += effectiveThickness(iv,0) - thck(iv,0);	      
+		}
+	      
+	      // if ice is grounded, look at neighbors to see if there are any empty neighbors, then look at
+	      // surface differences.
+	      if (mask(iv) == GROUNDEDMASKVAL) 
+		{
+		  // loop over directions
+		  for (int dir=0; dir<SpaceDim; dir++)
+		    {
+		      IntVect shiftVect = BASISV(dir);
+		      IntVect ivp = iv + shiftVect;
+		      IntVect ivm = iv - shiftVect;
+		      
+		      // look in both high and low directions at once
+		      if ((effectiveSurface(iv,0) - effectiveSurface(ivp,0) > m_maxCliffThickness) ||
+			  (effectiveSurface(iv,0) - effectiveSurface(ivm,0) > m_maxCliffThickness))
+			{
+			  // we have a cliff!  only adjust this cell if we haven't already
+			  if (alreadyDone(iv,0) == 0)
+			    {
+			      alreadyDone(iv,0) = 1;
+			      phiNew = iceFrac(iv,0) - m_recessionRate*dt/dx;
+			      // don't go below zero
+			      phiNew = Max(phiNew, 0.0);
+			      
+			      // note that we're setting thck here, not effectiveThickness, 
+			      // which is a temporary
+			      // also modify the iceMask to zero in these cells
+			      
+			      thck(iv,0) = thck(iv,0)*phiNew/iceFrac(iv,0);
+			      iceFrac(iv,0) = phiNew;
+			    } // end we haven't already done this one
+			} // end if we have a cliff
+		    } // end loop over directions
+		} // end if this cell is grounded (no floating cliffs)
+	      
+	      
+	      // Record gain/loss of ice
+	      if (calved.box().contains(iv))
+		{
+		  updateCalvedIce(thck(iv),prevThck,mask(iv),added(iv),calved(iv),removed(iv));
+		}
+	      
+	    } // end loop over cells in this box
+	} // end loop over grids on this level	  
+    } // end if we're at the post-advection stage
 }
 
 

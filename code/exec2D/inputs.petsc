@@ -1,7 +1,7 @@
 #inputs file for Amr ice-sheet solver
 # template for twisty-stream convergence test runs
 main.maxTime = 10000000  # maximum time to run to
-main.maxStep = 0   # maximum number of steps to run
+main.maxStep = 1   # maximum number of steps to run
 main.constitutiveRelation = L1L2
 
 main.domain_size = 160000.0 160000.0 160000.0 
