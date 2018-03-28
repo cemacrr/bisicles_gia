@@ -12,7 +12,7 @@
 
 \author{Dan Martin}
 
-%\date{November 14, 2006}
+%\date{February 4, 2016}
 
 \begin{document}
 
@@ -136,6 +136,29 @@ h^{n+1}_{i,j} & = & \begin{cases}
 \end{eqnarray}
 
 \end{enumerate}
+
+\section{Extension to Cliff Collapse}
+We can also use this approach to implement a version of the Pollard and DeConto cliff-collapse mechanism, in which ice cliffs with a height above sea level greater than a given threshold (100m in Pollard and DeConto) experience a recession rate $r$ due to brittle failure leading to cliff collapse.
+
+We can test for cliffs by looking for differences in surface height. For this to work properly, surface height should be computed using the effective thickness rather than the cell-centered thickness values. Since the code computes surface height $s_{i,j}$ based on cell-centered values, we can compute an effective surface height $\tilde{s}_{i,j}$ for cells in which $\phi_{i,j} < 1$:
+\begin{eqnarray}
+  \tilde{s}_{i,j} & = & s_{i,j} + (\tilde{h}_{i,j} - h_{i,j})  \\
+  & = & s_{i,j} + h_{i,j}(\frac{1}{\phi_{i,j}} - 1) \nonumber
+\end{eqnarray} 
+
+Once a cliff has been identified, we can implement the given recession rate by reducing the area fraction of the first non-empty cell (which may or may not start the process with a full area fraction):
+\begin{eqnarray}
+  \phi^{new}_{i,j} & = & \phi_{i,j} - \frac{r*{\Delta t \Delta x}}{A_{i,j}} \nonumber \\
+  & = &  \phi_{i,j} - \frac{r \Delta t}{\Delta x} \label{eqn:cliffCollapsePhi}
+\end{eqnarray}
+where $r$ is the recession rate (in $\frac{m}{a}$), $\Delta t$ is the timestep, and ${A_{i,j}}$ is the cell area (in $m$). We assume that $\tilde{h}$ is maintained through the process, meaning that the new cell-averaged thickness is given by:
+\begin{eqnarray}
+  h^{new}_{i,j} & = & \tilde{h}_{i,j} \phi^{new}_{i,j} \label{eqn:cliffCollapseThickness} \\
+  & = & h_{i,j}\bigl(\frac{\phi^{new}_{i,j}} {\phi_{i,j}}\bigr) \nonumber
+\end{eqnarray}
+where $\phi{i,j}$ and $h_{i,j}$ are the values when the cliff-collapse calving is invoked.
+  
+
 
 
 \end{document}

@@ -20,7 +20,7 @@ main.domain_size = 100000.0 100000.0 100000.0  # half-domain
 #CalvingModel.type = DomainEdgeCalvingModel
 #CalvingModel.type = NoCalvingModel
 CalvingModel.type = CompositeCalvingModel
-CalvingModel.nElements = 2
+CalvingModel.nElements = 3
 CalvingModel.element0.type = ThicknessCalvingModel
 #CalvingModel.type = DeglaciationCalvingModelB
 CalvingModel.element0.min_thickness = 0.0
@@ -35,7 +35,12 @@ CalvingModel.element1.min_thickness = 0.0
 CalvingModel.element1.calving_thickness = 50.0
 CalvingModel.element1.calving_depth = 00.0
 CalvingModel.element1.lowLoc = -100000 -100000  -1000 # for full-domain
-CalvingModel.element1.highLoc =  90000 500000000 
+CalvingModel.element1.highLoc =  90000 500000000
+
+# add in cliff-collapse model
+CalvingModel.element2.type = CliffCollapseCalvingModel
+CalvingModel.element2.max_cliff_height = 100.0
+CalvingModel.element2.recession_rate = 3.0
 
 
 surfaceFlux.type = constantFlux
