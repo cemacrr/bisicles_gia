@@ -144,7 +144,14 @@ We can test for cliffs by looking for differences in surface height. For this to
 \begin{eqnarray}
   \tilde{s}_{i,j} & = & s_{i,j} + (\tilde{h}_{i,j} - h_{i,j})  \\
   & = & s_{i,j} + h_{i,j}(\frac{1}{\phi_{i,j}} - 1) \nonumber
-\end{eqnarray} 
+\end{eqnarray}
+
+For the purposes of this model, an ice cliff is defined as a cell $(i,j)$ which meets the following conditions:
+\begin{enumerate}
+\item Ice in cell $(i,j)$ is grounded.
+\item At least one neighbor to cell $(i,j)$ defined as open sea (zero thickness, and bed below sea level). We may wish to broaden this in the future.
+\item Effective surface height is greater than the maximum cliff height: $\tilde{s}_{i,j} > s_{cliff-max}$. 
+\end{enumerate}
 
 Once a cliff has been identified, we can implement the given recession rate by reducing the area fraction of the first non-empty cell (which may or may not start the process with a full area fraction):
 \begin{eqnarray}
@@ -156,7 +163,12 @@ where $r$ is the recession rate (in $\frac{m}{a}$), $\Delta t$ is the timestep, 
   h^{new}_{i,j} & = & \tilde{h}_{i,j} \phi^{new}_{i,j} \label{eqn:cliffCollapseThickness} \\
   & = & h_{i,j}\bigl(\frac{\phi^{new}_{i,j}} {\phi_{i,j}}\bigr) \nonumber
 \end{eqnarray}
-where $\phi{i,j}$ and $h_{i,j}$ are the values when the cliff-collapse calving is invoked.
+where $\phi_{i,j}$ and $h_{i,j}$ are the values when the cliff-collapse calving is invoked.
+
+{\bf Implementation notes:}
+\begin{enumerate}
+\item For the time being, we assume the same rate of ice loss in a cliff-identified cell regardless of how many cell face directions are identified as being cliffs.
+\end{enumerate}
   
 
 
