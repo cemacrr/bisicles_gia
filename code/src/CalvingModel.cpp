@@ -778,8 +778,8 @@ CliffCollapseCalvingModel::applyCriterion(LevelData<FArrayBox>& a_thickness,
 		      IntVect ivm = iv - shiftVect;
 		      
 		      // look in both high and low directions at once
-		      if ((effectiveSurface(iv,0) - effectiveSurface(ivp,0) > m_maxCliffThickness) ||
-			  (effectiveSurface(iv,0) - effectiveSurface(ivm,0) > m_maxCliffThickness))
+		      if (((mask(ivp,0) != GROUNDEDMASKVAL) &&((effectiveSurface(iv,0) - effectiveSurface(ivp,0)) > m_maxCliffThickness)) ||
+			  ((mask(ivm,0) != GROUNDEDMASKVAL) && ((effectiveSurface(iv,0) - effectiveSurface(ivm,0)) > m_maxCliffThickness)))
 			{
 			  // we have a cliff!  only adjust this cell if we haven't already
 			  if (alreadyDone(iv,0) == 0)
