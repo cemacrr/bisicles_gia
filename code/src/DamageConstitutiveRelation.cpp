@@ -214,8 +214,8 @@ DamageConstitutiveRelation::computeLocalDamage
 		CHF_INT(dvdxComp),
 		CHF_INT(dvdyComp),
 		CHF_BOX(a_box));
-  //2.0* (2.0e + 2.0*I*tr(e))
-  ee *= 4.0;
+  //2.0* (e + I*tr(e))
+  ee *= 2.0;
 
   //principal strain rate components
   FArrayBox lambda(a_box, SpaceDim);

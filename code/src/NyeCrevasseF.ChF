@@ -36,7 +36,7 @@ c----------------------------------------------
       return 
       end
 c----------------------------------------------
-c  Compute symmettric tensor Vij =  (Uij + Uji) + I*divu
+c  Compute symmettric tensor Vij =  (Uij + Uji) + I*Ukk
 c  1D,2D only
 c----------------------------------------------
       subroutine eplustre(CHF_FRA[e],
@@ -53,7 +53,7 @@ c----------------------------------------------
       CHF_AUTOMULTIDO[box; i]
 #if (CH_SPACEDIM == 1)
 
-      e(CHF_AUTOIX[i],0) = gradu(CHF_AUTOIX[i],0)
+      e(CHF_AUTOIX[i],0) = 2.0*u(CHF_AUTOIX[i],0)
 
 #elif (CH_SPACEDIM == 2)
 
@@ -61,6 +61,7 @@ c----------------------------------------------
       uyy = u(CHF_AUTOIX[i],yyComp)
       uxy = u(CHF_AUTOIX[i],xyComp)
       uyx = u(CHF_AUTOIX[i],yxComp)
+      uzz = uxx + uyy
 
       e(CHF_AUTOIX[i],xxComp) = (uxx + uzz) ;
       e(CHF_AUTOIX[i],xyComp) = half * ( uxy + uyx ) ;
