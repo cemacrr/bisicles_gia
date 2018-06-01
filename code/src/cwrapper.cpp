@@ -573,101 +573,21 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
   // ---------------------------------------------
 
   ParmParse geomPP("geometry");
+
+  
+  BasalFriction* basalFrictionPtr 
+    = BasalFriction::parse("geometry", domainSize);
+  
+  if (basalFrictionPtr == NULL)
+    {
+      MayDay::Error("undefined  geometry.beta_type in inputs");
+    }
     
-  BasalFriction* basalFrictionPtr = NULL;
-
-  std::string beta_type;
-  geomPP.get("beta_type", beta_type);
-  // read in type of beta^2 distribution
-    
-  if (beta_type == "constantBeta")
-    {
-      Real betaVal;
-      geomPP.get("betaValue", betaVal);
-      basalFrictionPtr = static_cast<BasalFriction*>(new constantFriction(betaVal));
-    }
-  else if (beta_type == "LevelData")
-    {
-      //read a one level beta^2 from an AMR Hierarchy, and  store it in a LevelDataBasalFriction
-      ParmParse ildPP("inputLevelData");
-      std::string infile;
-      ildPP.get("frictionFile",infile);
-      std::string frictionName = "btrc";
-      ildPP.query("frictionName",frictionName);
-
-      RefCountedPtr<LevelData<FArrayBox> > levelC (new LevelData<FArrayBox>());
-
-      Real dx;
-
-      Vector<RefCountedPtr<LevelData<FArrayBox> > > vectC;
-      vectC.push_back(levelC);
-
-      Vector<std::string> names(1);
-      names[0] = frictionName;
-
-      readLevelData(vectC,dx,infile,names,1);
-	   
-      RealVect levelDx = RealVect::Unit * dx;
-      basalFrictionPtr = static_cast<BasalFriction*>
-	(new LevelDataBasalFriction(levelC,levelDx));
-    }
-  else if (beta_type == "MultiLevelData")
-    {
-      //read a multi level beta^2 from an AMR Hierarchy, and  store it in a MultiLevelDataBasalFriction
-      ParmParse ildPP("inputLevelData");
-      std::string infile;
-      ildPP.get("frictionFile",infile);
-      std::string frictionName = "btrc";
-      ildPP.query("frictionName",frictionName);
-      Vector<Vector<RefCountedPtr<LevelData<FArrayBox> > > > vectC;
-      Real dx;
-      Vector<int> ratio;
-      Vector<std::string> names(1);
-      names[0] = frictionName;
-      readMultiLevelData(vectC,dx,ratio,infile,names,1);
-      RealVect dxCrse = RealVect::Unit * dx;
-      basalFrictionPtr = static_cast<BasalFriction*>
-	(new MultiLevelDataBasalFriction(vectC[0],dxCrse,ratio));
-    }
-#ifdef HAVE_PYTHON
-  else if (beta_type == "Python")
-    {
-      ParmParse pyPP("PythonBasalFriction");
-      std::string module;
-      pyPP.get("module",module);
-      std::string funcName = "friction";
-      pyPP.query("function",funcName);
-      basalFrictionPtr = static_cast<BasalFriction*>
-	(new PythonInterface::PythonBasalFriction(module, funcName));
-
-    }
-#endif
-  else 
-    {
-      MayDay::Error("undefined beta_type in inputs");
-    }
-
+  
   amrObject.setBasalFriction(basalFrictionPtr);
-    
-  BasalFrictionRelation* basalFrictionRelationPtr = NULL;
-  std::string basalFrictionRelType = "powerLaw";
-  pp2.query("basalFrictionRelation", basalFrictionRelType);
-    
-  if (basalFrictionRelType == "powerLaw")
-    {
-      ParmParse plPP("BasalFrictionPowerLaw");
 
-      Real m = 1.0;
-      plPP.query("m",m);
-      bool includeEffectivePressure = false;
-      plPP.query("includeEffectivePressure",includeEffectivePressure);
-      BasalFrictionPowerLaw*  pl = new BasalFrictionPowerLaw(m,includeEffectivePressure);
-      basalFrictionRelationPtr = static_cast<BasalFrictionRelation*>(pl);
-    }
-  else
-    {
-      MayDay::Error("undefined basalFrictionRelation in inputs");
-    }
+  BasalFrictionRelation* basalFrictionRelationPtr 
+    = BasalFrictionRelation::parse("main",0);
 
   amrObject.setBasalFrictionRelation(basalFrictionRelationPtr);
 
