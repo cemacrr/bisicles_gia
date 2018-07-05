@@ -58,6 +58,9 @@ class InverseIceVelocitySolver :  public IceVelocitySolver
 
 
 public:
+  
+
+  
   /**
      Create a BasalFriction object given an AMR hierarchy of data
 
@@ -94,9 +97,14 @@ public:
 
   /// Create a BasalFriction object containing the solution \f$C\f$ 
   virtual BasalFriction* basalFriction() = 0;
-
+  /// is the basal friction an improvement on the initial guess?
+  
   /// Create a MuCoefficient object containing the solution \f$\phi\f$ 
   virtual MuCoefficient* muCoefficient() = 0;
+
+
+  
+  
 };
 
 
@@ -506,9 +514,12 @@ private:
   Vector<LevelData<FArrayBox>*> m_bestVel;
   Vector<LevelData<FArrayBox>*> m_bestC;
   Vector<LevelData<FArrayBox>*> m_bestMuCoef;
+  bool m_optimization_done; // don't want to provide the dat aabove unless it is meaningful
   
   const AmrIceBase* m_amrIce;
 
+  
+  
 public:
 
   InverseVerticallyIntegratedVelocitySolver();
@@ -603,12 +614,18 @@ public:
 
   BasalFriction* basalFriction()
   {
-    return InverseIceVelocitySolver::basalFriction(m_bestC, m_refRatio, m_dx[0]);
+    BasalFriction* ptr = NULL;
+    if (m_optimization_done)
+      ptr = InverseIceVelocitySolver::basalFriction(m_bestC, m_refRatio, m_dx[0]);
+    return ptr;
   }
   
   MuCoefficient* muCoefficient()
   {
-    return  InverseIceVelocitySolver::muCoefficient(m_bestMuCoef, m_refRatio, m_dx[0]);
+    MuCoefficient* ptr = NULL;
+    if (m_optimization_done)
+      ptr =  InverseIceVelocitySolver::muCoefficient(m_bestMuCoef, m_refRatio, m_dx[0]);
+    return ptr;
   }
 };
 

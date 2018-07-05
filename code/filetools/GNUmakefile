@@ -4,7 +4,7 @@
 ### This makefile produces an executable for each 
 ### name in the `ebase' variable
 
-ebase :=  nctoamr amrtotxt amrtoplot flatten extract merge addbox amrtocf stats glfaces faces rescale sum pythonf
+ebase :=  nctoamr amrtotxt amrtoplot flatten extract merge addbox amrtocf stats glfaces faces rescale sum pythonf pyprot fluxout pyconv
 src_dirs = src
 all:  clean libbike 
 

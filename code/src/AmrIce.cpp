@@ -3319,17 +3319,23 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 		   m_amrDomains[lev], m_time);
 	      }
 	    
-	    //special case for inverse problems : read back C and muCoef
+	    //special case for inverse problems : read back C and muCoef if they are ready
 	    InverseIceVelocitySolver* invPtr = dynamic_cast<InverseIceVelocitySolver*>(m_velSolver);
 	    if (invPtr)
 	      {
-		if (m_basalFrictionPtr)
-		  delete m_basalFrictionPtr; 
-		m_basalFrictionPtr = invPtr->basalFriction();
-		
-		if (m_muCoefficientPtr)
-		  delete m_muCoefficientPtr;
-		m_muCoefficientPtr = invPtr->muCoefficient();
+		BasalFriction* bfptr = invPtr->basalFriction();
+		if (bfptr)
+		  {
+		    if (m_basalFrictionPtr) delete m_basalFrictionPtr; 
+		    m_basalFrictionPtr = bfptr;
+		  }
+
+		MuCoefficient* mcptr = invPtr->muCoefficient();
+		if (mcptr)
+		  {
+		    if (m_muCoefficientPtr) delete m_muCoefficientPtr;
+		    m_muCoefficientPtr = mcptr;
+		  } 
 	      } // end special case for inverse problems
 
 	    

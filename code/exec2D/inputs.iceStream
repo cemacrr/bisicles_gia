@@ -1,6 +1,6 @@
 #inputs file for Amr ice-sheet solver
-main.maxTime = 10000000  # maximum time to run to
-main.maxStep = 100   # maximum number of steps to run
+main.maxTime = 1  # maximum time to run to
+main.maxStep = 1   # maximum number of steps to run
 main.constitutiveRelation = GlensLaw
 
 main.domain_size = 160000.0 160000.0 160000.0 

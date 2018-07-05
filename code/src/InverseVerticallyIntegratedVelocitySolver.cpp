@@ -289,7 +289,7 @@ InverseVerticallyIntegratedVelocitySolver::define
  IceThicknessIBC* a_thicknessIBC,
  int a_numLevels)
 {
-
+  m_optimization_done = false;
   m_basalFrictionRelation = a_basalFrictionRelation;
   m_constitutiveRelation = a_constitutiveRelation;
   m_thicknessIBC = a_thicknessIBC;
@@ -485,7 +485,7 @@ int InverseVerticallyIntegratedVelocitySolver::solve
       assign(m_bestVel,m_velb);
       assign(m_bestC,m_Cmasked);
       assign(m_bestMuCoef, m_muCoef);
-     
+      m_optimization_done = false;
     }
   else
     {
@@ -508,6 +508,7 @@ int InverseVerticallyIntegratedVelocitySolver::solve
       CGOptimize(*this ,  X , m_config.m_CGmaxIter , m_config.m_CGtol , m_config.m_CGhang,
 		 m_config.m_CGsecantParameter, m_config.m_CGsecantStepMaxGrow, 
 		 m_config.m_CGsecantMaxIter , m_config.m_CGsecantTol, m_outerCounter);
+      m_optimization_done = true;
 
     }
 

@@ -82,19 +82,19 @@ ifeq ($(PYTHON_INC),)
 
 ifeq ($(PYTHON_VERSION),2.7)
 #python 2.7 standard install
-PYTHON_INC=/usr/include/python2.7
+PYTHON_INC=-I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include/numpy/
 PYTHON_LIBS=-lpython2.7
 endif
 
 ifeq ($(PYTHON_VERSION),2.6)
 #python 2.6 standard install
-PYTHON_INC=/usr/include/python2.6
+PYTHON_INC=-I/usr/include/python2.6
 PYTHON_LIBS=-lpython2.6
 endif
 
 ifeq ($(PYTHON_VERSION),2.4)
 #python 2.4 standard install
-PYTHON_INC=/usr/include/python2.4
+PYTHON_INC=-I/usr/include/python2.4
 PYTHON_LIBS=-lpython2.4
 endif
 
@@ -102,7 +102,7 @@ endif
 
 
 ifneq ($(PYTHON_INC),)
-CPPFLAGS+=-I$(PYTHON_INC) -DHAVE_PYTHON	
+CPPFLAGS+=$(PYTHON_INC) -DHAVE_PYTHON	
 LIBFLAGS+=$(PYTHON_LIBS)
 endif
 
