@@ -80,7 +80,7 @@ public:
   AMRMelange();
 
   const LevelData<FArrayBox>* melange(int a_level) const;
-  const int finestLevel() const
+  int finestLevel() const
   {
     return m_finestLevel;
   }
