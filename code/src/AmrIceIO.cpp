@@ -206,11 +206,11 @@ AmrIce::writePlotFile()
   //string zViscosityCoefName("zViscosityCoef");
   string dragCoefName("dragCoef");
 
+  string activeBasalThicknessSourceName("activeBasalThicknessSource");
+  string activeSurfaceThicknessSourceName("activeSurfaceThicknessSource");
   string basalThicknessSourceName("basalThicknessSource");
   string surfaceThicknessSourceName("surfaceThicknessSource");
   string divergenceThicknessFluxName("divergenceThicknessFlux");
-  string activeBasalThicknessSourceName("activeBasalThicknessSource");
-  string activeSurfaceThicknessSourceName("activeSurfaceThicknessSource");
   string calvedIceThicknessName("calvingFlux");
   string calvedThicknessSourceName("calvedThicknessSource");
 
@@ -392,14 +392,14 @@ AmrIce::writePlotFile()
 
   if (m_write_thickness_sources)
     {
-      vectName[comp] = basalThicknessSourceName; comp++;
-      vectName[comp] = surfaceThicknessSourceName; comp++;
+      vectName[comp] = activeBasalThicknessSourceName; comp++;
+      vectName[comp] = activeSurfaceThicknessSourceName; comp++;
       
       if (!m_reduced_plot)
 	{
 	  vectName[comp] = divergenceThicknessFluxName; comp++;	
-	  vectName[comp] = activeBasalThicknessSourceName; comp++;
-	  vectName[comp] = activeSurfaceThicknessSourceName; comp++;
+	  vectName[comp] = basalThicknessSourceName; comp++;
+	  vectName[comp] = surfaceThicknessSourceName; comp++;
 	  vectName[comp] = calvedIceThicknessName; comp++;
 	}
     }
@@ -685,19 +685,20 @@ AmrIce::writePlotFile()
 	 
 	  if (m_write_thickness_sources)
 	    {
-	      thisPlotData.copy(levelBTS[dit], 0, comp, 1);
-              if (m_frac_sources)
-                {
-                  thisPlotData.mult( (*m_iceFrac[lev])[dit],0,comp,1);
-                }
-
+	      thisPlotData.copy((*m_basalThicknessSource[lev])[dit], 0, comp, 1);
+	      if (m_frac_sources)
+		{
+		  thisPlotData.mult( (*m_iceFrac[lev])[dit],0,comp,1);
+		}
 	      comp++;
-	      thisPlotData.copy(levelSTS[dit], 0, comp, 1);
-              if (m_frac_sources)
-                {
-                  // scale by ice fraction
-                  thisPlotData.mult( (*m_iceFrac[lev])[dit],0,comp,1);
-                }
+		  
+	 
+	      thisPlotData.copy((*m_surfaceThicknessSource[lev])[dit], 0, comp, 1);
+	      if (m_frac_sources)
+		{
+		  // scale by ice fraction
+		  thisPlotData.mult( (*m_iceFrac[lev])[dit],0,comp,1);
+		}
 	      comp++;
 
 	      if (!m_reduced_plot)
@@ -705,15 +706,14 @@ AmrIce::writePlotFile()
 		  thisPlotData.copy((*m_divThicknessFlux[lev])[dit], 0, comp, 1);
 		  comp++;
 
-		  thisPlotData.copy((*m_basalThicknessSource[lev])[dit], 0, comp, 1);
+		  thisPlotData.copy(levelBTS[dit], 0, comp, 1);
 		  if (m_frac_sources)
 		    {
 		      thisPlotData.mult( (*m_iceFrac[lev])[dit],0,comp,1);
 		    }
 		  comp++;
-		  
-	 
-		  thisPlotData.copy((*m_surfaceThicknessSource[lev])[dit], 0, comp, 1);
+
+		  thisPlotData.copy(levelSTS[dit], 0, comp, 1);
 		  if (m_frac_sources)
 		    {
 		      // scale by ice fraction
