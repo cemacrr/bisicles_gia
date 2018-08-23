@@ -5150,6 +5150,60 @@ AmrIce::computeFluxOverIce(const Vector<LevelData<FArrayBox>* > a_flux)
 
   return tot_per_year;
 }
+Real 
+AmrIce::computeDeltaVolumeOverIce() const
+{
+
+  //compute sum of a flux component over ice
+  //construct deltaVolOverIce
+  Vector<LevelData<FArrayBox>* > deltaVolOverIce ( m_finest_level+1, NULL);
+  for (int lev = 0; lev <= m_finest_level ; lev++)
+    {
+      deltaVolOverIce[lev] = new
+	LevelData<FArrayBox>(m_amrGrids[lev],1, IntVect::Zero);
+      const LevelData<FArrayBox>& thk = m_vect_coordSys[lev]->getH();
+      //const LevelData<FArrayBox>* flux = a_flux[lev];
+       
+      for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+	{
+	  const Box& box =  m_amrGrids[lev][dit];
+	  const FArrayBox& oldH = (*m_old_thickness[lev])[dit];
+	  const FArrayBox& dit_thck = thk[dit];
+	  FArrayBox& dit_deltaVolOverIce = (*deltaVolOverIce[lev])[dit];
+	     
+	  for (BoxIterator bit(box); bit.ok(); ++bit)
+	    {
+	      const IntVect& iv = bit();
+	      // set deltaVolOverIce to source if thck > 0
+	      if (dit_thck(iv) < 1e-10)
+		{
+		  dit_deltaVolOverIce(iv) = 0.0;
+		}
+	      else
+		{
+		  dit_deltaVolOverIce(iv) = dit_thck(iv)-oldH(iv);
+		}
+	    }
+	    
+	}
+    }
+  // compute sum
+  Real tot_per_year = computeSum(deltaVolOverIce, m_refinement_ratios,m_amrDx[0],
+				Interval(0,0), 0);
+
+  //free storage
+  for (int lev = 0; lev < m_finest_level ; lev++)
+    {
+      if (deltaVolOverIce[lev] != NULL)
+	{
+	  delete deltaVolOverIce[lev]; deltaVolOverIce[lev] = NULL;
+
+
+	}
+    }
+
+  return tot_per_year;
+}
 
 Real 
 AmrIce::computeTotalFlux(const Vector<LevelData<FArrayBox>* > a_flux)
@@ -5180,6 +5234,7 @@ AmrIce::endTimestepDiagnostics()
 	  Real diffAccumCalvedIce;
 	  Real totalLostIce = 0.0;
 	  //Real totalLostOverIce = 0.0;
+	  Real sumDeltaVolumeOverIce = 0.0;
 	  Real sumSurfaceFluxOverIce = 0.0, sumSurfaceFlux = 0.0;
 	  Real sumDivThckFluxOverIce = 0.0, sumDivThckFlux = 0.0;
 	  //Real sumCalvedOverIce = 0.0;
@@ -5206,6 +5261,7 @@ AmrIce::endTimestepDiagnostics()
 	  if (m_report_total_flux)
 
 	    {
+	      sumDeltaVolumeOverIce = computeDeltaVolumeOverIce();
 	      sumBasalFluxOverIce = computeFluxOverIce(m_basalThicknessSource);
 	      sumSurfaceFluxOverIce = computeFluxOverIce(m_surfaceThicknessSource);
 	      sumDivThckFluxOverIce = computeFluxOverIce(m_divThicknessFlux);
@@ -5325,10 +5381,11 @@ AmrIce::endTimestepDiagnostics()
 			 << " )"  << endl;
 	      
 		  adjflux=(sumRemovedOverIce+sumAddedOverIce)/m_dt;
-		  Real err=sumSurfaceFluxOverIce+sumBasalFluxOverIce-(sumDivThckFluxOverIce+diffSum/m_dt+adjflux);
+		  Real err=sumSurfaceFluxOverIce+sumBasalFluxOverIce-
+		    (sumDivThckFluxOverIce+sumDeltaVolumeOverIce/m_dt+adjflux);
 		  pout() << "Step " << m_cur_step << ", time = " << m_time << " ( " << time() << " ) "
 			 << ": Ice sheet error = " << err << " m3/yr"
-			 << " ( dV/dt = " << diffSum/m_dt 
+			 << " ( dV/dt = " << sumDeltaVolumeOverIce/m_dt 
 			 << " flux = " << sumDivThckFluxOverIce
 			 << " smb = " << sumSurfaceFluxOverIce
 			 << " bmb = " << sumBasalFluxOverIce

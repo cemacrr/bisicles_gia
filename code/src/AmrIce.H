@@ -309,6 +309,9 @@ public:
   /// compute flux over ice
   Real computeFluxOverIce(const Vector<LevelData<FArrayBox>*> a_flux);
 
+  /// compute change in volume over ice
+  Real computeDeltaVolumeOverIce() const;
+
   /// compute flux domain
   Real computeTotalFlux(const Vector<LevelData<FArrayBox>*> a_flux);
 
