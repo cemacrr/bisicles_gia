@@ -675,7 +675,7 @@ void computeVolCons(const Vector<RefCountedPtr<LevelSigmaCS > >& coords,
 		  bmb(iv) = (*basalThicknessSource[lev])[dit](iv);
 		  cmb(iv) = (*calvingFlux[lev])[dit](iv);
 		  dhdt(iv) = (*deltaThickness[lev])[dit](iv); 
-		  div(iv) = (*divergenceThicknessFlux[lev])[dit](iv); 
+		  div(iv) = (*divergenceThicknessFlux[lev])[dit](iv);
 		}
 	    }
 
@@ -690,11 +690,8 @@ void computeVolCons(const Vector<RefCountedPtr<LevelSigmaCS > >& coords,
 		    {
 		      Real epsThck = 1.0e-10;
 		      
-		      if (thck(iv) > epsThck)
-			{
-			  flxDiv(iv) += (flux(iv + BASISV(dir)) - flux(iv))/dx[lev]; // flux divergence
-			}
-		  
+		      flxDiv(iv) += (flux(iv + BASISV(dir)) - flux(iv))/dx[lev]; // flux divergence
+		      
 		      if ((thck(iv) < epsThck) || (mask(iv) != GROUNDEDMASKVAL && mask(iv) != FLOATINGMASKVAL))
 			{
 
@@ -717,6 +714,12 @@ void computeVolCons(const Vector<RefCountedPtr<LevelSigmaCS > >& coords,
   Real sumDischarge = computeSum(ccDischarge, ratio, dx[0], Interval(0,0), 0);
   pout() << " discharge = " << sumDischarge << " ";
   
+  Real sumFlxDiv = computeSum(ccFlxDiv, ratio, dx[0], Interval(0,0), 0);
+  pout() << " fluxDivergenceReconstr = " << sumFlxDiv << " ";
+
+  Real sumDiv = computeSum(ccDiv, ratio, dx[0], Interval(0,0), 0);
+  pout() << " fluxDivergenceFromFile = " << sumDiv << " ";
+
   Real sumDH = computeSum(ccDH, ratio, dx[0], Interval(0,0), 0);
   pout() << " dhdt = " << sumDH << " ";
 
@@ -729,14 +732,10 @@ void computeVolCons(const Vector<RefCountedPtr<LevelSigmaCS > >& coords,
   Real sumCMB = computeSum(ccCMB, ratio, dx[0], Interval(0,0), 0);
   pout() << " calving = " << sumCMB << " ";
 
-  Real sumFlxDiv = computeSum(ccFlxDiv, ratio, dx[0], Interval(0,0), 0);
-  pout() << " fluxDivergenceCalc = " << sumFlxDiv << " ";
 
   Real err = sumSMB + sumBMB - sumCMB - sumDH;
   pout() << " (smb+bmb-calving-dhdt) = " << err << " ";
 
-  Real sumDiv = computeSum(ccDiv, ratio, dx[0], Interval(0,0), 0);
-  pout() << " fluxDivergenceFromFile = " << sumDiv << " ";
 
 
   for (int lev = 0; lev < numLevels; lev++)
@@ -773,6 +772,348 @@ void computeVolCons(const Vector<RefCountedPtr<LevelSigmaCS > >& coords,
     }
 
 }
+
+void computeIceSheet(const Vector<RefCountedPtr<LevelSigmaCS > >& coords,
+		    Vector<LevelData<FluxBox>* >& fluxOfIce,
+		    Vector<LevelData<FArrayBox>* >& surfaceThicknessSource, 
+		    Vector<LevelData<FArrayBox>* >& basalThicknessSource,
+		    Vector<LevelData<FArrayBox>* >& deltaThickness,
+		    Vector<LevelData<FArrayBox>* >& divergenceThicknessFlux,
+		    Vector<LevelData<FArrayBox>* >& calvingFlux,
+		    Vector<LevelData<FArrayBox>* >& topography,
+		    Vector<LevelData<FArrayBox>* >& thickness, 
+		    Vector<LevelData<FArrayBox>* >& sectorMask,
+		    Vector<Real>& dx, Vector<int>& ratio, 
+		    int maskNo)
+
+{
+
+  
+  int numLevels = topography.size();
+  Vector<LevelData<FArrayBox>* > ccDH(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccFlxDiv(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccDiv(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccSMB(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccBMB(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccCMB(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccDischarge(numLevels, NULL);
+
+  for (int lev = 0; lev < numLevels; lev++)
+    {
+      const DisjointBoxLayout& grids = topography[lev]->disjointBoxLayout();
+      ccDH[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccFlxDiv[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccDiv[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccSMB[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccBMB[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccCMB[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccDischarge[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+
+      //work out (dh/dt)_c = smb - bmb + div(uh) and discharge across boundary. 
+      for (DataIterator dit(grids);dit.ok();++dit)
+    	{
+    	  FArrayBox& discharge = (*ccDischarge[lev])[dit];
+    	  discharge.setVal(0.0);
+    	  FArrayBox& smb = (*ccSMB[lev])[dit];
+    	  FArrayBox& bmb = (*ccBMB[lev])[dit];
+    	  FArrayBox& cmb = (*ccCMB[lev])[dit];
+    	  FArrayBox& dhdt = (*ccDH[lev])[dit];
+	  FArrayBox& flxDiv = (*ccFlxDiv[lev])[dit];
+	  FArrayBox& div = (*ccDiv[lev])[dit];
+	  smb.setVal(0.0);
+	  bmb.setVal(0.0);
+	  cmb.setVal(0.0);
+	  dhdt.setVal(0.0);
+	  flxDiv.setVal(0.0);
+	  div.setVal(0.0);
+
+    	  const BaseFab<int>& mask = coords[lev]->getFloatingMask()[dit];
+    	  const FArrayBox& thck = (*thickness[lev])[dit];
+    	  const Box& b = grids[dit];
+	  Real epsThck = 1.0e-10;
+
+	  for (BoxIterator bit(b);bit.ok();++bit)
+	    {
+	      const IntVect& iv = bit();
+	      if ( std::abs ( (*sectorMask[lev])[dit](iv) - static_cast<Real>(maskNo)) < 1.0e-6 || maskNo == -1)
+		{
+		  if (thck(iv) > epsThck)
+		    {
+		      smb(iv) = (*surfaceThicknessSource[lev])[dit](iv);
+		      bmb(iv) = (*basalThicknessSource[lev])[dit](iv);
+		      cmb(iv) = (*calvingFlux[lev])[dit](iv);
+		      dhdt(iv) = (*deltaThickness[lev])[dit](iv); 
+		      div(iv) = (*divergenceThicknessFlux[lev])[dit](iv); 
+		    }
+		}
+	    }
+
+	  for (int dir =0; dir < SpaceDim; dir++)
+	    {
+	      const FArrayBox& flux = (*fluxOfIce[lev])[dit][dir];
+   
+	      for (BoxIterator bit(b);bit.ok();++bit)
+		{
+		  const IntVect& iv = bit();
+		  if ( std::abs ( (*sectorMask[lev])[dit](iv) - static_cast<Real>(maskNo)) < 1.0e-6 || maskNo == -1)
+		    {
+		      
+		      if (thck(iv) > epsThck)
+			{
+			  flxDiv(iv) += (flux(iv + BASISV(dir)) - flux(iv))/dx[lev]; // flux divergence
+			}
+		      else
+			{
+
+			  if (thck(iv + BASISV(dir)) > epsThck)
+			    {
+			      discharge(iv) -= flux(iv + BASISV(dir)) / dx[lev];
+			    }
+			  if (thck(iv - BASISV(dir)) > epsThck)
+			    {
+			      discharge(iv) += flux(iv) / dx[lev];
+			    }
+			} //end if (thck(iv) <= epsThck) 
+
+		    } 
+    		} //end loop over cells
+    	    } // end loop over direction
+    	} // end loop over grids
+    } //end loop over levels
+
+  Real sumDischarge = computeSum(ccDischarge, ratio, dx[0], Interval(0,0), 0);
+  pout() << " discharge = " << sumDischarge << " ";
+  
+  Real sumDH = computeSum(ccDH, ratio, dx[0], Interval(0,0), 0);
+  pout() << " dhdt = " << sumDH << " ";
+
+  Real sumSMB = computeSum(ccSMB, ratio, dx[0], Interval(0,0), 0);
+  pout() << " smb = " << sumSMB << " ";
+
+  Real sumBMB = computeSum(ccBMB, ratio, dx[0], Interval(0,0), 0);
+  pout() << " bmb = " << sumBMB << " ";
+
+  Real sumCMB = computeSum(ccCMB, ratio, dx[0], Interval(0,0), 0);
+  pout() << " calving = " << sumCMB << " ";
+
+  Real sumFlxDiv = computeSum(ccFlxDiv, ratio, dx[0], Interval(0,0), 0);
+  pout() << " fluxDivergenceReconstr = " << sumFlxDiv << " ";
+
+  Real sumDiv = computeSum(ccDiv, ratio, dx[0], Interval(0,0), 0);
+  pout() << " fluxDivergenceFromFile = " << sumDiv << " ";
+
+  Real err = sumSMB + sumBMB - sumFlxDiv - sumDH;
+  pout() << " (smb+bmb-flxDivReconstr-dhdt) = " << err << " ";
+
+  err = sumSMB + sumBMB - sumDiv - sumDH;
+  pout() << " (smb+bmb-flxDivFromFile-dhdt) = " << err << " ";
+
+  for (int lev = 0; lev < numLevels; lev++)
+    {
+      if (ccDischarge[lev] != NULL)
+	{
+	  delete ccDischarge[lev];ccDischarge[lev]= NULL;
+	}
+      if (ccDH[lev] != NULL)
+	{
+	  delete ccDH[lev];ccDH[lev]= NULL;
+	}
+      if (ccFlxDiv[lev] != NULL)
+	{
+	  delete ccFlxDiv[lev];ccFlxDiv[lev]= NULL;
+	}
+      if (ccDiv[lev] != NULL)
+	{
+	  delete ccDiv[lev];ccDiv[lev]= NULL;
+	}
+       if (ccSMB[lev] != NULL)
+	{
+	  delete ccSMB[lev];ccSMB[lev]= NULL;
+	}
+      if (ccBMB[lev] != NULL)
+	{
+	  delete ccBMB[lev];ccBMB[lev]= NULL;
+	}
+      if (ccCMB[lev] != NULL)
+	{
+	  delete ccCMB[lev];ccCMB[lev]= NULL;
+	}
+      
+    }
+
+}
+
+void computeOutsideIce(const Vector<RefCountedPtr<LevelSigmaCS > >& coords,
+		    Vector<LevelData<FluxBox>* >& fluxOfIce,
+		    Vector<LevelData<FArrayBox>* >& surfaceThicknessSource, 
+		    Vector<LevelData<FArrayBox>* >& basalThicknessSource,
+		    Vector<LevelData<FArrayBox>* >& deltaThickness,
+		    Vector<LevelData<FArrayBox>* >& divergenceThicknessFlux,
+		    Vector<LevelData<FArrayBox>* >& calvingFlux,
+		    Vector<LevelData<FArrayBox>* >& topography,
+		    Vector<LevelData<FArrayBox>* >& thickness, 
+		    Vector<LevelData<FArrayBox>* >& sectorMask,
+		    Vector<Real>& dx, Vector<int>& ratio, 
+		    int maskNo)
+
+{
+
+  
+  int numLevels = topography.size();
+  Vector<LevelData<FArrayBox>* > ccDH(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccFlxDiv(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccDiv(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccSMB(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccBMB(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccCMB(numLevels, NULL);
+  Vector<LevelData<FArrayBox>* > ccDischarge(numLevels, NULL);
+
+  for (int lev = 0; lev < numLevels; lev++)
+    {
+      const DisjointBoxLayout& grids = topography[lev]->disjointBoxLayout();
+      ccDH[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccFlxDiv[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccDiv[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccSMB[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccBMB[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccCMB[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+      ccDischarge[lev] = new LevelData<FArrayBox>(grids,1,IntVect::Zero);
+
+      //work out (dh/dt)_c = smb - bmb + div(uh) and discharge across boundary. 
+      for (DataIterator dit(grids);dit.ok();++dit)
+    	{
+    	  FArrayBox& discharge = (*ccDischarge[lev])[dit];
+    	  discharge.setVal(0.0);
+    	  FArrayBox& smb = (*ccSMB[lev])[dit];
+    	  FArrayBox& bmb = (*ccBMB[lev])[dit];
+    	  FArrayBox& cmb = (*ccCMB[lev])[dit];
+    	  FArrayBox& dhdt = (*ccDH[lev])[dit];
+	  FArrayBox& flxDiv = (*ccFlxDiv[lev])[dit];
+	  FArrayBox& div = (*ccDiv[lev])[dit];
+	  smb.setVal(0.0);
+	  bmb.setVal(0.0);
+	  cmb.setVal(0.0);
+	  dhdt.setVal(0.0);
+	  flxDiv.setVal(0.0);
+	  div.setVal(0.0);
+
+    	  const BaseFab<int>& mask = coords[lev]->getFloatingMask()[dit];
+    	  const FArrayBox& thck = (*thickness[lev])[dit];
+    	  const Box& b = grids[dit];
+	  Real epsThck = 1.0e-10;
+
+	  for (BoxIterator bit(b);bit.ok();++bit)
+	    {
+	      const IntVect& iv = bit();
+	      if ( std::abs ( (*sectorMask[lev])[dit](iv) - static_cast<Real>(maskNo)) < 1.0e-6 || maskNo == -1)
+		{
+		  if (thck(iv) < epsThck)
+		    {
+		      smb(iv) = (*surfaceThicknessSource[lev])[dit](iv);
+		      bmb(iv) = (*basalThicknessSource[lev])[dit](iv);
+		      cmb(iv) = (*calvingFlux[lev])[dit](iv);
+		      dhdt(iv) = (*deltaThickness[lev])[dit](iv); 
+		      div(iv) = (*divergenceThicknessFlux[lev])[dit](iv); 
+		    }
+		}
+	    }
+
+	  for (int dir =0; dir < SpaceDim; dir++)
+	    {
+	      const FArrayBox& flux = (*fluxOfIce[lev])[dit][dir];
+   
+	      for (BoxIterator bit(b);bit.ok();++bit)
+		{
+		  const IntVect& iv = bit();
+		  if ( std::abs ( (*sectorMask[lev])[dit](iv) - static_cast<Real>(maskNo)) < 1.0e-6 || maskNo == -1)
+		    {
+		      
+		      if (thck(iv) < epsThck)
+			{
+			  flxDiv(iv) += (flux(iv + BASISV(dir)) - flux(iv))/dx[lev]; // flux divergence
+			}
+		      else
+			{
+
+			  if (thck(iv + BASISV(dir)) < epsThck)
+			    {
+			      discharge(iv) -= flux(iv + BASISV(dir)) / dx[lev];
+			    }
+			  if (thck(iv - BASISV(dir)) < epsThck)
+			    {
+			      discharge(iv) += flux(iv) / dx[lev];
+			    }
+			} //end if (thck(iv) <= epsThck) 
+
+		    } 
+    		} //end loop over cells
+    	    } // end loop over direction
+    	} // end loop over grids
+    } //end loop over levels
+
+  Real sumDischarge = computeSum(ccDischarge, ratio, dx[0], Interval(0,0), 0);
+  pout() << " discharge = " << sumDischarge << " ";
+  
+  Real sumDH = computeSum(ccDH, ratio, dx[0], Interval(0,0), 0);
+  pout() << " dhdt = " << sumDH << " ";
+
+  Real sumSMB = computeSum(ccSMB, ratio, dx[0], Interval(0,0), 0);
+  pout() << " smb = " << sumSMB << " ";
+
+  Real sumBMB = computeSum(ccBMB, ratio, dx[0], Interval(0,0), 0);
+  pout() << " bmb = " << sumBMB << " ";
+
+  Real sumCMB = computeSum(ccCMB, ratio, dx[0], Interval(0,0), 0);
+  pout() << " calving = " << sumCMB << " ";
+
+  Real sumFlxDiv = computeSum(ccFlxDiv, ratio, dx[0], Interval(0,0), 0);
+  pout() << " fluxDivergenceReconstr = " << sumFlxDiv << " ";
+
+  Real sumDiv = computeSum(ccDiv, ratio, dx[0], Interval(0,0), 0);
+  pout() << " fluxDivergenceFromFile = " << sumDiv << " ";
+
+  // err is not zero if the calving model maintains the front position - check runtime diagnostics (endTimestepDiagnotics in AmrIce.cpp)  
+  Real err = sumSMB + sumBMB - sumFlxDiv - sumCMB - sumDH;
+  pout() << " (smb+bmb-flxDivReconstr-calving-dhdt) = " << err << " ";
+
+  err = sumSMB + sumBMB - sumDiv - sumCMB - sumDH;
+  pout() << " (smb+bmb-flxDivFromFile-calving-dhdt) = " << err << " ";
+
+  for (int lev = 0; lev < numLevels; lev++)
+    {
+      if (ccDischarge[lev] != NULL)
+	{
+	  delete ccDischarge[lev];ccDischarge[lev]= NULL;
+	}
+      if (ccDH[lev] != NULL)
+	{
+	  delete ccDH[lev];ccDH[lev]= NULL;
+	}
+      if (ccFlxDiv[lev] != NULL)
+	{
+	  delete ccFlxDiv[lev];ccFlxDiv[lev]= NULL;
+	}
+      if (ccDiv[lev] != NULL)
+	{
+	  delete ccDiv[lev];ccDiv[lev]= NULL;
+	}
+       if (ccSMB[lev] != NULL)
+	{
+	  delete ccSMB[lev];ccSMB[lev]= NULL;
+	}
+      if (ccBMB[lev] != NULL)
+	{
+	  delete ccBMB[lev];ccBMB[lev]= NULL;
+	}
+      if (ccCMB[lev] != NULL)
+	{
+	  delete ccCMB[lev];ccCMB[lev]= NULL;
+	}
+      
+    }
+
+}
+
 
 void computeGrounded(const Vector<RefCountedPtr<LevelSigmaCS > >& coords,
 		     Vector<LevelData<FluxBox>* >& fluxOfIce,
@@ -861,9 +1202,7 @@ void computeGrounded(const Vector<RefCountedPtr<LevelSigmaCS > >& coords,
 			{
 			  flxDiv(iv) += (flux(iv + BASISV(dir)) - flux(iv))/dx[lev]; // flux divergence
 			}
-		  
-		      //if ((thck(iv) < Hmin) || (mask(iv) != GROUNDEDMASKVAL))
-		      if (thck(iv) < Hmin)
+		      else
 			{
 
 			  if (thck(iv + BASISV(dir)) > Hmin && (mask(iv + BASISV(dir)) == GROUNDEDMASKVAL))
@@ -900,13 +1239,13 @@ void computeGrounded(const Vector<RefCountedPtr<LevelSigmaCS > >& coords,
   pout() << " bmb = " << sumBMB << " ";
 
   Real sumFlxDiv = computeSum(ccFlxDiv, ratio, dx[0], Interval(0,0), 0);
-  pout() << " fluxDivergenceCalc = " << sumFlxDiv << " ";
+  pout() << " fluxDivergenceReconstr = " << sumFlxDiv << " ";
+
+ Real sumDiv = computeSum(ccDiv, ratio, dx[0], Interval(0,0), 0);
+  pout() << " fluxDivergenceFromFile = " << sumDiv << " ";
 
   Real err = sumSMB + sumBMB - sumFlxDiv - sumDH;
-  pout() << " (smb+bmb-flxDivCalc-dhdt) = " << err << " ";
-
-  Real sumDiv = computeSum(ccDiv, ratio, dx[0], Interval(0,0), 0);
-  pout() << " fluxDivergenceFromFile = " << sumDiv << " ";
+  pout() << " (smb+bmb-flxDivReconstr-dhdt) = " << err << " ";
 
   err = sumSMB + sumBMB - sumDiv - sumDH;
   pout() << " (smb+bmb-flxDivFromFile-dhdt) = " << err << " ";
@@ -1036,8 +1375,8 @@ void computeFloating(const Vector<RefCountedPtr<LevelSigmaCS > >& coords,
 			{
 			  flxDiv(iv) += (flux(iv + BASISV(dir)) - flux(iv))/dx[lev]; // flux divergence
 			}
-		  
-		      if (thck(iv) < epsThck)
+		  		     
+		      else if (thck(iv) < epsThck)
 			{
 			  cmb(iv) = (*calvingFlux[lev])[dit](iv);
 			  if (thck(iv + BASISV(dir)) > epsThck && (mask(iv + BASISV(dir)) == FLOATINGMASKVAL) ) 
@@ -1059,6 +1398,9 @@ void computeFloating(const Vector<RefCountedPtr<LevelSigmaCS > >& coords,
   Real sumDischarge = computeSum(ccDischarge, ratio, dx[0], Interval(0,0), 0);
   pout() << " dischargeFloating = " << sumDischarge << " ";
   
+  Real sumCMB = computeSum(ccCMB, ratio, dx[0], Interval(0,0), 0);
+  pout() << " calving = " << sumCMB << " ";
+
   Real sumDH = computeSum(ccDH, ratio, dx[0], Interval(0,0), 0);
   pout() << " dhdt = " << sumDH << " ";
 
@@ -1068,17 +1410,14 @@ void computeFloating(const Vector<RefCountedPtr<LevelSigmaCS > >& coords,
   Real sumBMB = computeSum(ccBMB, ratio, dx[0], Interval(0,0), 0);
   pout() << " bmb = " << sumBMB << " ";
 
-  Real sumCMB = computeSum(ccCMB, ratio, dx[0], Interval(0,0), 0);
-  pout() << " calving = " << sumCMB << " ";
-
   Real sumFlxDiv = computeSum(ccFlxDiv, ratio, dx[0], Interval(0,0), 0);
-  pout() << " fluxDivergenceCalc = " << sumFlxDiv << " ";
-
-  Real err = sumSMB + sumBMB - sumFlxDiv - sumDH;
-  pout() << " (smb+bmb-flxDivCalc-dhdt) = " << err << " ";
+  pout() << " fluxDivergenceReconstr = " << sumFlxDiv << " ";
 
   Real sumDiv = computeSum(ccDiv, ratio, dx[0], Interval(0,0), 0);
   pout() << " fluxDivergenceFromFile = " << sumDiv << " ";
+
+  Real err = sumSMB + sumBMB - sumFlxDiv - sumDH;
+  pout() << " (smb+bmb-flxDivReconstr-dhdt) = " << err << " ";
 
   err = sumSMB + sumBMB - sumDiv - sumDH;
   pout() << " (smb+bmb-flxDivFromFile-dhdt) = " << err << " ";
@@ -1192,8 +1531,6 @@ int main(int argc, char* argv[]) {
     //load the sector mask, if it exists
     //Vector<RefCountedPtr<LevelData<FArrayBox> > > sectorMask;
     
-    pout() << " Reading mask " << endl  ;
-    	
     Box mdomainBox;
     Vector<std::string> mname;
     Vector<LevelData<FArrayBox>* > mdata;
@@ -1204,6 +1541,7 @@ int main(int argc, char* argv[]) {
 
     if (maskFile)
       {
+	pout() << " Reading mask " << endl  ;    	
 	ReadAMRHierarchyHDF5(std::string(maskFile), mgrids, mdata, mname , 
 			     mdomainBox, mcrseDx, mdt, mtime, mratio, mnumLevels);
       }
@@ -1264,7 +1602,6 @@ int main(int argc, char* argv[]) {
 	      }    
 	  }
       }
-    pout() << " finish testing mask " << endl  ;
 
     Vector<LevelData<FArrayBox>* > thickness(numLevels,NULL);
     Vector<LevelData<FArrayBox>* > topography(numLevels,NULL);
@@ -1317,22 +1654,28 @@ int main(int argc, char* argv[]) {
     computeFlux(fluxOfIce,coords,topography,thickness,surfaceThicknessSource,basalThicknessSource,
 		dx,ratio,name,data);
 
-    pout() << " Do sector calculations " << endl  ;
+    if (maskFile)
+      {
+	pout() << " Do sector calculations " << endl;
+      }
+    pout() << endl;
 
     for (int maskNo = maskNoStart; maskNo <= maskNoEnd; ++maskNo)
       {
+	pout() << " Diagnostics for computational domain";
+	if (maskFile)
+	  {
+	    pout() << ", sector = " << maskNo;
+	  }
+	pout() << endl;
 	pout() << " time = " << time  ;
 
 	computeIceStats(coords,topography, thickness, melangeThickness, sectorMask, dx, ratio, maskNo);
 
-	if (maskFile)
-	  {
-	    pout() << " sector = " << maskNo;
-	  }
-	pout() << endl;
 	computeVolCons(coords, fluxOfIce, surfaceThicknessSource, basalThicknessSource, 
 		       deltaThickness, divergenceThicknessFlux, calvingFlux,
 		       topography, thickness, sectorMask, dx, ratio, maskNo);
+	pout() << endl;
 	pout() << endl;
 
 	pout() << " Diagnostics for grounded ice, excluding thin ice";
@@ -1345,6 +1688,7 @@ int main(int argc, char* argv[]) {
 			deltaThickness, divergenceThicknessFlux, topography, thickness, 
 			sectorMask, Hmin, dx, ratio, maskNo);
 	pout() << endl;
+	pout() << endl;
 
 	pout() << " Diagnostics for floating ice";
 	if (maskFile)
@@ -1356,43 +1700,95 @@ int main(int argc, char* argv[]) {
 			deltaThickness, divergenceThicknessFlux, calvingFlux,
 			topography, thickness, sectorMask, dx, ratio, maskNo);
 	pout() << endl;
+	pout() << endl;
+
+	pout() << " Diagnostics for ice sheet";
+	if (maskFile)
+	  {
+	    pout() << ", sector = " << maskNo;
+	  }
+	pout() << endl;
+	computeIceSheet(coords, fluxOfIce, surfaceThicknessSource, basalThicknessSource, 
+			deltaThickness, divergenceThicknessFlux, calvingFlux,
+			topography, thickness, sectorMask, dx, ratio, maskNo);
+	pout() << endl;
+	pout() << endl;
+
+	pout() << " Diagnostics for outside ice sheet";
+	if (maskFile)
+	  {
+	    pout() << ", sector = " << maskNo;
+	  }
+	pout() << endl;
+	computeOutsideIce(coords, fluxOfIce, surfaceThicknessSource, basalThicknessSource, 
+			deltaThickness, divergenceThicknessFlux, calvingFlux,
+			topography, thickness, sectorMask, dx, ratio, maskNo);
+	pout() << endl;
+	pout() << endl;
+
       }
 
-    // now compute stats for whole domain
+    // now compute stats for all sectors
     if (maskNoStart != maskNoEnd)
       {
-	pout() << endl;
+	pout() << " Diagnostics for computational domain";
+	if (maskFile)
+	  {
+	    pout() << ", all sectors " << endl;
+	  }
 	pout() << " time = " << time  ;
 
 	computeIceStats(coords,topography, thickness, melangeThickness, sectorMask, dx, ratio, -1);
-	if (maskFile)
-	  {
-	    pout() << " whole domain ";
-	  }
 	pout() << endl;
 	computeVolCons(coords, fluxOfIce, surfaceThicknessSource, basalThicknessSource, 
 		       deltaThickness, divergenceThicknessFlux, calvingFlux,
 		       topography, thickness, sectorMask, dx, ratio, -1);
 	pout() << endl;
+	pout() << endl;
 
 	pout() << " Diagnostics for grounded ice, excluding thin ice";
 	if (maskFile)
 	  {
-	    pout() << ", whole domain ";
+	    pout() << ", all sectors ";
 	  }
 	pout() << endl;
 	computeGrounded(coords, fluxOfIce, surfaceThicknessSource, basalThicknessSource, 
 			deltaThickness, divergenceThicknessFlux, topography, thickness, 
 			sectorMask, Hmin, dx, ratio, -1);
 	pout() << endl;
+	pout() << endl;
 
 	pout() << " Diagnostics for floating ice";
 	if (maskFile)
 	  {
-	    pout() << ", whole domain ";
+	    pout() << ", all sectors ";
 	  }
 	pout() << endl;
 	computeFloating(coords, fluxOfIce, surfaceThicknessSource, basalThicknessSource, 
+			deltaThickness, divergenceThicknessFlux, calvingFlux,
+			topography, thickness, sectorMask, dx, ratio, -1);
+	pout() << endl;
+	pout() << endl;
+
+	pout() << " Diagnostics for ice sheet";
+	if (maskFile)
+	  {
+	    pout() << ", all sectors ";
+	  }
+	pout() << endl;
+	computeIceSheet(coords, fluxOfIce, surfaceThicknessSource, basalThicknessSource, 
+			deltaThickness, divergenceThicknessFlux, calvingFlux,
+			topography, thickness, sectorMask, dx, ratio, -1);
+	pout() << endl;
+	pout() << endl;
+
+	pout() << " Diagnostics for outside ice sheet";
+	if (maskFile)
+	  {
+	    pout() << ", all sectors ";
+	  }
+	pout() << endl;
+	computeOutsideIce(coords, fluxOfIce, surfaceThicknessSource, basalThicknessSource, 
 			deltaThickness, divergenceThicknessFlux, calvingFlux,
 			topography, thickness, sectorMask, dx, ratio, -1);
 	pout() << endl;
