@@ -1671,7 +1671,7 @@ int main(int argc, char* argv[]) {
 	pout() << " time = " << time  ;
 
 	computeIceStats(coords,topography, thickness, melangeThickness, sectorMask, dx, ratio, maskNo);
-
+	pout() << endl;
 	computeVolCons(coords, fluxOfIce, surfaceThicknessSource, basalThicknessSource, 
 		       deltaThickness, divergenceThicknessFlux, calvingFlux,
 		       topography, thickness, sectorMask, dx, ratio, maskNo);
