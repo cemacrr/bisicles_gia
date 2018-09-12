@@ -121,7 +121,13 @@ The US DOE-run National Energy Research Supercomputing Center ( <a href='http://
 </pre>
 <p>
   To have the python interface work, the compiler needs the -shared and -fPIC flags, and
-  the linker needs the -dynamic flag. An example $BISICLES_HOME/Chombo/lib/mk/local/Make.defs.local would be:
+  the linker needs the -dynamic flag. You may also need to have the environment variable CRAYPE_LINK_TYPE set to "dynamic"; in the csh or tcsh shells:
+</p>
+<pre>
+> setenv CRAYPE_LINK_TYPE dynamic
+</pre>
+
+ You should be able to use the existing Chombo/lib/mk/loocal/Make.defs.edison file in the Chombo release as a starting point.  An example $BISICLES_HOME/Chombo/lib/mk/local/Make.defs.local would be:
 </p>
 <pre>
 makefiles+=Make.defs.local
@@ -139,7 +145,7 @@ USE_64=TRUE
 
 ifeq ($(PE_ENV),GNU)
 
-CH_CPP=$(CXX) -E -P -C
+CH_CPP=$(CXX) -E -P 
 XTRACONFIG=.GNU
 cxxoptflags += -shared -fPIC
 foptflags += -shared -fPIC
@@ -165,6 +171,14 @@ HDFMPIINCFLAGS=-I$(HDF5_DIR)/include $(HDF_INCLUDE_OPTS)
 <pre>
 PYTHON_INC=/usr/common/usg/python/2.7.9/include/python2.7
 PYTHON_LIBS=-L/usr/common/usg/python/2.7.9/lib/ -lpython2.7 -ldl -lutil -lm -Xlinker -export-dynamic
+NETCDF_INC=$(shell nc-config --includedir)
+NETCDF_LIBS=$(shell nc-config --flibs)
+
+NETCDF_HOME =$(NETCDF_DIR)
+NETCDF_LIBS= -lnetcdff -lnetcdf
+PYTHON_VERSION=2.7
+PYTHON_INC=-I$(PYTHON_DIR)/include/python2.7
+PYTHON_LIBS=-L$(PYTHON_DIR)/lib/ -lpython2.7 -ldl -lutil -lm -Xlinker -export-dynamic
 NETCDF_INC=$(shell nc-config --includedir)
 NETCDF_LIBS=$(shell nc-config --flibs)
 </pre>
