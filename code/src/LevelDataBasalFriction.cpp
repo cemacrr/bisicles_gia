@@ -102,6 +102,12 @@ void MultiLevelDataBasalFriction::setBasalFriction(LevelData<FArrayBox>& a_C,
 						   Real a_time,
 						   Real a_dt)
 {
+  // rather than doing single-level-at-a-time approach, switch to calling 
+  // flattenCellData function, which fills each level from the AMR hierarchy 
+  // in a way that places no restricions on whether the fine grids are 
+  // coarseable down to all of the the coarser-level grids (which is a 
+  // side-effect requirement of the original approach)
+#if 0
   RealVect dx(m_dxCrse);
   for (int refDataLev = 0; refDataLev < m_C.size(); refDataLev++)
     {
@@ -126,5 +132,20 @@ void MultiLevelDataBasalFriction::setBasalFriction(LevelData<FArrayBox>& a_C,
 	}
       dx /= Real(m_ratio[refDataLev]);
     }
+# endif
+
+  Vector<RealVect> refDx (m_C.size(), -1.0*RealVect::Unit);
+  refDx[0] = m_dxCrse;
+  for (int lev=1; lev<refDx.size(); lev++)
+    {
+      refDx[lev] = refDx[lev-1]/m_ratio[lev-1];
+    }
+  
+  flattenCellData(a_C,
+                  a_dx,
+                  m_C,
+                  refDx,
+                  m_verbose);
+
 }
 #include "NamespaceFooter.H"
