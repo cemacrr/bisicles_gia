@@ -15,16 +15,24 @@
 #include <iostream>
 #include <cstdlib>
 #include "libamrfile.H"
+#ifdef CH_USE_PETSC
+#include "petsc.h"
+#endif 
+
 
 int main(int argc, char* argv[]) {
 
-#ifdef CH_MPI
-#error MPI not supported
-#endif
+  int status;
 
+#ifdef CH_USE_PETSC
+  status = PetscInitialize(&argc, &argv,PETSC_NULL,PETSC_NULL); CHKERRQ(status);
+#else
+#ifdef CH_MPI
+  MPI_Init(&argc, &argv);
+#endif 
+#endif // end petsc conditional
 
   int amr_id;
-  int status;
   char file[64] = "plot.amundsen.2d.hdf5";
   char outfile[64] = "plot.mod.amundsen.2d.hdf5";
   amr_read_file(&status, &amr_id, file);
@@ -153,6 +161,14 @@ int main(int argc, char* argv[]) {
     {
       exit(status);
     } 
+
+#ifdef CH_USE_PETSC
+  status = PetscFinalize(); CHKERRQ(status);
+#else
+#ifdef CH_MPI
+  MPI_Finalize();
+#endif // mpi conditional
+#endif // petsc conditional
 
 
   return 0;
