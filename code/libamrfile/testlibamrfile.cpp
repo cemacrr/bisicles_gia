@@ -18,6 +18,9 @@
 #ifdef CH_USE_PETSC
 #include "petsc.h"
 #endif 
+#ifdef CH_MPI
+#include <mpi.h>
+#endif
 
 
 int main(int argc, char* argv[]) {
