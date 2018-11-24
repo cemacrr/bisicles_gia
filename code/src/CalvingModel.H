@@ -337,6 +337,8 @@ public:
 
 };
 
+
+/// calving model which removes all floating ice. 
 class FlotationCalvingModel : public CalvingModel
 {
 
