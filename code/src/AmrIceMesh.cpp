@@ -42,8 +42,6 @@ using std::string;
 #include "PatchGodunov.H"
 #include "AdvectPhysics.H"
 #include "PiecewiseLinearFillPatch.H"
-#include "FineInterp.H"
-#include "CoarseAverage.H"
 #include "CellToEdge.H"
 #include "EdgeToCell.H"
 #include "DerivativesF_F.H"
