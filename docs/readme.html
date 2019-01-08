@@ -46,7 +46,8 @@
 <h2><a name="sysreq"> System requirements.</a></h2>
 <p> 
   BISICLES requires the GNU/Linux operating system (actually, it should compile and run elsewhere,
-  but we never do that), plus both C++ and FORTRAN compilers, a GNU-compatible make, and Perl.
+  but we never do that), plus both C++ and FORTRAN compilers, a GNU-compatible make, subversion, and Perl.
+  Python is optional but highly recommended - BISICLES has numerous optional python components.
   On the whole, life is easiest with gcc (including g++ and gfortran), and we shall assume that
   is what will be used. A modernish gcc is required - see the <a href='oldbuild.html'>older build instructions<a> if
    you want to build with gcc 4.1.2, for example. To build the parallel version, you need an MPI environment, which provides 
@@ -54,7 +55,9 @@
   <a href='https://wci.llnl.gov/codes/visit/home.html'>VisIt</a></li> to view the data BISICLES 
 produces (other programs can be put to use, but VisIt is by far the most convenient)</p>
 <p>
-  There are some <a href='sites.html'>site specific notes</a>
+  There are some <a href='sites.html'>site specific notes</a>: look at these before proceeeding
+  if you are installing on an Ubuntu or Debian workstations, on a Cray XC30 or XC40 (e.g ARCHER, edison, cori),
+  or on any of the other machines that BISICLES has been used before.
 </p>
 <h2><a name="svnco"> Check out the source code.</a> </h2>
 <p> Since this readme file lives in the source code repository, you might have already checked the source code
@@ -103,9 +106,10 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
     </li>
     <li>
       BISICLES may need to know where python and netcdf includes and libraries are to be found,
-      these are defined in <tt>/path/to/BISICLES/code/mk/Make.defs</tt> (as is <tt>$CHOMBO_HOME</tt>)  which will attempt to read them
+      these are defined in <tt>/path/to/BISICLES/code/mk/Make.defs</tt> (as is <tt>$CHOMBO_HOME</tt>)
+      which may attempt to read them
       from a file called <tt>/path/to/BISICLES/code/mk/Make.defs.$UNAMEN</tt>, where
-      <tt>$UNAME</tt> is the output from <tt>uname -n</tt> or <tt>Make.defs.none</tt> if there is no such file.  
+      <tt>$UNAME</tt> is the output from <tt>uname -n</tt> or <tt>Make.defs.none</tt> if there is no such file.
     </li>
 </ul>
 </p>
@@ -117,7 +121,8 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
   So, check to see what's already installed, with an eye open to the possibility that things have been configured in some
   odd way which makes them unusable for us, in which case you you're back to where you were anyway). See the
   <a href='sites.html'>site specific notes</a>, because certain common environments, such as the Cray XC30/40,
-  and recent versions of Debian and Ubuntu GNU/Linux, have well designed systems for satifying these dependencies.
+  and recent versions of Debian and Ubuntu GNU/Linux, have well designed systems for satifying some of these dependencies,
+  notaby hdf5 and netcdf. <strong>Do not follow the instructions below for hdf5 and netcdf on those machines, instead follow the much simpler instructions in the  <a href='sites.html'>site specific notes</a></strong>
 </p>
 <p>
   Chombo requires the hdf5 libraries. As of the Chombo 3.2 release, Chombo builds against the
