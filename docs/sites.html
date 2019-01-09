@@ -68,40 +68,43 @@ PYTHON_VERSION=2.7
 
 <h2><a name='uob'>University of Bristol</a>
 
-<h3>Blue Crystal Phase 3</h3>
+  <h3>Blue Crystal Phase 3</h3>
 
-<h4>Blue Crystal Phase 3, GNU Compilers</h4>
-<p>
-To use the GNU compilers on Blue Crystal Phase 3, include
-</p>
-<pre>
-module load languages/gcc-4.8.1
-module load openmpi/gcc/64/1.6.5
-module load languages/python-2.7.5
-</pre>
-<p>
-in .bash_profile. There are ready-made Make.defs.newblue files
-that work with the python install, but hdf5 (and netcdf) need to
-be built as described in the <a href='readme.html'>generic instructions</a>.
+  You might not need to compile BISICLES on Blue Crystal Phase 3, since
+  a number of the the developers work there. 
 
-<h4>Blue Crystal Phase 3, Intel Compilers</h4>
-<p>
-To use the Intel compilers on Blue Crystal Phase 3, include
-</p>
-<pre>
-module load intel-cluster-studio/impi/64
-module load intel-cluster-studio/compiler/64
-module load openmpi/intel/64
-module load languages/python-2.7.5
-</pre>
-<p>
-in .bash_profile. There are ready-made Make.defs.newblue files
-that work with the python install, but hdf5 (and netcdf) need to
-be built as described in the <a href='readme.html'>generic instructions</a>.
-
-<h2><a name='nersc'>NERSC</a></h2>
-The US DOE-run National Energy Research Supercomputing Center ( <a href='http://www.nersc.gov'>NERSC</a>) has several machines which BISICLES users may find useful. 
-
+  <h4>Blue Crystal Phase 3, GNU Compilers</h4>
+  <p>
+    To use the GNU compilers on Blue Crystal Phase 3, include
+  </p>
+  <pre>
+    module load languages/gcc-7.1.0
+    module load openmpi/gcc/64/2.1.1
+    module load languages/python-2.7.5
+  </pre>
+  <p>
+    in .bash_profile. There are ready-made Make.defs.newblue files
+    that work with the python install, but hdf5 (and netcdf) need to
+    be built as described in the <a href='readme.html'>generic instructions</a>.
+    
+    <h4>Blue Crystal Phase 3, Intel Compilers</h4>
+  <p>
+    To use the Intel compilers on Blue Crystal Phase 3, include
+  </p>
+  <pre>
+    module load intel-cluster-studio/impi/64
+    module load intel-cluster-studio/compiler/64
+    module load openmpi/intel/64
+    module load languages/python-2.7.5
+  </pre>
+  <p>
+    in .bash_profile. There are ready-made Make.defs.newblue files
+    that work with the python install, but hdf5 (and netcdf) need to
+    be built as described in the <a href='readme.html'>generic instructions</a>.
+    
+    <h2><a name='nersc'>NERSC</a></h2>
+    The US DOE-run National Energy Research Supercomputing Center ( <a href='http://www.nersc.gov'>NERSC</a>) has several machines which BISICLES users may find useful. 
+    
 <h3>Edison -- GNU compilers</h3>
 
 <p>

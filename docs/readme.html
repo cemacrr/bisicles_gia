@@ -76,14 +76,18 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
 </p> 
 <p>
   Here we have assumed that you want the most recently released versions of
-  Chombo and BISICLES. You may want a different version, for example,
-  the main development branch
+  Chombo and BISICLES. You may prefer
+  the main development branch (trunk) which is fairly stable since experimental
+  code is developed on other branches. The advantage of trunk is that bug fixes
+  are published there first.
 </p>
 <pre>
    > svn co https://anag-repo.lbl.gov/svn/BISICLES/public/trunk BISICLES
 </pre>
 <p>
-  but in that case you will probably know which one you need. Note
+  You may want one of the other branches, especially if you are working with any of
+  the BISICLES developers to introuduce new features, but in that case you will
+  probably know which one you need. Note
   that you do not need to layout your source directories as indicated above, or even
   follow the rest of these notes exactly. If you want some other layout, note
   the following
@@ -124,6 +128,7 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
   and recent versions of Debian and Ubuntu GNU/Linux, have well designed systems for satifying some of these dependencies,
   notaby hdf5 and netcdf. <strong>Do not follow the instructions below for hdf5 and netcdf on those machines, instead follow the much simpler instructions in the  <a href='sites.html'>site specific notes</a></strong>
 </p>
+
 <p>
   Chombo requires the hdf5 libraries. As of the Chombo 3.2 release, Chombo builds against the
   current hdf5 1.8 interface directly. (Chombo 3.1 and earlier built against the older hdf5 1.6 interface, which required some effort when building)
@@ -137,25 +142,24 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
 </p>
 <p>
   There should be a script, download_dependencies.sh (in the same directrory as this file, 
-  $BISICLES_HOME/BISICLES/docs) that will get the (version 1.8.9) hdf5 sources and  
+  $BISICLES_HOME/BISICLES/docs) that will get the (version 1.8.21) hdf5 sources and  
   unpack them, twice : once into hdf5/serial/src and once into hdf5/parallel/src. 
   It assumes $BISICLES_HOME is set. It should contain the following
 <pre>
 cd $BISICLES_HOME
 echo `pwd`
 
-
-
 #get hdf5 sources
-if !(test -e hdf5-1.8.9.tar.bz2) then
-    echo "downloading hdf5-1.8.10.tar.gz"
-    wget http://www.hdfgroup.org/ftp/HDF5/prev-releases/hdf5-1.8.9/src/hdf5-1.8.9.tar.bz2
+if !(test -e hdf5-1.8.21.tar.bz2) then
+    echo "downloading hdf5-1.8.21.tar.gz"
+    wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.21/src/hdf5-1.8.21.tar.bz2
 fi
+
 mkdir -p hdf5/parallel/src
-tar -jxf  hdf5-1.8.9.tar.bz2 -C hdf5/parallel/src
+tar -jxf  hdf5-1.8.21.tar.bz2 -C hdf5/parallel/src
 
 mkdir -p hdf5/serial/src
-tar -jxf  hdf5-1.8.9.tar.bz2 -C hdf5/serial/src
+tar -jxf  hdf5-1.8.21.tar.bz2 -C hdf5/serial/src
 
 
 #get netcdf sources
@@ -180,7 +184,7 @@ tar -zxf netcdf-4.1.3.tar.gz -C netcdf/serial/src
 Before starting, make sure that you can run gcc.
 Enter the appropriate source directory
 <pre>
-> cd $BISICLES_HOME/hdf5/serial/src/hdf5-1.8.9/
+> cd $BISICLES_HOME/hdf5/serial/src/hdf5-1.8.21/
 </pre>
 and configure hdf5 like so
 <pre>
@@ -241,11 +245,11 @@ should see that the hdf5 libraries bin,doc,include and src have appeared in $BIS
 Before starting, make sure that the mpi environment is in place and that you can run mpicc.
 Enter hdf5/parallel/src/hdf5-1.6.10/ directory
 <pre>
-> cd $BISICLES_HOME/hdf5/parallel/src/hdf5-1.8.9/
+> cd $BISICLES_HOME/hdf5/parallel/src/hdf5-1.8.21/
 </pre>
 and configure hdf5, this time enabling MPI through the use of mpicc in place of gcc
 <pre>
-> CC=mpicc ./configure --prefix=$BISICLES_HOME/hdf5/parallel/ --enable-shared=no
+> CC=mpicc ./configure --prefix=$BISICLES_HOME/hdf5/parallel/ --enable-shared=no --enable-parallel=yes
 </pre>
 This time, configure's final report should read
 <pre>
@@ -291,12 +295,16 @@ this time, the bin,doc,include and src directories should end up  in $BISICLES_H
 
 <h3><a name='cdf'>Building serial netcdf</a> </h3>
 <p>
-Before starting, make sure that you can run gcc,g++ and gfortran.
-Enter the appropriate source directory
-<pre>
-> cd $BISICLES_HOME/netcdf/serial/src/netcdf-4.1.3/
-</pre>
-Now, netcdf needs to link hdf5 : it doesn't really matter which version but we might as
+  <strong>The main BISICLES program does not need netcdf: you only need it to convert between
+    hdf5 (which BISICLES reads and write) and netcdf formats (which are popular in climate modelling).
+    If you have problems with this, move on.
+  </strong>
+  Before starting, make sure that you can run gcc,g++ and gfortran.
+  Enter the appropriate source directory
+  <pre>
+    > cd $BISICLES_HOME/netcdf/serial/src/netcdf-4.1.3/
+  </pre>
+  Now, netcdf needs to link hdf5 : it doesn't really matter which version but we might as
 well use the one we have. So, we have 
 a custom configure line
 <pre>
@@ -315,7 +323,7 @@ So far, the only difference between parallel and serial netcdf installs
 is the link to parallel hdf5 and the use of the MPI compiler wrapper. 
 Possibly, building two versions of netcdf is a waste of time. 
 </p>
-<p><strong>update</strong> parallel netcdf may be needed to compile parallel glimmer-CISM, otherwise it can be skipped.</p>
+<p><strong>parallel netcdf may be needed to compile parallel glimmer-CISM, otherwise it can be skipped</strong>.</p>
 <pre>
 > cd $BISICLES_HOME/netcdf/parallel/src/netcdf-4.1.3/
 > CC=mpicc CXX=mpiCC FC=mpif90  CPPFLAGS="-DgFortran -I$BISICLES_HOME/hdf5/parallel/include/" LDFLAGS=-L$BISICLES_HOME/hdf5/parallel/lib/  ./configure --prefix=$BISICLES_HOME/netcdf/parallel  --enable-shared=no --enable-static=yes --enable-dap=no
