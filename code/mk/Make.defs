@@ -62,7 +62,7 @@ ifeq ($(NETCDF_INC),)
 #no NETCDF_HOME? try nc-config
 ifeq ($(NETCDF_HOME), )
 NETCDF_HOME = $(shell nc-config --prefix)
-NETCDF_INC = $(shell nc-config --includedir)
+NETCDF_INC = -I$(shell nc-config --includedir)
 
 ifeq ($(shell nc-config --has-f90), yes)
 NETCDF_LIBS = $(shell nc-config --flibs) #does no harm to link the fortran libs if present
@@ -73,10 +73,10 @@ NETCDF_LIBS = $(shell nc-config --libs)
 endif
 
 else
-NETCDF_INC=$(NETCDF_HOME)/include
+NETCDF_INC=-I$(NETCDF_HOME)/include
 NETCDF_LIBS := -L$(NETCDF_HOME)/lib $(NETCDF_LIBS)
 endif
-
+$(info NetCDF: $(NETCDF_INC) $(NETCDF_LIBS) )
 endif
 
 #if PYTHON_INC was not defined, try to work it out from PYTHON_VERSION
@@ -104,6 +104,7 @@ endif
 
 
 ifneq ($(PYTHON_INC),)
+$(info python: $(PYTHON_INC) $(PYTHON_LIBS) )
 CPPFLAGS :=$(PYTHON_INC) -DHAVE_PYTHON	$(CPPFLAGS)
 LIBFLAGS+=$(PYTHON_LIBS)
 endif

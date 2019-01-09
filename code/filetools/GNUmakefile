@@ -17,6 +17,6 @@ libbike:
 	cd ../lib; $(MAKE) lib
 
 ifneq ($(NETCDF_INC), )
-CPPFLAGS += -I/$(NETCDF_INC)
+CPPFLAGS += $(NETCDF_INC)
 endif
 LIBFLAGS := -L../lib/ -lBisicles$(config) $(NETCDF_LIBS)  $(LIBFLAGS)

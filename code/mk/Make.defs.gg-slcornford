@@ -1,0 +1,4 @@
+
+#NETCDF_HOME=$(shell nc-config --prefix)
+#NETCDF_LIBS=-lnetcdff -lnetcdf -lhdf5_hl
+PYTHON_VERSION=2.7
