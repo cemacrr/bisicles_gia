@@ -4,15 +4,15 @@ echo `pwd`
 
 
 #get hdf5 sources
-if !(test -e hdf5-1.8.9.tar.bz2) then
-    echo "downloading hdf5-1.8.10.tar.gz"
-    wget http://www.hdfgroup.org/ftp/HDF5/prev-releases/hdf5-1.8.9/src/hdf5-1.8.9.tar.bz2
+if !(test -e hdf5-1.8.21.tar.bz2) then
+    echo "downloading hdf5-1.8.21.tar.gz"
+    wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.21/src/hdf5-1.8.21.tar.bz2
 fi
 mkdir -p hdf5/parallel/src
-tar -jxf  hdf5-1.8.9.tar.bz2 -C hdf5/parallel/src
+tar -jxf  hdf5-1.8.21.tar.bz2 -C hdf5/parallel/src
 
 mkdir -p hdf5/serial/src
-tar -jxf  hdf5-1.8.9.tar.bz2 -C hdf5/serial/src
+tar -jxf  hdf5-1.8.21.tar.bz2 -C hdf5/serial/src
 
 
 #get netcdf sources

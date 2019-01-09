@@ -463,10 +463,10 @@ void IceUtility::extrapVelocityToMargin(LevelData<FluxBox>& a_faceVel,
 	  Box faceBox = grids[dit];
 	  faceBox.surroundingNodes(dir);
 	  FArrayBox& faceVel = a_faceVel[dit][dir];
-	  {
-	    Real maxFaceVelocity = faceVel.norm(faceBox,0);
-	    CH_assert(maxFaceVelocity < 0.5 * HUGE_VEL);
-	  }
+	  //{
+	  //  Real maxFaceVelocity = faceVel.norm(faceBox,0);
+	  //  CH_assert(maxFaceVelocity < 0.5 * HUGE_VEL);
+	  //}
 	  Box grownFaceBox = faceBox;
 	  CH_assert(faceVel.box().contains(grownFaceBox));
 	  FArrayBox vface(faceBox,1);
@@ -480,10 +480,10 @@ void IceUtility::extrapVelocityToMargin(LevelData<FluxBox>& a_faceVel,
 			      CHF_CONST_FRA1(thk,0),
 			      CHF_CONST_INT(dir),
 			      CHF_BOX(faceBox));
-	  {
-	    Real maxFaceVelocity = faceVel.norm(faceBox,0);
-	    CH_assert(maxFaceVelocity < HUGE_VEL);
-	  }
+	  //{
+	  //  Real maxFaceVelocity = faceVel.norm(faceBox,0);
+	  //  CH_assert(maxFaceVelocity < HUGE_VEL);
+	  // }
 
 	}
 

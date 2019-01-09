@@ -3308,7 +3308,7 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 	      {
 		pout() << " solver return value = "
 		       << solverRetVal << std::endl;
-		MayDay::Warning("solver return value != 0"); 
+		//MayDay::Warning("solver return value != 0"); 
 	      }
 	    for (int lev = 0; lev <= m_finest_level; lev++)
 	      {
@@ -3809,8 +3809,8 @@ AmrIce::computeDt()
 	      int p = 0;
 	      Box faceBox = levelGrids[levelDit];
 	      faceBox.surroundingNodes(dir);
-	      Real maxVel = 1.0 + levelVel[levelDit][dir].norm(faceBox,p, 0, 1);
-	      CH_assert(maxVel < HUGE_VEL);
+	      Real maxVel = 1.0e-10 + levelVel[levelDit][dir].norm(faceBox,p, 0, 1);
+	      //CH_assert(maxVel < HUGE_VEL);
 	      Real localDt = m_amrDx[lev]/maxVel;
 	      dtLev = min(dtLev, localDt);
 	    }
