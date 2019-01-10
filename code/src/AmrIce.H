@@ -934,6 +934,9 @@ protected:
   /// maximum amount cfl number may grow in one timestep
   Real m_max_dt_grow;
 
+  /// maximum acceptable velocity: if max(u) > m_vel_exit , then dump a plot file and exit
+  Real m_velocity_exit;
+
   // current step
   int m_cur_step;
 

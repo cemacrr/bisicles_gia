@@ -266,6 +266,7 @@ AmrIce::setDefaults()
   m_max_dt_grow = 1.5;
   m_dt = 1.0e20;
   m_stable_dt = m_dt;
+  m_velocity_exit = HUGE_VEL;
   m_max_box_size = 64;
   m_max_base_grid_size = -1;
   m_isothermal = true;
@@ -805,6 +806,8 @@ AmrIce::initialize()
     {
       is_periodic[dir] = (is_periodic_int[dir] == 1);
     }
+
+  ppAmr.query("velocity_exit", m_velocity_exit);
 
   ppAmr.query("cfl", m_cfl);
 
@@ -3791,14 +3794,16 @@ AmrIce::computeDt()
       pout() << "AmrIce::computeDt" << endl;
     }
 
-  if (m_fixed_dt > TINY_NORM)
+  if (m_fixed_dt > TIME_EPS)
     return m_fixed_dt;
 
   Real dt = 1.0e50;
+  Real maxVelAll = 0.0;
   for (int lev=0; lev<= finestTimestepLevel(); lev++)
     {
 
       Real dtLev = dt;
+      Real maxVelLev = maxVelAll;
       const DisjointBoxLayout& levelGrids = m_amrGrids[lev];
       const LevelData<FluxBox>& levelVel = *m_faceVelAdvection[lev]; 
       DataIterator levelDit = levelVel.dataIterator();
@@ -3813,6 +3818,7 @@ AmrIce::computeDt()
 	      //CH_assert(maxVel < HUGE_VEL);
 	      Real localDt = m_amrDx[lev]/maxVel;
 	      dtLev = min(dtLev, localDt);
+	      maxVelLev = std::max(maxVelLev, maxVel);
 	    }
 	}
       
@@ -3820,6 +3826,7 @@ AmrIce::computeDt()
 	MayDay::Error("diffusion_treatment == explicit not supported now : use none");
       }
       dt = min(dt, dtLev);
+      maxVelAll = std::max(maxVelAll, maxVelLev);
     }
 
 #ifdef CH_MPI
@@ -3831,6 +3838,15 @@ AmrIce::computeDt()
       MayDay::Error("communication error on norm");
     }
   dt = tmp;
+
+  result = MPI_Allreduce(&maxVelAll, &tmp, 1, MPI_CH_REAL,
+			 MPI_MAX, Chombo_MPI::comm);
+  
+if (result != MPI_SUCCESS)
+    {
+      MayDay::Error("communication error on norm");
+    }
+  maxVelAll = tmp;
 #endif
 
   if (m_cur_step == 0)
@@ -3859,10 +3875,24 @@ AmrIce::computeDt()
   m_stable_dt = dt;
   if (s_verbosity > 3) 
     { 
-      pout() << "AmrIce::computeDt dt = " << dt << endl;
+      pout() << "AmrIce::computeDt dt = " << dt << ", max vel = " << maxVelAll <<  endl;
     }
-  CH_assert(dt > TIME_EPS);
-  return dt;// min(dt,2.0);
+
+  if (maxVelAll > m_velocity_exit || dt < TIME_EPS)
+    {
+      std::stringstream ss;
+      ss << " max(vel) = " << maxVelAll
+	 << " > amr.velocity_exit =  " << m_velocity_exit 
+	 << " || dt = " << dt
+	 << " < TIME_EPS = " << TIME_EPS;
+        
+      m_plot_prefix = std::string("error_") + m_plot_prefix;
+      writePlotFile();
+      pout() << " AmrIce::computeDt exit because " << ss.str() << endl;
+      MayDay::Error(ss.str().c_str());
+    }
+
+  return dt;
 
 }
 
