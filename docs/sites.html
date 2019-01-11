@@ -218,22 +218,34 @@ To compile with GNU, switch to the correct PrgEnv and load an hdf5 module
 <p>
 $BISICLES_HOME/BISICLES/code/mk/Make.defs.archer
 includes the following details for the python interface
-and netcdf. Copy this file to Make.defs.none or Make.defs.$UNAMEN
-(where $UNAMEN is the output from uname -n)
+and netcdf. 
 </p>
 <pre>   
+PYTHON_DIR=/work/y07/y07/cse/python/2.7.6-static/
+PYTHON_INC=-I$(PYTHON_DIR)/include/python2.7/
+PYTHON_LIBS=-L$(PYTHON_DIR)/lib -lpython2.7 -lpthread -ldl -lutil
 
+NETCDF_INC=-I$(NETCDF_DIR)/include
+NETCDF_LIBS=-L$(NETCDF_DIR)/lib -lnetcdf
 </pre>
-<p>
-Then compile 
-</p>
-<pre>
-cd BISICLES/code/exec2D
-make all OPT=TRUE MPI=TRUE DEBUG=FALSE # are all default 
-</pre>
-<p>
-the exectable will be driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex
-</p>
+  <p>
+    Copy this file to Make.defs.none  or Make.defs.$UNAMEN
+    (where $UNAMEN is the output from uname -n)
+    Then compile 
+  </p>
+  <pre>
+    cd BISICLES/code/exec2D
+    make all OPT=TRUE MPI=TRUE DEBUG=FALSE # are all default 
+  </pre>
+  <p>
+    the exectable will be driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex. It is
+    not generally a good idea to work with the filetools (nctoamr, stats, flatten etc)
+    on ARCHER - these are intended for interactive use. Ideally, you
+    will have a GNU/linux workstation to compile and run these tools, but
+    if you have only a Windows or Mac OS X machine, one possibility is to run
+    a virtual machine with GNU/linux. We have found that Oracle virtualbox
+    and Ubuntu work well on both Windows and MacOS X machines. 
+  </p>
 
 <p> ARCHER's compute nodes do not have access to the /home mount point (and therefore your home directory) 
 It's not obvious where login scripts come from in that case, either. This can all be dealt with inside the submission script
