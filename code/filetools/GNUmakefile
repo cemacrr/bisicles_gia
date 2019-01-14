@@ -16,7 +16,9 @@ include ../mk/Make.defs
 libbike:
 	cd ../lib; $(MAKE) lib
 
+$(info NetCDF: $(NETCDF_INC) $(NETCDF_LIBS) )
 ifneq ($(NETCDF_INC), )
-CPPFLAGS += $(NETCDF_INC)
+CPPFLAGS += -DHAVE_NETCDF $(NETCDF_INC)
+
 endif
 LIBFLAGS := -L../lib/ -lBisicles$(config) $(NETCDF_LIBS)  $(LIBFLAGS)

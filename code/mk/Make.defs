@@ -76,7 +76,7 @@ else
 NETCDF_INC=-I$(NETCDF_HOME)/include
 NETCDF_LIBS := -L$(NETCDF_HOME)/lib $(NETCDF_LIBS)
 endif
-$(info NetCDF: $(NETCDF_INC) $(NETCDF_LIBS) )
+
 endif
 
 #if PYTHON_INC was not defined, try to work it out from PYTHON_VERSION
