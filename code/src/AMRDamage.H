@@ -48,7 +48,7 @@ public:
   AMRDamage();
 
   const LevelData<FArrayBox>* damage(int a_level) const;
-  const int finestLevel() const
+  int finestLevel() const
   {
     return m_finestLevel;
   }

@@ -1,4 +1,4 @@
-# -*- Mode: Makefile -*- 
+#-*- Mode: Makefile -*- 
 # a bunch of common defs for the various BISICLES make files
 MACHINE = $(shell uname)
 UNAMEM = $(shell uname -m)
@@ -27,14 +27,6 @@ LibNames := AMRElliptic AMRTimeDependent AMRTools BoxTools BaseTools
 XTRACPPFLAGS=-I$(THIS_DIR)/../src -I$(THIS_DIR)/../util
 include $(CHOMBO_HOME)/mk/Make.example
 
-
-# some defaults, which work if the getting started docs are followed
-#  USE_GDAL        : if TRUE, use gdal library (for amrtocf in filetools)
-#  GDAL_HOME     : location of gdal
-USE_GDAL      = FALSE
-GDAL_HOME     = $(BISICLES_HOME)/gdal
-
-
 #see if there is a host specific file.
 HOST_DEFS=$(THIS_DIR)/Make.defs.$(UNAMEN)
 
@@ -54,29 +46,6 @@ ifneq ($(wildcard $(NONE_DEFS)), )
 $(info including $(NONE_DEFS) )
 include $(NONE_DEFS)
 endif
-endif
-
-#if NETCDF_INC was not defined, try to work it out from nc-config or NETCDF_HOME
-ifeq ($(NETCDF_INC),)
-
-#no NETCDF_HOME? try nc-config
-ifeq ($(NETCDF_HOME), )
-NETCDF_HOME = $(shell nc-config --prefix)
-NETCDF_INC = -I$(shell nc-config --includedir)
-
-ifeq ($(shell nc-config --has-f90), yes)
-NETCDF_LIBS = $(shell nc-config --flibs) #does no harm to link the fortran libs if present
-else ifeq ($(shell nc-config --has-fortran), yes)
-NETCDF_LIBS = $(shell nc-config --flibs) #does no harm to link the fortran libs if present
-else
-NETCDF_LIBS = $(shell nc-config --libs)
-endif
-
-else
-NETCDF_INC=-I$(NETCDF_HOME)/include
-NETCDF_LIBS := -L$(NETCDF_HOME)/lib $(NETCDF_LIBS)
-endif
-
 endif
 
 #if PYTHON_INC was not defined, try to work it out from PYTHON_VERSION
@@ -109,7 +78,7 @@ CPPFLAGS :=$(PYTHON_INC) -DHAVE_PYTHON	$(CPPFLAGS)
 LIBFLAGS+=$(PYTHON_LIBS)
 endif
 
-SVN_REV=$(shell cd $(BISICLES_BRANCH) ; svnversion -n)
+#SVN_REV=$(shell cd $(BISICLES_BRANCH) ; svnversion -n)
 ifeq ($(SVN_REV),)
 SVN_REV=unknown
 SVN_REP=unknown

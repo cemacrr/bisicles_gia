@@ -13,6 +13,33 @@ all:  clean libbike
 include ../mk/Make.defs
  
 
+#if NETCDF_INC was not defined, try to work it out from nc-config or NETCDF_HOME
+ifeq ($(NETCDF_INC),)
+
+#no NETCDF_HOME? try nc-config
+ifeq ($(NETCDF_HOME), )
+NETCDF_HOME = $(shell nc-config --prefix)
+
+ifneq ($(NETCDF_HOME), )
+NETCDF_INC = -I$(shell nc-config --includedir)
+
+ifeq ($(shell nc-config --has-f90), yes)
+NETCDF_LIBS = $(shell nc-config --flibs) #does no harm to link the fortran libs if present
+else ifeq ($(shell nc-config --has-fortran), yes)
+NETCDF_LIBS = $(shell nc-config --flibs) #does no harm to link the fortran libs if present
+else
+NETCDF_LIBS = $(shell nc-config --libs)
+endif
+
+endif
+
+else
+NETCDF_INC=-I$(NETCDF_HOME)/include
+NETCDF_LIBS := -L$(NETCDF_HOME)/lib $(NETCDF_LIBS)
+endif
+endif
+
+
 libbike:
 	cd ../lib; $(MAKE) lib
 
