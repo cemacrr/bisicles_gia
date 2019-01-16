@@ -116,11 +116,11 @@ PYTHON_VERSION=2.7
   To compile with GNU, switch to the correct PrgEnv and load an hdf5 module, plus netcdf and python if desired
 </p>
 <pre>
-> module swap PrgEnv-intel PrgEnv-gnu
+> module swap PrgEnv-cray PrgEnv-gnu
 > module load cray-hdf5-parallel
 > module load python
 > module load cray-netcdf-hdf5parallel
-> module unload module unload cray-shmem #needed for python only
+> module unload  cray-shmem #needed for python only
 </pre>
 <p>
   To have the python interface work, the compiler needs the -shared and -fPIC flags, and
@@ -197,39 +197,115 @@ so we will say no more.
 The Cray XC30 at ARCHER (UK National HPC) offers Cray, GNU, and Intel compilers.
 Cray is the default (but doesn't seem to work for now). All three compilers can be supported with a single
 Make.def.locals, it only only necessary to load the correct PrgEnv module and the cray-hdf5-parallel. 
-Use the file Make.defs.archer included with Chombo
+One complexity is with statically versus  dynamically linked executables. Static linking
+is often simpler, but, will prevent you from using the python interface as freely as you might
+like - in particular, 'import math', which is needed for many common math functions, will
+result in a segfault. The alternative is dynamic linking, which results in executables
+that have a longer list of dependencies that must be matched between login nodes and compute
+nodes. Choose static if you have no strong preference.
+</p>
+
+  <p>
+    It is not generally a good idea to work with the filetools (nctoamr, stats, flatten etc)
+    on ARCHER - these are intended for interactive use, and can be used on a workstation
+    even with larger data, such as whole Antarctic simulations. Ideally, you
+    will have a GNU/linux workstation to compile and run these tools, but
+    if you have only a Windows or Mac OS X machine, one possibility is to run
+    a virtual machine with GNU/linux. We have found that Oracle virtualbox
+    and Ubuntu 18.04 work well on both Windows and MacOS X machines. 
+  </p>
+  
+<h3>ARCHER -- GNU compilers -- static linking </h3>
+
+  <p>
+    For static linking, use the file Make.defs.archer included with Chombo
+  </p>
+  <pre>
+    ln -s $BISICLES_HOME/Chombo/lib/mk/local/Make.defs.archer $BISICLES_HOME/Chombo/lib/mk/Make.defs.local
+  </pre>
+  
+  <p>
+    To build statically linked executables with GNU, switch to the correct PrgEnv and load an hdf5 module
+    q</p>
+  <pre>
+    > module unload PrgEnv-cray PrgEnv-intel
+    > module load PrgEnv-gnuq
+    > module load cray-hdf5-parallel
+    > module load cray-petsc # if you want to build petsc-enabled executables
+    > module load cray-netcdf-hdf5parallel # if you want to build the filetools
+  </pre>
+
+  <p>
+    $BISICLES_HOME/BISICLES/code/mk/Make.defs.archer
+    includes the following details for the python interface
+    and netcdf. 
+  </p>
+  <pre>   
+    PYTHON_DIR=/work/y07/y07/cse/python/2.7.6-static/
+    PYTHON_INC=-I$(PYTHON_DIR)/include/python2.7/
+    PYTHON_LIBS=-L$(PYTHON_DIR)/lib -lpython2.7 -lpthread -ldl -lutil
+    
+    NETCDF_INC=-I$(NETCDF_DIR)/include
+    NETCDF_LIBS=-L$(NETCDF_DIR)/lib -lnetcdf
+  </pre>
+
+<p>
+  Copy this file to Make.defs.none or Make.defs.$UNAMEN
+  (where $UNAMEN is the output from uname -n)
+  Then compile:
 </p>
 <pre>
-ln -s $BISICLES_HOME/Chombo/lib/mk/local/Make.defs.archer $BISICLES_HOME/Chombo/lib/mk/Make.defs.local
-</pre>
-
-<h3>ARCHER -- GNU compilers </h3>
-<p>
-To compile with GNU, switch to the correct PrgEnv and load an hdf5 module
-</p>
-<pre>
-> module swap PrgEnv-cray PrgEnv-gnu
-> module load cray-hdf5-parallel
-> module load python-compute
-> module load cray-netcdf-hdf5parallel
-> module unload module unload cray-shmem # need this for dynamic linking
-</pre>
-
-<p>
-$BISICLES_HOME/BISICLES/code/mk/Make.defs.archer
-includes the following details for the python interface
-and netcdf. 
-</p>
-<pre>   
-PYTHON_DIR=/work/y07/y07/cse/python/2.7.6-static/
-PYTHON_INC=-I$(PYTHON_DIR)/include/python2.7/
-PYTHON_LIBS=-L$(PYTHON_DIR)/lib -lpython2.7 -lpthread -ldl -lutil
-
-NETCDF_INC=-I$(NETCDF_DIR)/include
-NETCDF_LIBS=-L$(NETCDF_DIR)/lib -lnetcdf
+  cd BISICLES/code/exec2D
+  make all OPT=TRUE MPI=TRUE DEBUG=FALSE # are all default 
 </pre>
   <p>
-    Copy this file to Make.defs.none  or Make.defs.$UNAMEN
+    the exectable will be driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex. To
+    compile a PETSc-enable executable,  driver2d.Linux.64.CC.ftn.OPT.MPI.PETSC.GNU.ex
+  </p>
+  <pre>
+     cd BISICLES/code/exec2D
+     make all OPT=TRUE MPI=TRUE DEBUG=FALSE USE_PETSC=TRUE 
+  </pre>
+
+  <h3>ARCHER -- GNU compilers -- dynamic linking </h3>
+  
+  <p>
+    For dynamic linking, use the file Make.defs.archer_dynamic_chombo included with BISICLES
+  </p>
+  <pre>
+    ln -s $BISICLES_HOME/BISICLES/code/mk/Make.defs.archer_dynamic_chombo $BISICLES_HOME/Chombo/lib/mk/Make.defs.local
+  </pre>
+  
+  <p>
+To build with GNU, switch to the correct PrgEnv and load an hdf5 module
+  </p>
+  <pre>
+    > module unload PrgEnv-cray PrgEnv-intel
+    > module load PrgEnv-gnuq
+    > module load cray-hdf5-parallel
+    > module load python-compute
+    > module load cray-netcdf-hdf5parallel
+    > module load cray-petsc #if you want petsc
+    > module unload cray-shmem
+    > export CRAYPE_LINK_TYPE dynamic
+  </pre>
+  
+  <p>
+    $BISICLES_HOME/BISICLES/code/mk/Make.defs.archer_dyamic
+    includes the following details for the python interface
+    and netcdf. 
+</p>
+  <pre>
+    PYTHON_DIR=/work/y07/y07/cse/python/2.7.6/
+    PYTHON_INC=-I$(PYTHON_DIR)/include/python2.7
+    PYTHON_LIBS=-L$(PYTHON_DIR)/lib -lpython2.7 -lm -lpthread -lutil 
+
+    NETCDF_INC=-I$(NETCDF_DIR)/include
+    NETCDF_LIBS=-L$(NETCDF_DIR)/lib -lnetcdf
+</pre>
+
+  <p>
+    Copy this file to Make.defs.none or Make.defs.$UNAMEN
     (where $UNAMEN is the output from uname -n)
     Then compile 
   </p>
@@ -238,15 +314,35 @@ NETCDF_LIBS=-L$(NETCDF_DIR)/lib -lnetcdf
     make all OPT=TRUE MPI=TRUE DEBUG=FALSE # are all default 
   </pre>
   <p>
-    the exectable will be driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex. It is
-    not generally a good idea to work with the filetools (nctoamr, stats, flatten etc)
-    on ARCHER - these are intended for interactive use. Ideally, you
-    will have a GNU/linux workstation to compile and run these tools, but
-    if you have only a Windows or Mac OS X machine, one possibility is to run
-    a virtual machine with GNU/linux. We have found that Oracle virtualbox
-    and Ubuntu work well on both Windows and MacOS X machines. 
+    the exectable will be driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.DY.ex. To
+    compile a PETSc-enable executable,  driver2d.Linux.64.CC.ftn.OPT.MPI.PETSC.GNU.DY.ex
+  </p>
+  <pre>
+    cd BISICLES/code/exec2D
+    make all OPT=TRUE MPI=TRUE DEBUG=FALSE USE_PETSC=TRUE 
+  </pre>
   </p>
 
+  
+<h3>ARCHER - Intel compilers </h3>
+
+Compiling with Intel is essentially the same as with GNU. It's just a case of running
+<pre>
+  > module unload PrgEnv-cray PrgEnv-gnu
+  > module load PrgEnv-gnu
+  > module load cray-hdf5-parallel # and so on
+</pre>
+instead of
+<pre>
+  > module unload PrgEnv-cray PrgEnv-intel
+  > module load PrgEnv-gnu
+  > module load cray-hdf5-parallel #and so on
+</pre>
+<p>
+The binary will be called driver2d.Linux.64.CC.ftn.OPT.MPI.INTEL.ex. (or driver2d.Linux.64.CC.ftn.OPT.MPI.INTEL.DY.ex)
+</p>
+<h3>Running jobs on ARACHER</h3>
+  
 <p> ARCHER's compute nodes do not have access to the /home mount point (and therefore your home directory) 
 It's not obvious where login scripts come from in that case, either. This can all be dealt with inside the submission script
 (the MOM nodes do have access to home...). A minimal script (run from somewhere in /work) would look something like
@@ -259,32 +355,17 @@ It's not obvious where login scripts come from in that case, either. This can al
 export PBS_O_WORKDIR=$(readlink -f $PBS_O_WORKDIR)
 
 #load modules needed to get GLIBCXX, HDF5, python where the compute nodes can see them
-module swap PrgEnv-cray PrgEnv-gnu
+module unload PrgEnv-cray PrgEnv-intel
+module load PrgEnv-gnu
 module load cray-hdf5-parallel
 module load python-compute
 
 cd $PBS_O_WORKDIR
 
-EXE=/path/to/driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex 
+#A GNU dymamic executable - change the name for intel, static linking, etc  
+EXE=/path/to/driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.DY.ex 
 aprun -n 24 $EXE inputs.whatever
 </pre>
-
-
-<h3>ARCHER - Intel compilers </h3>
-
-Compiling with Intel is essentially the same as with GNU. It's just a case of running
-<pre>
-> module swap PrgEnv-cray PrgEnv-intel
-> module load cray-hdf5-parallel 
-</pre>
-instead of
-<pre>
-> module swap PrgEnv-cray PrgEnv-gnu
-> module load cray-hdf5-parallel 
-</pre>
-The binary will be called driver2d.Linux.64.CC.ftn.OPT.MPI.INTEL.ex. Just as with GNU, 
-the submission scripts needs to account for the fact that /home is not visible
-on the compute nodes.
 
 <h2><a name='monsoon'>The Monsoon Cray XC40 at the UK Met Office</a></h2>
 <p>
