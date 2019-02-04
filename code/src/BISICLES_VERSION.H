@@ -16,7 +16,7 @@
    BISICLES VERSION NUMBER
  */
 #define BISICLES_VERSION_MAJOR 1
-#define BISICLES_VERSION_MINOR 0
+#define BISICLES_VERSION_MINOR 1
 #define BISICLES_PATCH_NUMBER 0
 /**
    The Chombo version that this BISICLES version is intended for
