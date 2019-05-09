@@ -1,3 +1,5 @@
+BISICLES_MAKEFILES += Make.defs
+
 #-*- Mode: Makefile -*- 
 # a bunch of common defs for the various BISICLES make files
 MACHINE = $(shell uname)
