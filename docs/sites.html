@@ -104,8 +104,95 @@ PYTHON_VERSION=2.7
     
     <h2><a name='nersc'>NERSC</a></h2>
     The US DOE-run National Energy Research Supercomputing Center ( <a href='http://www.nersc.gov'>NERSC</a>) has several machines which BISICLES users may find useful. 
+
+<h3>Cori -- GNU compilers </h3>
+
+<p>
+  The Cray XC40 ( <a href='https://www.nersc.gov/users/computational-systems/cori'>Cori </a>) at NERSC offers Cray, GNU, and Intel compilers. All three compilers can be supported with a single
+  Make.defs.local, it only only necessary to load the correct PrgEnv module and the cray-hdf5-parallel.  
+<p>
+Cori has two partitions -- the instructions here are for the Intel Xeon "Haswell" partition, rather than the Knights Landing (KNL) partition.
+</p>
+
+<p>
+  To compile with GNU, switch to the correct PrgEnv and load an hdf5 module, plus netcdf and python if desired
+</p>
+<pre>
+> module load craype-haswell
+> module swap PrgEnv-intel PrgEnv-gnu
+> module load cray-hdf5-parallel
+> module load python
+> module load cray-netcdf-hdf5parallel
+> module unload cray-shmem #needed for python only
+</pre>
+<p>
+  To have the python interface work, the compiler needs the -shared and -fPIC flags, and
+  the linker needs the -dynamic flag. You may also need to have the environment variable CRAYPE_LINK_TYPE set to "dynamic"; in the csh or tcsh shells:
+</p>
+<pre>
+> setenv CRAYPE_LINK_TYPE dynamic
+</pre>
+<p>
+If you want to use the PETSc solvers, you can use the libraries maintained by Mark Adams:
+<p>
+PETSC_DIR=/global/homes/m/madams/petsc_install/petsc-cori-haswell-opt64-gcc
+<p>
+PETSC_ARCH=""
+<p>
+ You should be able to use the existing Chombo/lib/mk/local/Make.defs.cori.hsw.gnu file in the Chombo release as a starting point.  An example $BISICLES_HOME/Chombo/lib/mk/local/Make.defs.local would be:
+</p>
+<pre>
+makefiles+=Make.defs.local
+
+#default to MPI=TRUE,OPT=TRUE,DEBUG=FALSE 
+MPI=TRUE
+OPT=TRUE
+DEBUG=FALSE
+
+#this seems to be the Cray way
+CXX=CC
+FC=ftn
+MPICXX=CC
+USE_64=TRUE
+
+ifeq ($(PE_ENV),GNU)
+
+CH_CPP=$(CXX) -E -P 
+XTRACONFIG=.GNU
+cxxoptflags += -shared -fPIC 
+foptflags += -shared -fPIC
+ldoptflags += -dynamic
+cxxoptflags +=  -O3 -mavx2  -ffast-math 
+foptflags += -O3 -mavx2 -ffast-math 
+XTRALDFLAGS += -Wl,-zmuldefs
+
+else
+$(ECHO) "UNKNOWN PROGRAMMING ENVIRONMENT!"
+endif
+
+# The appropriate module (cray-hdf5-parallel) must be loaded for this to work.
+USE_HDF=TRUE
+HDFLIBFLAGS=   -L$(HDF5_DIR)/lib     $(HDF_POST_LINK_OPTS)  -lhdf5 -lz
+HDFMPILIBFLAGS=-L$(HDF5_DIR)/lib     $(HDF_POST_LINK_OPTS)  -lhdf5 -lz
+HDFINCFLAGS=   -I$(HDF5_DIR)/include $(HDF_INCLUDE_OPTS)
+HDFMPIINCFLAGS=-I$(HDF5_DIR)/include $(HDF_INCLUDE_OPTS)
+</pre>
+
+<p>
+  For python and netcdf, $BISICLES_HOME/BISICLES/code/mk/Make.defs.cori should include:
+</p>
+<pre>
+NETCDF_HOME =$(NETCDF_DIR)
+NETCDF_LIBS= -lnetcdff -lnetcdf
+PYTHON_VERSION=2.7
+PYTHON_INC=-I$(PYTHON_DIR)/include/python2.7
+PYTHON_LIBS=-L$(PYTHON_DIR)/lib/ -lpython2.7 -ldl -lutil -lm -Xlinker -export-dynamic
+NETCDF_INC=$(shell nc-config --includedir)
+NETCDF_LIBS=$(shell nc-config --flibs)
+</pre>
+
     
-<h3>Edison -- GNU compilers</h3>
+<h3>Edison -- GNU compilers  (note that Edison is being decomissioned on May 13, 2019) </h3>
 
 <p>
   The Cray XC30 (Edison) at NERSC offers Cray, GNU, and Intel compilers. All three compilers can be supported with a single
