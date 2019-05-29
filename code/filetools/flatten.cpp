@@ -15,12 +15,17 @@
 //===========================================================================
 
 #include <iostream>
+#include <errno.h>
+#include <unistd.h>
+#include <pwd.h>
+#include "CH_HDF5.H"
 #include "AMRIO.H"
 #include "FineInterp.H"
 #include "CoarseAverage.H"
 #include "fabncio.H"
 #include "BRMeshRefine.H"
 #include "LoadBalance.H"
+#include "DomainDiagnosticData.H"
 #include "NamespaceHeader.H"
 
 bool verbose = true;
@@ -58,11 +63,11 @@ int main(int argc, char* argv[]) {
  
     out_file_type_enum out_file_type;
     std::string ofile(out_file);
-    if (ofile.find(".hdf5") == ofile.size()-5)
+    if (ofile.size() > 5 && ofile.find(".hdf5") == ofile.size()-5)
       {
 	out_file_type = hdf5;
       }
-    else if (ofile.find(".nc") == ofile.size()-3)
+    else if (ofile.size() > 3 && ofile.find(".nc") == ofile.size()-3)
       {
 	out_file_type = nc;
       }
@@ -75,9 +80,10 @@ int main(int argc, char* argv[]) {
     int flatLevel = atoi(argv[3]);
 
     RealVect x0 = RealVect::Zero;
-    
+    bool cmd_line_x0 = false;
     if (argc == 4+SpaceDim)
       {
+	cmd_line_x0 = true;
 	for (int dir=0;dir < SpaceDim; dir++)
 	  x0[dir] = atof(argv[4+dir]);
       }
@@ -86,7 +92,66 @@ int main(int argc, char* argv[]) {
     //pout() << "flattening AMR file " << in_file << " on to level " 
     //	   << flatLevel << " and writing to " << out_file << std::endl;
 
-    Vector<std::string> names;
+
+    /// Collect information about the user, machine and command.
+    char host[1024];
+    int retval = gethostname(host,sizeof(host));
+    CH_assert(retval == 0)
+    std::string hostname(host);
+
+    std::string author("unknown");
+    struct passwd *pw;
+    char* login=getlogin();
+    {
+      if (login) pw = getpwnam(login);
+      if (pw) author = pw->pw_gecos;
+    }
+    
+    long path_max;
+    size_t bufSize;
+    char *buf;
+    char *cptr;
+
+    path_max = pathconf(".", _PC_PATH_MAX);
+    if (path_max == -1)
+      path_max=4000;
+    
+    bufSize=100;
+
+    do
+      {
+	buf = new char[bufSize];
+	cptr = getcwd(buf, bufSize);
+	if (cptr == NULL)
+	  {
+	    if (errno == ERANGE)
+	      {
+		bufSize *= 2;
+		buf=NULL;
+	      }	  
+	    else
+	      {
+		if (errno == EACCES)
+		  pout() << "getcwd failed because search permission is denied for current directory" << errno << endl;
+	      }
+	    CH_assert(errno == ERANGE)
+	  }
+      } while (cptr == NULL && (bufSize < path_max));
+
+    std::string workingdir(buf);
+    if (buf != NULL)
+      delete[] buf;
+
+    std::string ifile(in_file);
+    std::string command(argv[0]);
+
+    char *flattenInfo;
+    std::string fmt;
+    fmt.assign("Carried out by %s on %s in directory %s using the filetool %s from input file %s");
+    flattenInfo = new char[fmt.size() + author.size() + hostname.size() + workingdir.size() + command.size() + ifile.size()];
+    sprintf(flattenInfo, fmt.c_str(), author.c_str(), hostname.c_str(), workingdir.c_str(), command.c_str(), ifile.c_str());
+
+    Vector<std::string> names;    
 
     if (verbose)
       {
@@ -99,13 +164,64 @@ int main(int argc, char* argv[]) {
     Real crseDx = 0.0, dt = 0.0, time = 0.0;
     Box crseBox;
     int numLevels;
+
+    HDF5Handle in_file_handle;
+    in_file_handle.open(in_file,  HDF5Handle::OPEN_RDONLY);
+    
     int status = ReadAMRHierarchyHDF5
-      (in_file,grids,data,names,crseBox,crseDx,dt,time,
+      (in_file_handle,grids,data,names,crseBox,crseDx,dt,time,
        ratio,numLevels);
     if (status != 0)
       {
         MayDay::Error("failed to read AMR hierarchy");
       }
+
+    std:: string group = in_file_handle.getGroup();
+
+    Vector<std::string> cf_long_names;
+    Vector<std::string> cf_units;
+    Vector<std::string> cf_standard_names;
+    int err;
+    for (int i = 0; i < names.size(); ++i)
+      {
+	if (verbose)
+	  {
+	    pout() << "Field: " << names[i] << endl;
+	  }
+	HDF5HeaderData attributeInfo;
+	err = in_file_handle.setGroup(group + "/" + names[i] + "_attribute");
+	if (err == 0)
+	  {
+	    attributeInfo.readFromFile(in_file_handle);
+	    cf_long_names.push_back(attributeInfo.m_string["Long name"]);
+	    cf_units.push_back(attributeInfo.m_string["Units"]);
+	    cf_standard_names.push_back(attributeInfo.m_string["Standard name"]);
+
+	    if (verbose)
+	      {
+		pout() << "    with attributes " << cf_standard_names[i] 
+		       << ", " << cf_units[i] << ", " << cf_long_names[i] << endl;
+	      }
+	  }
+	else
+	  {
+	    cf_long_names.push_back("");
+	    cf_units.push_back("");
+	    cf_standard_names.push_back("");
+	  }
+      }
+
+    in_file_handle.setGroup(group);
+
+    /// header data might constain useful metadata
+    HDF5HeaderData in_file_header;
+    in_file_header.readFromFile(in_file_handle);
+
+    /// might also be some domain wide diagnostic data
+    DomainDiagnosticData domain_diagnostic_data;
+    domain_diagnostic_data.read(in_file_handle);
+    
+    in_file_handle.close();
     
     if (verbose)
       {
@@ -138,26 +254,27 @@ int main(int argc, char* argv[]) {
     Vector<int> procAssign;
 
     // serial case
-    if (number_procs == 1)
-      {
-        boxes.push_back(flatBox);
-        procAssign.push_back(SerialTask::compute);
-      }
-    else
-      {
-        // see if we can distribute flatten domain
-        int num_boxes_on_a_side = sqrt(number_procs);
-        // special case where num_procs < 4
-        if (num_boxes_on_a_side < 2)
-          {
-            num_boxes_on_a_side = 2;
-          }
-        int maxBoxSize = flatBox.size(0)/num_boxes_on_a_side;
-        // try blockingFactor = 2, since that's most likely to work
-        int blockFactor = 2;
-        domainSplit(flatBox, boxes, maxBoxSize, blockFactor);
-        LoadBalance(procAssign, boxes);
-      }
+    //if (number_procs == 1)
+    //  {
+    boxes.push_back(flatBox);
+    procAssign.push_back(SerialTask::compute);
+    // SLC - distribution sounds good but only for hdf5: not netcdf.
+    //  }
+    //else
+    //{
+    // see if we can distribute flatten domain
+    //int num_boxes_on_a_side = sqrt(number_procs);
+    // special case where num_procs < 4
+    // if (num_boxes_on_a_side < 2)
+    //  {
+    //    num_boxes_on_a_side = 2;
+    //  }
+    //int maxBoxSize = flatBox.size(0)/num_boxes_on_a_side;
+    // try blockingFactor = 2, since that's most likely to work
+    //int blockFactor = 2;
+    //domainSplit(flatBox, boxes, maxBoxSize, blockFactor);
+    //LoadBalance(procAssign, boxes);
+    //}
 
     DisjointBoxLayout flatDBL(boxes, procAssign, pd);
     LevelData<FArrayBox> flatLevelData(flatDBL,names.size(),IntVect::Unit);
@@ -239,13 +356,27 @@ int main(int argc, char* argv[]) {
             Box gridBox = flatLevelData.getBoxes()[dit];
             FArrayBox validFab(gridBox, fab.nComp());
             validFab.copy(fab);
-            
-	    writeNetCDF(out_file, names, validFab, flatDx, x0);
+
+
+	    int epsg = in_file_header.m_int["crs_EPSG"];
+
+	    if (!cmd_line_x0)
+	      {
+		x0[0] = in_file_header.m_real["crs_origin_x"];
+		if (SpaceDim > 1 ) x0[1] = in_file_header.m_real["crs_origin_y"];
+	      }
+#ifdef HAVE_NETCDF
+	    NCIO::writeFAB(out_file, names, cf_standard_names, cf_units, cf_long_names, validFab, flatDx, x0, epsg, domain_diagnostic_data, flattenInfo, in_file_header);
+#else
+	    MayDay::Error("netcdf output specified but netcdf support not built")
+#endif
 	  }
       }
    
   
     // clean up memory
+    delete[] flattenInfo;
+
     for (int lev=0; lev<data.size(); lev++)
       {
         if (data[lev] != NULL)

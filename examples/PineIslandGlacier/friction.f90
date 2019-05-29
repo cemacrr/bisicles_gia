@@ -506,12 +506,15 @@ program t
         umodsia = (2.0d0*flwa(1:ewn,1:nsn,5) *thck**(glen_n+1)) / (glen_n+1.0d0) * (rhoi* grav)**glen_n  & 
              * sqrt(dsx**2 + dsy**2)**glen_n
         beta = (1 + rhoi* grav * thck * sqrt(dsx**2 + dsy**2)) / ( max(1.0d-6,umod - umodsia))
+
+         !beta is the effective drag f(u) (Tb = f(u) * u), and wewant to run with Tb = beta * |u|^1/3
+        beta = beta * umod**(2.0/3.0)       
      elsewhere
         beta = 100.0
      end where
   end where
 
-  beta = min(beta,maxbeta)
+  beta = min(beta,maxbeta * 1.0e+4**(2.0/3.0))
   beta = max(beta,minbeta)
 
   call growbeta(beta,typ,ewn,nsn,20,maxseabeta)
@@ -535,6 +538,8 @@ program t
 
   call growbeta(beta,typ,ewn,nsn,1,maxseabeta)
 
+ 
+  
   !set basal heat flux to 100 mW m^2. Units requires are J a^-1 m^-2
   bheatflux = 100*1e-3 * 365 * 24 * 3600
 

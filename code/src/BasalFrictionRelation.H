@@ -13,6 +13,7 @@
 #define _BASALFRICTIONRELATION_H_
 
 #include "FArrayBox.H"
+#include "LevelData.H"
 #include "NamespaceHeader.H"
 
 class LevelSigmaCS;
@@ -29,7 +30,14 @@ public:
 
   virtual ~BasalFrictionRelation() {;}
 
+  
 
+  virtual void updateThermodynamics( Vector<LevelData<FArrayBox>* >* a_tillWaterDepth )
+  {
+  }
+
+    
+  
   /// Computes cell-centered effective basal friction coeffcient \f$ \alpha \f$ such that  \f$ \tau_b  = \alpha (u_b, C) u_b \f$
   /**
       \param a_alpha effective basal friction coefficient based on the local velocity field. 
@@ -42,15 +50,17 @@ public:
 
   virtual void computeAlpha(FArrayBox& a_alpha,
 			    const FArrayBox& a_basalVel,
-			    const FArrayBox& a_C,
+			    const FArrayBox& a_C, const Real& a_scale,
 			    const LevelSigmaCS& a_coords, 
 			    const DataIterator& a_dit,
+			    int a_level,
 			    const Box& a_box) const = 0;
   
   /// Compute cell-centered dissipation rate \f$ s = T_b . u_b  / k_ice \f$
   /** 
       \param a_dissipation dissipation rate based on the local velocity field. 
       \param a_basalVel Cell-centered basal velocity field.
+      \param a_scale assume basalVel is scaled by a factor a_scale
       \param a_C Cell-centered coefficient field
       \param a_coords whole level geometry data
       \param a_dit index needed to retrieve data from a_coords
@@ -58,9 +68,10 @@ public:
   */
   virtual void computeDissipation(FArrayBox& a_dissipation,  
 				  const FArrayBox& a_basalVel,
-				  const FArrayBox& a_C,
+				  const FArrayBox& a_C, const Real& a_scale,
 				  const LevelSigmaCS& a_coords, 
 				  const DataIterator& a_dit,
+				  int a_level,
 				  const Box& a_box) const;
 
   
@@ -93,9 +104,9 @@ public:
     - `BasalFrictionPowerLaw.m = <float. e,g 0.3333 for m = 1/3>`
     - `BasalFrictionPowerLaw.includeEffectivePressure = <bool>`
     
-    if includeEffectivePressure, \f$n = 0\f$ so that there is no
+    if includeEffectivePressure, \f$n = m\f$ so that there is a 
     dependence on the thickness over flotation \f$h_ab\f$. Otherwise,
-    \f$n = m\f$
+    \f$n = 0\f$
 
  */
 class BasalFrictionPowerLaw : public BasalFrictionRelation
@@ -109,9 +120,10 @@ public:
 
   virtual void computeAlpha(FArrayBox& a_alpha,
 			    const FArrayBox& a_basalVel,
-			    const FArrayBox& a_C,
+			    const FArrayBox& a_C, const Real& a_scale,
 			    const LevelSigmaCS& a_coords, 
 			    const DataIterator& a_dit,
+			    int a_level,
 			    const Box& a_box) const;
 
   BasalFrictionRelation* getNewBasalFrictionRelation() const{
@@ -162,23 +174,40 @@ public:
   enum Model {Tsai,Leguy,MAX_MODEL};
 
 private:
-  Real m_a, m_p;
+  Real m_a, m_p, m_maxTillWaterDepth, m_tillPressureFactor;
   Model m_model;
+  Vector<LevelData<FArrayBox>* >* m_tillWaterDepth;
   BasalFrictionRelation* m_bfr; 
   
 public:
 
+
+  virtual void computeDissipation(FArrayBox& a_dissipation,  
+				  const FArrayBox& a_basalVel,
+				  const FArrayBox& a_C, const Real& a_scale,
+				  const LevelSigmaCS& a_coords, 
+				  const DataIterator& a_dit,
+				  int a_level,
+				  const Box& a_box) const;
+  
+  void updateThermodynamics( Vector<LevelData<FArrayBox>* >* a_tillWaterDepth  )
+  {
+    m_tillWaterDepth = a_tillWaterDepth;
+  }
   virtual void computeAlpha(FArrayBox& a_alpha,
 			    const FArrayBox& a_basalVel,
-			    const FArrayBox& a_C,
+			    const FArrayBox& a_C, const Real& a_scale,
 			    const LevelSigmaCS& a_coords, 
 			    const DataIterator& a_dit,
+			    int a_level,
 			    const Box& a_box) const;
 
 
-  PressureLimitedBasalFrictionRelation(Real a_a, Real a_p, Model a_model, 
-				       BasalFrictionRelation* a_bfr)
-    : m_a(a_a), m_p(a_p), m_model(a_model),  
+  PressureLimitedBasalFrictionRelation(Real a_a, Real a_p,  Real a_maxTillWaterDepth,
+				       Real a_tillPressureFactor, 
+				       Model a_model,  BasalFrictionRelation* a_bfr)
+    : m_a(a_a), m_p(a_p), m_maxTillWaterDepth(a_maxTillWaterDepth),
+      m_tillPressureFactor(a_tillPressureFactor),  m_model(a_model),  
       m_bfr(a_bfr->getNewBasalFrictionRelation())
   {
 
@@ -188,7 +217,8 @@ public:
   virtual BasalFrictionRelation* getNewBasalFrictionRelation() const
   {
     PressureLimitedBasalFrictionRelation* ptr = 
-      new PressureLimitedBasalFrictionRelation(m_a, m_p, m_model, m_bfr);
+      new PressureLimitedBasalFrictionRelation(m_a, m_p, m_maxTillWaterDepth,m_tillPressureFactor ,
+					       m_model, m_bfr);
 
     return static_cast<BasalFrictionRelation*>(ptr);
   }

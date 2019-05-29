@@ -13,7 +13,8 @@
 #define _CALVINGMODEL_H_
 
 #include "LevelSigmaCS.H"
-
+#include "ParmParse.H"
+#include "SurfaceFlux.H"
 #include "NamespaceHeader.H"
 
 class AmrIce;
@@ -43,7 +44,14 @@ public:
 
   static CalvingModel* parseCalvingModel(const char* a_prefix);
 
+  /// factory method
+  virtual CalvingModel* new_CalvingModel() = 0;
 
+  /// frontal ablation rate.
+  virtual void getCalvingRate(LevelData<FArrayBox>& a_calvingRate, 
+			      const AmrIce& a_amrIce,int a_level);
+
+ 
 };
 
 ///the simplest calving model : don't do anything
@@ -64,6 +72,11 @@ public:
 
   }
 
+ virtual CalvingModel* new_CalvingModel()
+  {
+    return new NoCalvingModel( *this);
+  }
+  
 
 };
 
@@ -106,7 +119,14 @@ public:
   {
     ;
   }
- 
+
+  virtual CalvingModel* new_CalvingModel()
+  {
+    return new DeglaciationCalvingModelA( *this);
+  }
+  
+
+  
 protected:
   Real m_calvingThickness, m_calvingOceanDepth, m_minThickness, m_startTime, m_endTime;
   
@@ -140,6 +160,14 @@ public:
     ;
   }
 
+
+  virtual CalvingModel* new_CalvingModel()
+  {
+    return new  DomainEdgeCalvingModel( *this);
+  }
+  
+
+  
 protected:
   Vector<int> m_frontLo;
   Vector<int> m_frontHi;
@@ -178,6 +206,11 @@ public:
  
 
 
+  virtual CalvingModel* new_CalvingModel()
+  {
+    return new ProximityCalvingModel( *this);
+  }
+  
 };
 
 
@@ -216,7 +249,11 @@ public:
   {
     ;
   }
- 
+  virtual CalvingModel* new_CalvingModel()
+  {
+    return new DeglaciationCalvingModelB (*this); 
+  }
+
 protected:
   Real m_calvingThickness, m_calvingOceanDepth, m_minThickness, m_startTime, m_endTime;
   
@@ -261,7 +298,10 @@ public:
   {
     ;
   }
- 
+  virtual CalvingModel* new_CalvingModel()
+  {
+    return new ThicknessCalvingModel( *this);
+  }
 protected:
   Real m_calvingThickness, m_calvingOceanDepth, m_minThickness, m_startTime, m_endTime;
   
@@ -296,7 +336,13 @@ public:
   {
     ;
   }
- 
+
+  virtual CalvingModel* new_CalvingModel()
+  {
+    return new MaximumExtentCalvingModel ( *this);
+  }
+
+  
 protected:
   Real m_startTime, m_endTime;
   RealVect m_highLoc, m_lowLoc;
@@ -317,9 +363,14 @@ public:
 
   CompositeCalvingModel(Vector<CalvingModel*> a_vectModels)
     : m_vectModels(a_vectModels)
-  { }
-
-      
+  {
+    m_vectModels.resize(a_vectModels.size());
+    for (int i =0; i < m_vectModels.size(); i++)
+      {
+	m_vectModels[i] = a_vectModels[i]->new_CalvingModel();
+      }   
+  }
+   
   virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
 			      LevelData<FArrayBox>& a_calvedIce,
 			      LevelData<FArrayBox>& a_addedIce,
@@ -335,6 +386,21 @@ public:
   // this is public for simplicity
   Vector<CalvingModel*> m_vectModels;
 
+  virtual CalvingModel* new_CalvingModel()
+  {
+    return new CompositeCalvingModel (*this); 
+  }
+
+  CompositeCalvingModel(const CompositeCalvingModel& a)
+  {
+    m_vectModels.resize(a.m_vectModels.size());
+    for (int i =0; i < a.m_vectModels.size(); i++)
+      {
+	m_vectModels[i] = a.m_vectModels[i]->new_CalvingModel();
+      }
+  }
+  
+  
 };
 
 
@@ -364,8 +430,14 @@ public:
     
   }
 
+  virtual CalvingModel* new_CalvingModel()
+  {
+    return new  FlotationCalvingModel (*this); 
+  }
+
+  
 private:
-  DomainEdgeCalvingModel(m_domainEdgeCalvingModel);
+  DomainEdgeCalvingModel m_domainEdgeCalvingModel ;
 
   
 };
@@ -403,7 +475,13 @@ public:
   {
     ;
   }
- 
+
+  virtual CalvingModel* new_CalvingModel()
+  {
+    return new CliffCollapseCalvingModel (*this); 
+  }
+
+  
 protected:
   Real m_maxCliffThickness, m_recessionRate, m_startTime, m_endTime;
 
@@ -412,6 +490,76 @@ private:
   
 };
 
+
+/// A Calving model that provides a simple rate
+/**
+   The rate is cell-centred (which fits with the 
+   current implementation in AmrIce::advectIceFrac),
+   and is specified by a SurfaceFlux.
+ */
+class VariableRateCalvingModel : public CalvingModel
+{
+
+  Real m_startTime, m_endTime;
+  DomainEdgeCalvingModel* m_domainEdgeCalvingModel;
+  SurfaceFlux* m_calvingRate;
+
+public:
+
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
+ 			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+			      LevelData<FArrayBox>& a_removedIce,
+			      LevelData<FArrayBox>& a_iceFrac, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      Stage a_stage);
+  
+  VariableRateCalvingModel (ParmParse& a_pp);
+
+  virtual ~VariableRateCalvingModel();
+  
+  virtual CalvingModel* new_CalvingModel();
+  
+  virtual void getCalvingRate(LevelData<FArrayBox>& a_calvingRate, 
+			      const AmrIce& a_amrIce,int a_level);
+
+};
+
+
+/// A Calving model that provides a rate proportional to speed: the constant of proportionality can vary in x,y,t
+/**
+   The rate is cell-centred (which fits with the  current implementation in AmrIce::advectIceFrac),
+   The constant is specified by a SurfaceData.
+ */
+class RateProportionalToSpeedCalvingModel : public CalvingModel
+{
+
+  Real m_startTime, m_endTime;
+  DomainEdgeCalvingModel* m_domainEdgeCalvingModel;
+  SurfaceFlux* m_proportion;
+
+public:
+
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
+ 			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+			      LevelData<FArrayBox>& a_removedIce,
+			      LevelData<FArrayBox>& a_iceFrac, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      Stage a_stage);
+  
+  RateProportionalToSpeedCalvingModel (ParmParse& a_pp);
+
+  virtual ~RateProportionalToSpeedCalvingModel();
+  
+  virtual CalvingModel* new_CalvingModel();
+  
+  virtual void getCalvingRate(LevelData<FArrayBox>& a_calvingRate, 
+			      const AmrIce& a_amrIce,int a_level);
+
+};
 
 
 #include "NamespaceFooter.H"

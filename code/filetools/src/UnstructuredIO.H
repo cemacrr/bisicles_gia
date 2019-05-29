@@ -63,17 +63,17 @@ public:
   void append(int a_lev, const Box& a_box, const IntVect& a_iv, 
 	      const Vector<Real>& a_data);
   
-  const int nComp() const
+  int nComp() const
   {
     return m_nComp;
   }
 
-  const size_t nCell() const
+ size_t nCell() const
   {
     return m_level.size();
   }
 
-  const size_t nLevel() const
+  size_t nLevel() const
   {
     return m_nLevel;
   }

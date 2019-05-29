@@ -33,7 +33,8 @@ class AMRHierarchy
   bool m_ok;
   Box m_crseBox;
   std::map<std::string,int> m_nameCompMap;
-
+  Vector<Real> m_sigma;
+  
   AMRHierarchy();
 
   void updateNameCompMap()
@@ -123,6 +124,7 @@ public:
   const Vector<Real>& dx() const  {return m_dx;}
   const Vector<std::string>& names() const  {return m_names;}
   const Vector<int>& ratio() const {return m_ratio;}
+  const Vector<Real>& sigma() const {return m_sigma;}
   const std::map<std::string,int>& nameCompMap() const {return m_nameCompMap;}
   int nLevel() const  {return m_nLevel;}
   Real time() const {return m_time;}
@@ -572,6 +574,24 @@ void amr_query_domain_corners(int *status, int *lo, int* hi, const int *amr_id, 
     }
 }
 
+
+//
+void bisicles_read_sigma(int *status, double *sigma, const int* n_sigma, const int* amr_id)
+{
+  if (!status)
+    return;
+
+  if (amr_id)
+    {
+      std::map<int, AMRHierarchy*>::const_iterator i = libamrfile::g_store.find(*amr_id);
+      if (i != libamrfile::g_store.end())
+	{
+	  AMRHierarchy* h = i->second;
+	  
+	    
+	}
+    }
+}
 
 
 void amr_query_n_comp(int *status, int* n_comp, const int* amr_id)

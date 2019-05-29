@@ -53,7 +53,6 @@ using std::string;
 #include "amrIceF_F.H"
 #include "BisiclesF_F.H"
 #include "IceThermodynamics.H"
-#include "PicardSolver.H"
 #include "JFNKSolver.H"
 #include "InverseVerticallyIntegratedVelocitySolver.H"
 #include "PetscIceSolver.H"
@@ -73,6 +72,47 @@ using std::string;
 
 #include "NamespaceHeader.H"
 
+/// create a new LevelData<FArrayBox>*, interpolate from a_crseData and copy from a_oldData as needed, delete a_oldData 
+LevelData<FArrayBox>* destructiveRegrid(LevelData<FArrayBox>* a_oldData,
+					const DisjointBoxLayout& a_newDBL,
+				        const LevelData<FArrayBox>* a_crseData,
+					int a_ratio)
+{
+  //CH_assert(a_oldData);
+  CH_assert(a_crseData);
+  LevelData<FArrayBox>* newData = new LevelData<FArrayBox>(a_newDBL, a_crseData->nComp(), a_crseData->ghostVect());
+  CH_assert(newData);
+  
+  if (a_crseData)
+    {
+      CH_assert(a_crseData->nComp() == newData->nComp());
+      CH_assert(a_crseData->ghostVect() == newData->ghostVect() );
+  
+      FineInterp interpolator(a_newDBL, newData->nComp(), a_ratio, newData->disjointBoxLayout().physDomain());
+      interpolator.interpToFine(*newData, *a_crseData);
+      
+      PiecewiseLinearFillPatch ghostFiller
+	(a_newDBL, a_crseData->disjointBoxLayout() ,  a_crseData->nComp(),
+	 a_crseData->disjointBoxLayout().physDomain(), a_ratio, a_crseData->ghostVect()[0]);
+
+      ghostFiller.fillInterp(*newData, *a_crseData, *a_crseData, 1.0, 0, 0,  a_crseData->nComp());
+ 
+    }
+  
+  if (a_oldData)
+    {
+      if (a_oldData->isDefined())
+	{
+	  a_oldData->copyTo(*newData);
+	}
+      delete a_oldData;
+    }
+  
+  newData->exchange();
+  return newData;
+  
+}
+  
 
 // do regridding
 void
@@ -153,24 +193,7 @@ AmrIce::regrid()
 	    //return;
 	  }
 
-#ifdef REGRID_EH
-	// We need to regrid the internal energy, but the conserved quantity is H*E
-	// Set E <- E*H now (and E <- E/H later)
-	for (int lev=0; lev <= m_finest_level ; ++lev)
-	  {
-	    for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
-	      {
-		FArrayBox& E = (*m_internalEnergy[lev])[dit];
-		FArrayBox H(E.box(),1);
-		H.copy((*m_old_thickness[lev])[dit]);
-		H += 1.0e-10;
-		for (int comp  = 0; comp < m_internalEnergy[0]->nComp(); comp++)
-		  {
-		    E.mult( H,0,comp,1);
-		  }
-	      }
-	  }
-#endif
+
 
 	// now loop through levels and redefine if necessary
 	for (int lev=lbase+1; lev<= new_finest_level; ++lev)
@@ -185,100 +208,17 @@ AmrIce::regrid()
 	    const DisjointBoxLayout oldDBL = m_amrGrids[lev];
 	      
 	    m_amrGrids[lev] = newDBL;
-	      
-	    // build new storage
-	    LevelData<FArrayBox>* old_old_thicknessDataPtr = m_old_thickness[lev];
-	    LevelData<FArrayBox>* old_velDataPtr = m_velocity[lev];
-	    LevelData<FArrayBox>* old_tempDataPtr = m_internalEnergy[lev];
-	    LevelData<FArrayBox>* old_calvDataPtr = m_calvedIceThickness[lev];
-	    LevelData<FArrayBox>* old_removedDataPtr = m_removedIceThickness[lev];
-	    LevelData<FArrayBox>* old_addedDataPtr = m_addedIceThickness[lev];
 
-	    LevelData<FArrayBox>* old_deltaTopographyDataPtr = m_deltaTopography[lev];
-            LevelData<FArrayBox>* old_iceFracDataPtr = m_iceFrac[lev];
-	     
-	    LevelData<FArrayBox>* new_old_thicknessDataPtr = 
-	      new LevelData<FArrayBox>(newDBL, 1, m_old_thickness[0]->ghostVect());
-	      
-	    LevelData<FArrayBox>* new_velDataPtr = 
-	      new LevelData<FArrayBox>(newDBL, SpaceDim, m_velocity[0]->ghostVect());
+	    // first we need to regrid m_deltaTopography, it will be needed to 
+	    // regrid the bedrock topography & hence LevelSigmaCS
+	    m_deltaTopography[lev] = destructiveRegrid(m_deltaTopography[lev], newDBL,
+						       m_deltaTopography[lev-1], m_refinement_ratios[lev-1]) ;
 
-	    LevelData<FArrayBox>* new_tempDataPtr = 
-	      new LevelData<FArrayBox>(newDBL, m_internalEnergy[0]->nComp(), 
-				       m_internalEnergy[0]->ghostVect());
-	    //since the internalEnergy data has changed
-	    m_A_valid = false;
-
-            LevelData<FArrayBox>* new_iceFracDataPtr = 
-              new LevelData<FArrayBox>(newDBL, 1, m_iceFrac[0]->ghostVect());
-            
-	    LevelData<FArrayBox>* new_calvDataPtr = 
-	      new LevelData<FArrayBox>(newDBL, m_calvedIceThickness[0]->nComp(), 
-				       m_calvedIceThickness[0]->ghostVect());
-	    LevelData<FArrayBox>* new_removedDataPtr = 
-	      new LevelData<FArrayBox>(newDBL, m_removedIceThickness[0]->nComp(), 
-				       m_removedIceThickness[0]->ghostVect());
-	    LevelData<FArrayBox>* new_addedDataPtr = 
-	      new LevelData<FArrayBox>(newDBL, m_addedIceThickness[0]->nComp(), 
-				       m_addedIceThickness[0]->ghostVect());
-	      
-	    LevelData<FArrayBox>* new_deltaTopographyDataPtr = 
-	      new LevelData<FArrayBox>(newDBL, m_deltaTopography[0]->nComp(), 
-				       m_deltaTopography[0]->ghostVect());
-
-	      
-#if BISICLES_Z == BISICLES_LAYERED
-	    LevelData<FArrayBox>* old_sTempDataPtr = m_sInternalEnergy[lev];
-	    LevelData<FArrayBox>* old_bTempDataPtr = m_bInternalEnergy[lev];
-	    LevelData<FArrayBox>* new_sTempDataPtr = 
-	      new LevelData<FArrayBox>(newDBL, m_sInternalEnergy[0]->nComp(),
-				       m_sInternalEnergy[0]->ghostVect());
-	    LevelData<FArrayBox>* new_bTempDataPtr = 
-	      new LevelData<FArrayBox>(newDBL, m_bInternalEnergy[0]->nComp(),
-				       m_bInternalEnergy[0]->ghostVect());
-	     
-#endif	      
-	      
+	    // LevelSigmaCS regrid 
 	    {
-	      // first we need to regrid m_deltaTopography, it will be needed to 
-	      // regrid the bedrock topography & hence LevelSigmaCS
-	      // may eventually want to do post-regrid smoothing on this
-	      FineInterp interpolator(newDBL,m_deltaTopography[0]->nComp(),
-				      m_refinement_ratios[lev-1],
-				      m_amrDomains[lev]);
-	      interpolator.interpToFine(*new_deltaTopographyDataPtr, *m_deltaTopography[lev-1]);
-
-		
-	      PiecewiseLinearFillPatch ghostFiller
-		(m_amrGrids[lev],
-		 m_amrGrids[lev-1],
-		 m_deltaTopography[lev-1]->nComp(),
-		 m_amrDomains[lev-1],
-		 m_refinement_ratios[lev-1],
-		 m_deltaTopography[lev-1]->ghostVect()[0]);
-
-	      ghostFiller.fillInterp(*new_deltaTopographyDataPtr,*m_deltaTopography[lev-1],
-				     *m_deltaTopography[lev-1],1.0,0,0,
-				     m_deltaTopography[lev-1]->nComp());
-
-	      if (old_deltaTopographyDataPtr != NULL && oldDBL.isClosed())
-		{
-		  old_deltaTopographyDataPtr->copyTo(*new_deltaTopographyDataPtr);
-		}
-	      delete old_deltaTopographyDataPtr;
-		
-	    }
-
-
-
-	    // also need to handle LevelSigmaCS 
-
-	    // assume level 0 has correct ghosting
-	    IntVect sigmaCSGhost = m_vect_coordSys[0]->ghostVect();
-	    {
+	      IntVect sigmaCSGhost = m_vect_coordSys[0]->ghostVect();
 	      RealVect dx = m_amrDx[lev]*RealVect::Unit;
 	      RefCountedPtr<LevelSigmaCS > oldCoordSys = m_vect_coordSys[lev];
-		
 	      RefCountedPtr<LevelSigmaCS > auxCoordSys = (lev > 0)?m_vect_coordSys[lev-1]:oldCoordSys;
 
 	      m_vect_coordSys[lev] = RefCountedPtr<LevelSigmaCS >
@@ -303,7 +243,7 @@ AmrIce::regrid()
 		  // need to re-apply accumulated bedrock (GIA). Could be optional?
 		  for (DataIterator dit(newDBL); dit.ok(); ++dit)
 		    {
-		      m_vect_coordSys[lev]->getTopography()[dit] += (*new_deltaTopographyDataPtr)[dit];
+		      m_vect_coordSys[lev]->getTopography()[dit] += (*m_deltaTopography[lev])[dit];
 		    }
 		}
 
@@ -357,260 +297,48 @@ AmrIce::regrid()
 		m_vect_coordSys[lev]->recomputeGeometry(crseCoords,refRatio);
 	      }
 	    }
-		
-	    // first fill with interpolated data from coarser level
-	      
-	    {
-	      // may eventually want to do post-regrid smoothing on this!
-	      FineInterp interpolator(newDBL, 1, 
-				      m_refinement_ratios[lev-1],
-				      m_amrDomains[lev]);
-	    
-	      interpolator.interpToFine(*new_old_thicknessDataPtr, *m_old_thickness[lev-1]);
+
+	    // regrid other prognostic fields
+	    m_old_thickness[lev] = destructiveRegrid(m_old_thickness[lev], newDBL, m_old_thickness[lev-1], m_refinement_ratios[lev-1]) ;
+	    m_iceFrac[lev] = destructiveRegrid( m_iceFrac[lev], newDBL, m_iceFrac[lev-1],	m_refinement_ratios[lev-1]);
+	    m_velocity[lev] = destructiveRegrid( m_velocity[lev], newDBL,  m_velocity[lev-1], m_refinement_ratios[lev-1]);
 	
-	      // now copy old-grid data into new holder
-	      if (old_old_thicknessDataPtr != NULL) 
-		{
-		  if ( oldDBL.isClosed())
-		    {
-		      old_old_thicknessDataPtr->copyTo(*new_old_thicknessDataPtr);
-		    }
-		  
-		}
-
-		interpolator.interpToFine(*new_iceFracDataPtr, *m_iceFrac[lev-1]);
-	
-		// now copy old-grid data into new holder
-		if (old_iceFracDataPtr != NULL) 
-		  {
-		    if ( oldDBL.isClosed())
-		      {
-			old_iceFracDataPtr->copyTo(*new_iceFracDataPtr);
-		      }
-		    // can now delete old data 
-		    delete old_iceFracDataPtr;
-		  }
-
-		
-	    }
-	      
 	    {
-	      // may eventually want to do post-regrid smoothing on this!
-	      FineInterp interpolator(newDBL, SpaceDim, 
-				      m_refinement_ratios[lev-1],
-				      m_amrDomains[lev]);
-		
-	      interpolator.interpToFine(*new_velDataPtr, *m_velocity[lev-1]);
-
-		
-		
-	      // now copy old-grid data into new holder
-	      if (old_velDataPtr != NULL)
-		{
-		  if (oldDBL.isClosed()) 
-		    {
-		      old_velDataPtr->copyTo(*new_velDataPtr);
-		    }
-		  // can now delete old data 
-		  delete old_velDataPtr;
-		}
-
 	      //handle ghost cells on the coarse-fine interface
 	      QuadCFInterp qcfi(m_amrGrids[lev], &m_amrGrids[lev-1],
 				m_amrDx[lev], m_refinement_ratios[lev-1],
 				2, m_amrDomains[lev]);
-	      qcfi.coarseFineInterp(*new_velDataPtr, *m_velocity[lev-1]);
-		
+	      qcfi.coarseFineInterp(*m_velocity[lev], *m_velocity[lev-1]);
+	      
 	      //boundary ghost cells
 	      m_thicknessIBCPtr->velocityGhostBC
-		(*new_velDataPtr, *m_vect_coordSys[lev],m_amrDomains[lev],m_time);
-		
-
+		(*m_velocity[lev], *m_vect_coordSys[lev],m_amrDomains[lev],m_time);
 	    }
 
-	    {
-	      // may eventually want to do post-regrid smoothing on this
-	    
-	      FineInterp interpolator(newDBL,m_internalEnergy[0]->nComp(),
-				      m_refinement_ratios[lev-1],
-				      m_amrDomains[lev]);
-	      interpolator.interpToFine(*new_tempDataPtr, *m_internalEnergy[lev-1]);
+	    //calved ice  regrid
+	    m_calvedIceThickness[lev] = destructiveRegrid(m_calvedIceThickness[lev], newDBL, m_calvedIceThickness[lev-1],  m_refinement_ratios[lev-1]);
+	    m_removedIceThickness[lev] = destructiveRegrid(m_removedIceThickness[lev], newDBL, m_removedIceThickness[lev-1],  m_refinement_ratios[lev-1]);
+	    m_addedIceThickness[lev] = destructiveRegrid(m_addedIceThickness[lev], newDBL, m_addedIceThickness[lev-1],  m_refinement_ratios[lev-1]);
 
-		
-	      PiecewiseLinearFillPatch ghostFiller
-		(m_amrGrids[lev],
-		 m_amrGrids[lev-1],
-		 m_internalEnergy[lev-1]->nComp(),
-		 m_amrDomains[lev-1],
-		 m_refinement_ratios[lev-1],
-		 m_internalEnergy[lev-1]->ghostVect()[0]);
-
-	      ghostFiller.fillInterp(*new_tempDataPtr,*m_internalEnergy[lev-1],
-				     *m_internalEnergy[lev-1],1.0,0,0,
-				     m_internalEnergy[lev-1]->nComp());
-
-	      if (old_tempDataPtr != NULL && oldDBL.isClosed())
-		{
-		  old_tempDataPtr->copyTo(*new_tempDataPtr);
-		}
-	      delete old_tempDataPtr;	
-	    }
-	      
-	   
-	    {
-	      FineInterp interpolator(newDBL,m_calvedIceThickness[0]->nComp(),
-				      m_refinement_ratios[lev-1],
-				      m_amrDomains[lev]);
-	      interpolator.interpToFine(*new_calvDataPtr, *m_calvedIceThickness[lev-1]);
-		
-	      PiecewiseLinearFillPatch ghostFiller
-		(m_amrGrids[lev],
-		 m_amrGrids[lev-1],
-		 m_calvedIceThickness[lev-1]->nComp(),
-		 m_amrDomains[lev-1],
-		 m_refinement_ratios[lev-1],
-		 m_calvedIceThickness[lev-1]->ghostVect()[0]);
-
-	      ghostFiller.fillInterp(*new_calvDataPtr,*m_calvedIceThickness[lev-1],
-				     *m_calvedIceThickness[lev-1],1.0,0,0,
-				     m_calvedIceThickness[lev-1]->nComp());
-
-	      if (old_calvDataPtr != NULL && oldDBL.isClosed())
-		{
-		  old_calvDataPtr->copyTo(*new_calvDataPtr);
-		}
-	      delete old_calvDataPtr;
-		
-	    }
-	    {
-	      FineInterp interpolator(newDBL,m_removedIceThickness[0]->nComp(),
-				      m_refinement_ratios[lev-1],
-				      m_amrDomains[lev]);
-	      interpolator.interpToFine(*new_removedDataPtr, *m_removedIceThickness[lev-1]);
-		
-	      PiecewiseLinearFillPatch ghostFiller
-		(m_amrGrids[lev],
-		 m_amrGrids[lev-1],
-		 m_removedIceThickness[lev-1]->nComp(),
-		 m_amrDomains[lev-1],
-		 m_refinement_ratios[lev-1],
-		 m_removedIceThickness[lev-1]->ghostVect()[0]);
-
-	      ghostFiller.fillInterp(*new_removedDataPtr,*m_removedIceThickness[lev-1],
-				     *m_removedIceThickness[lev-1],1.0,0,0,
-				     m_removedIceThickness[lev-1]->nComp());
-
-	      if (old_removedDataPtr != NULL && oldDBL.isClosed())
-		{
-		  old_removedDataPtr->copyTo(*new_removedDataPtr);
-		}
-	      delete old_removedDataPtr;
-		
-	    }
-	    {
-	      FineInterp interpolator(newDBL,m_addedIceThickness[0]->nComp(),
-				      m_refinement_ratios[lev-1],
-				      m_amrDomains[lev]);
-	      interpolator.interpToFine(*new_addedDataPtr, *m_addedIceThickness[lev-1]);
-		
-	      PiecewiseLinearFillPatch ghostFiller
-		(m_amrGrids[lev],
-		 m_amrGrids[lev-1],
-		 m_addedIceThickness[lev-1]->nComp(),
-		 m_amrDomains[lev-1],
-		 m_refinement_ratios[lev-1],
-		 m_addedIceThickness[lev-1]->ghostVect()[0]);
-
-	      ghostFiller.fillInterp(*new_addedDataPtr,*m_addedIceThickness[lev-1],
-				     *m_addedIceThickness[lev-1],1.0,0,0,
-				     m_addedIceThickness[lev-1]->nComp());
-
-	      if (old_addedDataPtr != NULL && oldDBL.isClosed())
-		{
-		  old_addedDataPtr->copyTo(*new_addedDataPtr);
-		}
-	      delete old_addedDataPtr;
-		
-	    }
-
- 
-
-#if BISICLES_Z == BISICLES_LAYERED
-	    {
-	      // may eventually want to do post-regrid smoothing on this
-	      FineInterp interpolator(newDBL,m_sInternalEnergy[0]->nComp(),
-				      m_refinement_ratios[lev-1],
-				      m_amrDomains[lev]);
-
-	      PiecewiseLinearFillPatch ghostFiller
-		(m_amrGrids[lev],
-		 m_amrGrids[lev-1],
-		 m_sInternalEnergy[lev-1]->nComp(),
-		 m_amrDomains[lev-1],
-		 m_refinement_ratios[lev-1],
-		 m_sInternalEnergy[lev-1]->ghostVect()[0]);
-
-	
-
-	      interpolator.interpToFine(*new_sTempDataPtr, *m_sInternalEnergy[lev-1]);
-		
-	      ghostFiller.fillInterp(*new_sTempDataPtr,*m_sInternalEnergy[lev-1],
-				     *m_sInternalEnergy[lev-1],1.0,0,0,
-				     m_sInternalEnergy[lev-1]->nComp());
-
-
-	      if (old_sTempDataPtr != NULL && oldDBL.isClosed())
-		{
-		  old_sTempDataPtr->copyTo(*new_sTempDataPtr);
-		}
-	      delete old_sTempDataPtr;
-		
-	      interpolator.interpToFine(*new_bTempDataPtr, *m_bInternalEnergy[lev-1]);
-
-	      ghostFiller.fillInterp(*new_bTempDataPtr,*m_bInternalEnergy[lev-1],
-				     *m_bInternalEnergy[lev-1],1.0,0,0,
-				     m_bInternalEnergy[lev-1]->nComp());
-		
-	      if (old_bTempDataPtr != NULL && oldDBL.isClosed())
-		{
-		  old_bTempDataPtr->copyTo(*new_bTempDataPtr);
-		}
-	      delete old_bTempDataPtr;
-
-	      new_tempDataPtr->exchange();
-	      new_sTempDataPtr->exchange();
-	      new_bTempDataPtr->exchange();
-	      //set boundary for non-periodic cases values
-	      m_internalEnergyIBCPtr->setIceInternalEnergyBC
-		(*new_tempDataPtr,*new_sTempDataPtr,*new_bTempDataPtr,
-		 *m_vect_coordSys[lev] );
-
-	    }
-#endif
-	    // can now delete old data 
-	    delete old_old_thicknessDataPtr;
-
-	    // now copy new holders into multilevel arrays
-	    m_old_thickness[lev] = new_old_thicknessDataPtr;
-	    m_velocity[lev] = new_velDataPtr;
-	    m_internalEnergy[lev] = new_tempDataPtr;
-	    m_calvedIceThickness[lev] = new_calvDataPtr;
-	    m_removedIceThickness[lev] = new_removedDataPtr;
-	    m_addedIceThickness[lev] = new_addedDataPtr;
-	    m_deltaTopography[lev] = new_deltaTopographyDataPtr;
-            m_iceFrac[lev] = new_iceFracDataPtr;      
-#if BISICLES_Z == BISICLES_LAYERED
-	    m_sInternalEnergy[lev] = new_sTempDataPtr;
-	    m_bInternalEnergy[lev] = new_bTempDataPtr;
-#endif
-
-
+	    //internal energy regrid
+	    m_internalEnergy[lev] = destructiveRegrid( m_internalEnergy[lev], newDBL, m_internalEnergy[lev-1], m_refinement_ratios[lev-1]);
+	    m_tillWaterDepth[lev] = destructiveRegrid(m_tillWaterDepth[lev], newDBL, m_tillWaterDepth[lev-1], m_refinement_ratios[lev-1]);
+	    m_sInternalEnergy[lev] = destructiveRegrid( m_sInternalEnergy[lev], newDBL, m_sInternalEnergy[lev-1], m_refinement_ratios[lev-1]);
+	    m_bInternalEnergy[lev] = destructiveRegrid( m_bInternalEnergy[lev], newDBL, m_bInternalEnergy[lev-1], m_refinement_ratios[lev-1]);
+	    //internal energy boundary ghost cells
+	    m_internalEnergyIBCPtr->setIceInternalEnergyBC
+	      (* m_internalEnergy[lev], *m_tillWaterDepth[lev], *m_sInternalEnergy[lev], *m_bInternalEnergy[lev],
+	       *m_vect_coordSys[lev] );
+	    //since the internalEnergy data has changed
+	    m_A_valid = false;
+	  
+	    // no need to regrid, just reallocate
 	    if (m_velBasalC[lev] != NULL)
 	      {
 		delete m_velBasalC[lev];
 	      }
 	    m_velBasalC[lev] = new LevelData<FArrayBox>(newDBL, 1, IntVect::Unit);
-	      
+	    
 	    if (m_cellMuCoef[lev] != NULL)
 	      {
 		delete m_cellMuCoef[lev];
@@ -658,6 +386,12 @@ AmrIce::regrid()
 	    m_basalThicknessSource[lev] = 
 	      new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
 
+	    if (m_volumeThicknessSource[lev] != NULL)
+	      {
+		delete m_volumeThicknessSource[lev];
+	      }
+	    m_volumeThicknessSource[lev] = 
+	      new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit) ;
 
 	    if (m_divThicknessFlux[lev] != NULL)
 	      {
@@ -681,9 +415,6 @@ AmrIce::regrid()
 	    m_sHeatFlux[lev] = 
 	      new LevelData<FArrayBox>(newDBL,   1, IntVect::Unit);
 
-
-
-#if BISICLES_Z == BISICLES_LAYERED
 	    if (m_layerXYFaceXYVel[lev] != NULL)
 	      {
 		delete m_layerXYFaceXYVel[lev];
@@ -699,21 +430,29 @@ AmrIce::regrid()
 	      
 	    m_layerSFaceXYVel[lev] = new LevelData<FArrayBox>
 	      (newDBL, SpaceDim*(m_nLayers + 1), IntVect::Unit);
-#endif		
+
+	    if (m_layerSFaceSVel[lev] != NULL)
+	      {
+		delete m_layerSFaceSVel[lev];
+	      }
+	      
+	    m_layerSFaceSVel[lev] = new LevelData<FArrayBox>
+	      (newDBL, SpaceDim*(m_nLayers + 1), IntVect::Unit);
+	    
+	    
 	      
 	  } // end loop over currently defined levels
 
 	  
 	// now ensure that any remaining levels are null pointers
 	// (in case of de-refinement)
-	for (int lev=new_finest_level+1; lev<m_old_thickness.size(); lev++)
+	for (int lev = new_finest_level+1; lev <= m_finest_level; lev++)
 	  {
 	    if (m_old_thickness[lev] != NULL) 
 	      {
 		delete m_old_thickness[lev];
 		m_old_thickness[lev] = NULL;
 	      }
-
 
 	    if (m_velocity[lev] != NULL) 
 	      {
@@ -726,12 +465,18 @@ AmrIce::regrid()
 		delete m_internalEnergy[lev];
 		m_internalEnergy[lev] = NULL;
 	      }
-
-	      if (m_iceFrac[lev] != NULL) 
-		{
-		  delete m_iceFrac[lev];
-		  m_iceFrac[lev] = NULL;
-		}
+	    
+	    if (m_tillWaterDepth[lev] != NULL) 
+	      {
+		delete m_internalEnergy[lev];
+		m_internalEnergy[lev] = NULL;
+	      }
+	    
+	    if (m_iceFrac[lev] != NULL) 
+	      {
+		delete m_iceFrac[lev];
+		m_iceFrac[lev] = NULL;
+	      }
 
 #if BISICLES_Z == BISICLES_LAYERED
 	    if (m_sInternalEnergy[lev] != NULL) 
@@ -815,29 +560,14 @@ AmrIce::regrid()
 	      }
 	  } // end loop over levels to determine covered levels
 
+	 // tempearture depends on internal energy
+	updateTemperature();
+
 	// this is a good time to check for remote ice
 	if ((m_eliminate_remote_ice_after_regrid) 
 	    && !(m_eliminate_remote_ice))
 	  eliminateRemoteIce();
-#ifdef REGRID_EH 	
-	// Since we set E <- E*H earlier, set E <- E/H later now
-	for (int lev=0; lev<= new_finest_level; ++lev)
-	  {
-	    for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
-	      {
-		FArrayBox& E = (*m_internalEnergy[lev])[dit];
-		FArrayBox H(E.box(),1);
-		H.copy((*m_old_thickness[lev])[dit]);
-		H += 1.0e-10;
-		for (int comp  = 0; comp < m_internalEnergy[0]->nComp(); comp++)
-		  {
-		    E.divide( H,0,comp,1);
-		  }
-	      }
-	  }
-#endif
-
-	
+      
 	//applyCalvingCriterion(CalvingModel::PostRegrid);
 
 	if (m_evolve_velocity)
@@ -857,7 +587,7 @@ AmrIce::regrid()
 	  
       } // end if tags changed
     } // end if max level > 0 in the first place
-  
+
   Real volumeAfter = computeTotalIce();
   Real volumeDifference = volumeAfter - volumeBefore;
   if (s_verbosity > 3) 
@@ -869,7 +599,7 @@ AmrIce::regrid()
 
 
   m_groundingLineProximity_valid = false;
-  m_viscousTensor_valid = false;
+ 
 }
       
                               

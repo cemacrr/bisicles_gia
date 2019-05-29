@@ -1,6 +1,6 @@
 domain details
-main.domain_size = 96e+3 64e+3 1.0e+3
-amr.num_cells = 96 64 10 
+main.domain_size = 64e+3 16e+3 1.0e+3
+amr.num_cells = 64 16 10 
 amr.is_periodic = 0 0 0
 
 #bulk constitutive relation and parameters
@@ -100,14 +100,14 @@ amr.max_dt_grow_factor = 1.1
 amr.time_step_ticks = 1
 
 #plotting options
-amr.plot_interval = 10
+amr.plot_interval = 1
 #amr.plot_time_interval = 10.0
 amr.plot_prefix = plot.channel.1km.ssa.3lev.
 #amr.write_preSolve_plotfiles = true
 amr.write_solver_rhs = 1
 amr.write_viscous_tensor = true
 amr.write_thickness_sources = true
-
+amr.write_mask = true
 #check points
 amr.check_interval = 100
 amr.check_prefix = chk.channel.1km.ssa.3lev.
@@ -124,7 +124,7 @@ amr.fill_ratio = 0.85    # how efficient are the grids
 amr.nestingRadius = 1    # proper nesting radius required
 amr.tags_grow = 4        # amount to buffer tags
 #amr.tagSubsetBoxesFile = tag_subset.Deep
-amr.tagCap = 1
+amr.tagCap = -1
 
 amr.interpolate_zb = 0 #go back to the IBC to regrid geometry
 amr.max_box_size = 32 # largest box length allowed

@@ -161,9 +161,9 @@ amr.grounding_line_tagging_min_vel = 0
 amr.verbosity = 5
 amr.velocity_solve_interval = @SOLVEINTERVAL
 
-#l1l2-fullamr.additional_velocity
-#l1l2-fullamr.diffusion_treatment = implicit
-#l1l2-fullL1L2.additionalVelocitySIAGradSLimit = 1.0e-2
+#l1l2_fullamr.additional_velocity
+#l1l2_fullamr.diffusion_treatment = implicit
+#l1l2_fullL1L2.additionalVelocitySIAGradSLimit = 1.0e-2
 
 amr.eliminate_remote_ice = true
 #END OF TEMPLATE

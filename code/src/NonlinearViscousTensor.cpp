@@ -82,6 +82,7 @@ void IceNonlinearViscousTensor::setupCoeffs()
 
    Real alpha = -1.0;
    Real beta = 1.0;
+   
    // for the moment, at least, this only works for dx = dy:
    if (SpaceDim > 1) CH_assert(m_dxs[0][0] == m_dxs[0][1]);
 
@@ -104,7 +105,7 @@ IceNonlinearViscousTensor::IceNonlinearViscousTensor
    m_basalFrictionRelPtr(a.m_basalFrictionRelPtr), m_bcPtr(a.m_bcPtr->new_thicknessIBC()),
    m_A(a.m_A), m_faceA(a.m_faceA) , m_time(a.m_time), m_vtopSafety(a.m_vtopSafety),
    m_vtopRelaxMinIter(a.m_vtopRelaxMinIter),m_vtopRelaxTol(a.m_vtopRelaxTol),
-   m_muMin(a.m_muMin),m_muMax(a.m_muMax)
+   m_muMin(a.m_muMin),m_muMax(a.m_muMax),m_scale(a.m_scale)
 {
   setupCoeffs();
 }
@@ -125,19 +126,20 @@ IceNonlinearViscousTensor::IceNonlinearViscousTensor
  IceThicknessIBC& a_bc,
  const Vector<LevelData<FArrayBox>*>& a_A,
  const Vector<LevelData<FluxBox>*>& a_faceA,
- const Real a_time,
- const Real a_vtopSafety,
- const int a_vtopRelaxMinIter,
- const Real a_vtopRelaxTol,
- const Real a_muMin ,
- const Real a_muMax)
-  :m_u(a_u), m_C(a_C), m_C0(a_C0), m_grids(a_grids), m_refRatio(a_refRatio),
-   m_domains(a_domains), m_dxs(a_dxs),m_finestLevel(a_finestLevel), 
-   m_coordSys(a_coordSys), m_constRelPtr(&a_constRel), 
-   m_basalFrictionRelPtr(&a_basalFrictionRel), m_bcPtr(a_bc.new_thicknessIBC()),
-   m_A(a_A), m_faceA(a_faceA) , m_time(a_time), m_vtopSafety(a_vtopSafety),
-   m_vtopRelaxMinIter(a_vtopRelaxMinIter),m_vtopRelaxTol(a_vtopRelaxTol),
-   m_muMin(a_muMin),m_muMax(a_muMax)
+ Real a_time,
+ Real a_vtopSafety,
+ int a_vtopRelaxMinIter,
+ Real a_vtopRelaxTol,
+ Real a_muMin ,
+ Real a_muMax,
+ Real a_scale)
+:m_u(a_u), m_C(a_C), m_C0(a_C0), m_grids(a_grids), m_refRatio(a_refRatio),
+ m_domains(a_domains), m_dxs(a_dxs),m_finestLevel(a_finestLevel), 
+ m_coordSys(a_coordSys), m_constRelPtr(&a_constRel), 
+ m_basalFrictionRelPtr(&a_basalFrictionRel), m_bcPtr(a_bc.new_thicknessIBC()),
+ m_A(a_A), m_faceA(a_faceA) , m_time(a_time), m_vtopSafety(a_vtopSafety),
+ m_vtopRelaxMinIter(a_vtopRelaxMinIter),m_vtopRelaxTol(a_vtopRelaxTol),
+ m_muMin(a_muMin),m_muMax(a_muMax),m_scale(a_scale)
 {
   setupCoeffs();
 }
@@ -219,6 +221,8 @@ void IceNonlinearViscousTensor::setState(const Vector<LevelData<FArrayBox>*>& a_
   m_u = a_u;
   
   CH_TIME("IceNonlinearViscousTensor::setState");
+
+  pout() << "IceNonlinearViscousTensor::setState (recomputes viscous tensor coeffs)" << endl;
   
   for (int lev=0; lev <= m_finestLevel ; lev++)
     {
@@ -293,9 +297,9 @@ void IceNonlinearViscousTensor::setState(const Vector<LevelData<FArrayBox>*>& a_
                                 levelDomain,levelVel.ghostVect(),
                                 true);
       levelVel.exchange(cornerCopier);
-           
+				
       (*m_constRelPtr).computeFaceMu(levelMu,
-                                     levelVel,
+                                     levelVel, m_scale, 
                                      crseVelPtr,
                                      nRefCrse,
                                      *m_faceA[lev],
@@ -331,16 +335,16 @@ void IceNonlinearViscousTensor::setState(const Vector<LevelData<FArrayBox>*>& a_
 	      FORT_MINFAB1(CHF_FRA(thisMu),
 	       		  CHF_CONST_REAL(m_muMax),
 	       		  CHF_BOX(box));
-	      
+
 	    }
         
 	  // also update alpha
           const Box& gridBox = levelGrids[dit];
-	  
+
 	  m_basalFrictionRelPtr->computeAlpha
-	    (levelAlpha[dit], levelVel[dit], levelC[dit] , 	
-	     levelCoords, dit, gridBox);
-	  levelAlpha[dit] += (*m_C0[lev])[dit];
+		      (levelAlpha[dit], levelVel[dit], levelC[dit] , m_scale, 	
+	     levelCoords, dit, lev, gridBox);
+	  levelAlpha[dit] += (*m_C0[lev])[dit];	  
 	  CH_assert(levelAlpha[dit].min(gridBox) >= 0.0);
 
 	  

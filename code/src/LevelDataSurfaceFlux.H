@@ -31,8 +31,9 @@ class LevelDataSurfaceFlux : public SurfaceFlux
 public:
 
    LevelDataSurfaceFlux(RefCountedPtr<LevelData<FArrayBox> > a_flux,
-   		       const RealVect& a_dx)
+			const RealVect& a_dx, const Real& a_defaultValue)
      :m_timeFileMap(NULL), m_startTime(-1.2345678e+300), m_endTime(1.2345678e+300),
+      m_defaultValue(a_defaultValue),
       m_startFlux(a_flux), m_endFlux(a_flux),m_dx(a_dx),m_verbose(true),m_name(""),
       m_linearInterp(true)
      
@@ -41,8 +42,10 @@ public:
   
   LevelDataSurfaceFlux(RefCountedPtr<std::map<Real, std::string> >& a_timeFileMap, 
 		       const std::string& a_name,
-		       const bool& a_linearInterp)
+		       const bool& a_linearInterp,
+		       const Real& a_defaultValue)
     :m_timeFileMap(a_timeFileMap), m_startTime(1.2345678e+300), m_endTime(-1.2345678e+300),
+     m_defaultValue(a_defaultValue),
      m_startFlux(new LevelData<FArrayBox>()),m_endFlux(new LevelData<FArrayBox>()),
      m_verbose(true),m_name(a_name),m_linearInterp(a_linearInterp)
   {
@@ -62,11 +65,11 @@ public:
     LevelDataSurfaceFlux* ptr;
     if (m_timeFileMap != NULL)
       {
-	ptr = new LevelDataSurfaceFlux(m_timeFileMap,m_name,m_linearInterp);
+	ptr = new LevelDataSurfaceFlux(m_timeFileMap,m_name,m_linearInterp, m_defaultValue);
       }
     else
       {
-     	ptr = new LevelDataSurfaceFlux(m_startFlux,m_dx);
+     	ptr = new LevelDataSurfaceFlux(m_startFlux,m_dx,m_defaultValue );
       }
     
     return static_cast<SurfaceFlux*>(ptr);
@@ -84,14 +87,14 @@ public:
 protected:
 
   RefCountedPtr<std::map<Real,std::string> > m_timeFileMap;
-  Real m_startTime, m_endTime;
+  Real m_startTime, m_endTime, m_defaultValue;
   RefCountedPtr< LevelData<FArrayBox> > m_startFlux;
   RefCountedPtr< LevelData<FArrayBox> > m_endFlux;
   RealVect m_dx;
   bool m_verbose;
   std::string m_name;
   bool m_linearInterp;
-
+  
 private:
   // Disallowed for all the usual reasons
   void operator=(const LevelDataSurfaceFlux& a_input)

@@ -62,7 +62,8 @@ public:
 			     int a_level, Real a_dt);
 
 #if BISICLES_Z == BISICLES_LAYERED
-  virtual void initializeIceInternalEnergy(LevelData<FArrayBox>& a_E, 
+  virtual void initializeIceInternalEnergy(LevelData<FArrayBox>& a_E,
+					   LevelData<FArrayBox>& a_tillWaterDepth,
 					   LevelData<FArrayBox>& a_surfaceE, 
 					   LevelData<FArrayBox>& a_basalE,
 					   const AmrIceBase& a_amrIce,

@@ -15,6 +15,27 @@
 #include "ParmParse.H"
 #include "NamespaceHeader.H"
 
+/// a default implementation
+/**
+   most models provide a criterion, rather than a rate.
+ */
+void
+CalvingModel::getCalvingRate(LevelData<FArrayBox>& a_calvingRate, const AmrIce& a_amrIce,int a_level)
+{
+  DataIterator dit = a_calvingRate.dataIterator();
+  for (dit.begin(); dit.ok(); ++dit)
+    {
+      a_calvingRate[dit].setVal(0.0);
+    }
+}
+
+void
+VariableRateCalvingModel::getCalvingRate(LevelData<FArrayBox>& a_calvingRate, const AmrIce& a_amrIce,int a_level)
+{
+  m_calvingRate->evaluate(a_calvingRate, a_amrIce, a_level, 0.0);
+}
+
+
 void 
 DeglaciationCalvingModelA::applyCriterion
 (LevelData<FArrayBox>& a_thickness, 
@@ -105,7 +126,8 @@ void DomainEdgeCalvingModel::applyCriterion
 		      //if (levelMask[dit](ip) != GROUNDEDMASKVAL)
 		      Real prevThck = a_thickness[dit](iv);
 		      a_thickness[dit](iv) = 0.0;
-
+		      if (a_iceFrac[dit].box().contains(iv))
+			a_iceFrac[dit](iv) = 0.0;
 		      // Record gain/loss of ice
 		      if (a_calvedIce[dit].box().contains(iv))
 			{
@@ -133,7 +155,8 @@ void DomainEdgeCalvingModel::applyCriterion
 		      //if (levelMask[dit](ip) != GROUNDEDMASKVAL)
 		      Real prevThck = a_thickness[dit](iv);
 		      a_thickness[dit](iv) = 0.0;
-
+		      if (a_iceFrac[dit].box().contains(iv))
+			a_iceFrac[dit](iv) = 0.0;
 		      // Record gain/loss of ice
 		      if (a_calvedIce[dit].box().contains(iv))
 			{
@@ -410,14 +433,19 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
         }
       CompositeCalvingModel* compositePtr = new CompositeCalvingModel(elements);
       ptr = static_cast<CalvingModel*>(compositePtr);
-    }   
-
-//   else
-//     {
-//       pout() << "Unknown calving model" << type << std::endl;
-//       MayDay::Error("Unknown calving model");
-//     }
+    }
   
+  else if (type == "VariableRateCalvingModel")
+    {
+      ptr = new VariableRateCalvingModel(pp);
+    }
+
+   else if (type == "RateProportionalToSpeedCalvingModel")
+    {
+      ptr = new RateProportionalToSpeedCalvingModel(pp);
+    }
+  
+
   return ptr;
 }
 
@@ -706,6 +734,103 @@ CalvingModel::updateCalvedIce(const Real& a_thck, const Real a_prevThck, const i
 }
 
 
+VariableRateCalvingModel::VariableRateCalvingModel(ParmParse& a_pp)
+{
+      Real startTime = -1.2345678e+300;
+      a_pp.query("start_time",  startTime);
+      Real endTime = 1.2345678e+300;
+      a_pp.query("end_time",  endTime);
+ 
+      Vector<int> frontLo(2,false); 
+      a_pp.getarr("front_lo",frontLo,0,frontLo.size());
+      Vector<int> frontHi(2,false);
+      a_pp.getarr("front_hi",frontHi,0,frontHi.size());
+      bool preserveSea = false;
+      a_pp.query("preserveSea",preserveSea);
+      bool preserveLand = false;
+      a_pp.query("preserveLand",preserveLand);
+
+      m_domainEdgeCalvingModel = new DomainEdgeCalvingModel(frontLo,frontHi,preserveSea,preserveLand);
+
+      std::string prefix (a_pp.prefix());
+      m_calvingRate = SurfaceFlux::parse( (prefix + ".CalvingRate").c_str());
+
+}
+
+void VariableRateCalvingModel::applyCriterion
+(LevelData<FArrayBox>& a_thickness,
+ LevelData<FArrayBox>& a_calvedIce,
+ LevelData<FArrayBox>& a_addedIce,
+ LevelData<FArrayBox>& a_removedIce,  
+ LevelData<FArrayBox>& a_iceFrac, 
+ const AmrIce& a_amrIce,
+ int a_level,
+ Stage a_stage)
+{
+
+  (*m_domainEdgeCalvingModel).applyCriterion( a_thickness, a_calvedIce, a_addedIce, a_removedIce, a_iceFrac,a_amrIce, a_level, a_stage);
+
+  const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
+  for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
+    {
+      FArrayBox& thck = a_thickness[dit];
+      FArrayBox& calved = a_calvedIce[dit];
+      FArrayBox& added = a_addedIce[dit];
+      FArrayBox& removed = a_removedIce[dit];
+      FArrayBox& frac = a_iceFrac[dit];
+      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+      Real frac_eps = 1.0e-6;
+      const Box& b = levelCoords.grids()[dit];
+      for (BoxIterator bit(b); bit.ok(); ++bit)
+	{
+	  const IntVect& iv = bit();
+	  Real prevThck = thck(iv);
+	  
+	  if (frac(iv) < frac_eps)
+	    {
+	      thck(iv)=0.0;
+	    }
+
+	  // Record gain/loss of ice
+	  if (calved.box().contains(iv))
+	    {
+	      updateCalvedIce(thck(iv),prevThck,mask(iv),added(iv),calved(iv),removed(iv));
+	    }
+
+	}
+    }
+}
+
+
+
+CalvingModel* VariableRateCalvingModel::new_CalvingModel()
+  {
+    VariableRateCalvingModel* ptr = new VariableRateCalvingModel(*this);
+    ptr->m_startTime = m_startTime;
+    ptr->m_endTime = m_endTime;
+    ptr->m_calvingRate = m_calvingRate->new_surfaceFlux();
+    ptr->m_domainEdgeCalvingModel = new DomainEdgeCalvingModel(*m_domainEdgeCalvingModel);
+    return ptr; 
+  }
+
+VariableRateCalvingModel::~VariableRateCalvingModel()
+{
+
+  if (m_domainEdgeCalvingModel != NULL)
+    {
+      delete m_domainEdgeCalvingModel;
+      m_domainEdgeCalvingModel = NULL;
+    }
+
+  if (m_calvingRate != NULL)
+    {
+      delete m_calvingRate;
+      m_calvingRate = NULL;
+    }
+
+}
+
+
 void 
 CliffCollapseCalvingModel::applyCriterion(LevelData<FArrayBox>& a_thickness,
 					  LevelData<FArrayBox>& a_calvedIce,
@@ -813,5 +938,125 @@ CliffCollapseCalvingModel::applyCriterion(LevelData<FArrayBox>& a_thickness,
 }
 
 
+RateProportionalToSpeedCalvingModel::RateProportionalToSpeedCalvingModel(ParmParse& a_pp)
+{
+      Real startTime = -1.2345678e+300;
+      a_pp.query("start_time",  startTime);
+      Real endTime = 1.2345678e+300;
+      a_pp.query("end_time",  endTime);
+ 
+      Vector<int> frontLo(2,false); 
+      a_pp.getarr("front_lo",frontLo,0,frontLo.size());
+      Vector<int> frontHi(2,false);
+      a_pp.getarr("front_hi",frontHi,0,frontHi.size());
+      bool preserveSea = false;
+      a_pp.query("preserveSea",preserveSea);
+      bool preserveLand = false;
+      a_pp.query("preserveLand",preserveLand);
+
+      m_domainEdgeCalvingModel = new DomainEdgeCalvingModel(frontLo,frontHi,preserveSea,preserveLand);
+
+      std::string prefix (a_pp.prefix());
+      m_proportion = SurfaceFlux::parse( (prefix + ".proportion").c_str());
+
+}
+
+void RateProportionalToSpeedCalvingModel::applyCriterion
+(LevelData<FArrayBox>& a_thickness,
+ LevelData<FArrayBox>& a_calvedIce,
+ LevelData<FArrayBox>& a_addedIce,
+ LevelData<FArrayBox>& a_removedIce,  
+ LevelData<FArrayBox>& a_iceFrac, 
+ const AmrIce& a_amrIce,
+ int a_level,
+ Stage a_stage)
+{
+
+  (*m_domainEdgeCalvingModel).applyCriterion( a_thickness, a_calvedIce, a_addedIce, a_removedIce, a_iceFrac,a_amrIce, a_level, a_stage);
+
+  const LevelSigmaCS& levelCoords = *a_amrIce.geometry(a_level);
+  for (DataIterator dit(levelCoords.grids()); dit.ok(); ++dit)
+    {
+      FArrayBox& thck = a_thickness[dit];
+      FArrayBox& calved = a_calvedIce[dit];
+      FArrayBox& added = a_addedIce[dit];
+      FArrayBox& removed = a_removedIce[dit];
+      FArrayBox& frac = a_iceFrac[dit];
+      const BaseFab<int>& mask = levelCoords.getFloatingMask()[dit];
+      Real frac_eps = 1.0e-6;
+      const Box& b = levelCoords.grids()[dit];
+      for (BoxIterator bit(b); bit.ok(); ++bit)
+	{
+	  const IntVect& iv = bit();
+	  Real prevThck = thck(iv);
+	  
+	  if (frac(iv) < frac_eps)
+	    {
+	      thck(iv)=0.0;
+	    }
+
+	  // Record gain/loss of ice
+	  if (calved.box().contains(iv))
+	    {
+	      updateCalvedIce(thck(iv),prevThck,mask(iv),added(iv),calved(iv),removed(iv));
+	    }
+
+	}
+    }
+}
+
+
+
+CalvingModel* RateProportionalToSpeedCalvingModel::new_CalvingModel()
+  {
+    RateProportionalToSpeedCalvingModel* ptr = new RateProportionalToSpeedCalvingModel(*this);
+    ptr->m_startTime = m_startTime;
+    ptr->m_endTime = m_endTime;
+    ptr->m_proportion = m_proportion->new_surfaceFlux();
+    ptr->m_domainEdgeCalvingModel = new DomainEdgeCalvingModel(*m_domainEdgeCalvingModel);
+    return ptr; 
+  }
+
+RateProportionalToSpeedCalvingModel::~RateProportionalToSpeedCalvingModel()
+{
+
+  if (m_domainEdgeCalvingModel != NULL)
+    {
+      delete m_domainEdgeCalvingModel;
+      m_domainEdgeCalvingModel = NULL;
+    }
+
+  if (m_proportion != NULL)
+    {
+      delete m_proportion;
+      m_proportion = NULL;
+    }
+
+}
+
+
+void
+RateProportionalToSpeedCalvingModel::getCalvingRate
+(LevelData<FArrayBox>& a_calvingRate, const AmrIce& a_amrIce,int a_level)
+{
+  m_proportion->evaluate(a_calvingRate, a_amrIce, a_level, 0.0);
+  const LevelData<FArrayBox>& vel = *a_amrIce.velocity(a_level); // flux vel might be better  
+  for (DataIterator dit(vel.dataIterator()); dit.ok(); ++dit)
+    {
+      Box b = a_calvingRate[dit].box();
+      for (BoxIterator bit(b); bit.ok(); ++bit)
+	{
+	  const IntVect& iv = bit();
+	  Real usq = 0.0;
+	  for (int dir = 0; dir < SpaceDim; dir++)
+	    {
+	      usq += vel[dit](iv,dir)*vel[dit](iv,dir);
+	    }	
+	  a_calvingRate[dit](iv) *= (1.0 + std::sqrt(usq));
+	}
+    }
+
+  int dbg = 0;dbg++; 
+}
 
 #include "NamespaceFooter.H"

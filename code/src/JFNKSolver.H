@@ -364,6 +364,8 @@ public:
     Real  m_muMax;
     //dont solve, just evaluate the residual
     bool m_residualOnly;
+    // scale factor, f: solve for f*u internally - still return u 
+    Real m_scale;
 
   };
 
@@ -433,6 +435,16 @@ private:
 		   const Vector<LevelData<FArrayBox>* >& a_rhs, 
 		   LinearizationMode a_mode);
 
+
+  void eliminateFastIce(Vector<LevelData<FArrayBox>* >& a_velocity,
+			Vector<LevelData<FArrayBox>* >& a_calvedIce,
+			Vector<LevelData<FArrayBox>* >& a_addedIce,
+			Vector<LevelData<FArrayBox>* >& a_removedIce,
+			Vector<LevelData<FArrayBox>* >& a_rhs,
+			Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+			IceNonlinearViscousTensor&  a_current);
+  
+  
   Real m_convergenceMetric;
 
 

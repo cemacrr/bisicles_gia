@@ -70,7 +70,7 @@ c------------------------------------
 c alpha <- min(alpha, a*p*|u|**(-1))
 c-----------------------------------
       subroutine BFRICTIONPLIMITTSAI(CHF_FRA1[alpha],
-     &     CHF_CONST_FRA[u],CHF_CONST_FRA1[p],CHF_CONST_REAL[a],
+     &     CHF_CONST_FRA[u],CHF_CONST_FRA1[p],CHF_CONST_FRA1[a],
      &     CHF_BOX[box])
 
       integer CHF_AUTODECL[i]
@@ -85,7 +85,7 @@ c-----------------------------------
      &     + u(CHF_AUTOIX[i],2)**2]
       
       alpha(CHF_AUTOIX[i]) = min(alpha(CHF_AUTOIX[i]),
-     &     a * p(CHF_AUTOIX[i]) * usq**(-half))
+     &     a(CHF_AUTOIX[i])  * p(CHF_AUTOIX[i]) * usq**(-half))
       
       CHF_ENDDO
 

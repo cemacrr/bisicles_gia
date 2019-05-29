@@ -37,6 +37,7 @@ void ConstantIceTemperatureIBC::basalHeatFlux
 void 
 ConstantIceTemperatureIBC::initializeIceInternalEnergy
 (LevelData<FArrayBox>& a_E,
+ LevelData<FArrayBox>& a_tillWaterDepth,
  LevelData<FArrayBox>& a_surfaceE, 
  LevelData<FArrayBox>& a_basalE,
  const AmrIceBase& a_amrIce, 
@@ -57,12 +58,14 @@ ConstantIceTemperatureIBC::initializeIceInternalEnergy
 	}	    
       a_surfaceE[dit].copy(E);
       a_basalE[dit].copy(E);
+      a_tillWaterDepth[dit].setVal(0.0);
     }
 }
 
 void 
 ConstantIceTemperatureIBC::setIceInternalEnergyBC
 (LevelData<FArrayBox>& a_E,
+ LevelData<FArrayBox>& a_tillWaterDepth,
  LevelData<FArrayBox>& a_surfaceE, 
  LevelData<FArrayBox>& a_basalE,
  const LevelSigmaCS& a_coordSys)
@@ -71,6 +74,7 @@ ConstantIceTemperatureIBC::setIceInternalEnergyBC
   ExtrapGhostCells( a_E, domain);
   ExtrapGhostCells( a_basalE, domain);
   ExtrapGhostCells( a_surfaceE, domain);
+  ExtrapGhostCells( a_tillWaterDepth, domain);
 }
 
 
@@ -138,6 +142,7 @@ void  IceInternalEnergyIBC::primBC
 
 void ReflectionIceInternalEnergyIBC::setIceInternalEnergyBC
 (LevelData<FArrayBox>& a_E, 
+ LevelData<FArrayBox>& a_tillWaterDepth,
  LevelData<FArrayBox>& a_surfaceE, 
  LevelData<FArrayBox>& a_basalE,
  const LevelSigmaCS& a_coordSys)
@@ -150,6 +155,8 @@ void ReflectionIceInternalEnergyIBC::setIceInternalEnergyBC
 	{
 	  ReflectGhostCells(a_E, domain, dir, Side::Lo);
 	  ReflectGhostCells(a_E, domain, dir, Side::Hi);
+	  ReflectGhostCells(a_tillWaterDepth, domain, dir, Side::Lo);
+	  ReflectGhostCells(a_tillWaterDepth, domain, dir, Side::Hi);
 	  ReflectGhostCells(a_surfaceE, domain, dir, Side::Lo);
 	  ReflectGhostCells(a_surfaceE, domain, dir, Side::Hi);
 	  ReflectGhostCells(a_basalE, domain, dir, Side::Lo);

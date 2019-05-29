@@ -56,7 +56,7 @@ public:
                          with the DisjointBoxLayout. (can be negative)
   */
   virtual void computeMu(LevelData<FArrayBox>& a_mu,
-                         const LevelData<FArrayBox>& a_vel, 
+                         const LevelData<FArrayBox>& a_vel, const Real& a_scale,
                          const LevelData<FArrayBox>* a_crseVel,
                          int a_nRefCrse,
                          const LevelData<FArrayBox>& a_A,
@@ -92,6 +92,7 @@ public:
   /** 
       \param a_mu face-centered \f$\mu\f$ based on the local velocity field.
       \param a_vel Cell-centered velocity field.
+      \param a_scale compute mu given input a_vel  = m_scale * true_vel
       \param a_A Cell- and layer-centered flow law coefficient (Glenn's \f$ A \f$ )  field
       \param a_crseVel Next coarser level velocity field for coarse-fine bc's (NULL if no coarser level)
                    
@@ -101,7 +102,7 @@ public:
                          with the DisjointBoxLayout. (can be negative)
   */  
   virtual void computeFaceMu(LevelData<FluxBox>& a_mu,
-                             LevelData<FArrayBox>& a_vel, 
+                             LevelData<FArrayBox>& a_vel, const Real& a_scale, 
                              const LevelData<FArrayBox>* a_crseVel,
                              int a_nRefCrse,
                              const LevelData<FluxBox>& a_A, 
@@ -179,9 +180,10 @@ class ConstantRateFactor : public RateFactor
   Real m_A; // the constant rate factor
 public:
   
-  ConstantRateFactor() : m_A(9.2e-18) // A measured in Pa^{n} a^{-1}
-  {
-  }
+  // ConstantRateFactor(Real a_seconds_per_unit_time)
+  //   : m_A(9.2e-18 / a_seconds_per_unit_time ) // A measured in Pa^{n} a^{-1}
+  // {
+  // }
  
   ConstantRateFactor(Real a_A) : m_A(a_A)
   {
@@ -231,9 +233,9 @@ class ArrheniusRateFactor : public RateFactor
   Real m_Q;
 
 public:
-  ArrheniusRateFactor();
+  ArrheniusRateFactor(Real a_seconds_per_unit_time);
  
-  void setDefaultParameters();
+  void setDefaultParameters(Real a_seconds_per_unit_time);
  
   
   void setParameters(Real a_n,
@@ -294,9 +296,9 @@ class PatersonRateFactor : public RateFactor
 
 public:
 
-  PatersonRateFactor();
+  PatersonRateFactor(Real a_seconds_per_unit_time);
  
-  void setDefaultParameters();
+  void setDefaultParameters(Real a_seconds_per_unit_time);
  
   void setA0(Real a_A0)
   {
@@ -360,9 +362,9 @@ class ZwingerRateFactor : public RateFactor
 
 public:
 
-  ZwingerRateFactor();
+  ZwingerRateFactor(Real a_seconds_per_unit_time);
  
-  void setDefaultParameters();
+  void setDefaultParameters(Real a_seconds_per_unit_time);
  
 
   void setParameters(Real a_E, Real a_A0, Real a_T0, Real a_R, 
@@ -408,7 +410,7 @@ public:
 
 
   virtual void computeMu(LevelData<FArrayBox>& a_mu,
-                         const LevelData<FArrayBox>& a_vel, 
+                         const LevelData<FArrayBox>& a_vel,  const Real& a_scale,
                          const LevelData<FArrayBox>* a_crseVel,
                          int a_nRefCrse,
                          const LevelData<FArrayBox>& a_A,
@@ -426,7 +428,7 @@ public:
 				  const IntVect& a_ghostVect = IntVect::Zero) const;
 
   virtual void computeFaceMu(LevelData<FluxBox>& a_mu,
-                             LevelData<FArrayBox>& a_vel, 
+                             LevelData<FArrayBox>& a_vel, const Real& a_scale, 
                              const LevelData<FArrayBox>* a_crseVel,
                              int a_nRefCrse,
                              const LevelData<FluxBox>& a_A, 
@@ -460,7 +462,7 @@ protected:
   /// utility function to compute flow law coefficient dependent part of Glens's
   /// law (ie A^{1/n})
   void computeMu0(FArrayBox& a_mu0,
-                  const FArrayBox& a_A,
+                  const FArrayBox& a_A,const Real& a_scale,
                   const Box& a_box) const;
   
 
@@ -481,7 +483,7 @@ public:
 
 
   virtual void computeMu(LevelData<FArrayBox>& a_mu,
-                         const LevelData<FArrayBox>& a_vel, 
+                         const LevelData<FArrayBox>& a_vel, const Real& a_scale,
                          const LevelData<FArrayBox>* a_crseVel,
                          int a_nRefCrse,
                          const LevelData<FArrayBox>& a_A,
@@ -501,7 +503,7 @@ public:
 
  
   virtual void computeFaceMu(LevelData<FluxBox>& a_mu,
-                             LevelData<FArrayBox>& a_vel, 
+                             LevelData<FArrayBox>& a_vel,  const Real& a_scale,
                              const LevelData<FArrayBox>* a_crseVel,
                              int a_nRefCrse, 
                              const LevelData<FluxBox>& a_A, 

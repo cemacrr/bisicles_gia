@@ -107,6 +107,9 @@ int main(int argc, char* argv[]) {
     //in_file_mangled += "_mangled";
     //FileMangler(in_file,in_file_mangled.c_str());
     //ParmParse pp(argc-2,argv+2,NULL,in_file_mangled.c_str());
+
+    
+
     
     ParmParse pp(argc-2,argv+2,NULL,in_file);
     ParmParse pp2("main");
@@ -128,32 +131,38 @@ int main(int argc, char* argv[]) {
     // ---------------------------------------------
     // set constitutive relation & rate factor
     // ---------------------------------------------
-   
+
+    Real seconds_per_unit_time = SECONDS_PER_TROPICAL_YEAR;
+    {
+      ParmParse ppc("constants");
+      ppc.query("seconds_per_unit_time",seconds_per_unit_time);
+    }
+    
     std::string rateFactorType = "constRate";
     pp2.query("rateFactor", rateFactorType);
     if (rateFactorType == "constRate")
       {
 	ParmParse crPP("constRate");
-	Real A = 9.2e-18;
+	Real A = 9.2e-18 * seconds_per_unit_time/SECONDS_PER_TROPICAL_YEAR;
 	crPP.query("A", A);
 	ConstantRateFactor rateFactor(A);
 	amrObject.setRateFactor(&rateFactor);
       }
     else if (rateFactorType == "arrheniusRate")
       {
-	ArrheniusRateFactor rateFactor;
+	ArrheniusRateFactor rateFactor(seconds_per_unit_time);
 	ParmParse arPP("ArrheniusRate");
 	amrObject.setRateFactor(&rateFactor);
       }
     else if (rateFactorType == "patersonRate")
       {
-	PatersonRateFactor rateFactor;
+	PatersonRateFactor rateFactor(seconds_per_unit_time);
 	ParmParse arPP("PatersonRate");
 	amrObject.setRateFactor(&rateFactor);
       }
     else if (rateFactorType == "zwingerRate")
       {
-	ZwingerRateFactor rateFactor;
+	ZwingerRateFactor rateFactor(seconds_per_unit_time);
 	ParmParse arPP("ZwingerRate");
 	amrObject.setRateFactor(&rateFactor);
       }
@@ -172,7 +181,7 @@ int main(int argc, char* argv[]) {
     
     if (basalRateFactorType == "patersonRate")
       {
-	PatersonRateFactor rateFactor;
+	PatersonRateFactor rateFactor(seconds_per_unit_time);
 	rateFactor.setA0(1.0);
 	amrObject.setBasalRateFactor(&rateFactor);
       }
@@ -190,7 +199,7 @@ int main(int argc, char* argv[]) {
       }
 
     amrObject.setSurfaceFlux(surf_flux_ptr);
-  
+    //delete surf_flux_ptr;
     // ---------------------------------------------
     // set basal (lower surface) flux. 
     // ---------------------------------------------
@@ -204,7 +213,7 @@ int main(int argc, char* argv[]) {
       }
 
     amrObject.setBasalFlux(basal_flux_ptr); 
-
+    //delete basal_flux_ptr;
      // ---------------------------------------------
     // set topography (bedrock) flux. 
     // ---------------------------------------------
@@ -731,10 +740,10 @@ int main(int argc, char* argv[]) {
 
       amrObject.setSurfaceHeatBoundaryData(surf_heat_boundary_data_ptr, diri, temp);
       if (surf_heat_boundary_data_ptr != NULL)
-	{
-	  delete surf_heat_boundary_data_ptr;
-	  surf_heat_boundary_data_ptr=NULL;
-	}
+      	{
+      	  delete surf_heat_boundary_data_ptr;
+      	  surf_heat_boundary_data_ptr=NULL;
+      	}
     
       // ---------------------------------------------
       // set basal (lower surface) heat boundary data. 
@@ -806,7 +815,15 @@ int main(int argc, char* argv[]) {
 
     amrObject.setDomainSize(domainSize);
 
-    {
+
+    CalvingModel* calving_model_ptr = CalvingModel::parseCalvingModel("CalvingModel");
+    if (calving_model_ptr == NULL)
+      {
+	calving_model_ptr = new NoCalvingModel;
+      }
+    amrObject.setCalvingModel(calving_model_ptr);
+    
+    { 
       //// TODO this is just a temporary means of initializing a 
       //// damage model observer etc. Once we have it working, it 
       //// probably needs to be bound up with MuCoefficient
@@ -825,10 +842,15 @@ int main(int argc, char* argv[]) {
 	  DamageConstitutiveRelation* dcrptr = 
 	    new DamageConstitutiveRelation(constRelPtr, &ptr->damage());
 	  amrObject.setConstitutiveRelation(dcrptr);
+
+	  CalvingModel* d_calving_model_ptr = new DamageCalvingModel(calving_model_ptr, &ptr->damage());
+	  amrObject.setCalvingModel(d_calving_model_ptr);
+	  delete d_calving_model_ptr;
 	  
 	}
     }
 
+    
     {
       /// initialize the melange model
       bool melange_model = false;
@@ -839,7 +861,6 @@ int main(int argc, char* argv[]) {
 	  amrObject.addObserver(ptr);
 	}
     }
-
     
     // set up initial grids, initialize data, etc.
     amrObject.initialize();
@@ -865,7 +886,7 @@ int main(int argc, char* argv[]) {
         delete surf_flux_ptr;
         surf_flux_ptr = NULL;
       }
-
+    
     if (basal_flux_ptr != NULL)
       {
         delete basal_flux_ptr;
@@ -878,6 +899,12 @@ int main(int argc, char* argv[]) {
         topg_flux_ptr = NULL;
       }
 
+    if (calving_model_ptr != NULL)
+      {
+	delete calving_model_ptr;
+	calving_model_ptr = NULL;
+      }
+    
     if (basalFrictionPtr != NULL)
       {
 	delete basalFrictionPtr;
@@ -896,6 +923,8 @@ int main(int argc, char* argv[]) {
         thicknessIBC=NULL;
       }
 
+     
+    
 #ifdef CH_USE_HDF5
     {
       // finally, carry out an optional regression test

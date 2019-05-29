@@ -3,7 +3,7 @@ getcre()
   case $smod in
     l1l2) cre=L1L2;;
     ssa)  cre=GlensLaw;;
-    l1l2-full) cre=L1L2;;
+    l1l2_full) cre=L1L2;;
     *) echo "unknown stress model"
   esac
 }
@@ -122,7 +122,7 @@ do
 		CFUNC=constfriction 	
 		for solver in Chombo 
 		do
-		    for smod in ssa l1l2 l1l2-full;
+		    for smod in ssa l1l2 l1l2_full;
 		    do
 			for lev in 0 1 2 3 4; 
 			do

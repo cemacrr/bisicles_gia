@@ -23,7 +23,7 @@ geometry.basalSlope = -0.087488664 0.0
 
 amr.maxLevel = 1   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2
-amr.num_cells = 32 32 32   #number of cells in base grid
+amr.num_cells = 32 32 12   #number of cells in base grid
 amr.is_periodic = 1 1 1    # 1 if domain is periodic 
 # (note that periodic BC's override physical BC types)
 # physical BC types:  0 = homogeneous Dirichlet
@@ -54,3 +54,6 @@ amr.tagging_val = 0.00001       # min undivided grad(vel) resulting in tagging
  # this problem seems to need more picard iterations
 amr.max_solver_iterations = 100
 
+
+amr.write_layer_vertical_velocities = true
+amr.isothermal = false

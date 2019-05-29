@@ -106,6 +106,8 @@ JFNKSolver.RelaxTol = 1.0e-5
 JFNKSolver.maxRelaxIter = 50
 JFNKSolver.vtopRelaxTol = 0
 
+constants.ice_density = 910.0
+
 
 #input file for solver benchmark
 main.filename = stream.regression.preSolve.000000.2d.hdf5

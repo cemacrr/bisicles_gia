@@ -373,7 +373,7 @@ c--------------------------------------------------
          phisqr = phisqr +  phizi(CHF_AUTOIX[i],icomp)**2 
       end do
  
-      g = two * A(CHF_AUTOIX[i]) * H(CHF_AUTOIX[i])
+      g = two * min( A(CHF_AUTOIX[i]), 1.0e-10) * H(CHF_AUTOIX[i])
      &     * (four * mu(CHF_AUTOIX[i])**2 
      &     * epsSqr(CHF_AUTOIX[i]) + phisqr)**p
       

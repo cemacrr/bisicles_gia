@@ -63,13 +63,15 @@ public:
 
 
 #if BISICLES_Z == BISICLES_LAYERED
-  virtual void initializeIceInternalEnergy(LevelData<FArrayBox>& a_E, 
+  virtual void initializeIceInternalEnergy(LevelData<FArrayBox>& a_E,
+					   LevelData<FArrayBox>& a_tillWaterDepth,
 					   LevelData<FArrayBox>& a_surfaceE, 
 					   LevelData<FArrayBox>& a_basalE,
 					   const AmrIceBase& a_amrIce, 
 					   int a_level, Real a_dt)=0;
 
-  virtual void setIceInternalEnergyBC(LevelData<FArrayBox>& a_E, 
+  virtual void setIceInternalEnergyBC(LevelData<FArrayBox>& a_E,
+				      LevelData<FArrayBox>& a_tillWaterDepth,
 				      LevelData<FArrayBox>& a_surfaceE, 
 				      LevelData<FArrayBox>& a_basalE,
 				      const LevelSigmaCS& a_coordSys)=0;
@@ -128,6 +130,7 @@ public:
 
 #if BISICLES_Z == BISICLES_LAYERED
   virtual void initializeIceInternalEnergy(LevelData<FArrayBox>& a_E, 
+					   LevelData<FArrayBox>& a_tillWaterDepth,
 					   LevelData<FArrayBox>& a_surfaceE, 
 					   LevelData<FArrayBox>& a_basalE,
 					   const AmrIceBase& a_amrIce, 
@@ -135,6 +138,7 @@ public:
 
   
   virtual void setIceInternalEnergyBC(LevelData<FArrayBox>& a_E, 
+				      LevelData<FArrayBox>& a_tillWaterDepth,
 				     LevelData<FArrayBox>& a_surfaceT, 
 				     LevelData<FArrayBox>& a_basalT,
 				     const LevelSigmaCS& a_coordSys);
@@ -164,6 +168,7 @@ public:
   
   virtual void setIceInternalEnergyBC
   (LevelData<FArrayBox>& a_E, 
+   LevelData<FArrayBox>& a_tillWaterDepth,
    LevelData<FArrayBox>& a_surfaceE, 
    LevelData<FArrayBox>& a_basalE,
    const LevelSigmaCS& a_coordSys);

@@ -989,7 +989,7 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
   int refToCrs = crseVelPtr ? m_refRatios[a_ilev-1] : -1;
   IntVect muGhost = IntVect::Zero;
   m_constRelPtr->computeFaceMu( levelMu,
-				levelVel,
+				levelVel, 1.0,
 				crseVelPtr,
 				refToCrs,
 				levelA,
@@ -1023,8 +1023,8 @@ PetscIceSolver::computeMu( LevelData<FArrayBox> &a_horizontalVel,
       // also update alpha (or C)
       const Box& gridBox = levelGrids[dit];
       m_basalFrictionRelPtr->computeAlpha
-	(levelC[dit], levelVel[dit],levelBeta[dit],
-	 levelCS, dit ,gridBox);
+	(levelC[dit], levelVel[dit],levelBeta[dit], 1.0, 
+	 levelCS, dit, a_ilev ,gridBox);
       
       levelC[dit] += levelBeta0[dit];
 

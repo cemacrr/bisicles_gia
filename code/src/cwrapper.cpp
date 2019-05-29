@@ -69,7 +69,6 @@ public:
 #endif
   AmrIce m_amrIce;
   AMRMelange* m_amrMelange;
-  std::string m_input_fname;
   LevelDataSurfaceFlux* m_surface_flux;
   LevelDataSurfaceFlux* m_basal_flux;
   LevelDataSurfaceFlux* m_floating_ice_basal_flux;
@@ -85,7 +84,8 @@ public:
   RefCountedPtr<LevelData<FArrayBox> >m_geometry_ice_thickness;
   RefCountedPtr<LevelData<FArrayBox> > m_geometry_bedrock_elevation;
   RealVect m_geometry_dx;
-
+  ParmParse* m_pp;
+  
   BisiclesWrapper();
 
   ~BisiclesWrapper();
@@ -121,6 +121,8 @@ BisiclesWrapper::~BisiclesWrapper()
     delete m_basal_heat_boundary_data;
   if (m_topography_flux != NULL)
     delete m_topography_flux;
+  if (m_pp != NULL)
+    delete m_pp;
 }
 
 
@@ -375,18 +377,9 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
 //   number_procs=1;
 // #endif
   
-  #define NARGS 2
-  int argc = NARGS;
-  char *argv[NARGS];
-  char argv0[] = "cwrapper";
-  argv[0] = argv0;
-  char argv1[] = "drivel";
-  argv[1] = argv1;
   
-  if(argc < 2) 
-    { std::cerr << " usage: " << argv[0] << " <input_file>\n"; exit(0); }
+  AmrIce& amrObject = a_wrapper.m_amrIce;
   
-  ParmParse pp(argc-2,argv+2,NULL,a_wrapper.m_input_fname.c_str());
   ParmParse pp2("main");
 
   ///\todo Check how pout will work with multiple instances
@@ -399,7 +392,14 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
   pp2.getarr("domain_size", domSize, 0, SpaceDim);
   domainSize = RealVect(D_DECL(domSize[0], domSize[1], domSize[2]));
 
-  AmrIce& amrObject = a_wrapper.m_amrIce;
+ 
+  Real seconds_per_unit_time = SECONDS_PER_TROPICAL_YEAR;
+  {
+    ParmParse ppc("constants");
+    ppc.query("seconds_per_unit_time",seconds_per_unit_time);
+  }
+   
+  
 
   // ---------------------------------------------
   // set constitutive relation & rate factor
@@ -409,26 +409,26 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
   if (rateFactorType == "constRate")
     {
       ParmParse crPP("constRate");
-      Real A = 9.2e-18;
+      Real A = 9.2e-18 * seconds_per_unit_time/SECONDS_PER_TROPICAL_YEAR;
       crPP.query("A", A);
       ConstantRateFactor rateFactor(A);
       amrObject.setRateFactor(&rateFactor);
     }
   else if (rateFactorType == "arrheniusRate")
     {
-      ArrheniusRateFactor rateFactor;
+      ArrheniusRateFactor rateFactor(seconds_per_unit_time);
       ParmParse arPP("ArrheniusRate");
       amrObject.setRateFactor(&rateFactor);
     }
   else if (rateFactorType == "patersonRate")
     {
-      PatersonRateFactor rateFactor;
+      PatersonRateFactor rateFactor(seconds_per_unit_time);
       ParmParse arPP("PatersonRate");
       amrObject.setRateFactor(&rateFactor);
     }
   else if (rateFactorType == "zwingerRate")
       {
-	ZwingerRateFactor rateFactor;
+	ZwingerRateFactor rateFactor(seconds_per_unit_time);
 	ParmParse arPP("ZwingerRate");
 	amrObject.setRateFactor(&rateFactor);
       }
@@ -447,7 +447,7 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
   
   if (basalRateFactorType == "patersonRate")
     {
-      PatersonRateFactor rateFactor;
+      PatersonRateFactor rateFactor(seconds_per_unit_time);
       rateFactor.setA0(1.0);
       amrObject.setBasalRateFactor(&rateFactor);
     }
@@ -876,6 +876,14 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
      
   amrObject.setDomainSize(domainSize);
 
+  CalvingModel* calving_model_ptr = CalvingModel::parseCalvingModel("CalvingModel");
+  if (calving_model_ptr == NULL)
+    {
+      calving_model_ptr = new NoCalvingModel;
+    }
+  amrObject.setCalvingModel(calving_model_ptr);
+
+  
   {
     /// initialize the damge model
     bool damage_model = false;
@@ -893,9 +901,14 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
 	DamageConstitutiveRelation* dcrptr = 
 	  new DamageConstitutiveRelation(constRelPtr, &ptr->damage());
 	amrObject.setConstitutiveRelation(dcrptr);
+
+         CalvingModel* d_calving_model_ptr = new DamageCalvingModel(calving_model_ptr, &ptr->damage());
+	 amrObject.setCalvingModel(d_calving_model_ptr);
+	 delete d_calving_model_ptr;
 	
       }
   }
+
 
   {
       /// initialize the melange model
@@ -956,6 +969,12 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
       delete temperatureIBC;
       temperatureIBC=NULL;
     }
+
+   if (calving_model_ptr != NULL)
+      {
+	delete calving_model_ptr;
+	calving_model_ptr = NULL;
+      }
 
 #ifdef CH_MPI
   MPI_Barrier(Chombo_MPI::comm);
@@ -1085,31 +1104,32 @@ void bisicles_set_2d_data
       switch (*field)
 	{
 	case BISICLES_FIELD_SURFACE_FLUX:
-	  wrapper_ptr->m_surface_flux = new LevelDataSurfaceFlux(ptr, dxv);
+	  wrapper_ptr->m_surface_flux = new LevelDataSurfaceFlux(ptr, dxv, 0.0);
 	  break;
 	case BISICLES_FIELD_BASAL_FLUX:
-	  wrapper_ptr->m_basal_flux = new LevelDataSurfaceFlux(ptr, dxv);
+	  wrapper_ptr->m_basal_flux = new LevelDataSurfaceFlux(ptr, dxv, 0.0);
 	  break;
 	case BISICLES_FIELD_FLOATING_ICE_BASAL_FLUX:
-	  wrapper_ptr->m_floating_ice_basal_flux = new LevelDataSurfaceFlux(ptr, dxv);
+	  wrapper_ptr->m_floating_ice_basal_flux = new LevelDataSurfaceFlux(ptr, dxv, 0.0);
 	  break;
 	case BISICLES_FIELD_GROUNDED_ICE_BASAL_FLUX:
-	  wrapper_ptr->m_grounded_ice_basal_flux = new LevelDataSurfaceFlux(ptr, dxv);
+	  wrapper_ptr->m_grounded_ice_basal_flux = new LevelDataSurfaceFlux(ptr, dxv, 0.0);
 	  break;
 	case BISICLES_FIELD_SURFACE_TEMPERATURE:
-	  wrapper_ptr->m_surface_heat_boundary_data = new LevelDataSurfaceFlux(ptr, dxv);
+	  wrapper_ptr->m_surface_heat_boundary_data = new LevelDataSurfaceFlux(ptr, dxv, 0.0);
 	  wrapper_ptr->m_surface_heat_boundary_dirichlett = true;
 	  break;
 	case BISICLES_FIELD_SURFACE_HEAT_FLUX:
-	  wrapper_ptr->m_surface_heat_boundary_data = new LevelDataSurfaceFlux(ptr, dxv);
+	  wrapper_ptr->m_surface_heat_boundary_data = new LevelDataSurfaceFlux(ptr, dxv, 0.0);
 	  wrapper_ptr->m_surface_heat_boundary_dirichlett = false;
 	  break;
 	case BISICLES_FIELD_BASAL_HEAT_FLUX:
-	  wrapper_ptr->m_basal_heat_boundary_data = new LevelDataSurfaceFlux(ptr, dxv);
+	  wrapper_ptr->m_basal_heat_boundary_data = new LevelDataSurfaceFlux(ptr, dxv, 0.0);
 	  break;
 	case BISICLES_FIELD_TOPOGRAPHY_FLUX:
-	  wrapper_ptr->m_topography_flux = new LevelDataSurfaceFlux(ptr, dxv);
+	  wrapper_ptr->m_topography_flux = new LevelDataSurfaceFlux(ptr, dxv, 0.0);
 	  break;
+	
 
 	default: 
 	  MayDay::Error("bisicles_set_2d_data: unknown (or unimplemented) field");
@@ -1279,11 +1299,25 @@ void bisicles_new_instance(int *instance_key, const char *input_fname, MPI_Comm 
   int rank, number_procs;
   MPI_Comm_rank(Chombo_MPI::comm, &rank);
   MPI_Comm_size(Chombo_MPI::comm, &number_procs);
-  MPI_Barrier(Chombo_MPI::comm);
+
+#ifdef CH_USE_PETSC
+  PETSC_COMM_WORLD = Chombo_MPI::comm;
+  PetscInitialize(PETSC_NULL,PETSC_NULL,PETSC_NULL,PETSC_NULL);
 #endif
 
-  ptr->m_input_fname = input_fname;
+
+  MPI_Barrier(Chombo_MPI::comm);
+#endif
   CH_assert(ptr != NULL);
+
+  #define NARGS 2
+  int argc = NARGS;
+  char *argv[NARGS];
+  char argv0[] = "cwrapper";
+  argv[0] = argv0;
+  char argv1[] = "drivel";
+  argv[1] = argv1;
+  ptr->m_pp = new ParmParse(argc-2,argv+2,NULL,input_fname);
 
   if  (bisicles_c_wrapper::instances.size() == 0)
     {
@@ -1295,7 +1329,7 @@ void bisicles_new_instance(int *instance_key, const char *input_fname, MPI_Comm 
     }
   bisicles_c_wrapper::instances[*instance_key] = ptr;
 
-  CH_assert(bisicles_c_wrapper::instances.size() == 1); //just one instance for now
+  CH_assert(bisicles_c_wrapper::instances.size() == 1); //just one instance for now. need at least to fix petsc init otherwise
   
 }
 
@@ -1332,7 +1366,11 @@ void bisicles_free_instance(int *instance_key)
 	      bisicles_c_wrapper::instances.erase(i->first);
 	    }
 	}
-    } 
+    }
+#ifdef CH_USE_PETSC
+  int ierr = PetscFinalize(); 
+#endif
+
 }
 
 
@@ -1535,4 +1573,176 @@ void bisicles_get_header_dble(int *instance_key, const char* attr_key, double *v
 void bisicles_get_header_char(int *instance_key, const char* attr_key, char *val)
 {
   bisicles_get_header(instance_key, attr_key, val);
+}
+
+BisiclesWrapper* bisicles_instance(int *instance_key)
+{
+  BisiclesWrapper* rc = NULL;
+  if (instance_key) ///\todo : check all pointers
+    {
+      std::map<int, BisiclesWrapper*>::iterator i 
+	= bisicles_c_wrapper::instances.find(*instance_key) ;
+      if (i != bisicles_c_wrapper::instances.end())
+	{
+	  rc = i->second;
+	}
+    }
+  return rc;
+}
+
+void bisicles_push_pop_thin_ice(BisiclesWrapper* wrapper_ptr, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				 const int *boxlo, const int *boxhi, bool pop)
+
+{
+  if (wrapper_ptr)
+    {
+      pout() << "bisicles_push_pop_thin_ice!" << endl;
+
+      
+      AmrIce& amrIce = wrapper_ptr->m_amrIce;
+      
+      int finest_level = amrIce.finestLevel();
+      
+      Vector<LevelData<FArrayBox>* > delta_h(finest_level + 1);
+      Vector<RealVect> amrDx(finest_level + 1);
+      // the uniform mesh data storted at data_ptr provides an upper bound on the thickness to be added
+      DisjointBoxLayout dbl;
+      bisicles_c_wrapper::defineDBL(dbl,dims,boxlo,boxhi);
+      LevelData<FArrayBox> max_extra_thk(dbl, 1, IntVect::Zero);
+      DataIterator dit(dbl);
+      dit.reset();
+      CH_assert(dit.ok());
+      pout() <<  *data_ptr << endl;
+      max_extra_thk[dit].define(dbl[dit], 1, data_ptr);
+      pout() << "bisicles_push_pop_thin_ice  max_extra_thk[dit] : " << max_extra_thk[dit].max() << "," << max_extra_thk[dit].max() << endl; 
+	
+
+      //need a vector version of dx
+      RealVect dxv; D_TERM(dxv[0] = dx[0];, dxv[1] = dx[1];, dxv[2] = dx[2]);
+
+      // compute the thickness increment, store in new_thck
+      for (int lev = 0; lev <= finest_level; lev++)
+	{
+	  const DisjointBoxLayout& grids = amrIce.grids(lev);
+	  LevelData<FArrayBox> level_max_extra_thk(grids,1,IntVect::Zero);
+	  const LevelData<FArrayBox>& thk = amrIce.geometry(lev)->getH();
+	  const LevelData<BaseFab<int> >& mask = amrIce.geometry(lev)->getFloatingMask();
+	  delta_h[lev] = new LevelData<FArrayBox>(grids,thk.nComp(),thk.ghostVect());
+	  amrDx[lev] = amrIce.dx(lev);
+	  FillFromReference(level_max_extra_thk, max_extra_thk, amrDx[lev] , dxv, true);
+
+	  for (DataIterator dit(grids); dit.ok(); ++dit)
+	    {
+	      FArrayBox& dh = (*delta_h[lev])[dit];
+	      dh.setVal(0.0);
+	      const FArrayBox& h =  (thk)[dit];
+	      FArrayBox& dh_max =  level_max_extra_thk[dit];
+	      for (BoxIterator bit(grids[dit]); bit.ok(); ++bit)
+		{
+		  const IntVect& iv = bit();
+		  bool ground = (mask[dit](iv) == FLOATINGMASKVAL) ||  (mask[dit](iv) == GROUNDEDMASKVAL);
+		  if ( h(iv) < *thin_ice_limit && ground)
+		    {
+		      if (pop)
+			{
+			  dh(iv) = -h(iv);
+			}
+		      else
+			{
+			  dh(iv) = dh_max(iv);
+			}
+		    }
+		}
+	    }
+	}
+      
+      wrapper_ptr->m_amrIce.incrementIceThickness(delta_h);
+
+      //finally, flatten dh into max_extra_thk, and, hence, the input data_ptr
+      flattenCellData(max_extra_thk,dxv,delta_h,amrDx,true);
+      
+      //clean up
+      for (int lev = 0; lev <= finest_level; lev++)
+	{
+	  if (delta_h[lev])
+	    {
+	      delete delta_h[lev]; delta_h[lev] = NULL;
+	    }
+	}
+      
+    }
+
+  pout() << "!bisicles_push_pop_thin_ice" << endl;
+}
+
+
+void bisicles_push_thin_ice(BisiclesWrapper* wrapper_ptr, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi)
+{
+  bisicles_push_pop_thin_ice(wrapper_ptr, data_ptr, thin_ice_limit, dx, dims, boxlo, boxhi, false);
+}
+
+
+void bisicles_push_thin_ice(int *instance_key, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi)
+
+{
+
+  BisiclesWrapper* instance = bisicles_instance(instance_key);
+  if (instance) 
+    {
+      bisicles_push_thin_ice(instance, data_ptr, thin_ice_limit, dx, dims, boxlo, boxhi);
+    }
+}
+
+void bisicles_pop_thin_ice(BisiclesWrapper* wrapper_ptr, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi)
+
+{
+  bisicles_push_pop_thin_ice(wrapper_ptr, data_ptr, thin_ice_limit, dx, dims, boxlo, boxhi, true);
+}
+
+void bisicles_pop_thin_ice(int *instance_key, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi)
+{
+  
+  BisiclesWrapper* instance = bisicles_instance(instance_key);
+  if (instance) 
+    {
+      bisicles_pop_thin_ice(instance, data_ptr, thin_ice_limit, dx, dims, boxlo, boxhi);
+    }
+  
+}
+
+void f_bisicles_push_thin_ice(int *intance_id, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi)
+{
+  bisicles_push_thin_ice(intance_id, data_ptr, thin_ice_limit,dx,dims, boxlo, boxhi);
+}
+  
+void f_bisicles_pop_thin_ice(int *intance_id, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi)
+{
+  bisicles_pop_thin_ice(intance_id, data_ptr, thin_ice_limit,dx,dims, boxlo, boxhi);
+}
+
+void f_bisicles_push_thin_ice_(int *intance_id, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi)
+{
+  bisicles_push_thin_ice(intance_id, data_ptr, thin_ice_limit,dx,dims, boxlo, boxhi);
+}
+  
+void f_bisicles_pop_thin_ice_(int *intance_id, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi)
+{
+  bisicles_pop_thin_ice(intance_id, data_ptr, thin_ice_limit,dx,dims, boxlo, boxhi);
 }

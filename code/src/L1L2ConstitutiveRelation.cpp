@@ -77,7 +77,7 @@ L1L2ConstitutiveRelation::parseParameters()
 
 void
 L1L2ConstitutiveRelation::computeMu(LevelData<FArrayBox>& a_mu,
-                                    const LevelData<FArrayBox>& a_vel, 
+                                    const LevelData<FArrayBox>& a_vel,  const Real& a_scale,
                                     const LevelData<FArrayBox>* a_crseVelPtr,
                                     int a_nRefCrse,
                                     const LevelData<FArrayBox>& a_A,
@@ -102,13 +102,13 @@ L1L2ConstitutiveRelation::computeMu(LevelData<FArrayBox>& a_mu,
   
   if (a_A.nComp() == a_mu.nComp() || a_A.nComp() == 1)
     {
-      computeMuZ(a_mu, gradVel, epsSqr, sigma, a_vel, a_crseVelPtr, a_nRefCrse,
+      computeMuZ(a_mu, gradVel, epsSqr, sigma, a_vel, a_scale,  a_crseVelPtr, a_nRefCrse,
 		 a_A, a_coordSys, a_domain, a_ghostVect);
     }
   else 
     { 
       LevelData<FArrayBox> muz(grids, nLayer, a_ghostVect);
-      computeMuZ(muz, gradVel, epsSqr, sigma, a_vel, a_crseVelPtr, a_nRefCrse,
+      computeMuZ(muz, gradVel, epsSqr, sigma, a_vel, a_scale,  a_crseVelPtr, a_nRefCrse,
 		 a_A, a_coordSys, a_domain, a_ghostVect); 
       
       // midpoint rule integration over sigma to find integral(mu,dz)/H
@@ -143,7 +143,7 @@ L1L2ConstitutiveRelation::computeDissipation(LevelData<FArrayBox>& a_dissipation
     {
       a_dissipation[dit].setVal(0.0);
     }
-  computeMu(a_dissipation , a_vel,  a_crseVelPtr, a_nRefCrse, a_A, a_coordSys, 
+  computeMu(a_dissipation , a_vel, 1.0,  a_crseVelPtr, a_nRefCrse, a_A, a_coordSys, 
 	    a_domain, a_ghostVect);
 
   LevelData<FArrayBox> epsSqr;
@@ -165,7 +165,7 @@ L1L2ConstitutiveRelation::computeDissipation(LevelData<FArrayBox>& a_dissipation
 
 void  
 L1L2ConstitutiveRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
-                                        LevelData<FArrayBox>& a_vel, 
+                                        LevelData<FArrayBox>& a_vel,  const Real& a_scale,
                                         const LevelData<FArrayBox>* a_crseVelPtr,
                                         int a_nRefCrse,
                                         const LevelData<FluxBox>& a_A,
@@ -185,7 +185,7 @@ L1L2ConstitutiveRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
   LevelData<FluxBox> gradVel(grids, SpaceDim*SpaceDim, a_ghostVect);
   LevelData<FluxBox> epsSqr(grids, 1, a_ghostVect);
 
-  computeFaceMuZ(mu, gradVel, epsSqr, sigma, a_vel, a_crseVelPtr, a_nRefCrse,
+  computeFaceMuZ(mu, gradVel, epsSqr, sigma, a_vel, a_scale, a_crseVelPtr, a_nRefCrse,
                  a_A, a_coordSys, a_domain, a_ghostVect);
 
 
@@ -215,7 +215,7 @@ L1L2ConstitutiveRelation::computeMuZ(LevelData<FArrayBox>& a_mu,
                                      LevelData<FArrayBox>& a_gradVel,
                                      LevelData<FArrayBox>& a_epsSqr,
                                      const Vector<Real>& a_sigma,
-                                     const LevelData<FArrayBox>& a_vel, 
+                                     const LevelData<FArrayBox>& a_vel,  const Real& a_scale,
                                      const LevelData<FArrayBox>* a_crseVelPtr,
                                      int a_nRefCrse,
                                      const LevelData<FArrayBox>& a_A,
@@ -240,7 +240,7 @@ L1L2ConstitutiveRelation::computeMuZ(LevelData<FArrayBox>& a_mu,
       muBox.grow(a_ghostVect);
       muBox &= domBox;
       
-      computeEitherMuZ(a_mu[dit], a_sigma,  G[dit], a_epsSqr[dit], a_A[dit], 
+      computeEitherMuZ(a_mu[dit], a_sigma,  G[dit], a_epsSqr[dit], a_A[dit], a_scale,  
 		       H[dit] ,a_coordSys.iceDensity()*a_coordSys.gravity(), muBox,m_layerCoarsening);
     }
 
@@ -254,7 +254,7 @@ L1L2ConstitutiveRelation::computeFaceMuZ(LevelData<FluxBox>& a_mu,
                                          LevelData<FluxBox>& a_gradVel,
                                          LevelData<FluxBox>& a_epsSqr,
                                          const Vector<Real>& a_sigma,
-                                         LevelData<FArrayBox>& a_vel, 
+                                         LevelData<FArrayBox>& a_vel,  const Real& a_scale,
                                          const LevelData<FArrayBox>* a_crseVelPtr,
                                          int a_nRefCrse,
                                          const LevelData<FluxBox>& a_A,
@@ -284,7 +284,7 @@ L1L2ConstitutiveRelation::computeFaceMuZ(LevelData<FluxBox>& a_mu,
 
           computeEitherMuZ(a_mu[dit][faceDir], a_sigma,  
                            gradSface[dit][faceDir],
-                           a_epsSqr[dit][faceDir], a_A[dit][faceDir],  
+                           a_epsSqr[dit][faceDir], a_A[dit][faceDir],  a_scale, 
                            faceH[dit][faceDir], 
 			   a_coordSys.iceDensity()*a_coordSys.gravity(),
 			   faceBox,m_layerCoarsening);  
@@ -305,7 +305,7 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
                                            const Vector<Real>& a_sigma,
                                            const FArrayBox& a_grads,
                                            const FArrayBox& a_epsSqr,
-                                           const FArrayBox& a_A,
+                                           const FArrayBox& a_A, const Real& a_scale,
                                            const FArrayBox& a_H,
 					   const Real& a_rhog,
                                            const Box& a_box,
@@ -332,7 +332,7 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
 	  crseSigma[crseLayer] = 0.5*( a_sigma[layer] + a_sigma[layer+1]) ;
 	}
       crseA *= 0.5;
-      computeEitherMuZ(crseMu, crseSigma, a_grads, a_epsSqr,  crseA, a_H, a_rhog, a_box, a_layerCoarsen-1); 
+      computeEitherMuZ(crseMu, crseSigma, a_grads, a_epsSqr,  crseA, a_scale, a_H, a_rhog, a_box, a_layerCoarsen-1); 
 
       for (int crseLayer = 0, layer = 0; crseLayer < nCrseLayer; crseLayer++, layer+=2)
 	{
@@ -382,6 +382,7 @@ L1L2ConstitutiveRelation::computeEitherMuZ(FArrayBox& a_mu,
 	
 	
 	A.copy(a_A,l,0);
+	A *= a_scale; // scale A 
 	if (l == 0)
 	  {
 	    // could be the top of the ice sheet (if sigma[l] == 0.0)
@@ -513,7 +514,7 @@ L1L2ConstitutiveRelation::computeFaceFluxVelocity(LevelData<FArrayBox>& a_vel,
      }
 
 
-   computeMuZ(mu, gradVel, epsSqr, sigma, a_vel, a_crseVelPtr, a_nRefCrse, a_A, 
+   computeMuZ(mu, gradVel, epsSqr, sigma, a_vel, 1.0,  a_crseVelPtr, a_nRefCrse, a_A, 
               a_coordSys,  a_domain, extraGhost);
 
    ExtrapGhostCells(mu, a_domain);
@@ -535,7 +536,7 @@ L1L2ConstitutiveRelation::computeFaceFluxVelocity(LevelData<FArrayBox>& a_vel,
    
    
    computeFaceMuZ(faceMu,faceGradU,faceEpsSqr,sigma,
-                  a_vel,a_crseVelPtr,a_nRefCrse,
+                  a_vel, 1.0, a_crseVelPtr,a_nRefCrse,
                   faceA,a_coordSys,a_domain,a_cellGhost);
        
    for (dit.begin(); dit.ok(); ++dit)

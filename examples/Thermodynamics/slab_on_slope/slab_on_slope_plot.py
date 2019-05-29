@@ -42,13 +42,14 @@ def readplot(file, nlayer):
 plt.figure(figsize=(12,12))
 
 color = ['red','brown','purple','orange','blue','magenta','cyan','black']
-nlayer = np.array([4,8,16,32,64,128,256,512])
+#nlayer = np.array([4,8,16,32,64,128,256,512])#)128,256,512])
+nlayer = np.array([8])
 Tmin = np.zeros(len(nlayer))
 nl = 0 
 for n,col in zip(nlayer,color):
-    file = 'plot.slab_on_slope_{}.004000.2d.hdf5'.format(n)
+    file = 'plot.slab_on_slope_{}.002000.2d.hdf5'.format(n)
     x,y,s,h,T = readplot(file,n)  
-    TT = T[0,47,:]-273.15
+    TT = T[0,60,:]-273.15
     plt.subplot(2,2,1)
     plt.plot(TT,1-s,'.-',color=col,label=n)
     
@@ -58,25 +59,26 @@ for n,col in zip(nlayer,color):
     Tmin[nl] = np.min(TT)
     nl = nl + 1
 
-plt.subplot(2,2,3)
-Tslice = np.flipud( (T[0,:,:]).transpose() ) - 273.15
-plt.pcolormesh(Tslice)
-plt.colorbar()
-plt.xlim((0,48))
-plt.ylim((0,np.max(nlayer)))
+#plt.subplot(2,2,3)
+#Tslice = np.flipud( (T[0,:,:]).transpose() ) - 273.15
+#plt.pcolormesh(Tslice)
+#plt.colorbar()
+#plt.xlim((0,65))
+#plt.ylim((0,np.max(nlayer)))
 
-plt.subplot(2,2,4)
-N = len(Tmin)
-plt.loglog((nlayer[0:N-1]),np.abs(Tmin[0:N-1]-Tmin[1:N]))
-plt.xlabel('n layers')
-plt.ylabel('|T_min_n - T_min_n+1|' )
-plt.loglog(nlayer,1/nlayer)
+#plt.subplot(2,2,4)
+#N = len(Tmin)
+#plt.loglog((nlayer[0:N-1]),np.abs(Tmin[0:N-1]-Tmin[1:N]))
+#plt.xlabel('n layers')
+#plt.ylabel('|T_min_n - T_min_n+1|' )
+#plt.loglog(nlayer,1/nlayer)
 
    
 plt.subplot(2,2,1)    
 plt.legend()
 plt.xlabel(r'$T$($^\circ$C)')
 plt.ylabel(r'$1- \sigma$')
+plt.xlim((-20,0))
 
 
 plt.subplot(2,2,2)    

@@ -25,7 +25,9 @@
 #include "CalvingModel.H"
 #include "MuCoefficient.H"
 #include "CH_HDF5.H"
+#include "DomainDiagnosticData.H"
 #include "AmrIceBase.H"
+#include "ParmParse.H"
 #include <sstream>
 #ifdef HAVE_PYTHON
 #include "PythonInterface.H"
@@ -178,6 +180,13 @@ public:
   void setMuCoefficient(const MuCoefficient* a_muCoefficientPtr)
   {m_muCoefficientPtr = a_muCoefficientPtr->new_muCoefficient();}
 
+  void setCalvingModel(CalvingModel* a_calvingModelPtr)
+  {
+    if (m_calvingModelPtr) delete m_calvingModelPtr;
+    m_calvingModelPtr =  a_calvingModelPtr->new_CalvingModel();
+  }
+
+  
   /// advance solution until either max_time or max_step are reached
   void run(Real a_max_time, int a_max_step);
 
@@ -256,6 +265,17 @@ public:
     a_val =  m_headerData.m_real[a_key];
   }
 
+  void writeAMRHierarchyHDF5(HDF5Handle& a_handle, 
+				     const Vector<DisjointBoxLayout>& a_grids,
+				     const Vector<LevelData<FArrayBox>* > & a_data,
+				     const Vector<string>& a_name,
+				     const Box& a_domain,
+				     const Real& a_dx,
+				     const Real& a_dt,
+				     const Real& a_time,
+				     const Vector<int>& a_ratio,
+			     const int& a_numLevels) const;
+  
   void writeAMRHierarchyHDF5(const string& filename,
 			     const Vector<DisjointBoxLayout>& a_grids,
 			     const Vector<LevelData<FArrayBox>* > & a_data,
@@ -272,7 +292,7 @@ public:
       <plot_root>.<step>.<DIM>d.hdf5
    */
   void writePlotFile();
-
+  void writeAMRPlotFile();
   /// write checkpoint file out for later restarting
   /** writes checkpoint data to the standard location; filename is
       <check_root>.<step>.<DIM>d.hdf5
@@ -292,28 +312,105 @@ public:
   /// set up for restart
   void restart(const string& a_restart_file);
 
+  
+
+
+
+private:
+
+  /// store CF output data on a uniform mesh 
+  LevelData<FArrayBox> m_uniform_cf_data;
+  /// mesh level for cf data
+  int m_cf_level;
+  /// (CF) names for fields to be written 
+  Vector<std::string> m_uniform_cf_data_name;
+  /// (CF) standard names for fields to be written (some fields share cf name) 
+  Vector<std::string> m_uniform_cf_standard_name;
+   /// Long names for fields to be written 
+  Vector<std::string> m_uniform_cf_long_name;
+  /// Units for fields to be written 
+  Vector<std::string> m_uniform_cf_units;
+  /// function/interval pair (maybe should store as std::pairs) used to evaluate cf data on a given AMR level
+  Vector<std::function<const LevelData<FArrayBox>*(int, LevelData<FArrayBox>&) > >m_cf_field_function;
+  // the function prototype include a LevelData<FArrayBox>& that can be used for storage by the implementation
+  
+  LevelData<FArrayBox> m_cf_tmp_data;
+  Vector<Interval> m_cf_field_interval;
+  Real m_cf_dt;
+  Real m_cf_start_time;
+  bool m_plot_style_cf, m_plot_style_amr;
+  enum OutputFileNumbering { time_step = 0, time_seconds = 1, time_years = 2, time_yyyymmdd_360 = 3, NUM_PLOT_NUMBERING};
+  OutputFileNumbering m_output_file_numbering;
+
+  /// a number that represents the current time
+  long outputNumbering(); 
+
+  friend class DomainDiagnosticData;
+  DomainDiagnosticData m_cf_domain_diagnostic_data;
+
+  /// set options for plotfile,checkpoint IO
+
+  void setOutputOptions(ParmParse& a_pp);
+  /// write hdf5 plotfile with CF names and units (see http://cfconventions.org/)
+  /** 
+      flush CF data to the standard location; filename is
+      <cfplot_root>.<time>.<DIM>d.hdf5. Data is taken from the 
+      accumulated (time-mean or time sum data) managed by calls, 
+      and is reset once written
+      
+  */
+  void flushCFData();
+  /// accumlate CF (http://cfconventions.org/) data to be written by writeCFPlotFile()
+  /**
+     
+     Allows a time-mean (or sum) of CF (http://cfconventions.org/) data to 
+     be written.
+
+     set m_uniform_CF_Data += dt / (m_plot_time) * uniform_CF_Data 
+
+     call a_reset - true to set m_uniform_CF_Data <- 0
+     
+  */
+  void accumulateCFData(Real a_dt, bool a_reset = false);
+
+  /// set up various run-long data for CF Output
+  void initCFData();
+public:
+  
 #endif
 
   /// compute total ice and total grounded ice (volume, at this point)
-  Real computeTotalGroundedIce() const;
+  //Real computeTotalGroundedIce() const;
 
   /// compute volume over flotation
-  Real computeVolumeAboveFlotation() const;
+  //Real computeVolumeAboveFlotation() const;
 
+
+  /// fill a_area with per-cell area fraction given by a_maskval
+  /**
+     e.g when a_maskVal == GROUNDEDMASKVAL, a_area will be
+     filled with values from 0 (not grounded ice) to 1 (entirely grounded ice)
+   */
+  void computeAreaFraction(LevelData<FArrayBox>& a_area,
+			   int a_maskVal, int a_level) const;
+
+  /// compute area of ice with grounded/floating status given by a_maskval
+  // Real computeArea(int a_maskVal) const;
+  
   /// compute area of grounded ice.
-  Real computeGroundedArea() const;
+  //Real computeGroundedArea() const;
 
   /// compute area of floating ice.
-  Real computeFloatingArea() const;
+  //Real computeFloatingArea() const;
 
   /// compute flux over ice
-  Real computeFluxOverIce(const Vector<LevelData<FArrayBox>*> a_flux);
+  //Real computeFluxOverIce(const Vector<LevelData<FArrayBox>*> a_flux);
 
   /// compute change in volume over ice
-  Real computeDeltaVolumeOverIce() const;
+  //Real computeDeltaVolumeOverIce() const;
 
   /// compute flux domain
-  Real computeTotalFlux(const Vector<LevelData<FArrayBox>*> a_flux);
+  //Real computeTotalFlux(const Vector<LevelData<FArrayBox>*> a_flux);
 
 
   enum velSolverTypes { Picard = 0,
@@ -368,6 +465,9 @@ public:
     return m_vect_coordSys;
   }
 
+  /// nearly direct access to the ice thickness 
+  void incrementIceThickness(Vector<LevelData<FArrayBox>*> a_thk);
+  
   const Vector<int>& refRatios() const { return m_refinement_ratios;}
 
   const Vector<Real>& amrDx() const {return m_amrDx;}
@@ -499,6 +599,8 @@ protected:
   void initData(Vector<RefCountedPtr<LevelSigmaCS > >& a_vectCoordSys,
                 Vector<LevelData<FArrayBox>* >& a_initialVelocity);
 
+  /// initialize diagnostics
+  //void initDiagnostics();
 
   /// define nonlinear ellipic solver for computing velocity field
   virtual void defineSolver();
@@ -523,11 +625,11 @@ protected:
 			   Vector<LevelData<FArrayBox>* >& a_layerSFaceXYVel);
 
 
-  /// compute div(vel*H) at a given time
-  void computeDivThicknessFlux(Vector<LevelData<FArrayBox>* >& a_divFlux,
-                               Vector<LevelData<FluxBox>* >& a_flux,
-                               Vector<LevelData<FArrayBox>* >& a_thickness,
-                               Real a_time, Real a_dt);
+  // /// compute div(vel*H) at a given time
+  // void computeDivThicknessFlux(Vector<LevelData<FArrayBox>* >& a_divFlux,
+  //                              Vector<LevelData<FluxBox>* >& a_flux,
+  //                              Vector<LevelData<FArrayBox>* >& a_thickness,
+  //                              Real a_time, Real a_dt);
 
   // increment phi := phi + dt*dphi
   void incrementWithDivFlux(Vector<LevelData<FArrayBox>* >& a_phi,
@@ -552,11 +654,45 @@ protected:
    */
   void updateIceFrac(LevelData<FArrayBox>& a_thickness, int a_level);
 
+  void setIceFracBC(LevelData<FArrayBox>& a_iceFrac, const ProblemDomain& a_domain);
+  
   /// update real-valued ice fraction through advection from neighboring cells
   void advectIceFrac(Vector<LevelData<FArrayBox>* >& a_iceFrac,
-                     const Vector<LevelData<FluxBox>* >& a_faceVelAdvection, 
+                     const Vector<LevelData<FluxBox>* >& a_faceVelAdvection,  
                      Real a_dt);
 
+
+  // /// update real-valued ice fraction through advection from neighboring cells
+  // /**
+  //    Also increment a_thicknessSource based on the calving rate
+  // */
+  // // void advectIceFrac(Vector<LevelData<FArrayBox>* >& a_iceFrac,
+  // // 		     Vector<LevelData<FArrayBox>* >& a_thicknessSource,
+  // //                    const Vector<LevelData<FluxBox>* >& a_faceVelAdvection,
+  // // 		     const Vector<LevelData<FluxBox>* >& a_thicknessFlux,
+  // //                    Real a_dt);
+  
+  // /// update real-valued ice fraction through application of the calving rate
+  // /**
+  //    Also increment a_thicknessSource based on the calving rate
+  // */
+  // // void advectIceFracUpstream(Vector<LevelData<FArrayBox>* >& a_iceFrac,
+  // // 			     Vector<LevelData<FArrayBox>* >& a_thicknessSource,
+  // // 			     const Vector<LevelData<FluxBox>* >& a_faceVelAdvection,
+  // // 			     const Vector<LevelData<FArrayBox> *>& a_calvingRate,
+  // // 			     Real a_subDt, Real a_dt);
+
+  // // /// update real-valued ice fraction through advection from neighboring cell
+  // // void advectIceFracDownstream(Vector<LevelData<FArrayBox>* >& a_iceFrac,
+  // // 			       Vector<LevelData<FArrayBox>* >& a_thicknessSource,
+  // // 			       const Vector<LevelData<FluxBox>* >& a_faceVelAdvection,
+  // // 			       const Vector<LevelData<FluxBox>* >& a_thicknessFlux,
+  // // 			       const Vector<LevelData<FArrayBox> *>& a_calvingRate,
+  // // 			       Real a_subDt, Real a_dt);
+
+  /// update covered cells, ghost cells etc, of a_iceFrac
+  void updateInvalidIceFrac(Vector<LevelData<FArrayBox> *> a_iceFrac);
+  
   /// compute timestep
   Real computeDt();
 
@@ -569,7 +705,8 @@ protected:
   /// implicit solve for diffusive fluxes
   void implicitThicknessCorrection(Real a_dt,
 				   const Vector<LevelData<FArrayBox>* >& a_sts,
-				   const Vector<LevelData<FArrayBox>* >& a_bts
+				   const Vector<LevelData<FArrayBox>* >& a_bts,
+				   const Vector<LevelData<FArrayBox>* >& a_vts
 				   );
   
   void applyCalvingCriterion(CalvingModel::Stage a_stage);
@@ -607,17 +744,21 @@ protected:
 				 const Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel, 
 				 const Real a_dt, const Real a_time);
 
-  //update the internalEnergy fields
+ 
+  
+  /// Update the internalEnergy and tillWaterDepth fields
   void updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerTH_half, 
-			 Vector<LevelData<FluxBox>* >& a_layerH_half,
-			 const Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel,
-			 const Vector<LevelData<FArrayBox>* >& a_layerSFaceXYVel,
-			 const Real a_dt, const Real a_time, 
-			 Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSysNew,
-			 Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSysOld,
-			 const Vector<LevelData<FArrayBox>*>& a_surfaceThicknessSource,
-			 const Vector<LevelData<FArrayBox>*>& a_basalThicknessSource);
-
+			    Vector<LevelData<FluxBox>* >& a_layerH_half,
+			    const Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel,
+			    const Vector<LevelData<FArrayBox>* >& a_layerSFaceXYVel,
+			    const Real a_dt, const Real a_time, 
+			    Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSysNew,
+			    Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSysOld,
+			    const Vector<LevelData<FArrayBox>*>& a_surfaceThicknessSource,
+			    const Vector<LevelData<FArrayBox>*>& a_basalThicknessSource,
+			    const Vector<LevelData<FArrayBox>*>& a_volumeThicknessSource);
+  /// update the temperature (a derived field)
+  void updateTemperature();
 #endif
 
 
@@ -631,11 +772,11 @@ protected:
 				       Real a_waterDensity, 
 				       Real a_iceDensity);
 
-  // disagnostic routine -- compute discharge
+  // diagnostic routine -- compute discharge
   void computeDischarge(const Vector<LevelData<FluxBox>* >& a_vectFluxes);
 
-  // disagnostic routine 
-  void endTimestepDiagnostics();
+  // diagnostic routine 
+  //void endTimestepDiagnostics();
 
 
   /// temporal accuracy 
@@ -957,9 +1098,12 @@ protected:
   //sea water density
   Real m_seaWaterDensity;
 
- //sea water density
+  // acceleration due to gravity
   Real m_gravity;
 
+  // size of unit time (for velocity & time step *only*, other quantities are SI) in seconds
+  Real m_seconds_per_unit_time;
+  
   /// current old-time data
   Vector<LevelData<FArrayBox>*> m_old_thickness;
 
@@ -987,6 +1131,7 @@ protected:
   Vector<LevelData<FluxBox>* > m_faceVelTotal; // m_faceVelTotal = m_faceVelAdvection - m_diffusivity * grad(H)
 #if BISICLES_Z == BISICLES_LAYERED
   Vector<LevelData<FArrayBox>* > m_layerSFaceXYVel;
+  Vector<LevelData<FArrayBox>* > m_layerSFaceSVel;
   Vector<LevelData<FluxBox>* > m_layerXYFaceXYVel;
 #endif
 
@@ -1002,8 +1147,9 @@ protected:
   Vector<LevelData<FArrayBox>* > m_iceFrac;
 
   // Cell-centered internalEnergy field
-  Vector<LevelData<FArrayBox>* > m_internalEnergy;
-
+  Vector<LevelData<FArrayBox>* > m_internalEnergy, m_temperature;
+  //cell-centered till water depth (accompanies the internal energy)
+  Vector<LevelData<FArrayBox>* > m_tillWaterDepth;
   // Cell-centered A field
   Vector<LevelData<FArrayBox>* > m_A;
   // used to decide whether A needs updating (after a regrid, or a internalEnergy update)
@@ -1011,8 +1157,8 @@ protected:
 #if BISICLES_Z == BISICLES_LAYERED
   // InternalEnergy and A at the top and bottom surfaces of 
   // the ice, horizontally cell centred (but at vertical faces)
-  Vector<LevelData<FArrayBox>* > m_sInternalEnergy;
-  Vector<LevelData<FArrayBox>* > m_bInternalEnergy;
+  Vector<LevelData<FArrayBox>* > m_sInternalEnergy, m_sTemperature ;
+  Vector<LevelData<FArrayBox>* > m_bInternalEnergy, m_bTemperature;
   Vector<LevelData<FArrayBox>* > m_sHeatFlux;
   Vector<LevelData<FArrayBox>* > m_bHeatFlux;
   Vector<LevelData<FArrayBox>* > m_sA;
@@ -1021,11 +1167,18 @@ protected:
   // possibly won't even need surface and basal temperature
   // field, but if we do they will need to be 2D
 #endif
-  //the thickness source will have two components, from the surface and base.
+  //the thickness source will have three components, from the surface and base
+  //and distributed throught the volume.
   //Although they are combined for thickness evolution, they must
   //be kept seperate for the internalEnergy calculation. 
   mutable Vector<LevelData<FArrayBox>* > m_surfaceThicknessSource;
   mutable Vector<LevelData<FArrayBox>* > m_basalThicknessSource;
+  mutable Vector<LevelData<FArrayBox>* > m_volumeThicknessSource;
+
+  /// modify the source terms (surface,basal,volume) to keep all or part of the ice sheet/shelf steady
+  void setStableSources(FArrayBox& a_sts,FArrayBox& a_bts, FArrayBox& a_vts,
+			const FArrayBox& a_divuh, const BaseFab<int>& a_mask,
+			const Box& a_box) const;
   
   Vector<LevelData<FArrayBox>* > m_divThicknessFlux; // set to -dH/dt
   //thickness of calved ice 
@@ -1059,41 +1212,6 @@ protected:
   int m_groundingLineProximityCalcType;
   void updateGroundingLineProximity() const;
   
-  /// diagnostic quantity -- sum(ice) at initial time
-  Real m_initialSumIce;
-
-  /// diagnostic quantity -- sum(ice) at last timestepa
-  Real m_lastSumIce;
-
-  /// diagnostic quantity -- sum(calved ice) at last timestep
-  Real m_lastSumCalvedIce;
-
-  /// if true, report sum(grounded ice) as well as sum(total ice)
-  bool m_report_grounded_ice;
-
-  /// diagnostic quantity -- sum(grounded ice) at initial time
-  Real m_initialSumGroundedIce;
-
-  /// 
-  /// diagnostic quantity -- sum(grounded ice) at last timestepa
-  Real m_lastSumGroundedIce;
-
-  /// diagnostic quantity -- sum(ice over flotation) at initial time
-  Real m_initialVolumeAboveFlotation;
-
-  /// 
-  /// diagnostic quantity -- sum(ice over flotation) at last timestepa
-  Real m_lastVolumeAboveFlotation;
-
-  /// if true, report area of grounded ice and area of floating ice
-  bool m_report_area;
-
-  /// if true, report sum(basal flux) and sum(surface flux)
-  bool m_report_total_flux;
-
-  /// if true, report sum(melt from calving model) and sum(calved ice)
-  bool m_report_calving;
-
   /// if true, report discharge of solid ice from the ice edge
   bool m_report_discharge;
 
@@ -1179,6 +1297,9 @@ protected:
   //if true, include thickness source terms in plot files
   bool m_write_thickness_sources;
 
+  //if true, include fields required for ISMIP6 in plot files
+  bool m_write_ismip6;
+
   /// if true, write out .map.hdf5 file
   bool m_write_map_file;
   
@@ -1236,14 +1357,8 @@ public:
     return m_faceSigma;
   }
 protected:
-  void setLayers(const Vector<Real>& a_sigma)
-  {
-    if (m_sigmaSet)
-      MayDay::Error("AmrIce::SetLayers should only be called once");
-    m_faceSigma = a_sigma;
-    m_nLayers = m_faceSigma.size()-1;
-    m_sigmaSet = true;
-  }
+  void setLayers(const Vector<Real>& a_sigma);
+
 
   bool m_sigmaSet;
   

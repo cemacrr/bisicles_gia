@@ -124,14 +124,18 @@ int main(int argc, char* argv[]) {
 	MayDay::Error("undefined constitutiveRelation in inputs");
       }
 
-    
+    Real seconds_per_unit_time = SECONDS_PER_TROPICAL_YEAR;
+    {
+      ParmParse ppc("constants");
+      ppc.query("seconds_per_unit_time",seconds_per_unit_time);
+    }
     std::string rateFactorType = "constRate";
     pp2.query("rateFactor", rateFactorType);
     RateFactor* rateFactorPtr; 
     if (rateFactorType == "constRate")
       {
 	ParmParse crPP("constRate");
-	Real A = 9.2e-18;
+	Real A = 9.2e-18 * seconds_per_unit_time/SECONDS_PER_TROPICAL_YEAR;
 	crPP.query("A", A);
 	ConstantRateFactor* crf = new ConstantRateFactor(A);
 	rateFactorPtr = static_cast<RateFactor*>(crf);
@@ -139,19 +143,19 @@ int main(int argc, char* argv[]) {
       }
     else if (rateFactorType == "arrheniusRate")
       {
-	ArrheniusRateFactor* arf = new ArrheniusRateFactor();
+	ArrheniusRateFactor* arf = new ArrheniusRateFactor(seconds_per_unit_time);
 	ParmParse arPP("ArrheniusRate");
 	rateFactorPtr = static_cast<RateFactor*>(arf);
       }
     else if (rateFactorType == "patersonRate")
       {
-	PatersonRateFactor* prf =  new PatersonRateFactor();
+	PatersonRateFactor* prf =  new PatersonRateFactor(seconds_per_unit_time);
 	ParmParse arPP("PatersonRate");
 	rateFactorPtr = static_cast<RateFactor*>(prf);
       }
     else if (rateFactorType == "zwingerRate")
       {
-	ZwingerRateFactor* zrf = new ZwingerRateFactor();
+	ZwingerRateFactor* zrf = new ZwingerRateFactor(seconds_per_unit_time);
 	ParmParse arPP("ZwingerRate");
 	rateFactorPtr = static_cast<RateFactor*>(zrf);
       }

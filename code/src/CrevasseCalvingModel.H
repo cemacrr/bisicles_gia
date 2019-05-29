@@ -53,7 +53,14 @@ public:
 			      int a_level,
 			      Stage a_stage);
 
- 
+  CrevasseCalvingModel(const CrevasseCalvingModel& a) 
+  {
+    m_waterDepth = a.m_waterDepth->new_surfaceFlux();
+    m_includeBasalCrevasses = a.m_includeBasalCrevasses;
+    m_calvingZoneLength = a.m_calvingZoneLength;
+    m_domainEdgeCalvingModel = new DomainEdgeCalvingModel(*a.m_domainEdgeCalvingModel);
+    m_stressMeasure = a.m_stressMeasure;
+  }
 
 protected:
   //compute a scalar stress measure from the viscous stress tensor
@@ -88,6 +95,17 @@ public:
 			      const LevelData<FArrayBox>& a_hab,
 			      const LevelData<FArrayBox>& a_waterDepth,
 			      const LevelSigmaCS& a_coords);
+
+  BennCalvingModel(const BennCalvingModel& a) : CrevasseCalvingModel(a)
+  {
+  }
+
+
+  /// factory method
+  virtual CalvingModel* new_CalvingModel()
+  {
+    return new BennCalvingModel(*this);
+  }
 };
 
 /// Calving model based on crevasse opening
@@ -108,7 +126,18 @@ public:
 			      const LevelData<FArrayBox>& a_hab, 
 			      const LevelData<FArrayBox>& a_waterDepth,
 			      const LevelSigmaCS& a_ccords);
+
+  VdVCalvingModel(const VdVCalvingModel& a) : CrevasseCalvingModel(a)
+  {
+  }
+
+  /// factory method
+  virtual CalvingModel* new_CalvingModel()
+  {
+    return new VdVCalvingModel(*this);
+  }
 };
+  
 
 #include "NamespaceFooter.H"
 

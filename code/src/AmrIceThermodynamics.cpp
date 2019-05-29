@@ -53,7 +53,6 @@ using std::string;
 #include "amrIceF_F.H"
 #include "BisiclesF_F.H"
 #include "IceThermodynamics.H"
-#include "PicardSolver.H"
 #include "JFNKSolver.H"
 #include "InverseVerticallyIntegratedVelocitySolver.H"
 #include "PetscIceSolver.H"
@@ -78,19 +77,22 @@ using std::string;
 void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half, 
 				  Vector<LevelData<FluxBox>* >& a_layerH_half,
 				  const Vector<LevelData<FluxBox>* >& a_layerXYFaceXYVel,
-				  const Vector<LevelData<FArrayBox>* >& a_layerSFaceXYVel,
+				  const Vector<LevelData<FArrayBox>* >& a_layerSFaceXYVel, 
 				  const Real a_dt, const Real a_time,
 				  Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSysNew,
 				  Vector<RefCountedPtr<LevelSigmaCS> >& a_coordSysOld,
 				  const Vector<LevelData<FArrayBox>*>& a_surfaceThicknessSource,
-				  const Vector<LevelData<FArrayBox>*>& a_basalThicknessSource)
+				  const Vector<LevelData<FArrayBox>*>& a_basalThicknessSource,
+				  const Vector<LevelData<FArrayBox>*>& a_volumeThicknessSource)
 {
 
-  CH_TIME("AmrIce::updateInternalEnergy");
+CH_TIME("AmrIce::updateInternalEnergy");
+
+  
   //update the internalEnergy fields, 2D case
   Vector<LevelData<FluxBox>* > vectLayerFluxes(m_finest_level+1, NULL);
   Vector<LevelData<FluxBox>* > vectLayerThicknessFluxes(m_finest_level+1, NULL);
-  Vector<LevelData<FArrayBox>* > vectUSigma(m_finest_level+1, NULL);
+  //Vector<LevelData<FArrayBox>* > vectUSigma(m_finest_level+1, NULL);
   Vector<LevelData<FArrayBox>* > vectDivUHxy(m_finest_level+1, NULL);
 
   for (int lev=0; lev<=m_finest_level; lev++)
@@ -100,8 +102,8 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
       LevelData<FluxBox>& levelFaceH = *a_layerH_half[lev];
       IntVect ghostVect = IntVect::Unit;//CoarseAverageFace requires a ghost cell
 
-      vectUSigma[lev] = new LevelData<FArrayBox>
-	(m_amrGrids[lev], m_nLayers + 1 , IntVect::Zero);
+      //vectUSigma[lev] = new LevelData<FArrayBox>
+      //	(m_amrGrids[lev], m_nLayers + 1 , IntVect::Zero);
        
       vectDivUHxy[lev] = new LevelData<FArrayBox>
 	(m_amrGrids[lev], m_nLayers + 1 , ghostVect);
@@ -151,129 +153,34 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
  
 
      
-  //vertical and cross-layer velocity components (u[z] and u^sigma)
+  //cross-layer velocity u^sigma
   for (int lev=0; lev <= m_finest_level; lev++)
     {
       DisjointBoxLayout& levelGrids = m_amrGrids[lev];
      
       LevelSigmaCS& levelCoordsNew = *(a_coordSysNew[lev]);
       LevelSigmaCS& levelCoordsOld = *(a_coordSysOld[lev]);
-      const Vector<Real>& dSigma = levelCoordsNew.getDSigma();
-
-      LevelData<FArrayBox> levelGradHNew(m_amrGrids[lev], SpaceDim, IntVect::Zero);
-      computeCCDerivatives(levelGradHNew, levelCoordsNew.getH(), levelCoordsNew,
-			   Interval(0,0),Interval(0,SpaceDim-1));
-      LevelData<FArrayBox> levelGradHOld(m_amrGrids[lev], SpaceDim, IntVect::Zero);
-      computeCCDerivatives(levelGradHOld, levelCoordsOld.getH(), levelCoordsOld,
-			   Interval(0,0),Interval(0,SpaceDim-1));
-
-
+      LevelData<FArrayBox> dHdt(levelGrids,1,IntVect::Zero);
       for (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	{
-	  const Box& box = levelGrids[dit];
-	   
-	  // this copy perhaps indicates layer should run faster than
-	  // dir in sFaceXYVel, but for now ...
-	  const FArrayBox& sFaceXYVel = (*a_layerSFaceXYVel[lev])[dit];
-	  FArrayBox uX(box, m_nLayers+1);
-	  FArrayBox uY(box, m_nLayers+1);
-	  
-	  for (int l = 0; l < m_nLayers+1; l++)
-	    {
-	      uX.copy(sFaceXYVel, l*SpaceDim, l);
-	      uY.copy(sFaceXYVel, l*SpaceDim + 1, l);
-	    }
-
-	  FArrayBox& oldH = levelCoordsOld.getH()[dit];
-	  FArrayBox& newH = levelCoordsNew.getH()[dit];
-	  //cell centered thickness at t + dt/2
-	  FArrayBox Hhalf(box, 1);
-	  Hhalf.copy(oldH);
-	  Hhalf.plus(newH);
-	  Hhalf *= 0.5;
-
-	  //cell centered grad(thickness) at t + dt/2
-	  FArrayBox gradH(box, SpaceDim);
-	  gradH.copy(levelGradHNew[dit]);
-	  gradH.plus(levelGradHOld[dit]);
-	  gradH*=0.5;
-	  //cell centered grad(surface) at t + dt/2
-	  FArrayBox gradS(box, SpaceDim);
-	  gradS.copy(levelCoordsOld.getGradSurface()[dit]);
-	  gradS.plus(levelCoordsNew.getGradSurface()[dit]);
-	  gradS*=0.5;
-	  //horizontal contribution to div(Hu) at cell centres, 
-	  // viz d(Hu_x)/dx' + d(Hu_y)/dy'
-	  FArrayBox divUHxy(box, m_nLayers);
-	  {
-	    divUHxy.setVal(0.0);
-	    
-	    const RealVect& dx = levelCoordsNew.dx(); 
-	    for (int dir =0; dir < SpaceDim; dir++)
-	      {
-		const FArrayBox& uH = (*vectLayerThicknessFluxes[lev])[dit][dir];
-		FORT_DIVERGENCE(CHF_CONST_FRA(uH),
-				CHF_FRA(divUHxy),
-				CHF_BOX(box),
-				CHF_CONST_REAL(dx[dir]),
-				CHF_INT(dir));
-	      }
-	    
-	  }
-
-	  //dH / dt
-	  FArrayBox dHdt(box,1);  
-	  dHdt.copy(newH);
-	  dHdt.plus(oldH,-1.0,0,0,1);
-	  dHdt *= 1.0/a_dt;
-	    
-	  //calculation of dS/dt assumes surface elevation is up to date
-	  //in LevelSigmaCS
-	  FArrayBox dSdt(box,1); 
-	  dSdt.copy(levelCoordsNew.getSurfaceHeight()[dit]);
-	  dSdt -= levelCoordsOld.getSurfaceHeight()[dit];
-	  dSdt *= 1.0/a_dt;
-
-	  //surface and basal thickness source
-	  const FArrayBox& bts = (*a_basalThicknessSource[lev])[dit];
-	  const FArrayBox& sts = (*a_surfaceThicknessSource[lev])[dit];
-	  // z-component of velocity at layer faces
-	  FArrayBox uZ(box,m_nLayers + 1); 
-	  // sigma-componnet of velocity at layer faces
-	  FArrayBox& uSigma = (*vectUSigma[lev])[dit]; 
-	  // z-component of velocity at surface 
-	  FArrayBox uZs(box, 1);
-	  //divUHxy.setVal(0.0);
-	  int nLayers = m_nLayers;
-	  uSigma.setVal(0.0);
-
-	  FORT_COMPUTEZVEL(CHF_FRA(uZ),
-			   CHF_FRA1(uZs,0),
-			   CHF_FRA(uSigma),
-			   CHF_CONST_FRA(uX),
-			   CHF_CONST_FRA(uY),
-			   CHF_CONST_FRA(divUHxy),
-			   CHF_CONST_VR(levelCoordsNew.getFaceSigma()),
-			   CHF_CONST_VR(levelCoordsNew.getSigma()),
-			   CHF_CONST_VR(dSigma),
-			   CHF_CONST_FRA1(Hhalf,0),
-			   CHF_CONST_FRA1(gradS,0), 
-			   CHF_CONST_FRA1(gradH,0),
-			   CHF_CONST_FRA1(gradS,1), 
-			   CHF_CONST_FRA1(gradH,1),
-			   CHF_CONST_FRA1(dSdt,0), 
-			   CHF_CONST_FRA1(dHdt,0),
-			   CHF_CONST_FRA1(sts,0),
-			   CHF_CONST_FRA1(bts,0),
-			   CHF_CONST_INT(nLayers),
-			   CHF_BOX(box));
-
-	  CH_assert(uSigma.norm(0) < HUGE_NORM);
-	} //end compute vertical velocity loop over boxes
-
-      vectUSigma[lev]->exchange();
-
-    }//end compute vertical velocity loop over levels
+	  const FArrayBox& oldH = levelCoordsOld.getH()[dit];
+	  const FArrayBox& newH = levelCoordsNew.getH()[dit];
+	  dHdt[dit].copy(newH);
+	  dHdt[dit] -= oldH;
+	  dHdt[dit] *= 1.0/a_dt;
+	}
+      
+      IceUtility::computeSigmaVelocity(*m_layerSFaceSVel[lev],
+				       *vectLayerThicknessFluxes[lev],
+				       *a_layerSFaceXYVel[lev],
+				       dHdt,
+				       m_amrGrids[lev],
+				       *a_surfaceThicknessSource[lev],
+				       *a_basalThicknessSource[lev],
+				       levelCoordsNew.getDSigma(),
+				       levelCoordsNew.dx(),
+				       a_dt);
+    }
 
 
   // compute rhs =a_dt *(H*dissipation - div(u H T)) and update solution
@@ -300,7 +207,7 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
 	m_constitutiveRelation->computeDissipation
 	  (dissipation,*m_velocity[lev],  crseVelPtr,
 	   nRefCrse, *m_A[lev],
-	   levelCoordsOld , m_amrDomains[lev], IntVect::Zero);
+	   levelCoordsOld , m_amrDomains[lev],  IntVect::Zero);
       }
       
       LevelData<FArrayBox>& surfaceHeatFlux = *m_sHeatFlux[lev];
@@ -335,6 +242,7 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
 	  const FArrayBox& oldH = levelCoordsOld.getH()[dit];
 	  const FArrayBox& newH = levelCoordsNew.getH()[dit];
 	  FArrayBox& E = (*m_internalEnergy[lev])[dit];
+	  FArrayBox& Wt = (*m_tillWaterDepth[lev])[dit];
 	  FArrayBox& sT = (*m_sInternalEnergy[lev])[dit];	
 	  FArrayBox& bT = (*m_bInternalEnergy[lev])[dit];
 	  
@@ -360,8 +268,20 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
 	  for (int layer = 0; layer < dissipation.nComp(); ++layer)
 	    {
 	      dissipation[dit].mult(newH,0,layer,1);
+	    }
+	   dissipation[dit] /= levelCoordsNew.iceDensity();
+	  //add a layer heat source proportional to the volume thickness source
+	  for (int layer = 0; layer < dissipation.nComp(); ++layer)
+	    {
+	      FArrayBox dE(box,1);
+	      dE.copy(E, layer, 0, 1);
+	      dE *= (*a_volumeThicknessSource[lev])[dit];
+	      //dE *= dSigma[layer];
+	      dissipation[dit].plus(dE,0,layer,1); 
+	    }
 	      
-	    } 
+
+	  
 	  dissipation[dit] /= levelCoordsOld.iceDensity();
 	  rhs -= dissipation[dit]; 
 	  rhs *= -a_dt;
@@ -369,8 +289,8 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
 	  //compute heat flux across base due to basal dissipation
 	  FArrayBox basalDissipation(rhs.box(),1);
 	  m_basalFrictionRelation->computeDissipation
-	    (basalDissipation , (*m_velocity[lev])[dit] , (*m_velBasalC[lev])[dit],
-	     levelCoordsOld , dit ,rhs.box());
+	    (basalDissipation , (*m_velocity[lev])[dit] , (*m_velBasalC[lev])[dit], 1.0, 
+	     levelCoordsOld , dit ,lev, rhs.box());
 	  
 
 	  //add to user set (e.g geothermal) heat flux
@@ -406,29 +326,44 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
 	  const Real& gravity = levelCoordsNew.gravity();
 	 
 	  int surfaceTempDirichlett = surfaceHeatBoundaryDirichlett()?1:0;
+	  const FArrayBox& uSigma = (*m_layerSFaceSVel[lev])[dit];
+
+	  IceThermodynamics::timestep(E, Wt, sT, bT,
+				      scaledSurfaceHeatFlux,
+				      scaledBasalHeatFlux,
+				      levelCoordsOld.getFloatingMask()[dit],
+				      levelCoordsNew.getFloatingMask()[dit],
+				      oldH,
+				      newH,
+				      uSigma,
+				      rhs,
+				      levelCoordsOld.getFaceSigma(),
+				      dSigma,
+				      halftime,
+				      a_dt,
+				      nLayers,
+				      surfaceHeatBoundaryDirichlett(),
+				      box);
 	  
-	  FORT_UPDATEINTERNALENERGY
-	    (CHF_FRA(E), 
-	     CHF_FRA1(sT,0), 
-	     CHF_FRA1(bT,0),
-	     CHF_CONST_FRA1(scaledSurfaceHeatFlux,0),
-	     CHF_CONST_FRA1(scaledBasalHeatFlux,0),
-	     CHF_CONST_FIA1(levelCoordsOld.getFloatingMask()[dit],0),
-	     CHF_CONST_FIA1(levelCoordsNew.getFloatingMask()[dit],0),
-	     CHF_CONST_FRA(rhs),
-	     CHF_CONST_FRA1(oldH,0),
-	     CHF_CONST_FRA1(newH,0),
-	     CHF_CONST_FRA((*vectUSigma[lev])[dit]),
-	     CHF_CONST_VR(levelCoordsOld.getFaceSigma()),
-	     CHF_CONST_VR(dSigma),
-	     CHF_CONST_REAL(halftime), 
-	     CHF_CONST_REAL(a_dt),
-	     CHF_CONST_REAL(rhoi),
-	     CHF_CONST_REAL(rhoo),
-	     CHF_CONST_REAL(gravity),
-	     CHF_CONST_INT(nLayers),
-	     CHF_CONST_INT(surfaceTempDirichlett),
-	     CHF_BOX(box));
+	  // FORT_UPDATEINTERNALENERGY
+	  //   (CHF_FRA(E), CHF_FRA1(Wt,0), 
+	  //    CHF_FRA1(sT,0), 
+	  //    CHF_FRA1(bT,0),
+	  //    CHF_CONST_FRA1(scaledSurfaceHeatFlux,0),
+	  //    CHF_CONST_FRA1(scaledBasalHeatFlux,0),
+	  //    CHF_CONST_FIA1(levelCoordsOld.getFloatingMask()[dit],0),
+	  //    CHF_CONST_FIA1(levelCoordsNew.getFloatingMask()[dit],0),
+	  //    CHF_CONST_FRA(rhs),
+	  //    CHF_CONST_FRA1(oldH,0),
+	  //    CHF_CONST_FRA1(newH,0),
+	  //    CHF_CONST_FRA(uSigma),
+	  //    CHF_CONST_VR(levelCoordsOld.getFaceSigma()),
+	  //    CHF_CONST_VR(dSigma),
+	  //    CHF_CONST_REAL(halftime), 
+	  //    CHF_CONST_REAL(a_dt),
+	  //    CHF_CONST_INT(nLayers),
+	  //    CHF_CONST_INT(surfaceTempDirichlett),
+	  //    CHF_BOX(box));
 
 	  scaledBasalHeatFlux *= (levelCoordsNew.iceDensity());
 	  basalHeatFlux[dit].copy(scaledBasalHeatFlux);
@@ -437,6 +372,30 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
 	} // end update internal energy loop over grids
     } // end update internal energy loop over levels
 
+
+  // horizontal conduction / smoothing. Occasional...
+  
+  ParmParse pp("Thermodynamics");
+
+  int skip = -1;
+  pp.query("smooth_interval",skip); 
+
+
+  Real lambda = std::sqrt( IceThermodynamics::IceConductivity()/IceThermodynamics::IceHeatCapacity() );
+  if (skip > 0 && int(m_time) % skip == 0)
+    {
+      pp.query("length_scale",  lambda);
+      helmholtzSolve(m_internalEnergy, 1.0, lambda*lambda * double(skip));      
+    }
+  
+  pp.query("till_water_smooth_interval",skip); 
+  if (skip > 0 && int(m_time) % skip == 0)
+    {
+      pp.query("till_water_length_scale",  lambda);
+      helmholtzSolve(m_tillWaterDepth, 1.0, lambda * lambda * double(skip));      
+    }
+
+  
   //coarse average from finer levels & exchange
   for (int lev = m_finest_level; lev >= 0 ; --lev)
     {
@@ -456,6 +415,7 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
 	  CoarseAverage avOne(m_amrGrids[lev],m_amrGrids[lev-1],
 			      1,m_refinement_ratios[lev-1], IntVect::Zero);
 	  
+	  avOne.averageToCoarse(*m_tillWaterDepth[lev-1], *m_tillWaterDepth[lev]);
 	  avOne.averageToCoarse(*m_sInternalEnergy[lev-1], *m_sInternalEnergy[lev]);
 	  avOne.averageToCoarse(*m_bInternalEnergy[lev-1], *m_bInternalEnergy[lev]);
 	  avOne.averageToCoarse(*m_sHeatFlux[lev-1], *m_sHeatFlux[lev]);
@@ -463,6 +423,7 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
 	}
       
       m_internalEnergy[lev]->exchange();
+      m_tillWaterDepth[lev]->exchange();
       m_sInternalEnergy[lev]->exchange();
       m_bInternalEnergy[lev]->exchange();
       m_sHeatFlux[lev]->exchange();
@@ -471,10 +432,10 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
   
   for (int lev = 0; lev < vectLayerFluxes.size(); ++lev)
     {
-      if (vectUSigma[lev] != NULL)
-	{
-	  delete vectUSigma[lev]; vectUSigma[lev] = NULL;
-	}
+      // if (vectUSigma[lev] != NULL)
+      // 	{
+      // 	  delete vectUSigma[lev]; vectUSigma[lev] = NULL;
+      // 	}
 
       if (vectDivUHxy[lev] != NULL)
 	{
@@ -492,7 +453,10 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
 	}
 
     }
-
+  
+  //update the temperature since it depends on the internal energy
+  updateTemperature();
+  
   //finally, A is no longer valid 
   m_A_valid = false;
   //#endif
@@ -500,6 +464,74 @@ void AmrIce::updateInternalEnergy(Vector<LevelData<FluxBox>* >& a_layerEH_half,
 }
 #endif
 
+#if BISICLES_Z == BISICLES_LAYERED
+void AmrIce::updateTemperature()
+{
+  
+  //update the temperature (a derived field);
+  for (int lev=0; lev < m_temperature.size() ; lev++)
+    {
+      if (m_temperature[lev])
+	{delete m_temperature[lev];m_temperature[lev]=NULL;}
+      if (m_bTemperature[lev])
+	{delete m_bTemperature[lev];m_bTemperature[lev]=NULL;}
+      if (m_sTemperature[lev])
+	{ delete m_sTemperature[lev];m_sTemperature[lev]=NULL;}
+    }
+  
+  (m_temperature.resize(m_internalEnergy.size()));
+  (m_sTemperature.resize(m_sInternalEnergy.size()));
+  (m_bTemperature.resize(m_sInternalEnergy.size()));
+  
+  for (int lev=0; lev<=m_finest_level; lev++)
+    {  
+      m_temperature[lev] = new LevelData<FArrayBox>
+	(m_internalEnergy[lev]->disjointBoxLayout(),m_internalEnergy[lev]->nComp(), IntVect::Unit );
+      m_sTemperature[lev] = new LevelData<FArrayBox>
+	(m_sInternalEnergy[lev]->disjointBoxLayout(),m_sInternalEnergy[lev]->nComp(), IntVect::Unit );
+      m_bTemperature[lev] = new LevelData<FArrayBox>
+	(m_bInternalEnergy[lev]->disjointBoxLayout(),m_sInternalEnergy[lev]->nComp(), IntVect::Unit );
+
+      const LevelSigmaCS& coordSys = *m_vect_coordSys[lev];
+      const Vector<Real>& sigma = coordSys.getSigma();
+      
+      for (DataIterator dit(m_amrGrids[lev]); dit.ok(); ++dit)
+	{
+	  FArrayBox& T = (*m_temperature[lev]) [dit];
+	  FArrayBox& sT = (*m_sTemperature[lev]) [dit];
+	  FArrayBox& bT = (*m_bTemperature[lev]) [dit];
+	  const FArrayBox& E = (*m_internalEnergy[lev]) [dit];
+	  const FArrayBox& sE = (*m_sInternalEnergy[lev]) [dit];
+	  const FArrayBox& bE = (*m_bInternalEnergy[lev]) [dit];
+	  const Box& box = bT.box();
+	  FArrayBox pressure(box,1);
+	  FArrayBox w(box,1);
+	  
+	  //Surface temperature
+	  pressure.setVal(0.0);
+	  IceThermodynamics::decomposeInternalEnergy(sT, w, sE , pressure, box);
+	  
+	  //Base temperature  
+	  pressure.copy(coordSys.getH()[dit]);
+	  pressure *= coordSys.iceDensity() * coordSys.gravity();
+	  IceThermodynamics::decomposeInternalEnergy(bT, w, bE , pressure, box);
+	  
+	  // Bulk temperature
+	  for (int layer = 0; layer < sigma.size(); ++layer)
+	    {
+	      pressure.copy(coordSys.getH()[dit]);
+	      pressure *= coordSys.iceDensity() * coordSys.gravity() * sigma[layer];
+	      FArrayBox layerE(box,1);
+	      layerE.copy(E,layer,0,1); // an alias would be better?
+	      FArrayBox layerT(box,1); 
+	      IceThermodynamics::decomposeInternalEnergy(layerT, w, layerE , pressure, box);
+	      T.copy(layerT,0,layer,1);
+	    }
+	}
+    }
+ 
+}
+#endif
 
 #if BISICLES_Z == BISICLES_LAYERED
 //compute the face- and layer- centered internal energy (a_layerEH_half)
@@ -620,6 +652,7 @@ void AmrIce::computeInternalEnergyHalf(Vector<LevelData<FluxBox>* >& a_layerEH_h
 	      Box grownBox = levelGrids[dit];
 	      grownBox.grow(1);
 	      FluxBox HEhalf(grownBox,1);
+	      HEhalf.setVal(0.0);
 	      patchGodunov.computeWHalf(HEhalf,
 					WGdnv,
 					heatSource,
@@ -666,6 +699,9 @@ void AmrIce::computeInternalEnergyHalf(Vector<LevelData<FluxBox>* >& a_layerEH_h
     }
 
 }
+
+
+
 
 #endif
 

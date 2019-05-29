@@ -311,7 +311,7 @@ void IceUtility::computeA
 	  
 	  //3. compute corrected temperature 
 	  FArrayBox Tpmp(box,1);
-	  Tpmp.copy(pressure); Tpmp *= -icepmeltfactor; // Tpmp += triplepoint - TINY_NORM;
+	  Tpmp.copy(pressure); Tpmp *= -IceThermodynamics::icepmeltfactor(); // Tpmp += triplepoint - TINY_NORM;
 	  T -= Tpmp;
 
 	  //4. compute A
@@ -463,10 +463,10 @@ void IceUtility::extrapVelocityToMargin(LevelData<FluxBox>& a_faceVel,
 	  Box faceBox = grids[dit];
 	  faceBox.surroundingNodes(dir);
 	  FArrayBox& faceVel = a_faceVel[dit][dir];
-	  //{
-	  //  Real maxFaceVelocity = faceVel.norm(faceBox,0);
-	  //  CH_assert(maxFaceVelocity < 0.5 * HUGE_VEL);
-	  //}
+	  
+	  //{Real maxFaceVelocity = faceVel.norm(faceBox,0);
+	  //CH_assert(maxFaceVelocity < 0.5 * HUGE_VEL);}
+	  
 	  Box grownFaceBox = faceBox;
 	  CH_assert(faceVel.box().contains(grownFaceBox));
 	  FArrayBox vface(faceBox,1);
@@ -480,11 +480,8 @@ void IceUtility::extrapVelocityToMargin(LevelData<FluxBox>& a_faceVel,
 			      CHF_CONST_FRA1(thk,0),
 			      CHF_CONST_INT(dir),
 			      CHF_BOX(faceBox));
-	  //{
-	  //  Real maxFaceVelocity = faceVel.norm(faceBox,0);
-	  //  CH_assert(maxFaceVelocity < HUGE_VEL);
-	  // }
-
+	  //{Real maxFaceVelocity = faceVel.norm(faceBox,0);
+	  //  CH_assert(maxFaceVelocity < HUGE_VEL);}
 	}
 
     }
@@ -510,9 +507,9 @@ void IceUtility::computeFaceVelocity
 #endif			 
  const LevelData<FArrayBox>* a_crseVelocity,
  const LevelData<FArrayBox>* a_crseDiffusivity,
- const int a_nRefCrse,
+ int a_nRefCrse,
  const ConstitutiveRelation* a_constitutiveRelation,
- const bool a_additionalVelocity) 
+ bool a_additionalVelocity,  bool a_implicitDiffusion)
 {			   
   
   //We need to copy the cell-centered velocity onto
@@ -630,7 +627,17 @@ void IceUtility::computeFaceVelocity
 					       grids,  grids.physDomain(), a_A, a_sA, a_bA,
 					       a_faceVelAdvection, a_faceVelTotal, a_faceDiffusivity,
 					       a_cellDiffusivity, a_layerXYFaceXYVel, a_layerSFaceXYVel);
-
+	  if (!a_implicitDiffusion)
+	    {
+	      // in this case, faceVelTotal contains the velocity
+	      for (DataIterator dit(grids);dit.ok();++dit)
+		{
+		  for (int dir = 0; dir < SpaceDim; dir++)
+		    { 
+		      a_faceVelAdvection[dit][dir].copy(a_faceVelTotal[dit][dir] );
+		    }
+		}
+	    }
 	}
     }
   
@@ -647,6 +654,84 @@ void IceUtility::computeFaceVelocity
  
 
 }
+
+/// compute the cross layer velocity u^sigma (the contravariant component)
+void IceUtility::computeSigmaVelocity
+(LevelData<FArrayBox>& a_uSigma,
+ const LevelData<FluxBox>& a_layerThicknessFlux,
+ const LevelData<FArrayBox>& a_layerSFaceXYVel,
+ const LevelData<FArrayBox>& a_dHdt,
+ const DisjointBoxLayout a_grid,
+ const LevelData<FArrayBox>& a_surfaceThicknessSource,
+ const LevelData<FArrayBox>& a_basalThicknessSource,
+ const Vector<Real>& a_dSigma,
+ const RealVect& a_dx,
+ const Real& a_dt )
+{
+  
+  int nLayer = a_dSigma.size();
+  CH_assert(nLayer == a_layerThicknessFlux.nComp());
+  CH_assert((SpaceDim*(nLayer+1) == a_layerSFaceXYVel.nComp()));
+  for (DataIterator dit(a_grid); dit.ok(); ++dit)
+    {
+      const Box& box = a_grid[dit];
+      
+      // this copy perhaps indicates layer should run faster than
+      // dir in sFaceXYVel, but for now ...
+      const FArrayBox& sFaceXYVel = a_layerSFaceXYVel[dit];
+      FArrayBox uX(box, nLayer+1);
+      FArrayBox uY(box, nLayer+1);
+      
+      for (int l = 0; l < nLayer + 1; l++)
+	{
+	  uX.copy(sFaceXYVel, l*SpaceDim, l);
+	  uY.copy(sFaceXYVel, l*SpaceDim + 1, l);
+	}
+      
+      FArrayBox divUHxy(box, nLayer);
+      divUHxy.setVal(0.0);
+      
+      //const RealVect& dx = a_coordSysNew.dx(); 
+      for (int dir =0; dir < SpaceDim; dir++)
+	{
+	  const FArrayBox& uH = a_layerThicknessFlux[dit][dir];
+	  FORT_DIVERGENCE(CHF_CONST_FRA(uH),
+			  CHF_FRA(divUHxy),
+			  CHF_BOX(box),
+			  CHF_CONST_REAL(a_dx[dir]),
+			  CHF_INT(dir));
+	}
+      
+
+      
+      //surface and basal thickness source
+      const FArrayBox& bts = a_basalThicknessSource[dit];
+      const FArrayBox& sts = a_surfaceThicknessSource[dit];
+
+      // sigma-componnet of velocity at layer faces
+      FArrayBox& uSigma = a_uSigma[dit]; 
+      uSigma.setVal(0.0);
+      FORT_COMPUTESIGMAVEL(CHF_FRA(uSigma),
+			   CHF_CONST_FRA(uX),
+			   CHF_CONST_FRA(uY),
+			   CHF_CONST_FRA(divUHxy),
+			   CHF_CONST_VR(a_dSigma),
+			   CHF_CONST_FRA1(a_dHdt[dit],0),
+			   CHF_CONST_FRA1(sts,0),
+			   CHF_CONST_FRA1(bts,0),
+			   CHF_CONST_INT(nLayer),
+			   CHF_BOX(box));
+      
+      
+      CH_assert(uSigma.norm(0) < HUGE_NORM);
+    } //end compute vertical velocity loop over boxes
+      
+  a_uSigma.exchange();
+      
+}
+
+
+
 
 ///Identify regions of fast ice  and eliminate them.
 /**
@@ -665,7 +750,7 @@ int IceUtility::eliminateFastIce
  bool a_edgeOnly, int a_verbosity)
 {
   CH_TIME("IceUtility::eliminateFastIce");
-  if (a_verbosity > 0)
+  if (a_verbosity > 3)
     {
       pout() << "IceUtility::eliminateFastIce" << endl;
     }
@@ -706,7 +791,10 @@ int IceUtility::eliminateFastIce
 		      Real prevThck = H(iv);
 		      H(iv) = 0.0;
 		      D_DECL(u(iv,0) = 0 ,u(iv,1) = 0, u(iv,2) = 0);
-		      pout() << " (fast) eliminated level " << lev << " iv " << iv << std::endl;
+		      if (a_verbosity > 5)
+			{
+			  pout() << " (fast) eliminated level " << lev << " iv " << iv << std::endl;
+			}
 		      nEliminated++;
 		      // Record gain/loss of ice
 		      CalvingModel::updateCalvedIce(H(iv),prevThck,mask(iv),added(iv),calved(iv),removed(iv));
@@ -718,7 +806,7 @@ int IceUtility::eliminateFastIce
 	}
     }
   
-  if (a_verbosity > 0)
+  if (a_verbosity > 4)
 	{
 	  pout() << "... (this cpu) eliminated " << nEliminated << " cells " << endl;
 	}
@@ -738,7 +826,7 @@ int IceUtility::eliminateFastIce
   }
 #endif  
 
-  if (a_verbosity > 0)
+  if (a_verbosity > 3)
 	{
 	  pout() << "... (all cpus) eliminated " << nEliminated << " cells " << endl;
 	}
@@ -777,7 +865,7 @@ void IceUtility::eliminateRemoteIce
  int a_finestLevel, int a_maxIter, Real a_tol, int a_verbosity)
 {
   CH_TIME("IceUtility::eliminateRemoteIce");
-  if (a_verbosity > 0)
+  if (a_verbosity > 3)
     {
       pout() << "IceUtility::eliminateRemoteIce" << endl;
     }
@@ -851,7 +939,7 @@ void IceUtility::eliminateRemoteIce
     
     sumPhi = computeSum(phi, a_refRatio, a_crseDx, Interval(0,0), 0);
 
-    if (a_verbosity > 0)
+    if (a_verbosity > 3)
       {
 	pout() << "IceUtility::eliminateRemoteIce iteration " << iter 
 	       << " connected cells = " << sumPhi << endl;
@@ -886,6 +974,7 @@ void IceUtility::eliminateRemoteIce
 	      	{
 		  h(iv) = 0.0;
 		  D_DECL(u(iv,0) = 0 ,u(iv,1) = 0, u(iv,2) = 0);
+		  if (a_verbosity > 5)
 		  pout() << " (remote) eliminated level " << lev << " iv " << iv << std::endl;
 	      	}
 	      // Record gain/loss of ice

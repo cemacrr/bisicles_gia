@@ -8,6 +8,7 @@
 */
 #endif
 
+#define TEST_WD 0.0;
 
 #include "DamageConstitutiveRelation.H"
 #include "NyeCrevasseF_F.H"
@@ -35,7 +36,7 @@ DamageConstitutiveRelation::getNewConstitutiveRelation() const
 
 void
 DamageConstitutiveRelation::computeMu(LevelData<FArrayBox>& a_mu,
-                                    const LevelData<FArrayBox>& a_vel, 
+                                    const LevelData<FArrayBox>& a_vel, const Real& a_scale,
                                     const LevelData<FArrayBox>* a_crseVelPtr,
                                     int a_nRefCrse,
                                     const LevelData<FArrayBox>& a_A,
@@ -117,6 +118,7 @@ DamageConstitutiveRelation::modifyMu
  const FArrayBox& a_vt, 
  const FArrayBox& a_thck,
  const FArrayBox& a_topg,
+ const FArrayBox& a_water,
  const Real& a_rhoi,
  const Real& a_rhoo,
  const Real& a_gravity,
@@ -142,10 +144,7 @@ DamageConstitutiveRelation::modifyMu
 		 CHF_INT(dvdyComp),
 		 CHF_BOX(a_box));
   
-  //FIXME : these all need to be class args of some sort
-  Real waterDepth = 0.0; // water depth
-  FArrayBox depthw(a_box, 1); 
-  depthw.setVal(waterDepth);
+
 	  
   Real eps = 1.0e-10; // minimum denominator
   
@@ -161,7 +160,7 @@ DamageConstitutiveRelation::modifyMu
   Real maxDamage = DAMAGE_MAX_VAL;
 
   FORT_NYECREVASSEDEPTHT(CHF_FRA1(a_damage,0), 
-		       CHF_CONST_FRA1(depthw,0),
+		       CHF_CONST_FRA1(a_water,0),
 		       CHF_CONST_FRA1(a_thck,0),
 		       CHF_CONST_FRA1(lambda,0),
 		       CHF_CONST_FRA1(thckab,0),
@@ -190,6 +189,7 @@ DamageConstitutiveRelation::computeLocalDamage
  const FArrayBox& a_gradU, 
  const FArrayBox& a_thck,
  const FArrayBox& a_topg,
+ const FArrayBox& a_water,
  const Real& a_rhoi,
  const Real& a_rhoo,
  const Real& a_gravity,
@@ -235,11 +235,7 @@ DamageConstitutiveRelation::computeLocalDamage
   lambda.mult(a_thck,0,0,1);
   
   
-  //FIXME : these all need to be class args of some sort
-  Real waterDepth = 0.0; // water depth
-  FArrayBox depthw(a_box, 1); 
-  depthw.setVal(waterDepth);
-	  
+ 
   Real eps = 1.0e-10; // minimum denominator
   
   FArrayBox thckab(a_box,1);
@@ -254,7 +250,7 @@ DamageConstitutiveRelation::computeLocalDamage
   Real maxDamage = DAMAGE_MAX_VAL;
 
   FORT_NYECREVASSEDEPTHTP(CHF_FRA1(a_damage,0), 
-		       CHF_CONST_FRA1(depthw,0),
+		       CHF_CONST_FRA1(a_water,0),
 		       CHF_CONST_FRA1(a_thck,0),
 		       CHF_CONST_FRA1(lambda,0),
 		       CHF_CONST_FRA1(thckab,0),
@@ -292,7 +288,7 @@ DamageConstitutiveRelation::computeLocalDamage
 void  
 DamageConstitutiveRelation::computeFaceMu
 (LevelData<FluxBox>& a_mu,
- LevelData<FArrayBox>& a_velocity, 
+ LevelData<FArrayBox>& a_velocity, const Real& a_scale,
  const LevelData<FArrayBox>* a_crseVelPtr,
  int a_nRefCrse,
  const LevelData<FluxBox>& a_A,
@@ -305,7 +301,7 @@ DamageConstitutiveRelation::computeFaceMu
 
   int lev = level(a_domain);
   LevelData<FluxBox>& a_damage = (*m_damageModel->m_faceMinDamage[lev]);
-  computeFaceMuDamage(a_mu,a_damage,a_velocity, a_crseVelPtr,
+  computeFaceMuDamage(a_mu,a_damage,a_velocity, a_scale, a_crseVelPtr,
 		      a_nRefCrse,a_A,a_coordSys,a_domain,a_ghostVect);
 }
 
@@ -313,7 +309,7 @@ void
 DamageConstitutiveRelation::computeFaceMuDamage
 (LevelData<FluxBox>& a_mu,
  LevelData<FluxBox>& a_damage,
- LevelData<FArrayBox>& a_velocity, 
+ LevelData<FArrayBox>& a_velocity, const Real& a_scale,
  const LevelData<FArrayBox>* a_crseVelPtr,
  int a_nRefCrse,
  const LevelData<FluxBox>& a_A,
@@ -337,7 +333,7 @@ DamageConstitutiveRelation::computeFaceMuDamage
      a_ghostVect);
   
   m_undamagedConstitutiveRelation->computeFaceMu
-    ( a_mu, a_velocity,  a_crseVelPtr, a_nRefCrse, a_A, a_coordSys, 
+    ( a_mu, a_velocity, a_scale,  a_crseVelPtr, a_nRefCrse, a_A, a_coordSys, 
       a_domain, a_ghostVect);
 
   //which level are we on?
@@ -347,7 +343,13 @@ DamageConstitutiveRelation::computeFaceMuDamage
   //FIXME also a bit suspect : face-averaging the cell-centred damage when it might 
   //be better to use the face-centered values that get computed for advection
   CellToEdge(*m_damageModel->damage(lev), faceDamage); 
-      
+
+   LevelData<FluxBox> faceWater (grids, 1, a_ghostVect);
+  //FIXME also a bit suspect : face-averaging the cell-centred damage when it might 
+  //be better to use the face-centered values that get computed for advection
+   CellToEdge(*m_damageModel->water(lev), faceWater); 
+
+  
   for (DataIterator dit(grids);dit.ok();++dit)
     {
       for (int faceDir = 0; faceDir < SpaceDim; faceDir++)
@@ -356,9 +358,10 @@ DamageConstitutiveRelation::computeFaceMuDamage
 	  box.surroundingNodes(faceDir);
 
 	  computeLocalDamage(a_damage[dit][faceDir], a_mu[dit][faceDir], gradU[dit][faceDir],
-			      a_coordSys.getFaceH()[dit][faceDir], faceTopography[dit][faceDir],
-			      a_coordSys.iceDensity(), a_coordSys.waterDensity(), 
-			      a_coordSys.gravity(), a_coordSys.seaLevel(), box);
+			     a_coordSys.getFaceH()[dit][faceDir], faceTopography[dit][faceDir],
+			     faceWater[dit][faceDir],
+			     a_coordSys.iceDensity(), a_coordSys.waterDensity(), 
+			     a_coordSys.gravity(), a_coordSys.seaLevel(), box);
 
 
 	  modifyMu(a_damage[dit][faceDir], a_mu[dit][faceDir], faceDamage[dit][faceDir], 

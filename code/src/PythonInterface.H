@@ -215,6 +215,12 @@ namespace PythonInterface
 				const RealVect& a_dx,
 				Real a_time, Real a_dt);
 
+    virtual void setIceFractionBCs(LevelData<FArrayBox>& a_fraction,
+				   const ProblemDomain& a_domain,
+				   const RealVect& a_dx,
+				   Real a_time, Real a_dt);    
+
+    
   private:
 
     RealVect m_dx;
@@ -358,13 +364,15 @@ namespace PythonInterface
 			       int a_level, Real a_dt);
 
 #if BISICLES_Z == BISICLES_LAYERED
-    virtual void initializeIceInternalEnergy(LevelData<FArrayBox>& a_E, 
+    virtual void initializeIceInternalEnergy(LevelData<FArrayBox>& a_E,
+					     LevelData<FArrayBox>& a_tillWaterDepth,
 					     LevelData<FArrayBox>& a_surfaceE, 
 					     LevelData<FArrayBox>& a_basalE, 
 					     const AmrIceBase& a_amrIce, 
 					     int a_level, Real a_dt);
 
-    virtual void setIceInternalEnergyBC(LevelData<FArrayBox>& a_E, 
+    virtual void setIceInternalEnergyBC(LevelData<FArrayBox>& a_E,
+					LevelData<FArrayBox>& a_tillWaterDepth,
 				    LevelData<FArrayBox>& a_surfaceE, 
 				    LevelData<FArrayBox>& a_basalE,
 				    const LevelSigmaCS& a_coordSys);

@@ -14,13 +14,167 @@
 
 #include "fabncio.H"
 #include "netcdf.h"
+
+#ifdef HAVE_GDAL
+#include "ogr_spatialref.h"
+#endif
+
 #include "NamespaceHeader.H"
 
-void writeNetCDF(const std::string& a_file,
-		 const Vector<std::string>& a_names,
-		 const FArrayBox& a_fab, 
-		 const Real& a_dx,
-		 const RealVect& a_x0)
+
+#ifdef HAVE_NETCDF
+/// utility functions needed by writeFAB/readFAB
+namespace NCIO
+{
+  /// write CF compliant spatial ref (ie projection) attributes
+  void writeCFSpatialRef(int ncID, int a_epsg);
+
+  /// define netcdf dimensions and variables needed to store a_dd
+  void defineCF(int ncID, const DomainDiagnosticData& a_dd);
+
+  /// write a_dd to netcdf
+  void writeCF(int ncID, const DomainDiagnosticData& a_dd);
+}
+
+/// attempt to write CF projection data to a netcdf group, built from an epsg code
+void NCIO::writeCFSpatialRef(int ncID, int a_epsg)
+{
+
+  int rc, crsID;
+  rc = nc_def_var(ncID, "crs", NC_INT, 0, 0, &crsID);
+  
+  
+  if (a_epsg <= 0)
+    {
+      rc = nc_put_att_text(ncID, crsID, "crs_wkt", 7, "unknown");
+    }
+  else
+    {
+     
+      // write epsg, in case we don't have gdal
+      rc = nc_put_att_int(ncID, crsID, "EPSG", NC_INT, 1, &a_epsg);
+      
+#ifdef HAVE_GDAL
+      //projection
+      
+      OGRSpatialReference crs;
+      crs.importFromEPSG( a_epsg );
+     
+      // Allowed to include WKT in CF, not sure how useful that is
+      char* wkt;
+      crs.exportToWkt( &wkt );
+      rc = nc_put_att_text(ncID, crsID, "crs_wkt", strlen(wkt), wkt);
+
+      // gdal's netcdf driver apparently can work with wkt (as well as CF)
+      rc = nc_put_att_text(ncID, NC_GLOBAL, "spatial_ref", strlen(wkt), wkt);
+
+      // attempt to construct CF grid_mapping
+      const char *projection = crs.GetAttrValue("PROJECTION");
+      if (projection)
+	{
+	  /// we might want some other projections at some point
+	  if (EQUAL(projection, SRS_PT_POLAR_STEREOGRAPHIC))
+	    {
+	      rc = nc_put_att_text(ncID, crsID, "grid_mapping_name", 19, "polar_stereographic");
+
+	      // cf seems to want latitude_of_projection_origin
+	      //but it isn't really part of the projection definition
+	      double lat_0 = crs.GetProjParm(SRS_PP_LATITUDE_OF_ORIGIN);
+	      lat_0 = (lat_0 > 0.0)?90.0:-90.0;
+	      int rc = nc_put_att_double(ncID, crsID, "latitude_of_projection_origin", NC_DOUBLE, 1, &lat_0);
+
+	      auto fw = [ncID,crsID,&crs](const char* a_gdal_name,
+					  const char* a_cf_name ){
+		double d = crs.GetProjParm(a_gdal_name,0.0);
+		int rc = nc_put_att_double(ncID, crsID, a_cf_name, NC_DOUBLE, 1, &d);
+	      };
+	      fw(SRS_PP_CENTRAL_MERIDIAN,SRS_PP_CENTRAL_MERIDIAN);
+	      fw(SRS_PP_SCALE_FACTOR,SRS_PP_SCALE_FACTOR);
+	      fw(SRS_PP_LATITUDE_OF_ORIGIN,"standard_parallel");
+	      fw(SRS_PP_FALSE_EASTING,SRS_PP_FALSE_EASTING);
+	      fw(SRS_PP_FALSE_NORTHING,SRS_PP_FALSE_NORTHING);	       
+	     }
+	}
+#endif
+      
+    } // end if a_epsg > 0
+
+
+}
+
+void NCIO::defineCF(int ncID, const DomainDiagnosticData& a_dd)
+{
+
+  int rc;
+
+  //(timestep) dimension
+  const Vector<Real>* time = a_dd.m_cf_stuff[0].data;
+  if (time && time->size() > 0)
+    {
+  
+      int tdimID[1];
+      int one = 1;
+      rc = nc_def_dim(ncID, "ts", time->size(),  &tdimID[0]);
+
+      for (int i = 0; i < a_dd.m_cf_stuff.size(); i++)
+	{
+	  pout() << "Diagnostic info: " << a_dd.m_cf_stuff[i].cf_name 
+		 << ", " << a_dd.m_cf_stuff[i].units 
+		 << ", " << a_dd.m_cf_stuff[i].long_name 
+		 << endl;
+	}
+
+      for (int i = 0; i < a_dd.m_cf_stuff.size(); ++i)
+	{
+	  int varID;
+	  rc = nc_def_var(ncID, a_dd.m_cf_stuff[i].cf_name.c_str(), NC_DOUBLE, one ,
+       			  &tdimID[0], &varID);
+	  const char* c = a_dd.m_cf_stuff[i].cf_name.c_str();
+	  rc = nc_put_att_text(ncID, varID, "standard_name", strlen(c), c); 
+	  c = a_dd.m_cf_stuff[i].units.c_str();
+	  rc = nc_put_att_text(ncID, varID, "units", strlen(c), c); 
+	  c = a_dd.m_cf_stuff[i].long_name.c_str();
+	  rc = nc_put_att_text(ncID, varID, "long_name", strlen(c), c); 
+
+	}
+      
+    }
+}
+
+void NCIO::writeCF(int ncID, const DomainDiagnosticData& a_dd)
+{
+
+
+  int rc;
+  
+  for (int i = 0; i < a_dd.m_cf_stuff.size(); ++i)
+    {
+      int varID;
+      rc = nc_inq_varid(ncID, a_dd.m_cf_stuff[i].cf_name.c_str(), &varID);
+	
+      const Vector<Real>* v = a_dd.m_cf_stuff[i].data;
+      if (v && v->size() > 0)
+	{
+	  size_t start = 0;
+	  size_t count = v->size();
+	  rc = nc_put_vara_double(ncID, varID, &start, &count, &(*v)[0]);
+	}
+    }
+ 
+}
+
+void NCIO::writeFAB(const std::string& a_file,
+		    const Vector<std::string>& a_names,
+		    const Vector<std::string>& a_cf_standard_names,
+		    const Vector<std::string>& a_cf_units,
+		    const Vector<std::string>& a_cf_long_names,
+		    const FArrayBox& a_fab, 
+		    const Real& a_dx,
+		    const RealVect& a_x0,
+		    int a_epsg,
+		    const DomainDiagnosticData& a_dd,
+		    const std::string& a_flattenInfo,
+		    const HDF5HeaderData& a_file_header)
 {
   int rc; int ncID;
   if ( (rc = nc_create(a_file.c_str(), NC_CLOBBER, &ncID) ) != NC_NOERR) 
@@ -28,6 +182,43 @@ void writeNetCDF(const std::string& a_file,
       MayDay::Error("failed to open netcdf file");
     }
 
+
+  //global attributes
+  rc = nc_put_att_text(ncID, NC_GLOBAL, "Conventions", 6, "CF-1.7");
+  for (auto i = a_file_header.m_string.begin(); i != a_file_header.m_string.end(); ++i)
+    {
+      string sname = i->first;
+      if (sname.find("component_00") == string::npos)
+	{
+	  rc = nc_put_att_text(ncID, NC_GLOBAL, i->first.c_str(), i->second.size(), i->second.c_str());
+	}
+    }
+  for (auto i = a_file_header.m_int.begin(); i != a_file_header.m_int.end(); ++i)
+    {
+      int iatt = i->second;
+      string iname = i->first;
+      if (iname.find("num_comps") == string::npos)
+	{
+	  rc = nc_put_att_int(ncID, NC_GLOBAL, i->first.c_str(), NC_INT, 1, &iatt);
+	}
+    }
+  for (auto i = a_file_header.m_real.begin(); i != a_file_header.m_real.end(); ++i)
+    {
+      Real ratt = i->second;
+      rc = nc_put_att_double(ncID, NC_GLOBAL, i->first.c_str(), NC_DOUBLE, 1, &ratt);
+    }
+  rc = nc_put_att_double(ncID, NC_GLOBAL, "dx", NC_DOUBLE, 1, &a_dx);
+
+  rc = nc_put_att_text(ncID, NC_GLOBAL, "Conversion_history", a_flattenInfo.size(), a_flattenInfo.c_str());
+
+  //spatial reference
+  writeCFSpatialRef(ncID, a_epsg);
+
+  //define diagnostic data
+  defineCF(ncID, a_dd);
+  
+  // fab data
+  // dimensions
   std::string xname[SpaceDim] = {D_DECL("x","y","z")};
   int dimID[SpaceDim];
 
@@ -45,6 +236,7 @@ void writeNetCDF(const std::string& a_file,
 	}
     }
 
+  // x,y,z data
   for (int dir = 0; dir < SpaceDim; ++dir)
   {
     
@@ -55,6 +247,13 @@ void writeNetCDF(const std::string& a_file,
       {
 	MayDay::Error("failed to define x");
       }
+
+    string s = "projection_"; s.append(xname[dir]); s.append("_coordinate");
+    const char* c = s.c_str();
+    rc = nc_put_att_text(ncID, varID, "standard_name", strlen(c), c);
+    rc = nc_put_att_text(ncID, varID, "units", 1, "m"); // BISICLES x unit is m.
+    
+    
   }
   int FORTRAN_dimID[SpaceDim];
   size_t FORTRAN_start[SpaceDim];
@@ -73,6 +272,23 @@ void writeNetCDF(const std::string& a_file,
 	{
 	  MayDay::Error("failed to define variable");
 	}
+       rc = nc_put_att_text(ncID, varID, "grid_mapping", 3, "crs" );
+
+       if (a_cf_standard_names[i] != "")
+	 {
+	   const char* c = a_cf_standard_names[i].c_str();
+	   rc = nc_put_att_text(ncID, varID, "standard_name", strlen(c), c); 
+	   c = a_cf_units[i].c_str();
+	   rc = nc_put_att_text(ncID, varID, "units", strlen(c), c); 
+	   c = a_cf_long_names[i].c_str();
+	   rc = nc_put_att_text(ncID, varID, "long_name", strlen(c), c); 
+	 }
+       else
+	 {
+	   const char* c = a_names[i].c_str();
+	   rc = nc_put_att_text(ncID, varID, "standard_name", strlen(c), c);
+	 }
+       
     }
 
   if ( (rc = nc_enddef(ncID) ) != NC_NOERR)
@@ -80,6 +296,10 @@ void writeNetCDF(const std::string& a_file,
       MayDay::Error("failed to define netcdf file");
     }
   
+  //write diagnostic data
+  writeCF(ncID, a_dd);
+
+  // write fab data
   for (int dir = 0; dir < SpaceDim; ++dir)
     {
       int varID;
@@ -133,7 +353,7 @@ void writeNetCDF(const std::string& a_file,
 //filled with data loaded from a netcdf file
 //with a one-dimensional variable x and 
 //SpaceDim-dimensional variables var[0]-var[n-1]
-void readNetCDF(const std::string& a_file,
+void NCIO::readFAB(const std::string& a_file,
 		const Vector<std::string>& a_var,
 		FArrayBox& a_fab,
 		Real& a_dx)
@@ -253,6 +473,7 @@ void readNetCDF(const std::string& a_file,
     }
 }
 
-
+#endif
+ 
 
 #include "NamespaceFooter.H"

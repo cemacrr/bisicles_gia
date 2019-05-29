@@ -98,7 +98,7 @@ JFNKSolver.switchRate = 1.8
 
 #time stepping
 main.maxTime = 10  # maximum time to run to
-main.maxStep = 254002   # maximum number of steps to runx
+main.maxStep = 255001   # maximum number of steps to runx
 amr.temporal_accuracy = 1
 amr.cfl = 0.25 
 amr.initial_cfl = 0.25 
@@ -116,7 +116,7 @@ amr.write_viscous_tensor = true
 amr.write_thickness_sources = true
 
 #check points
-amr.check_interval = 100
+amr.check_interval = 2
 
 amr.check_prefix = chk.damage.
 
@@ -152,10 +152,28 @@ amr.velocity_solve_interval = 1
 
 
 amr.restart_file=chk.damage.H5
+
+#chk.damage.254146.2d.hdf5
 amr.restart_set_time = true
 amr.restart_time = 0.0
 
-main.damage_model = true
+#main.damage_model = true
 
 regression.result_hdf5= plot.damage.254002.2d.hdf5
 regression.reference_hdf5= plot.damage.254002.H5
+
+CalvingModel.type = CliffCollapseCalvingModel
+CalvingModel.max_cliff_height = 20.0
+CalvingModel.recession_rate = 1000.0
+
+damage.water_source.type =maskedFlux
+damage.water_source.grounded.type = zeroFlux
+damage.water_source.floating.type = constantFlux
+damage.water_source.floating.flux_value = 100.0
+
+damage.critical_damage = 0.75
+damage.critical_thickness = 100.0
+amr.eliminate_remote_ice = true
+
+JFNKSolver.eliminateFastIce = true
+JFNKSolver.eliminateFastIceSpeed = 5000.0

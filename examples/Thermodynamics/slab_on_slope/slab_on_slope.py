@@ -1,18 +1,39 @@
 #constant thickness slab on slope
 L = 64.0e+3
+ACAB = 0.5
+THICKNESS = 1000.0
+ROS = ACAB / THICKNESS
+NOISE = ROS*0.5 #* 0.125
+
+import random
+random.seed(0)
 
 def thickness(x,y):
-    return 1000.0 if x < 0.75*L else 0.0
+    return 1000.0
 
 def topography(x,y):
     return 1000.0 * (1.0 - x/L)
 
+def clean_velocity(x,y):
+    return ROS * x
+
+def noisy_velocity(x,y):
+    r = NOISE * (2.0*random.random() - 1.0) * x
+    #print (r)
+    return clean_velocity(x,y) + r
+
+
 def velocity(x,y,*etc):
-    return x / L * 1.0e+3
+    return noisy_velocity(x,y)
 
 def stemp(x,y,t,thck,topg,*etc):
     s = thck + topg
     return 273.15 - 0.01 * s
 
+def bflux(x,y,t,thck,topg,*etc):
+
+    #return 100e-3 * 3600 * 24 * 365.24
+    return 150e-3 * 3600 * 24 * 365.24
+
 def acab(x,y,t,*etc):
-    return 0.5
+    return ACAB

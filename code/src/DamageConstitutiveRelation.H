@@ -56,7 +56,7 @@ public:
                     to those in the DisjointBoxLayout (can be negative)
   */
   virtual void computeMu(LevelData<FArrayBox>& a_mu,
-                         const LevelData<FArrayBox>& a_vel, 
+                         const LevelData<FArrayBox>& a_vel, const Real& a_scale,
                          const LevelData<FArrayBox>* a_crseVel,
                          int a_nRefCrse,
                          const LevelData<FArrayBox>& a_A,
@@ -99,7 +99,7 @@ public:
                      to those in the DisjointBoxLayout (can be negative) 
   */  
   virtual void computeFaceMu(LevelData<FluxBox>& a_mu,
-                             LevelData<FArrayBox>& a_vel, 
+                             LevelData<FArrayBox>& a_vel, const Real& a_scale,
                              const LevelData<FArrayBox>* a_crseVel,
                              int a_nRefCrse,
                              const LevelData<FluxBox>& a_A, 
@@ -154,6 +154,7 @@ private:
    const FArrayBox& a_gradU, 
    const FArrayBox& a_thck,
    const FArrayBox& a_topg,
+   const FArrayBox& a_water,
    const Real& a_rhoi,
    const Real& a_rhow,
    const Real& a_gravity,
@@ -166,6 +167,7 @@ private:
    const FArrayBox& a_vt,
    const FArrayBox& a_thck,
    const FArrayBox& a_topg,
+   const FArrayBox& a_water,
    const Real& a_rhoi,
    const Real& a_rhow,
    const Real& a_gravity,
@@ -189,7 +191,7 @@ private:
   */  
   virtual void computeFaceMuDamage(LevelData<FluxBox>& a_mu,
 				   LevelData<FluxBox>& a_damage,
-				   LevelData<FArrayBox>& a_vel, 
+				   LevelData<FArrayBox>& a_vel, const Real& a_scale,
 				   const LevelData<FArrayBox>* a_crseVel,
 				   int a_nRefCrse,
 				   const LevelData<FluxBox>& a_A, 

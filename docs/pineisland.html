@@ -39,8 +39,8 @@
 	<a href='#preprocess'>preprocess some data</a>, that is, pull together data 
 	from a few sources, do a few simple calculations, and create  a single netCDF file that
 	contains just the data that BISICLES needs. Note however that we will <strong>not</strong> 
-	get an especially realistic velocity field this way - for that we need to find our initial 
-	values of the basal friction coefficient (C) and the damage coefficient (phi, or muCoef)
+	get an especially realistic velocity field using these inputs - for that we need to find our initial 
+	values of the basal friction coefficient (C, or beta) and the damage coefficient (phi, or muCoef)
 	by solving an <a href='pineislandinverse.html'>inverse problem</a>. 
       </li>
       <li> 
@@ -185,24 +185,30 @@ which remains the same one every grid.
 </p>
 
 <p>
-The next specifies the bulk constitutive relation and its attendant rate factor, and
-the basal friction relation
+The next specifies the bulk constitutive relation and its attendant rate facto
 <pre>
 #bulk constitutive relation and parameters
 main.constitutiveRelation = L1L2
 #main.rateFactor = constRate
 #constRate.epsSqr0 = 1.0e-12
 #constRate.A =  4.0e-17
-main.rateFactor = arrheniusRate
-ArrheniusRate.epsSqr0 = 1.0e-12
-
+main.rateFactor = patersonRate
+PatersonRate.epsSqr0 = 1.0e-12
+</pre>
+<p>
+constRate allow us to specify A, petersonRate allows us to chose a temperature dependent A(T)
+(as in, for example, Cuffey and Paterson, 2010).
+</p>
+<p>
+  We also need to specify a rule for basal friction: here we are using a power
+  law (Weertman) rule, where the friction |T(x,y)| = beta(x,y) * |u(x,y)|^1/3.
+</p> 
+<pre>
 #basal friction relation parameters
 main.basalFrictionRelation = powerLaw
-BasalFrictionPowerLaw.m = 1.0
+BasalFrictionPowerLaw.m = 0.3333
 </pre>
-constRate allow us to specify A, arrheniusRate allows us to chose a temperature dependent Arrhenius law
-(as in, for example, Pattyn 2003, J. Geophys. Res. vol 108 p 2382 doi:0.1029/2002JB002329).
-</p>
+
 
 <p>
 Next we specify the input data.

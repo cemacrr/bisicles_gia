@@ -8,6 +8,8 @@ main.constitutiveRelation = GlensLaw
 main.rateFactor = constRate
 constRate.epsSqr0 = 1.0e-12
 constRate.A =  5.6e-17
+constRate.A =  1.0
+
 
 #geometry,temperarture & basal friction input data
 geometry.problem_type = Python
@@ -16,7 +18,7 @@ PythonIBC.thicknessFunction = thickness
 PythonIBC.topographyFunction = topography	
 
 geometry.beta_type = constantBeta
-geometry.betaValue = 800.0
+geometry.betaValue =  0.0  #to give Tb = 100 kPa
 
 temperature.type = constant
 temperature.value = 268
@@ -39,6 +41,11 @@ surfaceHeatBoundaryData.module = slab_on_slope
 surfaceHeatBoundaryData.function = stemp
 surfaceHeatBoundaryData.Dirichlett = true
 
+
+basalHeatBoundaryData.type = pythonFlux
+basalHeatBoundaryData.module = slab_on_slope
+basalHeatBoundaryData.function = bflux
+
 basalFlux.type = zeroFlux
 
 
@@ -48,7 +55,7 @@ PythonVelocitySolver.function = velocity
 
 
 #time stepping
-main.maxTime = 10000.0  # maximum time to run to
+main.maxTime = 100000.0  # maximum time to run to
 main.maxStep = 4000   # maximum number of steps to runx
 amr.temporal_accuracy = 1
 amr.cfl = 0.25 
@@ -57,7 +64,7 @@ amr.max_dt_grow_factor = 1.1
 amr.time_step_ticks = 1
 
 #plotting options
-amr.plot_interval = 1000
+amr.plot_interval = 100
 amr.plot_prefix = plot.slab_on_slope_@NLAYER.
 
 
@@ -96,6 +103,12 @@ amr.verbosity = 5
 
 amr.isothermal = false
 amr.write_internal_energy = true
+amr.write_thickness_sources = true
 amr.evolve_thickness = false
 amr.velocity_solve_interval = 100000
 amr.regrid_interval = 100000
+
+
+CalvingModel.type = domainEdgeCalvingModel
+CalvingModel.front_lo = 0 0
+CalvingModel.front_hi = 1 0

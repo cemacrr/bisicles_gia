@@ -66,7 +66,11 @@ int main(int argc, char* argv[]) {
     Real dx;
     if (procID() == uniqueProc(SerialTask::compute))
       {
-	readNetCDF(in_file,var,fab,dx);
+#ifdef HAVE_NETCDF
+	NCIO::readFAB(in_file,var,fab,dx);
+#else
+	MayDay::Error("netcdf input requested but netcdf support not built")
+#endif
 	box = fab.box();
       }// end if serial compute
     broadcast(box,uniqueProc(SerialTask::compute));

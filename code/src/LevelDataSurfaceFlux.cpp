@@ -93,7 +93,7 @@ void LevelDataSurfaceFlux::surfaceThicknessFlux
   
   for (DataIterator dit= a_flux.dataIterator(); dit.ok(); ++dit)
     {
-      a_flux[dit].setVal(0.0);
+      a_flux[dit].setVal(m_defaultValue);
     }
 
   FillFromReference(a_flux, *m_startFlux, levelDx ,m_dx,m_verbose);

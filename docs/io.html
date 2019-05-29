@@ -16,6 +16,7 @@
 <li> <a href='#config'>Run-time configuration (inputs.* files)</a></li>
 <li> <a href='#pout'>Log output (pout.* files)</a></li>
 <li> <a href='#plot'>Plot files (plot.*.2d.hdf5 files) </a></li>
+<li> <a href='#plotcf'>CF Plot files (plot.*.CF.2d.hdf5 files) </a></li>
 <li> <a href='#restart'>Checkpoints (chk.*.2d.hdf5 files) and restarts </a></li>
 </ol>
 </div>
@@ -54,6 +55,20 @@ is the same as just
 <pre>
 amr.plot_interval = 2 #  write a plot file every 2 steps
 </pre>
+
+<p>
+  Note that BISICLES can run in user-defined time units: the default is the tropical year. To chose
+  seconds instead, set 
+</p>
+<pre>
+constants.seconds_per_unit_time = 1.0
+</pre>
+<p>
+  In that case, make sure that e.g surface mass balance is specified in m/s (as opposed to m/a).
+  Likewise, ensure that the rate factor (A in Glen's law) and the basal traction coefficient
+  are given in the correct units.
+</p>
+
 
 
 <h2> <a name='pout'>Log output (pout.* files)</a></h2>
@@ -126,6 +141,56 @@ amr.write_layer_velocities = false; # if true, write the horizontal velocity at 
 amr.write_mask = false;# if true, write the grounded/floating/land/sea mask
 </pre>
 
+<p>
+  By default, files are numbered with the timestep (e.g plot.mysim.000032.2d.hdf5 corresponds timestep 32),
+  but it is possible to have them numbered otherwise: the options are
+</p>
+<pre>
+  amr.output_file_numbering = time_yyyymmdd_360 # divides the year into 12 months of 20 days e.g 20010401 for 1 April 2001
+  amr.output_file_numbering = time_years # a long integer time in years
+  amr.output_file_numbering = time_seconds # a long integer time in seconds
+</pre>
+
+
+<h2> <a name='plotcf'>CF Plot files (plot.*.CF.2d.hdf5 files) </a></h2>
+<p>
+CF plot files are alternative (or complement) to the <a href='#plot'>standard plot file format</a>
+that are designed to produce  <a href='http://cfconventions.org/'>Climate and Forecast (CF)</a>
+compatible data. They differ from the standard files in several respects:</p>
+<ol>
+  <li>They include a single mesh level, and data from coarser or finer levels is interpolated/coarsened as needed)</li>
+  <li>The fields are time-averaged rather than snapshots: each file contains the time means since the previous
+    file was writtent</li>
+  <li>Time sequences of domain wide data (such as ice volume) are included: these span the time interval since the previous
+    file was written</li>
+  <li>The output fields (ice thickness etc) are labelled with to CF standard names</li>
+</ol>
+<p>
+The files produced are not themselves CF-compliant, because they are
+hdf5 rather than netcdf files, but the flatten <a href='filetools.html'>file tool</a> can
+create CF compliant netcdf files from the a plot.*.CF.2d.hdf5 file. To convert
+plot.X.CF.2d.hdf5, run (for example)
+</p>
+<pre>
+  $BISICLES_HOME/BISICLES/code/filetools/flatten2d.Linux.64.g++.gfortran.DEBUG.OPT.ex plot.X.CF.2d.hdf5 plot.X.nc 0
+</pre>
+<p>
+  which will also condstuct some metadata, e.g specfify the projection. To enable CF plot files, disable the standard files and include some typical data:
+</p>
+<pre>
+amr.plot_style_cf = true
+amr.plot_style_amr = false # leave out to have both sorts of file
+CFIO.land_ice_thickness = true # note the form: CFIO.standard_name = true
+CFIO.land_ice_basal_velocity = true
+CFIO.surface_altitude = true
+CFIO.bedrock_altitude = true
+CFIO.whole_domain_diagnostics = true # write ice volume, etc.
+
+#specify the coordinate system - optional for BISICLES but needed for CF compliance
+CRS.EPSG = 3031 # EPSG is the only system supported for now
+CRS.origin_x = 1.234 # the coordinates of the point (0,0) on (all) BISICLES levels 
+CRS.origin_y = 5.678 # (measured in metres)
+</pre>
 
 <h2> <a name='restart'>Checkpoints (chk.*.2d.hdf5 files) and restarts </a></h2>
 <p>

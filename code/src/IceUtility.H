@@ -136,10 +136,24 @@ namespace IceUtility
 #endif			 
    const LevelData<FArrayBox>* a_crseVelocity,
    const LevelData<FArrayBox>* a_crseDiffusivity,
-   const int a_nRefCrse,
+   int a_nRefCrse,
    const ConstitutiveRelation* a_constitutiveRelation,
-   const bool a_additionalVelocity); 
+   bool a_additionalVelocity, bool a_implicitDiffusion); 
 
+
+  void computeSigmaVelocity
+  (LevelData<FArrayBox>& a_uSigma,
+   const LevelData<FluxBox>& a_layerThicknessFlux,
+   const LevelData<FArrayBox>& a_layerSFaceXYVel,
+   const LevelData<FArrayBox>& a_dHdt,
+   const DisjointBoxLayout a_grid,
+   const LevelData<FArrayBox>& a_surfaceThicknessSource,
+   const LevelData<FArrayBox>& a_basalThicknessSource,
+   const Vector<Real>& a_dSigma,
+   const RealVect& a_dx,
+   const Real& a_dt );
+
+  
   ///Identify regions of fast ice  and eliminate them. return the total number of cells eliminated
   int eliminateFastIce
   (Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,

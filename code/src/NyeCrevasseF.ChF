@@ -53,7 +53,7 @@ c----------------------------------------------
       CHF_AUTOMULTIDO[box; i]
 #if (CH_SPACEDIM == 1)
 
-      e(CHF_AUTOIX[i],0) = 2.0*u(CHF_AUTOIX[i],0)
+      e(CHF_AUTOIX[i],0) = 2.0d0*u(CHF_AUTOIX[i],0)
 
 #elif (CH_SPACEDIM == 2)
 
@@ -92,7 +92,7 @@ c----------------------------------------------
      &                     CHF_BOX[box])
 
       integer CHF_AUTOIX[i]
-      REAL_T b,d,txx,txy,tyx,tyy
+      REAL_T b,d,txx,txy,tyy
 
       CHF_AUTOMULTIDO[box; i]
 #if (CH_SPACEDIM == 1)
@@ -103,12 +103,11 @@ c----------------------------------------------
 
       txx = T(CHF_AUTOIX[i],xxComp)
       tyy = T(CHF_AUTOIX[i],yyComp)
-      txy = T(CHF_AUTOIX[i],xyComp)
-      tyx = T(CHF_AUTOIX[i],yxComp)
+      txy = half*(abs(T(CHF_AUTOIX[i],xyComp)) + abs(T(CHF_AUTOIX[i],yxComp)))
+
 
       b = half * (txx + tyy)
-      d = ( (half*(txx - tyy))**2 + txy*tyx)**half
-
+      d = ( (half*(txx - tyy))**2 + txy**2)**half
       lambda(CHF_AUTOIX[i],0) = b + d;
       lambda(CHF_AUTOIX[i],1) = b - d;
 

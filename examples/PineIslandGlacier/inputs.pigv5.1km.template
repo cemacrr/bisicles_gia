@@ -9,8 +9,8 @@ main.constitutiveRelation = @CRE
 #main.rateFactor = constRate
 #constRate.epsSqr0 = 1.0e-12
 #constRate.A =  4.0e-17
-main.rateFactor = arrheniusRate
-ArrheniusRate.epsSqr0 = 1.0e-12
+main.rateFactor = patersonRate
+PatersonRate.epsSqr0 = 1.0e-12
 
 
 
@@ -33,7 +33,7 @@ inputLevelData.temperatureName = temp000000
 
 #basal friction relation parameters
 main.basalFrictionRelation = powerLaw
-BasalFrictionPowerLaw.m = 1.0
+BasalFrictionPowerLaw.m = 0.333
 
 #physical constants
 constants.ice_density=918

@@ -143,6 +143,34 @@ extern "C"
   void bisicles_get_2d_data(int *intance_id, double *data_ptr, const int *field,
 			    const double *dx, const int *dims, 
 			    const int *boxlo, const int *boxhi);
+
+
+  
+  /** 
+      \brief push thin ice onto the ice sheet where thickness < thin_ice_limit, record the quantity needed in data_ptr
+      
+      Exists to support thin ice -> snow conversion in UniCicles. Adds ice 
+      according to the thickness on BISICLES grid:
+      fills data_ptr with the change in thickness in that region, coarsened/refined as needed
+
+  */
+  
+  void bisicles_push_thin_ice(int *intance_id, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi);
+  /** 
+      \brief pop ice from the top of the sheet where 
+      ice thinner is than thin_ice_limit, record the quantity needed in data_ptr
+      
+      Exists to support thin ivce -> snow conversion in UniCicles. Removes the
+      thin ice according to the thickness on BISICLES grid:
+      fills data_ptr with the thickness in that region, coarsened/refined as needed
+
+  */
+  void bisicles_pop_thin_ice(int *intance_id, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi);
+  
   /// initialize bisicles 
   void bisicles_init_instance(int *instance_key);
   ///step BISICLES forward in time by up to max_time or max_steps (whichever is sooner)
@@ -174,6 +202,15 @@ extern "C"
   void f_bisicles_get_2d_data_(int *intance_id, double *data_ptr, const int *field,
 			    const double *dx, const int *dims, 
 			     const int *boxlo, const int *boxhi);
+  
+  void f_bisicles_push_thin_ice_(int *intance_id, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi);
+  
+  void f_bisicles_pop_thin_ice_(int *intance_id, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi);
+  
   void f_bisicles_init_instance_(int *instance_key);
   void f_bisicles_advance_(int *instance_key, double *start_time, double *max_time, int *max_step);
   void f_bisicles_write_checkpoint_(int *instance_key);
@@ -198,6 +235,15 @@ extern "C"
   void f_bisicles_get_2d_data(int *intance_id, double *data_ptr, const int *field,
 			    const double *dx, const int *dims, 
 			     const int *boxlo, const int *boxhi);
+
+  void f_bisicles_push_thin_ice(int *intance_id, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi);
+  
+  void f_bisicles_pop_thin_ice(int *intance_id, double *data_ptr, const double *thin_ice_limit,
+				  const double *dx, const int *dims, 
+				  const int *boxlo, const int *boxhi);
+  
   void f_bisicles_init_instance(int *instance_key);
   void f_bisicles_advance(int *instance_key, double *start_time, double *max_time, int *max_step);
   void f_bisicles_write_checkpoint(int *instance_key);

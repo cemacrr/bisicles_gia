@@ -78,7 +78,8 @@ void VerticalConductionInternalEnergyIBC::basalHeatFlux
 }
 
 void VerticalConductionInternalEnergyIBC::initializeIceInternalEnergy
-(LevelData<FArrayBox>& a_E, 
+(LevelData<FArrayBox>& a_E,
+ LevelData<FArrayBox>& a_tillWaterDepth,
  LevelData<FArrayBox>& a_surfaceE, 
  LevelData<FArrayBox>& a_basalE,
  const AmrIceBase& a_amrIce,
@@ -133,30 +134,29 @@ void VerticalConductionInternalEnergyIBC::initializeIceInternalEnergy
       const Real& rhoi = coordSys.iceDensity();
       const Real& rhoo = coordSys.waterDensity();
       const Real& gravity = coordSys.gravity();
-
-
-      FORT_UPDATEINTERNALENERGY
-	(CHF_FRA(a_E[dit]), 
-	 CHF_FRA1(a_surfaceE[dit],0), 
-	 CHF_FRA1(a_basalE[dit],0),
-	 CHF_CONST_FRA1(scaledSurfaceHeatFlux,0),
-	 CHF_CONST_FRA1(scaledBasalHeatFlux,0),
-	 CHF_CONST_FIA1(coordSys.getFloatingMask()[dit],0),
-	 CHF_CONST_FIA1(coordSys.getFloatingMask()[dit],0),
-	 CHF_CONST_FRA(rhs),
-	 CHF_CONST_FRA1(coordSys.getH()[dit],0),
-	 CHF_CONST_FRA1(coordSys.getH()[dit],0),
-	 CHF_CONST_FRA(usig),
-	 CHF_CONST_VR(coordSys.getFaceSigma()),
-	 CHF_CONST_VR(coordSys.getDSigma()),
-	 CHF_CONST_REAL(time), 
-	 CHF_CONST_REAL(fakeDt),
-	 CHF_CONST_REAL(rhoi),
-	 CHF_CONST_REAL(rhoo),
-	 CHF_CONST_REAL(gravity),
-	 CHF_CONST_INT(nLayers),
-	 CHF_CONST_INT(surfaceTempDirichlett),
-	 CHF_BOX(box));
+      // ensure these are set
+      MayDay::Error("VerticalConductionInternalEnergyIBC not functional");
+      //columnThermodynamicsSetConstants(rhoi, rhoo, gravity);
+      // FORT_UPDATEINTERNALENERGY
+      // 	(CHF_FRA(a_E[dit]),
+      // 	 CHF_FRA1(a_tillWaterDepth[dit],0),
+      // 	 CHF_FRA1(a_surfaceE[dit],0), 
+      // 	 CHF_FRA1(a_basalE[dit],0),
+      // 	 CHF_CONST_FRA1(scaledSurfaceHeatFlux,0),
+      // 	 CHF_CONST_FRA1(scaledBasalHeatFlux,0),
+      // 	 CHF_CONST_FIA1(coordSys.getFloatingMask()[dit],0),
+      // 	 CHF_CONST_FIA1(coordSys.getFloatingMask()[dit],0),
+      // 	 CHF_CONST_FRA(rhs),
+      // 	 CHF_CONST_FRA1(coordSys.getH()[dit],0),
+      // 	 CHF_CONST_FRA1(coordSys.getH()[dit],0),
+      // 	 CHF_CONST_FRA(usig),
+      // 	 CHF_CONST_VR(coordSys.getFaceSigma()),
+      // 	 CHF_CONST_VR(coordSys.getDSigma()),
+      // 	 CHF_CONST_REAL(time), 
+      // 	 CHF_CONST_REAL(fakeDt),
+      // 	 CHF_CONST_INT(nLayers),
+      // 	 CHF_CONST_INT(surfaceTempDirichlett),
+      // 	 CHF_BOX(box));
     }
     
   int dbg=0;dbg++;

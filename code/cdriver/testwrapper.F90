@@ -12,9 +12,9 @@ program fwrapper
 
   integer instance_id,  it, nt, max_step
   integer, dimension(1:2) :: dims, boxlo, boxhi
-  real(kind=8) :: dx, max_time,start_time
+  real(kind=8) :: dx, max_time,start_time, snow2ice
   integer, parameter :: nx = 64, ny = 96
-  real(kind=8), dimension(:,:), allocatable :: smb, bmbf, bmbg, usrf, seb, melange
+  real(kind=8), dimension(:,:), allocatable :: smb, bmbf, bmbg, usrf, seb, melange, snow
   integer ixlo,ixhi,iylo,iyhi
   
   integer :: rank,nrank,ierr,comm
@@ -65,7 +65,7 @@ program fwrapper
   allocate (usrf(ixlo:ixhi,iylo:iyhi))
   allocate (bmbf(ixlo:ixhi,iylo:iyhi))
   allocate (bmbg(ixlo:ixhi,iylo:iyhi))
-
+  allocate (snow(ixlo:ixhi,iylo:iyhi))
   !name of the configuration file
   file = "inputs.pigv5.1km.l1l2.l1" 
   
@@ -122,6 +122,14 @@ program fwrapper
   max_time = 0.0d0
   start_time = 0.0d0
   do it = 1, nt
+
+     
+     !snow -> ice conversion (testing a nasty UKESM feature)
+     snow = 55.0 - dble(it-1)*5.0
+     snow2ice = 50.0
+     call f_bisicles_push_thin_ice(instance_id, snow, snow2ice, dx, dims, boxlo, boxhi)
+     write(*,*) 'snow to ice sum,max ', sum(snow), maxval(snow)
+     
      !read the surface elevation into a regular array (usrf)
      call f_bisicles_get_2d_data(instance_id, usrf, BISICLES_FIELD_SURFACE_ELEVATION, dx, dims, boxlo, boxhi)
      
@@ -129,12 +137,18 @@ program fwrapper
      !to show the domain decomposed reads/writes are working (look at surfaceThicknessBalance in the output)
      smb = usrf / 1000.0 +  dble(mod(rank,2))
 
+    
+     
      !advance in time
      start_time = max_time
      max_time = start_time + 1.0d0; !advance by one year
      max_step = max_step + 10; !unless it takes too long, in which case give up
      write(*,*)   max_time, max_step 
      call f_bisicles_advance(instance_id, start_time,  max_time, max_step)
+
+     !ice <- snow conversion (a nasty UKESM feature)
+     call f_bisicles_pop_thin_ice(instance_id, snow, snow2ice, dx, dims, boxlo, boxhi)
+     write(*,*) 'ice to snow sum,max ', sum(snow), maxval(snow)
      
   end do
 

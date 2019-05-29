@@ -463,7 +463,7 @@ private:
    If the string `A.B.C.type = normalizedFlux` is found, then the expected form is:
 
    - `A.B.C.direction = <valid SurfaceFlux>` (spatial pattern of the flux)
-   - `A.B.C.amplitude = <valid SurfaceFlux>` (amplitude, \f$ a \f$)
+   - `A.B.C.amplitude = <Real>` (amplitude, \f$ a \f$)
 
  */
 class NormalizedFlux : public SurfaceFlux
@@ -511,6 +511,146 @@ private:
 };
 
 typedef NormalizedFlux NormalizedData;
+
+
+/// Redistrubutes a flux over a given area to peak around regions of peak negative ice flux divergence in floating ice 
+/**
+
+   This surfaceFlux is intended for coupling with ocean models and
+   is probably not suitable for any other purpose. The assumption is that 
+   ocean models running on a coarser mesh result in a stripe of strong
+   melting downstream from the 'correct' location and we want to chose an 
+   interpolation scheme that place this melt closer to steep slopes
+   present in the ice shelf provided that can be done within a distance
+   representing the ocesn model mesh.
+
+   Computes a flux \f$ f \f$, given a length \f$ L \f$ and a flux \f$ g \f$. 
+   The domain is divided into a uniform mesh with spacing  \f$ L \f$. 
+   Within each cell, a constant
+   
+   \f$ Q = \int _\Omega g -  w min(0,\nabla . (\vec{u} h)) d \Omega \f$
+   
+   is computed, while 
+
+   \f$ f = min(0,\nabla . (\vec{u} h)) +  Q / \int _\Omega w d \Omega $
+
+   The total flux is conserved, and applied to 
+   *the floating portion* of each L x L cell, and 
+ 
+   \f$ J = \int _\Omega (f -  w \nabla . (\vec{u} h) d \Omega \f)^2$ \f$
+   
+   is minimal.  \f$ w \f$ is 1 in floating ice and zero elsewhere.
+
+   Run-time configuration is carried out in SurfaceFlux::parse. 
+   If the string `A.B.C.type = divUHLocalizedFlux` is found, then the expected form is:
+
+   - `A.B.C.flux = <valid SurfaceFlux>` (spatial pattern of the flux)
+   - `A.B.C.mesh_spacing = <valid SurfaceFlux>` (mesh spacing)
+
+ */
+class FloatingDivUHLocalizedFlux : public SurfaceFlux
+{
+  
+  SurfaceFlux* m_flux;
+  Real m_mesh_spacing;
+ 
+public:
+  /// Construct a divuhLocalized flux from a flux and a mesh spacing
+  /**
+     @param a_flux : the flux to be redistributed
+     @param a_mesh_spacing : defines the size of the cells over which flux is redistrubuted
+   */
+  FloatingDivUHLocalizedFlux(SurfaceFlux* a_flux, const Real& a_mesh_spacing);
+
+  virtual ~FloatingDivUHLocalizedFlux();
+
+  virtual SurfaceFlux* new_surfaceFlux();
+
+  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				    const AmrIceBase& a_amrIce, 
+				    int a_level, Real a_dt);
+
+  
+private:
+  // Disallowed for all the usual reasons
+  void operator=(const FloatingDivUHLocalizedFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  // Disallowed for all the usual reasons
+  FloatingDivUHLocalizedFlux(const FloatingDivUHLocalizedFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  FloatingDivUHLocalizedFlux()
+  {
+    MayDay::Error("invalid operator");
+  }
+
+
+};
+
+
+
+/// A flux proportional to the difference between current and target thickness
+/**
+    
+   A flux proportional to the difference between current and target thickness.
+   f = 1/timesscale * ( thickness_target - thickness)
+
+   Run-time configuration is carried out in SurfaceFlux::parse. 
+   If the string `A.B.C.type = targetThicknessFlux` is found, then the expected form is:
+
+   - `A.B.C.target = <valid SurfaceFlux>` (spatial pattern of the flux)
+   - `A.B.C.timescale = <Real>` (timescale, \f$ a \f$)
+
+ */
+class TargetThicknessFlux : public SurfaceFlux
+{
+  
+  SurfaceFlux* m_target;
+  Real m_timescale;
+
+public:
+  /// Construct a normalized flux from a flux and an amplitude
+  /**
+     @param a_direction : defines the spatial pattern
+     @param a_amplitude : defines the amplitude
+   */
+  TargetThicknessFlux(SurfaceFlux* a_target, const Real& a_timescale);
+
+  virtual ~TargetThicknessFlux();
+
+  virtual SurfaceFlux* new_surfaceFlux();
+
+  virtual void surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
+				    const AmrIceBase& a_amrIce, 
+				    int a_level, Real a_dt);
+
+  
+private:
+  // Disallowed for all the usual reasons
+  void operator=(const TargetThicknessFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  // Disallowed for all the usual reasons
+  TargetThicknessFlux(const TargetThicknessFlux& a_input)
+  {
+    MayDay::Error("invalid operator");
+  }
+
+  TargetThicknessFlux()
+  {
+    MayDay::Error("invalid operator");
+  }
+
+
+};
+
 
 #include "NamespaceFooter.H"
 #endif // multiple-include preventer

@@ -13,6 +13,7 @@
 #include "CellToEdge.H"
 #include "ConstitutiveRelationF_F.H"
 #include "IceConstants.H"
+#include "IceThermodynamics.H"
 #include "TensorCFInterp.H"
 #include "ViscousTensorOpF_F.H"
 #include "ViscousTensorOp.H"
@@ -279,7 +280,7 @@ GlensFlowRelation::~GlensFlowRelation()
 
 void
 GlensFlowRelation::computeMu(LevelData<FArrayBox>& a_mu,
-                             const LevelData<FArrayBox>& a_vel, 
+                             const LevelData<FArrayBox>& a_vel, const Real& a_scale,
                              const LevelData<FArrayBox>* a_crseVel,
                              int a_nRefCrse,
                              const LevelData<FArrayBox>& a_A,
@@ -300,12 +301,11 @@ GlensFlowRelation::computeMu(LevelData<FArrayBox>& a_mu,
       const FArrayBox& thisA = a_A[dit];
       Box derivBox = grids[dit];
       derivBox.grow(a_ghostVect);
-
+     
      if (thisA.nComp() == 1 && thisMu.nComp() == 1)
 	{
 	  // only one layer (or 3D)
-	  computeMu0(thisMu, thisA, derivBox);
-	  
+	  computeMu0(thisMu, thisA, a_scale, derivBox);
 	  FORT_COMPUTEGLENSMU(CHF_FRA1(thisMu,0),
 			      CHF_CONST_FRA1(epsSqr[dit],0),
 			      CHF_BOX(derivBox),
@@ -326,8 +326,7 @@ GlensFlowRelation::computeMu(LevelData<FArrayBox>& a_mu,
 	      layerMu.define(Interval(layer,layer), thisMu);
 	      FArrayBox layerA(thisA.box(),1);
 	      layerA.copy(thisA,layer,0);
-	      computeMu0(layerMu, layerA, derivBox);
-	      
+	      computeMu0(layerMu, layerA, a_scale, derivBox);
 	      FORT_COMPUTEGLENSMU(CHF_FRA1(layerMu,0),
 				  CHF_CONST_FRA1(epsSqr[dit],0),
 				  CHF_BOX(derivBox),
@@ -366,7 +365,7 @@ GlensFlowRelation::computeDissipation(LevelData<FArrayBox>& a_dissipation,
 {
   CH_assert(a_dissipation.nComp() == a_A.nComp());
 
-  computeMu(a_dissipation , a_vel,  a_crseVel, a_nRefCrse, a_A, a_coordSys, 
+  computeMu(a_dissipation , a_vel, 1.0,   a_crseVel, a_nRefCrse, a_A, a_coordSys, 
 	    a_domain, a_ghostVect);
   LevelData<FArrayBox> epsSqr;
   epsSqr.define(a_vel);
@@ -387,8 +386,8 @@ GlensFlowRelation::computeDissipation(LevelData<FArrayBox>& a_dissipation,
 
 void
 GlensFlowRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
-                                 LevelData<FArrayBox>& a_vel, 
-                                 const LevelData<FArrayBox>* a_crseVel,
+                                 LevelData<FArrayBox>& a_vel, const Real& a_scale,
+                                 const LevelData<FArrayBox>* a_crseVel, 
                                  int a_nRefCrse,
                                  const LevelData<FluxBox>& a_A, 
                                  const LevelSigmaCS& a_coordSys,
@@ -421,8 +420,7 @@ GlensFlowRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
           faceDerivBox.surroundingNodes(faceDir);
 
           // note that these are the same as for the cell-centered version...
-          computeMu0(thisMu[faceDir], thisTheta[faceDir], faceDerivBox);
-
+          computeMu0(thisMu[faceDir], thisTheta[faceDir], a_scale, faceDerivBox);
           FORT_COMPUTEGLENSMU(CHF_FRA1(thisMu[faceDir],0),
                               CHF_CONST_FRA1(thisEpsSqr[faceDir],0),
                               CHF_BOX(faceDerivBox),
@@ -485,11 +483,14 @@ GlensFlowRelation::setParameters(Real a_n, Real a_epsSqr0, Real a_delta)
 void
 GlensFlowRelation::computeMu0(FArrayBox& a_mu0,
                               const FArrayBox& a_A,
+			      const Real& a_scale,
                               const Box& a_box) const
 {
   
 
   a_mu0.copy(a_A);
+  /// scale A (from [P]^-n /[U] to [P]^-n/[U*] 
+  a_mu0 *= a_scale;
   FORT_COMPUTEGLENSMU0(CHF_FRA1(a_mu0,0),
 		       CHF_BOX(a_box),
 		       CHF_CONST_REAL(m_n)
@@ -512,7 +513,7 @@ constMuRelation::~constMuRelation()
 
 void 
 constMuRelation::computeMu(LevelData<FArrayBox>& a_mu,
-                           const LevelData<FArrayBox>& a_vel, 
+                           const LevelData<FArrayBox>& a_vel, const Real& a_scale,
                            const LevelData<FArrayBox>* a_crseVel,
                            int a_nRefCrse,
                            const LevelData<FArrayBox>& a_A,
@@ -552,7 +553,7 @@ constMuRelation::computeDissipation(LevelData<FArrayBox>& a_dissipation,
 
 void
 constMuRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
-                               LevelData<FArrayBox>& a_vel, 
+                               LevelData<FArrayBox>& a_vel,  const Real& a_scale,
                                const LevelData<FArrayBox>* a_crseVel,
                                int a_nRefCrse,
                                const LevelData<FluxBox>& a_A, 
@@ -565,7 +566,7 @@ constMuRelation::computeFaceMu(LevelData<FluxBox>& a_mu,
     {
       for (int dir=0; dir<SpaceDim; dir++)
         {
-          a_mu[dit][dir].setVal(m_mu);
+          a_mu[dit][dir].setVal(m_mu/a_scale);
         }
     }
 }
@@ -625,7 +626,7 @@ void ArrheniusRateFactor::setParameters(Real a_n,
 
 }
 
-void ArrheniusRateFactor::setDefaultParameters()
+void ArrheniusRateFactor::setDefaultParameters(Real a_seconds_per_unit_time)
 {
 
   /// power law exponent
@@ -633,7 +634,7 @@ void ArrheniusRateFactor::setDefaultParameters()
   /// Pattyns enhancement factor
   Real enhance = 1.0 ;
   /// flow rate factor (2.207 Pa a^(1/n) )
-  Real B0 = 2.207;
+  Real B0 = 2.207 * std::pow(SECONDS_PER_TROPICAL_YEAR/a_seconds_per_unit_time, 1.0/n);
   /// limit temperature in flow-rate factor (273.39 K)
   Real theta_r =  273.39;
   /// flow rate exponent (1.17)
@@ -674,30 +675,30 @@ void ArrheniusRateFactor::computeA(FArrayBox& a_A,
 
 }
 
-ArrheniusRateFactor::ArrheniusRateFactor()
+ArrheniusRateFactor::ArrheniusRateFactor(Real a_seconds_per_unit_time)
 {
-  setDefaultParameters();
+  setDefaultParameters(a_seconds_per_unit_time);
 }
 
 
 RateFactor* ArrheniusRateFactor::getNewRateFactor() const
 {
-  ArrheniusRateFactor* newPtr = new ArrheniusRateFactor();
-  newPtr->setParameters(m_n, m_enhance, m_B0, m_theta_r, m_K,
-		       m_C, m_R, m_Q);
+  ArrheniusRateFactor* newPtr = new ArrheniusRateFactor(*this);
+  //newPtr->setParameters(m_n, m_enhance, m_B0, m_theta_r, m_K,
+  //		       m_C, m_R, m_Q);
   return static_cast<RateFactor*>(newPtr);
   
 }
 
-PatersonRateFactor::PatersonRateFactor()
+PatersonRateFactor::PatersonRateFactor(Real a_seconds_per_unit_time)
 {
-  setDefaultParameters();
+  setDefaultParameters(a_seconds_per_unit_time);
 }
 
-void PatersonRateFactor::setDefaultParameters()
+void PatersonRateFactor::setDefaultParameters(Real a_seconds_per_unit_time)
 {
   m_E  = 1.0;
-  m_A0 = 3.5e-25*secondsperyear;
+  m_A0 = 3.5e-25 * a_seconds_per_unit_time;
   m_T0 = 263.0;
   m_R  = 8.314;
   m_Qm = 6.0e+4;
@@ -724,7 +725,7 @@ void PatersonRateFactor::computeA
 {
   FArrayBox theta0PC(a_box,1);
   theta0PC.copy(a_pressure);
-  theta0PC *= icepmeltfactor;
+  theta0PC *= IceThermodynamics::icepmeltfactor();
   theta0PC += m_T0;
 
   FORT_COMPUTEPATERSONA
@@ -744,22 +745,22 @@ void PatersonRateFactor::computeA
 
 RateFactor* PatersonRateFactor::getNewRateFactor() const
 {
-  PatersonRateFactor* newPtr = new PatersonRateFactor();
-  newPtr->setParameters(m_E,m_A0,m_T0,m_R,m_Qm,m_Qp);
+  PatersonRateFactor* newPtr = new PatersonRateFactor(*this);
+  //newPtr->setParameters(m_E,m_A0,m_T0,m_R,m_Qm,m_Qp);
   return static_cast<RateFactor*>(newPtr);
 }
 
 
 
-ZwingerRateFactor::ZwingerRateFactor()
+ZwingerRateFactor::ZwingerRateFactor(Real a_seconds_per_unit_time)
 {
-  setDefaultParameters();
+  setDefaultParameters(a_seconds_per_unit_time);
 }
 
-void ZwingerRateFactor::setDefaultParameters()
+void ZwingerRateFactor::setDefaultParameters(Real a_seconds_per_unit_time)
 {
   m_E  = 1.0;
-  m_A0 = 1.916e3*secondsperyear;
+  m_A0 = 1.916e3 * a_seconds_per_unit_time;
   m_T0 = 263.0;
   m_R  = 8.314;
   m_Qm = 6.0e+4;
@@ -786,7 +787,7 @@ void ZwingerRateFactor::computeA
 {
   FArrayBox theta0PC(a_box,1);
   theta0PC.copy(a_pressure);
-  theta0PC *= icepmeltfactor;
+  theta0PC *= IceThermodynamics::icepmeltfactor();
   theta0PC += m_T0;
 
   FORT_COMPUTEZWINGERA
@@ -806,8 +807,8 @@ void ZwingerRateFactor::computeA
 
 RateFactor* ZwingerRateFactor::getNewRateFactor() const
 {
-  ZwingerRateFactor* newPtr = new ZwingerRateFactor();
-  newPtr->setParameters(m_E,m_A0,m_T0,m_R,m_Qm,m_Qp);
+  ZwingerRateFactor* newPtr = new ZwingerRateFactor(*this);
+  //newPtr->setParameters(m_E,m_A0,m_T0,m_R,m_Qm,m_Qp);
   return static_cast<RateFactor*>(newPtr);
 }
 

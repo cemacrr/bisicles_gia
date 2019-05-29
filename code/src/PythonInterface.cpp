@@ -79,20 +79,39 @@ void PythonInterface::PythonEval(PyObject* a_pFunc,
       CH_assert(value != NULL);
       MayDay::Error("PythonInterface::PythonEval python call failed");
     }
-  
+
+  bool value_ok = false;
   if (PyFloat_CheckExact(value))
     {
       a_value.resize(1,0.0);
       a_value[0] =  PyFloat_AS_DOUBLE(value);
+      value_ok = true;
     }
-  else
+  else if (PyTuple_CheckExact(value))
     {
-      Py_DECREF(value);
-      CH_assert(PyFloat_CheckExact(value));
-      MayDay::Error("PythonInterface::PythonEval python return value is not a float");
+      Py_ssize_t n = PyTuple_Size(value);
+      a_value.resize(n);
+      value_ok = true;
+      for (int i = 0; i < n; i++)
+	{
+	  PyObject* t = PyTuple_GetItem(value,i);
+	  if (PyFloat_CheckExact(t))
+	    {
+	      a_value[i] =  PyFloat_AS_DOUBLE(t);
+	    }
+	  else
+	    {
+	      value_ok = false;
+	    }
+	}
     }
 
-   Py_DECREF(value);
+  Py_DECREF(value);
+  
+  if (!value_ok)
+    {
+      MayDay::Error("PythonInterface::PythonEval python return value is not a float or tuple of floats");
+    }
 
 }
 
@@ -383,11 +402,29 @@ void  PythonInterface::PythonIBC::setSurfaceHeightBCs(LevelData<FArrayBox>& a_zS
   a_zSurface.exchange();
 }
 
+
+/// set non-periodic ghost cells for ice fraction
+void  PythonInterface::PythonIBC::setIceFractionBCs(LevelData<FArrayBox>& a_fraction,
+						    const ProblemDomain& a_domain,
+						    const RealVect& a_dx,
+						    Real a_time, Real a_dt)
+{
+  for (int dir = 0; dir < SpaceDim; ++dir)
+    {
+      if (!(a_domain.isPeriodic(dir))){
+	ReflectGhostCells(a_fraction, a_domain, dir, Side::Lo);
+	ReflectGhostCells(a_fraction, a_domain, dir, Side::Hi);
+      }
+    }
+  a_fraction.exchange();
+}
+
+
 /// set non-periodic ghost cells for thickness & topography
 void  PythonInterface::PythonIBC::setGeometryBCs(LevelSigmaCS& a_coords,
-				  const ProblemDomain& a_domain,
-				  const RealVect& a_dx,
-				  Real a_time, Real a_dt)
+						 const ProblemDomain& a_domain,
+						 const RealVect& a_dx,
+						 Real a_time, Real a_dt)
 {
   for (int dir = 0; dir < SpaceDim; ++dir)
     {
@@ -396,6 +433,7 @@ void  PythonInterface::PythonIBC::setGeometryBCs(LevelSigmaCS& a_coords,
 	ReflectGhostCells(a_coords.getH(), a_domain, dir, Side::Hi);
 	ReflectGhostCells(a_coords.getTopography(), a_domain, dir, Side::Lo);
 	ReflectGhostCells(a_coords.getTopography(), a_domain, dir, Side::Hi);
+        
       }
     }
   a_coords.getTopography().exchange();
@@ -731,7 +769,7 @@ PythonInterface::PythonIceTemperatureIBC::basalHeatFlux
 
 #if BISICLES_Z == BISICLES_LAYERED
 void PythonInterface::PythonIceTemperatureIBC::initializeIceInternalEnergy
-(LevelData<FArrayBox>& a_E, 
+(LevelData<FArrayBox>& a_E,  LevelData<FArrayBox>& a_tillWaterDepth,
  LevelData<FArrayBox>& a_surfaceE, 
  LevelData<FArrayBox>& a_basalE,
  const AmrIceBase& a_amrIce, 
@@ -787,12 +825,14 @@ void PythonInterface::PythonIceTemperatureIBC::initializeIceInternalEnergy
      IceThermodynamics::composeInternalEnergy(a_E[dit],T,w,a_E[dit].box());
      IceThermodynamics::composeInternalEnergy(a_surfaceE[dit],sT,w,a_E[dit].box());
      IceThermodynamics::composeInternalEnergy(a_basalE[dit],bT,w,a_E[dit].box());
+     a_tillWaterDepth[dit].setVal(0.0);
    }
  
 }
 
 void PythonInterface::PythonIceTemperatureIBC::setIceInternalEnergyBC
 (LevelData<FArrayBox>& a_E, 
+ LevelData<FArrayBox>& a_tillWaterDepth,
  LevelData<FArrayBox>& a_surfaceT, 
  LevelData<FArrayBox>& a_basalT,
  const LevelSigmaCS& a_coordSys)
@@ -805,6 +845,8 @@ void PythonInterface::PythonIceTemperatureIBC::setIceInternalEnergyBC
 	{
 	  ReflectGhostCells(a_E, domain, dir, Side::Lo);
 	  ReflectGhostCells(a_E, domain, dir, Side::Hi);
+	  ReflectGhostCells(a_tillWaterDepth, domain, dir, Side::Lo);
+	  ReflectGhostCells(a_tillWaterDepth, domain, dir, Side::Hi);
 	  ReflectGhostCells(a_surfaceT, domain, dir, Side::Lo);
 	  ReflectGhostCells(a_surfaceT, domain, dir, Side::Hi);
 	  ReflectGhostCells(a_basalT, domain, dir, Side::Lo);
@@ -1014,7 +1056,7 @@ int PythonInterface::PythonVelocitySolver::solve
 	      args[i] = coordSys.getTopography()[dit](iv);i++;
 	      PythonEval(m_pFunc, rval,  args);
 	      vel[dit](iv,0) =  rval[0];
-	      vel[dit](iv,1) = 0.0;
+	      vel[dit](iv,1) =  rval[1];
 	    }
 	  
 	}

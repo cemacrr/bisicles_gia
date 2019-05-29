@@ -18,17 +18,19 @@ def tag(x,y,dx,thck,topg):
 def thickness(x,y):
     thickness = 0.0
   
-    if (x < 70.0e+3):
+    if (x < 60.0e+3):
         surface = 300.0 + slope(x)
         thickness = surface - topography(x,y)
         thickness = max(0.0, thickness)
 
+
+        thickness = 200.0
     return thickness
 
 def topography(x,y):
     w = width(x)
     y = y - 32.0e+3
-    topography = slope(x) + 1.0e+3 - 1.0e+3 * math.exp(-(y/w * y/w))
+    topography = slope(x) # + 1.0e+3 - 1.0e+3 * math.exp(-(y/w * y/w))
     
     return topography
 

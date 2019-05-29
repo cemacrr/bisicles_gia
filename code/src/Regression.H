@@ -71,10 +71,10 @@ Real HDF5NormTest(std::string a_result, std::string a_ref)
   CH_assert (refNumLevels == resultNumLevels);
 
   Real maxnorm = 0.0;
-  for (int j = 0; j < resultSoln[0]->nComp(); j++)
+  for (int j = 0; j < resultSoln[0]->nComp() ; j++)
     {
       int k = 0;
-      while ( resultVars[j] !=  refVars[k])
+      while (k < refVars.size() && resultVars[j] !=  refVars[k])
 	{
 	  k++;
 	}
@@ -82,21 +82,24 @@ Real HDF5NormTest(std::string a_result, std::string a_ref)
       if ( k >= refVars.size() )
 	{
 	  std::string msg = " var " + resultVars[j] + " missing from " + a_ref;
-	  MayDay::Error(msg.c_str());
+	  MayDay::Warning(msg.c_str());
 	}
-      for (int lev = 0; lev < resultNumLevels; lev++)
+      else
 	{
-	  LevelData<FArrayBox> ref(resultGrids[lev], 1, IntVect::Zero);
-	  refSoln[lev]->copyTo(Interval(k,k), ref, Interval(0,0));
-	  for (DataIterator dit(resultGrids[lev]); dit.ok(); ++dit)
+	  for (int lev = 0; lev < resultNumLevels; lev++)
 	    {
-	      (*resultSoln[lev])[dit].minus(ref[dit], 0, j, 1);
+	      LevelData<FArrayBox> ref(resultGrids[lev], 1, IntVect::Zero);
+	      refSoln[lev]->copyTo(Interval(k,k), ref, Interval(0,0));
+	      for (DataIterator dit(resultGrids[lev]); dit.ok(); ++dit)
+		{
+		  (*resultSoln[lev])[dit].minus(ref[dit], 0, j, 1);
+		}
 	    }
+       
+	  Real maxnormj = computeNorm(resultSoln, resultRefRatio, resultDx, Interval(j,j), 0);
+	  pout() << "HDF5NormTest: maxnorm difference(" << resultVars[j] << ") = " <<  maxnormj << endl;
+	  maxnorm = std::max(maxnorm, maxnormj);
 	}
-
-      Real maxnormj = computeNorm(resultSoln, resultRefRatio, resultDx, Interval(j,j), 0);
-      pout() << "HDF5NormTest: maxnorm difference(" << resultVars[j] << ") = " <<  maxnormj << endl;
-      maxnorm = std::max(maxnorm, maxnormj);
     }
 
   return maxnorm;

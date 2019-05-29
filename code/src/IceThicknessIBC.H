@@ -247,8 +247,15 @@ public:
 			      const ProblemDomain& a_domain,
 			      const RealVect& a_dx,
 			      Real a_time, Real a_dt) {;}
-  
 
+  /// set non-periodic ghost cells for ice fraction
+  /** Default is to do nothing
+      note that we pass in ProblemDomain and dx
+  */
+  virtual void setIceFractionBCs(LevelData<FArrayBox>& a_iceFrac,
+				 const ProblemDomain& a_domain,
+				 const RealVect& a_dx,
+				 Real a_time, Real a_dt){;}
   
 
   /// set AMR grid hierarchy (for the BC's which need this)

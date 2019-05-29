@@ -9,7 +9,7 @@
 
 #include "ConstitutiveRelation.H"
 #include "L1L2ConstitutiveRelation.H"
-
+#include "IceConstants.H"
 #include "BasalFriction.H"
 #include "BasalFrictionRelation.H"
 #include "twistyStreamFriction.H"
@@ -23,7 +23,7 @@
 #include "PiecewiseLinearFillPatch.H"
 #include "FineInterp.H"
 #include "IceVelocitySolver.H"
-#include "PicardSolver.H"
+//#include "PicardSolver.H"
 #include "JFNKSolver.H"
 #include "CoarseAverageFace.H"
 #include "IceUtility.H"
@@ -638,7 +638,7 @@ int main(int argc, char* argv[]) {
       }
     else if (rateFactorType == "arrheniusRate")
       {
-	ArrheniusRateFactor rateFactor;
+	ArrheniusRateFactor rateFactor(SECONDS_PER_TROPICAL_YEAR);
 	ParmParse arPP("ArrheniusRate");
 	Real epsSqr0 = 1.0e-9;
 	arPP.query("epsSqr0", epsSqr0);
@@ -1019,12 +1019,13 @@ int main(int argc, char* argv[]) {
     IceVelocitySolver* solverPtr = NULL;
     
     // default is picard solver
-    int solverType = Picard;
+    int solverType = JFNK;
     ppAmr.query("velocity_solver_type", solverType);
 
     if (solverType == Picard)
       {
-        solverPtr = new PicardSolver;
+	MayDay::Error("Picard solver was deprecated: use JFNK");
+        //solverPtr = new PicardSolver;
       }
     else if (solverType == JFNK)
       {

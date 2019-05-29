@@ -8,16 +8,18 @@ module column_thermodynamics
   implicit none
 
   !physical constants, all SI units
-  real(kind=8) scyr,  rhoi , rhoo,  grav , shci, lhci, coni , conm,  pmlt, trpt
-  ! seconds in a year, density of ice, density of water, acceleration due to gravity 
+  real(kind=8) sput,  rhoi , rhoo,  grav , shci, lhci, coni , conm,  pmlt, trpt
+  ! seconds per time unit, density of ice, density of water, acceleration due to gravity 
   ! specific heat capacity of ice, latent heat of fusion of water, thermal conductivity of cold ice,  
   ! regularizing conductivity for temperate ice, 
   ! factor for dependence of melting point on pressure, triple point of water (K)
-
+  
+  !real(kind = 8)  water_fraction_drain = 0.01d0, water_fraction_max = 0.05d0, drain_factor = 0.5d0,  ground_water_drain_factor = 0.01d0
+  real(kind = 8)  water_fraction_drain, water_fraction_max, water_drain_factor, till_water_drain_factor
+  
   integer, parameter :: groundedmaskval = 1, floatingmaskval = 2, openseamaskval = 4, openlandmaskval = 8
   real(kind=8), parameter :: temp_eps = 1.0e-3, max_delta_energy = 200.0
   real(kind=8), parameter :: zero_debug = 0.0d0
-  real(kind=8), parameter :: water_fraction_drain = 0.01d0, water_fraction_max = 0.05d0, drain_factor = 0.5d0
   real(kind=8), parameter :: temperature_min = 200.0d0
 contains
 
@@ -31,6 +33,8 @@ contains
     end if
     return
   end function fo_upwind
+
+
 
 
   subroutine tdmasolve(n,x,a,b,c,d)
@@ -95,9 +99,56 @@ contains
     rhs(n) = rhs(n) - flux / (fsig(n+1)-fsig(n))
 
   end subroutine sigma_advect
+  
 
 
-  subroutine fo_diffusive_advance(energy,senergy,sflux,sdiric, & 
+  subroutine moisture_transport(energy, epmp, cdsig, n)
+    !!!  redistribute moisture such that w = water_fration_drain up to the water level
+    implicit none
+    integer :: n
+    real(kind=8), dimension(1:n), intent(inout) :: energy, epmp, cdsig
+    !locals
+    real(kind=8), dimension(1:n) :: energy2,latent,emax
+    real(kind=8) :: excess,emin
+    integer :: i
+    
+    !record for a conservation check
+    energy2 = energy
+    ! decompose into sensible and latent heat
+    where (energy .gt. epmp)
+       latent = energy - epmp
+       energy = epmp
+    elsewhere
+       latent = 0.0d0
+    end where
+    ! total moisture (per unit thickness)
+    excess = sum(latent*cdsig)
+    ! distribute latent heat (allowing refreeze where C*Tpmp - C*T <  Lw)
+    do i = n, 1, -1
+       if (excess .gt. 0.0d0) then
+          energy(i) = energy(i) + min(excess/cdsig(i),lhci*water_fraction_drain)
+          excess = excess - lhci*water_fraction_drain*cdsig(i)
+       end if
+    end do
+   
+    !put any excess in the bottom layer 
+    excess = sum( (energy2 - energy) * cdsig)
+    energy(n) = energy(n) + excess/cdsig(n)
+    
+    !bodge upper and lower limits. ugly, but hopefully only important in stupid zones
+    emax = epmp + lhci * water_fraction_max
+    where (energy .gt. emax)
+       energy = emax
+    end where
+    emin = shci * temperature_min
+    where (energy .lt. emin)
+       energy = emin
+    end where
+
+   
+  end subroutine moisture_transport
+  
+  subroutine fo_diffusive_advance(energy,tillwaterdepth,senergy,sflux,sdiric, & 
        benergy,bflux,rhs,thckold,thcknew,fsig,dt,mask,n)
     ! solve the equation 
     ! H*E - dt * 1/H * d/dsigma (q) = Ho*Eo + rhs
@@ -118,7 +169,7 @@ contains
     ! (first order - backward Euler integration)
     implicit none
     integer :: n
-    real(kind=8), intent(inout) :: senergy,benergy,sflux,bflux
+    real(kind=8), intent(inout) :: tillwaterdepth,senergy,benergy,sflux,bflux
     real(kind=8), intent(in) :: thckold,thcknew,dt
     real(kind=8), dimension(1:n), intent(in) :: rhs
     real(kind=8), dimension(1:n), intent(inout) :: energy
@@ -127,9 +178,9 @@ contains
     logical, intent(in) :: sdiric
     !locals
     real(kind=8), dimension(1:n) :: a,c,b,r,a2,c2,b2,r2 ! TDMA coefficients
-    real(kind=8), dimension(1:n) :: csig,cdsig,epmp,drain,energy2,energy0,emax
+    real(kind=8), dimension(1:n) :: csig,cdsig,epmp,drain,energy2,energy0,emax,latent
     real(kind=8), dimension(1:n+1) :: fdsig,  kcc, ktt, kct, ktc
-    real(kind=8) :: bmb, eps,k, kr,bepmp,sepmp, kb,  emin
+    real(kind=8) :: bmb, eps,k, kr,bepmp,sepmp, kb,  emin, sigmaw, excess, lhf, tmp
     
     integer :: i
     logical :: btemperate
@@ -152,11 +203,9 @@ contains
     sepmp = shci * trpt !at surface
     bepmp = shci * (trpt - pmlt * 0.5d0 * (thckold+thcknew) * rhoi * grav) !at base
 
-  
-
     ! conduction coeffs
-    kr =  2.0 * dt / (thcknew+thckold) * conm/(shci * rhoi) *  scyr
-    k = 2.0 * dt / (thcknew+thckold) * coni/(shci * rhoi) *  scyr - kr
+    kr =  2.0 * dt / (thcknew+thckold) * conm/(shci * rhoi) *  sput
+    k = 2.0 * dt / (thcknew+thckold) * coni/(shci * rhoi) *  sput - kr
     !face centered conduction coeffcients
     kcc = 0.0d0
     ktt = 0.0d0 
@@ -268,8 +317,7 @@ contains
             +  dt * bflux/cdsig(i)
        
     end if
-
-
+    
     a2 = a
     b2 = b
     c2 = c
@@ -279,15 +327,15 @@ contains
     b2 = b
     c2 = c
     r2 = r
-    
+
+
     !drainage.  \fixme
     where (energy2 .gt. epmp + water_fraction_drain * lhci)
-       drain = drain_factor * dt
+       drain = water_drain_factor * dt
     elsewhere
        drain = 0.0d0
     end where
    
-    
     !re-solve with drainage sink.
     b = b + thcknew*drain
     r = r + thcknew*drain*epmp
@@ -303,8 +351,9 @@ contains
        energy = emin
     end where
 
-    drain = (energy2 - energy)/lhci
- 
+    drain = (energy2 - energy)/lhci 
+
+    
     !compute surface energy density or heat flux
     if (sdiric) then
        sflux = 0.0 ! FIX ME
@@ -317,15 +366,17 @@ contains
        bflux = kb/dt * (bepmp - energy(i))
        benergy = bepmp
     else
-       kb = coni/(shci * rhoi) *  scyr
+       kb = coni/(shci * rhoi) *  sput
        benergy = energy(n) + bflux / kb * thcknew * 0.5d0 * (fsig(n+1)-fsig(n))
     end if
 
-    !basal melt rate
-    bmb = sum(drain) / dt * cdsig(n) * thcknew
+    !basal melt rate (negative outward)
+    bmb = - sum(drain) / dt * cdsig(n) * thcknew
 
+    !update till water fraction (Crank-Nicolson)
+    tmp = 0.5d0 * till_water_drain_factor * dt 
+    tillwaterdepth = tillwaterdepth * (1.0d0 - tmp)/( 1.0d0 + tmp) - bmb * dt
   
-
     return
 
   end subroutine fo_diffusive_advance
@@ -333,12 +384,12 @@ contains
 end module column_thermodynamics
 
 
-subroutine column_thermodynamics_set_constants( ascyr , arhoi , arhoo, agrav , ashci, alhci, aconi , aconm, apmlt, atrpt)
+subroutine column_thermodynamics_set_constants( asput , arhoi , arhoo, agrav , ashci, alhci, aconi , aconm, apmlt, atrpt)
   use column_thermodynamics
   implicit none
-  real(kind=8) ascyr,  arhoi , arhoo,  agrav , ashci, alhci, aconi , aconm, apmlt, atrpt
-  !set_constants(scyr , rhoi , rhoo, grav , shci, lhci, coni , pmlt, trpt)
-  scyr = ascyr
+  real(kind=8) asput,  arhoi , arhoo,  agrav , ashci, alhci, &
+       aconi , aconm, apmlt, atrpt
+  sput = asput
   rhoi = arhoi 
   rhoo = arhoo
   grav = agrav 
@@ -351,7 +402,25 @@ subroutine column_thermodynamics_set_constants( ascyr , arhoi , arhoo, agrav , a
   
 end subroutine column_thermodynamics_set_constants
 
-subroutine column_thermodynamics_update_internal_energy(energy, senergy, sflux, sdiric, benergy, mask, &
+subroutine column_thermodynamics_set_water_constants ( &
+     a_water_fraction_drain, a_water_fraction_max, &
+     a_water_drain_factor, a_till_water_drain_factor)
+
+  use column_thermodynamics
+  implicit none
+  
+  real(kind=8) a_water_fraction_drain, a_water_fraction_max, &
+       a_water_drain_factor, a_till_water_drain_factor
+  
+  water_fraction_drain = a_water_fraction_drain
+  water_drain_factor = a_water_drain_factor
+  water_fraction_max = a_water_fraction_max
+  till_water_drain_factor = a_till_water_drain_factor
+  
+end subroutine column_thermodynamics_set_water_constants
+  
+subroutine column_thermodynamics_update_internal_energy(energy, tillwaterdepth, &
+     senergy, sflux, sdiric, benergy, mask, &
      bflux, rhs, thckold, thcknew, usig, fsig, dsig, time, dt, n)
 
   !update the mid-layer internal energy density (energy), 
@@ -370,7 +439,7 @@ subroutine column_thermodynamics_update_internal_energy(energy, senergy, sflux, 
   integer :: n
   real(kind=8), dimension(1:n), intent(inout) :: energy,rhs,dsig
   real(kind=8), dimension(1:n+1), intent(inout) :: usig,fsig
-  real(kind=8), intent(inout) :: senergy,benergy,bflux,sflux
+  real(kind=8), intent(inout) :: tillwaterdepth,senergy,benergy,bflux,sflux
   real(kind=8), intent(in) :: time,dt,thckold,thcknew
   integer, intent(in) :: mask
   logical, intent(in) :: sdiric
@@ -379,16 +448,13 @@ subroutine column_thermodynamics_update_internal_energy(energy, senergy, sflux, 
   real(kind=8) :: dtcfl,tthcknew,tthckold,tt,melt,bepmp
   real(kind=8), dimension(1:n) :: rhsl,drain,moist,csig
   ! face-centered conductivity, internal energy, pressure-melting-point, additional heat flux
-  integer l,nt,it,i
+  integer l,nt,it,i,npicard,ipicard
   
 
   if (thcknew.gt.1.0d0 .and. thckold.gt.1.0d0) then
      
      do i = 1,n
         csig(i) = 0.5*(fsig(i+1)+fsig(i))
-!!$        if (energy(i).gt.6.0d+5) then
-!!$           write(*,*) 'odd, ', energy(i)
-!!$        end if
      end do
     
      !work out a stable time step
@@ -399,10 +465,10 @@ subroutine column_thermodynamics_update_internal_energy(energy, senergy, sflux, 
         dtcfl = min(dtcfl,(thckold+thcknew)*(fsig(i+1)-fsig(i))/(abs(usig(i+1)) + abs(usig(i))))
      end do
 
-     !a simplified criterion for temperate ice conduction, which is essentially explicit diffusion
-     !hopefully the scaling will not be a major issue. TODO revisit and limit to cases where
-     !there is temperate ice above the bottom layer if it proves a problem
-     !using real(kind=8) tt as a workspace
+!!$     !a simplified criterion for temperate ice conduction, which is essentially explicit diffusion
+!!$     !hopefully the scaling will not be a major issue. TODO revisit and limit to cases where
+!!$     !there is temperate ice above the bottom layer if it proves a problem
+!!$     !using real(kind=8) tt as a workspace
      tt = (fsig(2)-fsig(1))**2
      do i = 2,n
         tt = min(tt, (fsig(i+1)-fsig(i))**2)
@@ -434,9 +500,10 @@ subroutine column_thermodynamics_update_internal_energy(energy, senergy, sflux, 
         tt = tt + dtcfl
         tthcknew = tt/dt * thcknew + (1.0d0-tt/dt) *thckold
 
-        call fo_diffusive_advance(energy, senergy, sflux, sdiric, benergy, bflux, rhsl, &
+        
+        call fo_diffusive_advance(energy, tillwaterdepth, senergy, sflux, sdiric, benergy, bflux, rhsl, &
              tthckold, tthcknew,fsig,dtcfl,mask,n)
-
+        
      end do
   else
      !no ice
@@ -452,8 +519,47 @@ subroutine column_thermodynamics_update_internal_energy(energy, senergy, sflux, 
 
 end subroutine column_thermodynamics_update_internal_energy
 
-subroutine column_thermodynamics_compute_zvel(uz,uzs,husig,ux,uy, divhu, &
-     fsig, csig, dsig, n, thck, dsx, dhx, dsy, dhy, dst, dht, & 
+
+
+
+
+subroutine column_compute_sigma_vel( husig,ux,uy, divhu, &
+     dsig, n, dht, smb, bmb)
+
+  !compute the contravariant \sigma component of the velocity u^{\sigma} = u.e^{\sigma}
+  !This appears in cross-layer advection
+
+  !This means solving a first order ODE w' = f with
+  !known w(s) and w(b), which is overdetermined unless 
+  !w(s) - w(b) = integral(f dz,s,b) - which should 
+  !be the case.
+  
+  implicit none
+  integer, intent(in) :: n
+  real(kind=8), dimension(1:n+1), intent(in) :: ux,uy ! horizontal velocity at layer faces
+  real(kind=8), dimension(1:n+1), intent(out) :: husig ! h*sigma velocity at   layer faces
+  real(kind=8), dimension(1:n), intent(in) :: divhu ! horizontal part of div(Hu)
+  real(kind=8), dimension(1:n), intent(in) :: dsig ! dsigma at layer midoints
+  real(kind=8), intent(in) :: dht ! dh/dt
+  real(kind=8), intent(in) :: smb, bmb ! surface & basal mass balance rates
+  !locals
+  integer :: i
+
+  !velocity at the base
+  husig(n+1) =  - bmb! + gft(n+1)
+
+  !integration
+  do i = n , 1, -1
+     husig(i) =  husig(i+1) + (divhu(i) + dht)*dsig(i) 
+  end do
+
+  return
+
+end subroutine column_compute_sigma_vel
+
+  
+subroutine column_compute_z_vel(uz,uzs,ux,uy, divhu, &
+     fsig, dsig, n, dsx, dhx, dsy, dhy, dst, dht, & 
      smb, bmb)
   !compute the vertical velocity from the divergence
   !of horizontal velocity and the kinematic boundary
@@ -470,12 +576,12 @@ subroutine column_thermodynamics_compute_zvel(uz,uzs,husig,ux,uy, divhu, &
   implicit none
   integer, intent(in) :: n
   real(kind=8), dimension(1:n+1), intent(in) :: ux,uy ! horizontal velocity at layer faces
-  real(kind=8), dimension(1:n+1), intent(out) :: uz,husig ! vertical velocity & h*sigma velocity at   layer faces
+  real(kind=8), dimension(1:n+1), intent(out) :: uz ! vertical velocity at layer faces
   real(kind=8), intent(out) :: uzs ! uz at surface by kinematic bc
   real(kind=8), dimension(1:n+1), intent(in) :: fsig ! sigma at layer faces
   real(kind=8), dimension(1:n), intent(in) :: divhu ! horizontal part of div(Hu)
-  real(kind=8), dimension(1:n), intent(in) :: csig, dsig ! sigma, dsigma at layer midoints
-  real(kind=8), intent(in) :: thck,dsx,dsy,dhx,dhy,dst,dht !H, ds/dx, ds/dy, dH/dx, dH/dy
+  real(kind=8), dimension(1:n), intent(in) :: dsig ! sigma, dsigma at layer midoints
+  real(kind=8), intent(in) :: dsx,dsy,dhx,dhy,dst,dht !H, ds/dx, ds/dy, dH/dx, dH/dy. dH/dt
   real(kind=8), intent(in) :: smb, bmb ! surface & basal mass balance rates
   !locals
   integer :: i
@@ -488,8 +594,6 @@ subroutine column_thermodynamics_compute_zvel(uz,uzs,husig,ux,uy, divhu, &
 
   !velocity at the base
   uz(n+1) =  gft(n+1) + ux(n+1)*gfx(n+1) + uy(n+1)*gfy(n+1) + bmb
-  husig(n+1) =  - bmb! + gft(n+1)
-
 
   !velocity at the surface
   uzs = dst + ux(1)*dsx + uy(1)*dsy - smb
@@ -498,13 +602,9 @@ subroutine column_thermodynamics_compute_zvel(uz,uzs,husig,ux,uy, divhu, &
   do i = n , 1, -1
      uz(i) = uz(i+1) - divhu(i)*dsig(i) & 
           + (gfx(i)*ux(i) - gfx(i+1)*ux(i+1)) &
-          + (gfy(i)*uy(i) - gfy(i+1)*uy(i+1))  
-
-     !h* u^{\sigma}
-     husig(i) =  husig(i+1) + (divhu(i) + dht)*dsig(i) 
-
+          + (gfy(i)*uy(i) - gfy(i+1)*uy(i+1)) 
   end do
 
   return
 
-end subroutine column_thermodynamics_compute_zvel
+end subroutine column_compute_z_vel

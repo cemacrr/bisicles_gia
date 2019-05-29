@@ -10,12 +10,26 @@
 <li><a href='index.html'>Index page<a/> </li>
 <li><a href='#top'>Top of page<a/> </li>
 </ul>
+<h1>Contents</h1>
+<ol>
+  <li><a href='#Tw'>Temperature and water fraction</a>
+  <li><a href='#till'>Till water</a>
+  <li><a href='#coupling'>Coupling with the stress model</a>
+  <ol>
+    <li><a href='#stress'>Englacial Stress </a></li>
+    <li><a href='#bstressW'>Basal Stress (Weertman)</a></li>
+    <li><a href='#bstressC'>Basal Stress (Coulomb)</a></li>
+    </ol>
+</ol>
 
 </div>
 
 <div id="main">
 
 <h1>BISICLES Thermodynamics</h1>
+
+
+<h2><a name='TW'>Temperature and water fraction</h2>
 
 <p>
 BISICLES has an optional thermodynamics component along the lines of Aschwanden et al, 2012
@@ -24,6 +38,7 @@ BISICLES has an optional thermodynamics component along the lines of Aschwanden 
 <pre>
 amr.isothermal = false
 </pre>
+
 <p>
   Following the Aschwanden et al 2012 model, the state variable, an energy density E
   (measured in J/kg), is composed from the temperature T and the water fraction w,
@@ -38,7 +53,7 @@ amr.isothermal = false
   amr.sigma = 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 
 </pre>
 <p>
-  There are relatively few options to set for the thermodyanmics component:
+  There are relatively few options to set for the thermodynamics component:
   the initial temperature, and the boundary conditions
   at the upper and lower surface. The initial temperature
   is set in the same manner as a constant-in-time temperature. In the
@@ -88,6 +103,63 @@ amr.isothermal = false
   taken to be as a temperature rather
   than a heat flux.
 </p>
+
+<h2><a name='till'>Drainage and till</h2>
+
+<p>
+  Englacial water does not increase in volume indefinitely: once the water fraction w grows
+  beyond a certain value it is drained to a till layer. The current model is crude: it is
+  similar (but cruder than) the drainage model of Aschwanden 2010. The relevant
+  parameters, and their default values, are:
+</p>
+<pre>
+  ColumnThermodynamics.water_fraction_drain = 0.01 
+  ColumnThermodynamics.water_drain_factor = 0.02
+  CoulmnThermodynamics.water_fraction_max = 0.05
+</pre>
+<p>
+  The first parameter (water_fraction_drain) specifies a water fraction
+  below which there is no drainage. The second (water_drain_factor) governs
+  that rate of drainage - which is proportional to the water fraction,
+  for water fractions up to to third parameter (water_fraction_max).
+  water above this limit is immediately transferred to the till.
+</p>
+<p>
+  Water in the till is itself transported elsewhere by the basal hydrology
+  model. In the simplest, default case (see e.g van Pelt and Oerlemans, 2012, Bueler and van Pelt, 2015)
+  it is simply lost (to a putative ground water system) at
+  a rate proportional to the till water depth: the constant of proportionality can be with can be set with:
+</p>
+<pre>
+ColumnThermodynamics.till_water_drain_factor = 0.001 #(default 0.001 1/a)
+</pre>
+<p>
+  A more sophisticated basal hydrology model is in devleopment.
+</p>
+
+
+<h2><a name='coupling'/>Coupling with the stress model</h2>
+
+The thermodyamics model is coupled with the stress balance model
+through  an (optional) temperature depenedence of the
+rate factor that appear in Glen's Law etc ( A(T) ), through
+an (optional) similar factor in the basal traction that affects Weertman friction
+rules, and through a relationship between till water depth and effective pressure
+that affects Coulomb friction rules.
+
+<h3><a name='stress'>Englacial stress</h3>
+See also <a href='stress.html#englacial'/>
+
+<h3> <a name='bstressW'>Basal stress (Weertman)</a></h3>
+
+See also <a href='stress.html#basal'/>
+
+<h3> <a name='bstressC'>Basal stress (Coulomb)</a></h3>
+
+See also <a href='stress.html#basal'/>
+
+  
+
 </div>
 
 

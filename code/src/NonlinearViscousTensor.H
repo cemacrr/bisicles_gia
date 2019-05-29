@@ -21,6 +21,7 @@
 
 #endif
 
+//#31556926.0;
 #include "NamespaceHeader.H"
 
 /** 
@@ -143,6 +144,8 @@ class IceNonlinearViscousTensor : public NonlinearViscousTensor
 
   //lower and upper bounds on the viscosity
   Real m_muMin, m_muMax;
+
+  Real m_scale; // scale mu,alpha by 1/m_scale
   
   // BCHolder
   RefCountedPtr<BCFunction> m_velSolveBC;
@@ -183,29 +186,28 @@ public:
      
 
    */
-  IceNonlinearViscousTensor(const Vector<DisjointBoxLayout>& a_grids,
-	       const Vector<int>& a_refRatio,
-	       const Vector<ProblemDomain>& a_domains,
-	       const Vector<RealVect>& a_dxs,
-	       const Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
-	       const Vector<LevelData<FArrayBox>*>& a_u,
-	       const Vector<LevelData<FArrayBox>*>& a_C,
-	       const Vector<LevelData<FArrayBox>*>& a_C0,
-	       const int a_finestLevel,
-	       const ConstitutiveRelation& a_constRel,
-	       const BasalFrictionRelation& a_basalFrictionRel,
-	       IceThicknessIBC& a_bc,
-	       const Vector<LevelData<FArrayBox>*>& a_A,
-	       const Vector<LevelData<FluxBox>*>& a_faceFlowLawCoefficient,
-	       const Real a_time, 
-	       const Real a_vtopSafety,
-	       const int a_vtopRelaxMinIter,
-	       const Real a_vtopRelaxTol,
-	       const Real a_muMin = 0.0,
-	       const Real a_muMax = 1.234567e+300);
-
- 
-  
+  IceNonlinearViscousTensor
+  (const Vector<DisjointBoxLayout>& a_grids,
+   const Vector<int>& a_refRatio,
+   const Vector<ProblemDomain>& a_domains,
+   const Vector<RealVect>& a_dxs,
+   const Vector<RefCountedPtr<LevelSigmaCS > >& a_coordSys,
+   const Vector<LevelData<FArrayBox>*>& a_u,
+   const Vector<LevelData<FArrayBox>*>& a_C,
+   const Vector<LevelData<FArrayBox>*>& a_C0,
+   const int a_finestLevel,
+   const ConstitutiveRelation& a_constRel,
+   const BasalFrictionRelation& a_basalFrictionRel,
+   IceThicknessIBC& a_bc,
+   const Vector<LevelData<FArrayBox>*>& a_A,
+   const Vector<LevelData<FluxBox>*>& a_faceFlowLawCoefficient,
+   Real a_time, 
+   Real a_vtopSafety,
+   int a_vtopRelaxMinIter,
+   Real a_vtopRelaxTol,
+   Real a_muMin = 0.0,
+   Real a_muMax = 1.234567e+300,
+   Real a_scale = 1.0 );
 
   //implementation of NonlinearViscousTensor interface 
   virtual void setState(const Vector<LevelData<FArrayBox>*>& a_u);

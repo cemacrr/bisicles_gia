@@ -22,11 +22,13 @@
 #define openseamaskval (4)
 #define OPENLANDMASKVAL (8)
 #define openlandmaskval (8)
+#define OCEANMASKVAL OPENSEAMASKVAL
+#define oceanmaskval openseamaskval
 
 #if defined(CH_USE_FLOAT) || defined(CH_LANG_CC)
 
-#define secondsperyear     (31556926)
-#define SECONDSPERYEAR     (31556926)
+#define seconds_per_tropical_year     (31556926)
+#define SECONDS_PER_TROPICAL_YEAR     (31556926)
 
 
 #define HUGE_NORM (1.0e10)
@@ -39,26 +41,14 @@
 #define huge_vel (1.0e+6)
 #define TINY_VEL (1.0e-3)
 #define tiny_vel (1.0e-3)
-#define iceconductivity 2.1
-#define ICECONDUCTIVITY 2.1
-#define moistureconductivity 0.2
-#define MOISTURECONDUCTIVITY 0.2
-#define iceheatcapacity 2009.0
-#define ICEHEATCAPACITY 2009.0
-#define icelatentheat  334.0e+3
-#define ICELATENTHEAT  334.0e+3
-#define icepmeltfactor 9.7456e-8
-#define ICEPMELTFACTOR 9.7456e-8
-#define triplepoint 273.15
-#define TRIPLEPOINT 273.15
-#define MIN_TEMPERATURE 200.0e0
+#define ICE_DENSITY 918.0
+#define SEA_WATER_DENSITY 1028.0
+#define GRAVITY 9.81
 
 #elif defined(CH_USE_DOUBLE) && !defined(CH_LANG_CC)
 
-#define secondsperyear     (31556926d0)
-#define SECONDSPERYEAR     (31556926d0)
-
-
+#define seconds_per_tropical_year     (31556926d0)
+#define SECONDS_PER_TROPICAL_YEAR     (31556926d0)
 
 #define HUGE_NORM (1.0d10)
 #define TINY_NORM (1.0d-10)
@@ -70,19 +60,7 @@
 #define huge_vel (1.0d+6)
 #define TINY_VEL (1.0d-2)
 #define tiny_vel (1.0d-2)
-#define iceconductivity 2.1d0
-#define ICECONDUCTIVITY 2.1d0
-#define moistureconductivity 0.2d0
-#define MOSITURECONDUCTIVITY 0.2d0
-#define iceheatcapacity 2009.0d0
-#define ICEHEATCAPACITY 2009.0d0
-#define icelatentheat  334.0d+3
-#define ICELATENTHEAT  334.0d+3
-#define icepmeltfactor 9.7456d-8
-#define ICEPMELTFACTOR 9.7456d-8
-#define triplepoint 273.15d0
-#define TRIPLEPOINT 273.15d0
-#define MIN_TEMPERATURE 200.0d0
+
 #else
 
 #error One of CH_USE_{FLOAT,DOUBLE} must be defined

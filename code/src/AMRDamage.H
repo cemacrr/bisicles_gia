@@ -13,19 +13,25 @@
 
 #include "AmrIce.H"
 #include "LevelSigmaCS.H"
+#include "CalvingModel.H"
+#include "IceConstants.H"
+#include "ParmParse.H"
 #include "NamespaceHeader.H"
 
 class DamageConstitutiveRelation;
-
+class DamageCalvingModel;
 #define DAMAGE_MAX_VAL 0.9
 #define DAMAGE_N_GHOST 4
 #define DAMAGE_N_COMP 1
+#define WATER_N_GHOST 4
+#define WATER_N_COMP 1
+
 /// Continuum damage model. 
 class AMRDamage
 {
 
   friend class DamageConstitutiveRelation;
-
+  friend class DamageCalvingModel;
   int m_time_step;
   Real m_time;
 
@@ -48,6 +54,9 @@ public:
   AMRDamage();
 
   const LevelData<FArrayBox>* damage(int a_level) const;
+
+  const LevelData<FArrayBox>* water(int a_level) const;
+  
   int finestLevel() const
   {
     return m_finestLevel;
@@ -58,13 +67,7 @@ public:
 	      const RealVect& a_crseDx);
 
   /// advance by timestep a_dt. a_dt must satisfy CFL
-  void timestep(Real a_dt,
-		const Vector<LevelData<FArrayBox>const *>& a_visTensor,
-		const Vector<RefCountedPtr<LevelSigmaCS> >& geometry,
-		const Vector<LevelData<FArrayBox>const * >& a_surfThickSource,
-		const Vector<LevelData<FArrayBox>const * >& a_baseThickSource,
-		const Vector<LevelData<FArrayBox>* >& a_cellVel,
-		const Vector<LevelData<FluxBox>* >& a_faceVel);
+  void timestep(Real a_dt, AmrIce& a_amrIce);
 
 #ifdef CH_USE_HDF5 
   //plot file methods
@@ -80,28 +83,37 @@ public:
   /// fill a_var with the names of variables to add to the checkpoint file 
   void addCheckVars(Vector<std::string>& a_vars);
   
-  /// copy level a_level checkpoint data to  LevelData<FArrayBox>& a_data
+  /// write level a_level checkpoint data
   void writeCheckData(HDF5Handle& a_handle, int a_level);
+
   
-  /// read level a_level checkpoint data from  LevelData<FArrayBox>& a_data
+  /// read level a_level checkpoint data
   void readCheckData(HDF5Handle& a_handle,  HDF5HeaderData& a_header, int a_level, const DisjointBoxLayout& a_grids);
 #endif
 
 protected:
   //cell-centered damage
   mutable Vector<LevelData<FArrayBox>* > m_damage;
-
+  //cell-centered 'water depth' parameter, which affects crevasse depth calculations.
+  mutable Vector<LevelData<FArrayBox>* > m_water;
+  
 private:
   
-  Real m_B;
-  Real m_sth;
-  void computeSource(Vector<LevelData<FArrayBox>* >& a_source, 
+  void computeDamageSource(Vector<LevelData<FArrayBox>* >& a_source, 
 		     const Vector<LevelData<FArrayBox>* >& a_damage,
 		     const Vector<RefCountedPtr<LevelSigmaCS> >& geometry,
 		     const Vector<LevelData<FArrayBox>const *>& a_visTensor,
 		     const Vector<LevelData<FArrayBox>const * >& a_surfThickSource,
 		     const Vector<LevelData<FArrayBox>const * >& a_baseThickSource,
 		     Real a_dt);
+
+  void computeWaterSource(Vector<LevelData<FArrayBox>* >& a_source,  Real a_dt, AmrIce& a_amrIce);
+
+  void updateWater(Vector<LevelData<FArrayBox>* >& a_water,
+		   const Vector<LevelData<FluxBox>* >& a_faceFlux,
+		   const Vector<LevelData<FluxBox>* >& a_faceVel,
+		   const Vector<LevelData<FArrayBox>* >& a_source,
+		   Real a_dt);
 
   void computeFlux( Vector<LevelData<FluxBox>* >& a_faceFlux,
 		    const Vector<LevelData<FArrayBox>* >& a_damage,
@@ -118,7 +130,23 @@ private:
 		    const Vector<RefCountedPtr<LevelSigmaCS> >& geometry,
 		    const Vector<LevelData<FArrayBox> const * >& a_vt,
 		    Real a_dt);
+  
+  void initField(Vector<LevelData<FArrayBox>* >& a_field,
+		 int a_nComp,
+		 const IntVect& a_ghost,
+		 bool a_setToScalar = false,
+		 const Real& a_scalar = 1.12345678e+300);
 
+  void regridField(Vector<LevelData<FArrayBox>* >& a_field);
+
+   
+  /// read checkpoint data for a single LevelData<FArrayBox> 
+  LevelData<FArrayBox>* readCheckData(
+				      const std::string& a_varLabel,
+				      const std::string& a_dataLabel,
+				      HDF5Handle& a_handle,
+				      HDF5HeaderData&  a_header,
+				      const DisjointBoxLayout& a_grids); 
 };
   
   
@@ -213,6 +241,42 @@ public:
 		 const Real&      a_time);   
 };
 
+
+class DamageCalvingModel : public CalvingModel
+{
+
+  CalvingModel* m_calvingModelPtr;
+  AMRDamage* m_damageModelPtr;
+public:
+
+  DamageCalvingModel(CalvingModel* a_calvingModelPtr, AMRDamage* a_damageModelPtr):
+    m_calvingModelPtr(a_calvingModelPtr),  m_damageModelPtr(a_damageModelPtr)
+  {
+    
+  }
+
+  DamageCalvingModel(const DamageCalvingModel& a)
+  {
+    m_calvingModelPtr = a.m_calvingModelPtr->new_CalvingModel();
+    m_damageModelPtr = a.m_damageModelPtr;
+  }
+  
+  virtual CalvingModel* new_CalvingModel()
+  {
+    return new DamageCalvingModel( *this);
+  }
+  virtual void applyCriterion(LevelData<FArrayBox>& a_thickness, 
+			      LevelData<FArrayBox>& a_calvedIce,
+			      LevelData<FArrayBox>& a_addedIce,
+			      LevelData<FArrayBox>& a_removedIce,
+			      LevelData<FArrayBox>& a_iceFrac, 
+			      const AmrIce& a_amrIce,
+			      int a_level,
+			      CalvingModel::Stage a_stage);
+  
+
+  
+};
 
 
 #include "NamespaceFooter.H"

@@ -27,6 +27,7 @@
 class LevelDataTemperatureIBC : public ReflectionIceInternalEnergyIBC
 {  
   RefCountedPtr<LevelData<FArrayBox> > m_temp;
+  Real m_defaultTemperature;
 #if BISICLES_Z == BISICLES_LAYERED
   RefCountedPtr<LevelData<FArrayBox> > m_surfaceTemp ;
   RefCountedPtr<LevelData<FArrayBox> > m_basalHeatFlux ;
@@ -41,7 +42,7 @@ public:
 			  RefCountedPtr<LevelData<FArrayBox> > a_surfaceT,
 			  RefCountedPtr<LevelData<FArrayBox> > a_basalT,
 #endif
-			  const RealVect& a_dx);
+			  const RealVect& a_dx,const Real& a_defaultTemperature );
 
   /// Destructor
   /**
@@ -71,6 +72,7 @@ public:
 
 #if BISICLES_Z == BISICLES_LAYERED
   virtual void initializeIceInternalEnergy(LevelData<FArrayBox>& a_E, 
+					   LevelData<FArrayBox>& a_tillWaterDepth,
 					   LevelData<FArrayBox>& a_surfaceE, 
 					   LevelData<FArrayBox>& a_basalE, 
 					   const AmrIceBase& a_amrIce, 

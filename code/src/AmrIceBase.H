@@ -38,7 +38,7 @@ public:
   //virtual const Vector<Real>& amrDx() const = 0;
 
   //access to the velocity
-  //virtual const LevelData<FArrayBox>* velocity(int a_level) const = 0;
+  virtual const LevelData<FArrayBox>* velocity(int a_level) const = 0;
   //virtual const Vector<LevelData<FArrayBox>* >& amrVelocity() const = 0;
 
   //access to the upper surface heat boundary data

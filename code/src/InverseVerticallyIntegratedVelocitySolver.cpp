@@ -416,10 +416,10 @@ int InverseVerticallyIntegratedVelocitySolver::solve
 	      FArrayBox& mc = (*m_muCoefOrigin[lev])[dit];
 	      const Real& mcmax = m_config.m_initialUpperMuCoef;
 	      const Real& mcmin = m_config.m_initialLowerMuCoef;
-	      FORT_BOUNDCTRL(CHF_FRA1(mc,0),
-			     CHF_CONST_REAL(mcmin),
-			     CHF_CONST_REAL(mcmax),
-			     CHF_BOX(m_grids[lev][dit]));
+	      // FORT_BOUNDCTRL(CHF_FRA1(mc,0),
+	      // 		     CHF_CONST_REAL(mcmin),
+	      // 		     CHF_CONST_REAL(mcmax),
+	      // 		     CHF_BOX(m_grids[lev][dit]));
 	    } 
 	} 
     }
@@ -1046,7 +1046,7 @@ InverseVerticallyIntegratedVelocitySolver::computeDivUH()
 	 *m_velb[lev],*m_coordSys[lev], m_thicknessIBC, 
 	 *m_A[lev], *m_A[lev], *m_A[lev], 
 	 crseVelPtr,crseCellDiffusivityPtr, nRefCrse, 
-	 m_constitutiveRelation, additionalVelocity);
+	 m_constitutiveRelation, additionalVelocity, false);
 
       if (crseCellDiffusivityPtr != NULL)
 	delete crseCellDiffusivityPtr;
