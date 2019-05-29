@@ -5166,7 +5166,7 @@ AmrIce::computeFluxOverIce(const Vector<LevelData<FArrayBox>* > a_flux)
 				Interval(0,0), 0);
 
   //free storage
-  for (int lev = 0; lev < m_finest_level ; lev++)
+  for (int lev = 0; lev <= m_finest_level ; lev++)
     {
       if (fluxOverIce[lev] != NULL)
 	{
@@ -5220,7 +5220,7 @@ AmrIce::computeDeltaVolumeOverIce() const
 				Interval(0,0), 0);
 
   //free storage
-  for (int lev = 0; lev < m_finest_level ; lev++)
+  for (int lev = 0; lev <= m_finest_level ; lev++)
     {
       if (deltaVolOverIce[lev] != NULL)
 	{
