@@ -1055,6 +1055,7 @@ int PythonInterface::PythonVelocitySolver::solve
 	      args[i] = coordSys.getH()[dit](iv);i++;
 	      args[i] = coordSys.getTopography()[dit](iv);i++;
 	      PythonEval(m_pFunc, rval,  args);
+	      CH_assert(rval.size() >= SpaceDim);
 	      vel[dit](iv,0) =  rval[0];
 	      vel[dit](iv,1) =  rval[1];
 	    }
