@@ -1,26 +1,21 @@
 #domain details
-main.domain_size = 640e+3 640e+3 2.0e+3
+main.domain_size = 480e+3 480e+3 2.0e+3
 main.poutBaseName = pout.twc.@LEVlev.
 
-amr.num_cells = 80 80 10
+amr.num_cells = 48 48 16
 amr.is_periodic = 0 0 0
-
 
 #geometry,temperature & basal friction input data
 geometry.problem_type = Python
+PythonIBC.bc_lo = 0 0
+PythonIBC.bc_hi = 0 0
 PythonIBC.module = twc
 PythonIBC.thicknessFunction = thickness
 PythonIBC.topographyFunction = topography
 
+#initial temperature
 temperature.type = constant
 temperature.value = 268
-
-#for uniform layering, let the code decide
-#amr.sigma = 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0
-
-#basal friction relation parameters
-main.basalFrictionRelation = powerLaw
-BasalFrictionPowerLaw.m = 1.0
 
 #physical constants
 constants.ice_density=918
@@ -33,8 +28,8 @@ basalFlux.type = zeroFlux
 #calving model
 
 CalvingModel.type = DomainEdgeCalvingModel
-CalvingModel.front_hi = 1 0
-CalvingModel.front_lo = 0 1
+CalvingModel.front_hi = 1 1
+CalvingModel.front_lo = 0 0
 
 #velocity solve type -- 0 = Picard, 1 = JFNK
 amr.velocity_solver_type = 1
@@ -49,7 +44,7 @@ amr.initial_velocity_guess_solver_type = 1 # use JFNK solver's linear mode
 #JFNK parameters
 JFNKSolver.vtopSafety = 0.95
 JFNKSolver.minPicardIterations = 3
-JFNKSolver.maxIter = 10
+JFNKSolver.maxIter = 1
 JFNKSolver.absTol = 1.0e+0
 JFNKSolver.relTol = 1.0e-3
 JFNKSolver.solverType = 0 #Relax solver
@@ -121,14 +116,18 @@ amr.velocity_solve_interval = 1
 
 #bulk constitutive relation and parameters
 main.constitutiveRelation = L1L2
-main.rateFactor = patersonRate
-PatersonRate.epsSqr0 = 1.0e-12
+#main.rateFactor = patersonRate
+#PatersonRate.epsSqr0 = 1.0e-12
+main.rateFacotr = constRate
+constRate.A = 9.0e-18
+
 #add these if you want vertical shearing
 #amr.additional_velocity = true
 #amr.diffusion_treatment = implicit
 
 
 #Basal friction, Weertman parameters
+#main.basalFrictionRelation = powerLaw
 geometry.beta_type = constantBeta
 geometry.betaValue = 0.3e+4
 BasalFrictionPowerLaw.m = 0.333
@@ -161,6 +160,8 @@ basalFlux.function = basal_flux
 
 #ColumnThermodynamics.water_fraction_drain = 0.01
 #ColumnThermodynamics.water_fraction_max = 0.05
-#ColumnThermodynamics.water_drain_factor = 0.1
-ColumnThermodynamics.till_water_drain_factor = 0.005
+#ColumnThermodynamics.water_drain_factor = 0.02
+ColumnThermodynamics.till_water_drain_factor = 0.005 # default 0.001
+
+#amr.restart_file = chk.twc.0lev.000512.2d.hdf5
 
