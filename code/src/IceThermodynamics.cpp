@@ -62,6 +62,7 @@ Real IceThermodynamics::m_water_fraction_drain(0.01);
 Real IceThermodynamics::m_water_fraction_max(0.05);
 Real IceThermodynamics::m_water_drain_factor(0.02);
 Real IceThermodynamics::m_till_water_drain_factor(0.001);
+Real IceThermodynamics::m_till_water_max(4.0);
 
 ///compose internal energy F(T,w) from temperature T and water fraction  
 void IceThermodynamics::composeInternalEnergy
@@ -203,6 +204,14 @@ void IceThermodynamics::setConstants(Real a_rhoi, Real a_rhow, Real a_gravity, R
   m_till_water_drain_factor = 0.001;
   
   pp.query("till_water_drain_factor", m_till_water_drain_factor);
+
+
+  // max till water depth.
+  // max value 4.0. 
+  m_till_water_max = 4.0;
+  
+  pp.query("till_water_max", m_till_water_max);
+  
   
   FORT_COLUMNTHERMODYAMICSSETCONSTANTS
     (CHF_CONST_REAL(m_seconds_per_unit_time),
@@ -218,7 +227,8 @@ void IceThermodynamics::setConstants(Real a_rhoi, Real a_rhow, Real a_gravity, R
      CHF_CONST_REAL(m_water_fraction_drain),
      CHF_CONST_REAL(m_water_fraction_max),
      CHF_CONST_REAL(m_water_drain_factor),
-     CHF_CONST_REAL(m_till_water_drain_factor));				       
+     CHF_CONST_REAL(m_till_water_drain_factor),
+     CHF_CONST_REAL(m_till_water_max));				       
    
 }
 

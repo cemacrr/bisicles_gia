@@ -24,7 +24,7 @@ class IceThermodynamics
 
 public:
 
-    static Real m_ice_conductivity,
+  static Real m_ice_conductivity,
     m_ice_heat_capacity, 
     m_ice_latent_heat_fusion,
     m_ice_pressure_melt_factor,
@@ -35,10 +35,11 @@ public:
     m_water_fraction_max,
     m_water_drain_factor,
     m_till_water_drain_factor,
+    m_till_water_max,
     m_ice_density,
     m_water_density,
     m_gravity;
-
+  
   
   static Real icepmeltfactor() {return m_ice_pressure_melt_factor;}
   static Real IceConductivity() {return m_ice_conductivity;}
