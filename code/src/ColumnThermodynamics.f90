@@ -376,6 +376,11 @@ contains
     !update till water fraction (Crank-Nicolson)
     tmp = 0.5d0 * till_water_drain_factor * dt 
     tillwaterdepth = tillwaterdepth * (1.0d0 - tmp)/( 1.0d0 + tmp) - bmb * dt
+
+    !ice shelf / open sea regions - set till water to max (seems more sensible than zero)
+    if ( (mask.eq.floatingmaskval).or.(mask.eq.openseamaskval) )  then
+       tillwaterdepth = till_water_max
+    end if
     !limit
     tillwaterdepth = max(0.0d0,min(tillwaterdepth, till_water_max))
     return
@@ -517,6 +522,9 @@ subroutine column_thermodynamics_update_internal_energy(energy, tillwaterdepth, 
      end if
      energy = senergy 
      benergy = senergy
+     if ( (mask.eq.floatingmaskval).or.(mask.eq.openseamaskval) ) then
+        tillwaterdepth = till_water_max
+     end if
   end if
 
   return

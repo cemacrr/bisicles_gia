@@ -80,7 +80,8 @@ c-------------------------------------------
      &     CHF_CONST_REAL[a_water_fraction_drain],
      &     CHF_CONST_REAL[a_water_fraction_max],
      &     CHF_CONST_REAL[a_water_drain_factor],
-     &     CHF_CONST_REAL[a_till_water_drain_factor])
+     &     CHF_CONST_REAL[a_till_water_drain_factor],
+     &	   CHF_CONST_REAL[a_till_water_max])
 
 
       call column_thermodynamics_set_constants(
@@ -91,8 +92,9 @@ c-------------------------------------------
      &     a_ice_pressure_melt_factor, a_triple_point)
 
        call column_thermodynamics_set_water_constants(
-     &      a_water_fraction_drain, a_water_fraction_max,
-     &      a_water_drain_factor, a_till_water_drain_factor)
+     &     a_water_fraction_drain, a_water_fraction_max,
+     &     a_water_drain_factor, a_till_water_drain_factor,
+     &     a_till_water_max)
       
       return 
       end 
