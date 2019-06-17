@@ -289,7 +289,7 @@ AmrIce::writeAMRPlotFile()
       if (!m_reduced_plot)
 	{
 	  numPlotComps += 4; // divThicknessFlux, calving flux and accumulated calving
-	  numPlotComps += 1; // calving rate
+	  numPlotComps += 2; // calving rate and water depth
 	}
     }
 
@@ -353,6 +353,7 @@ AmrIce::writeAMRPlotFile()
   string calvedIceThicknessName("calvingFlux");
   string calvedThicknessSourceName("calvedThicknessSource");
   string calvingRateName("calvingRate");
+  string waterDepthName("waterDepth");
 
   Vector<string> vectName(numPlotComps);
   //int dThicknessComp;
@@ -542,6 +543,7 @@ AmrIce::writeAMRPlotFile()
 	  vectName[comp] = surfaceThicknessSourceName; comp++;
 	  vectName[comp] = calvedIceThicknessName; comp++;
 	  vectName[comp] = calvingRateName; comp++;
+	  vectName[comp] = waterDepthName; comp++;
 	}
     }
 
@@ -613,12 +615,14 @@ AmrIce::writeAMRPlotFile()
       LevelData<FArrayBox> levelSTS (m_amrGrids[lev], 1, ghostVect);
       LevelData<FArrayBox> levelBTS (m_amrGrids[lev], 1, ghostVect);
       LevelData<FArrayBox> levelCalvingRate(m_amrGrids[lev], 1, ghostVect);
+      LevelData<FArrayBox> levelWaterDepth(m_amrGrids[lev], 1, ghostVect);
       
       if (m_write_thickness_sources)
 	{
 	  m_surfaceFluxPtr->surfaceThicknessFlux(levelSTS, *this, lev, m_dt);
 	  m_basalFluxPtr->surfaceThicknessFlux(levelBTS, *this, lev, m_dt); 
-	  (*m_calvingModelPtr).getCalvingRate(levelCalvingRate, *this, lev);     
+	  (*m_calvingModelPtr).getCalvingRate(levelCalvingRate, *this, lev);
+	  (*m_calvingModelPtr).getWaterDepth(levelWaterDepth, *this, lev);
 	}
 
       DataIterator dit = m_amrGrids[lev].dataIterator();
@@ -887,6 +891,9 @@ AmrIce::writeAMRPlotFile()
 		  comp++;
 
 		  thisPlotData.copy(levelCalvingRate[dit], 0, comp, 1);
+		  comp++;
+
+		  thisPlotData.copy(levelWaterDepth[dit], 0, comp, 1);
 		  comp++;
 		  
 		}

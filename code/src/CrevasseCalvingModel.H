@@ -53,6 +53,9 @@ public:
 			      int a_level,
 			      Stage a_stage);
 
+  virtual void getWaterDepth(LevelData<FArrayBox>& a_waterDepth, 
+			      const AmrIce& a_amrIce,int a_level);
+
   CrevasseCalvingModel(const CrevasseCalvingModel& a) 
   {
     m_waterDepth = a.m_waterDepth->new_surfaceFlux();

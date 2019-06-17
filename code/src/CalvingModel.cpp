@@ -30,6 +30,16 @@ CalvingModel::getCalvingRate(LevelData<FArrayBox>& a_calvingRate, const AmrIce& 
 }
 
 void
+CalvingModel::getWaterDepth(LevelData<FArrayBox>& a_waterDepth, const AmrIce& a_amrIce,int a_level)
+{
+  DataIterator dit = a_waterDepth.dataIterator();
+  for (dit.begin(); dit.ok(); ++dit)
+    {
+      a_waterDepth[dit].setVal(0.0);
+    }
+}
+
+void
 VariableRateCalvingModel::getCalvingRate(LevelData<FArrayBox>& a_calvingRate, const AmrIce& a_amrIce,int a_level)
 {
   m_calvingRate->evaluate(a_calvingRate, a_amrIce, a_level, 0.0);

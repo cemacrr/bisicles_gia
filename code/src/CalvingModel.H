@@ -51,6 +51,9 @@ public:
   virtual void getCalvingRate(LevelData<FArrayBox>& a_calvingRate, 
 			      const AmrIce& a_amrIce,int a_level);
 
+  /// water depth for crevasse calving.
+  virtual void getWaterDepth(LevelData<FArrayBox>& a_waterDepth, 
+			      const AmrIce& a_amrIce,int a_level);
  
 };
 

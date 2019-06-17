@@ -78,6 +78,10 @@ void CrevasseCalvingModel::computeStressMeasure(LevelData<FArrayBox>& a_stressMe
 
 }
 
+void CrevasseCalvingModel::getWaterDepth(LevelData<FArrayBox>& a_waterDepth, const AmrIce& a_amrIce,int a_level)
+{
+  m_waterDepth->evaluate(a_waterDepth, a_amrIce, a_level, 0.0);
+}
 	      		 
 void CrevasseCalvingModel::applyCriterion
 (LevelData<FArrayBox>& a_thickness,
@@ -142,7 +146,9 @@ void CrevasseCalvingModel::applyCriterion
       //compute remaining ice thickness
       LevelData<FArrayBox> remnant;aliasLevelData(remnant, &locals, Interval(4,4));
       LevelData<FArrayBox> waterDepth;aliasLevelData(waterDepth, &locals, Interval(5,5));
-      m_waterDepth->evaluate(waterDepth, a_amrIce, a_level, 0.0);
+      //m_waterDepth->evaluate(waterDepth, a_amrIce, a_level, 0.0);
+      getWaterDepth(waterDepth, a_amrIce, a_level);
+
       computeRemnant(remnant, stressMeasure, thcke, usrfe, habe, waterDepth, levelCoords);
       
       //used to make sure that only cells within some distance of the open sea calve: 
