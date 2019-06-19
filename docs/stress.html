@@ -115,6 +115,32 @@ implausible driving stress, for example at tall ice cliffs. The option
   velocity_rhs.gl_correction = false # true is the default
 </pre>
 
+<h4>Drag from Rocky Walls</h4>
+<p>
+  Floating Ice flowing between rocky walls (e.g Petermann Glacier) experiences some drag by default,
+  the coefficient C_0 is computed from the basal friction coefficient that would apply if
+  the ice was grounded, and from the contact areas between ice and rock.
+  It is possible to increase this drag with a scalar parameter.
+</p>
+<pre>
+wall_drag.basic = true # default true
+wall_drag.extra = 0.0 # default 0.0
+</pre>
+
+<h4>Drag in thin ice regions</h4>
+<p>
+  Realistic problems are sometimes made more difficult by the appearance of
+  fast flowing  thin ice, often far from the regions of interest,
+  which tends to reduce the stable time step. This
+  can sometimes be mitigated by imposing some additional drag in thin ice
+  regions. Be careful with this parameter - it can easily slow down ice shelves.
+</p>
+<pre>
+thin_ice_drag.extra = 10.0 # default 0.0
+thin_ice_drag.thickness = 10.0 # default 0.0
+</pre>
+
+
 <h4>Constant Friction</h4>
 
 The simplest meaningful beta^2 is constant in space and time. E.g to set beta^2 = 1000 on all grounded ice:

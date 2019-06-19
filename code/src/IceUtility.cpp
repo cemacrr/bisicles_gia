@@ -333,7 +333,9 @@ void IceUtility::computeC0(Vector<LevelData<FArrayBox>* >& a_vectC0,
 
   bool wallDrag = true; //compute additional drag due to contact with rocky walls
   Real wallDragExtra = 0.0; // assume wall drag proportional to basal drag only;
-
+  Real thinIceDragExtra = 0.0; // mimimum *linear* drag for thin ice
+  Real thinIceDragThickness = 0.0; // how thin is thin?
+  bool thinIceDrag = false;
   {
     //backward compatiblity
     ParmParse ppAmr("amr");
@@ -346,7 +348,13 @@ void IceUtility::computeC0(Vector<LevelData<FArrayBox>* >& a_vectC0,
     pp.query("basic", wallDrag);
     pp.query("extra", wallDragExtra);
   }
-
+  
+  {
+    ParmParse pp("thin_ice_drag");
+    pp.query("extra", thinIceDragExtra);
+    pp.query("thickness", thinIceDragThickness);
+    thinIceDrag = thinIceDragExtra * thinIceDragThickness > TINY_NORM;
+  }
   
   for (int lev=0; lev <= a_finest_level; lev++)
     {
@@ -364,10 +372,35 @@ void IceUtility::computeC0(Vector<LevelData<FArrayBox>* >& a_vectC0,
 				  levelCS.getTopography()[dit], thisC, wallDragExtra,
 				  RealVect::Unit*a_dx[lev], grids[dit]);
 	    }
+
+	  if (thinIceDrag)
+	    {
+	      IceUtility::addThinIceDrag(thisC0, levelCS.getFloatingMask()[dit],
+					 levelCS.getH()[dit], thinIceDragExtra,
+					 thinIceDragThickness, grids[dit]);
+	    }
 	}
     }
 }
 			   
+
+
+void IceUtility::addThinIceDrag(FArrayBox& a_drag, 
+				const BaseFab<int>& a_mask,
+				const FArrayBox& a_thk,
+				const Real& a_extra,
+				const Real& a_thin,
+				const Box& a_box)
+{
+  
+  for (BoxIterator bit(a_box); bit.ok(); ++bit)
+    {
+      const IntVect& iv = bit();
+      if (a_thk(iv) < a_thin)
+	a_drag(iv) += a_extra;
+    }
+}
+
 
 void IceUtility::addWallDrag(FArrayBox& a_drag, 
 			      const BaseFab<int>& a_mask,
