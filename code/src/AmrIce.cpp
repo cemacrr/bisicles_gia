@@ -2400,7 +2400,7 @@ AmrIce::updateGeometry(Vector<RefCountedPtr<LevelSigmaCS> >& a_vect_coordSys_new
           // if there are still diffusive fluxes to deal
           // with, the source term will be included then
  
-	  if (m_diffusionTreatment != IMPLICIT)
+	  //if (m_diffusionTreatment != IMPLICIT)
             {
               if (m_frac_sources)
                 {
@@ -4792,9 +4792,9 @@ AmrIce::implicitThicknessCorrection(Real a_dt,
 	      (*I[lev])[dit].setVal(one);
 	      (*H[lev])[dit].copy(levelCoords.getH()[dit] , 0 , 0, 1);
 	      (*rhs[lev])[dit].copy( (*H[lev])[dit] , 0 , 0, 1);
-	      (*rhs[lev])[dit].plus(levelSTS[dit],a_dt);
-	      (*rhs[lev])[dit].plus(levelBTS[dit],a_dt);
-	      (*rhs[lev])[dit].plus(levelVTS[dit],a_dt);
+	      //(*rhs[lev])[dit].plus(levelSTS[dit],a_dt);
+	      //(*rhs[lev])[dit].plus(levelBTS[dit],a_dt);
+	      //(*rhs[lev])[dit].plus(levelVTS[dit],a_dt);
 	      (*D[lev])[dit][0].plus(m_additionalDiffusivity);
 	      (*D[lev])[dit][1].plus(m_additionalDiffusivity);
 	      
