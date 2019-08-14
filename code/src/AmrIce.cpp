@@ -1498,7 +1498,7 @@ AmrIce::initialize()
     } // end loop over levels to determine covered levels
 
   m_cf_domain_diagnostic_data.initDiagnostics
-    (*this, m_vect_coordSys, m_amrGrids, m_refinement_ratios, m_amrDx[0], m_time, m_finest_level);
+    (*this, m_vect_coordSys, m_amrGrids, m_refinement_ratios, m_amrDx[0], time() , m_finest_level);
 
 }  
   
