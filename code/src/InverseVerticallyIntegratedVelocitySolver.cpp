@@ -373,7 +373,9 @@ int InverseVerticallyIntegratedVelocitySolver::solve
   m_A = a_A;
   m_C0 = a_C0;
   m_rhs = a_rhs;
- 
+  m_calvedIce = a_calvedIce;
+  m_addedIce = a_addedIce;
+  m_removedIce = a_removedIce;
   m_time = a_time;
   
   //best fit velocity is to be output
@@ -866,9 +868,9 @@ InverseVerticallyIntegratedVelocitySolver::solveStressEqn
   
   bool linear = a_adjoint;
 
-  Vector<LevelData<FArrayBox>* > calved,added,removed;
   
-  jfnkSolver.solve(a_u, calved,added,removed,initialNorm, finalNorm, convergenceMetric, linear, 
+  jfnkSolver.solve(a_u, m_calvedIce, m_addedIce , m_removedIce ,
+		   initialNorm, finalNorm, convergenceMetric, linear, 
 		   a_rhs, a_C, a_C0, a_A, a_muCoef, m_coordSys, 0.0 , 0, m_finest_level);
 
 
@@ -1119,7 +1121,7 @@ InverseVerticallyIntegratedVelocitySolver::computeDivUH()
                               CHF_BOX(m_grids[lev][dit]),
                               CHF_CONST_REAL(m_dx[lev][dir]),
                               CHF_INT(dir));
-	      CH_assert( div.min() > -1.0e+6 &&  div.max() > -1.0e+6);
+	      //CH_assert( div.min() > -1.0e+6 &&  div.max() < 1.0e+6);
 	    }
 	}
     }

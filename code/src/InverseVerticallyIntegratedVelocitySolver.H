@@ -518,7 +518,8 @@ private:
   
   const AmrIceBase* m_amrIce;
 
-  
+  // need to pass these to functions like JFNKSolver::solve
+  Vector<LevelData<FArrayBox>* > m_calvedIce, m_addedIce, m_removedIce;
   
 public:
 
