@@ -26,6 +26,7 @@ using std::ofstream;
 #include "LevelSigmaCS.H"
 #include "FABView.H"
 #include "CONSTANTS.H"
+#include "IceConstants.H"
 
 #include "defineLevelSigmaCS.H"
 
@@ -556,7 +557,7 @@ testConstitutive()
 
     // ConstitutiveRelation object
     GlensFlowRelation constitutiveRelation;
-    ArrheniusRateFactor rateFactor;
+    ArrheniusRateFactor rateFactor(SECONDS_PER_TROPICAL_YEAR);
     Real epsSqrZero = 1e-30;
     constitutiveRelation.setParameters(3.0 , epsSqrZero, 0.0);
 
@@ -572,7 +573,7 @@ testConstitutive()
     IntVect muGhost = IntVect::Zero;
     // cell-centered Mu
     constitutiveRelation.computeMu(cellMu,
-                                   horizontalVel,
+                                   horizontalVel, SECONDS_PER_TROPICAL_YEAR,
                                    crseVelPtr,
                                    nRefCrse,
                                    theta,
@@ -582,7 +583,7 @@ testConstitutive()
 
     // face-centered Mu
     constitutiveRelation.computeFaceMu(faceMu,
-                                       horizontalVel,
+                                       horizontalVel, SECONDS_PER_TROPICAL_YEAR,
                                        crseVelPtr,
                                        nRefCrse,
                                        faceTheta,
@@ -679,7 +680,7 @@ testConstitutive()
 
       // constitutive relation object
       GlensFlowRelation constitutiveRelation;
-      ArrheniusRateFactor rateFactor;
+      ArrheniusRateFactor rateFactor(SECONDS_PER_TROPICAL_YEAR);
       constitutiveRelation.setParameters(3.0 , 1.0e-30, 0.0);
       
       IntVect epsSqrGhost = IntVect::Zero;

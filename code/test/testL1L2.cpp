@@ -26,7 +26,7 @@ using std::ofstream;
 #include "LevelSigmaCS.H"
 #include "FABView.H"
 #include "CONSTANTS.H"
-
+#include "IceConstants.H"
 #include "defineLevelSigmaCS.H"
 
 #include "computeNorm.H"
@@ -541,7 +541,7 @@ void testZV(int basalType, const Vector<Box>& gridBoxes,
     // cell-centered Mu
 
     constitutiveRelation.computeMu(cellMu,
-                                   horizontalVel,
+                                   horizontalVel,SECONDS_PER_TROPICAL_YEAR,
                                    crseVelPtr, 
                                    nRefCrse,
 				   A,
@@ -550,7 +550,7 @@ void testZV(int basalType, const Vector<Box>& gridBoxes,
                                    muGhost);
     
     glenRelation.computeMu(cellGlenMu,
-                           horizontalVel,
+                           horizontalVel,SECONDS_PER_TROPICAL_YEAR,
                            crseVelPtr, 
                            nRefCrse,
                            A,
@@ -561,7 +561,7 @@ void testZV(int basalType, const Vector<Box>& gridBoxes,
     LevelData<FluxBox> faceA(grids, 1, A.ghostVect());
     CellToEdge(A, faceA);
     constitutiveRelation.computeFaceMu(faceMu,
-                                       horizontalVel,
+                                       horizontalVel,SECONDS_PER_TROPICAL_YEAR,
                                        crseVelPtr, 
                                        nRefCrse,
                                        faceA,
@@ -570,7 +570,7 @@ void testZV(int basalType, const Vector<Box>& gridBoxes,
                                        muGhost);
     
     glenRelation.computeFaceMu(faceGlenMu,
-                               horizontalVel,
+                               horizontalVel,SECONDS_PER_TROPICAL_YEAR,
                                crseVelPtr, 
                                nRefCrse,
                                faceA,
