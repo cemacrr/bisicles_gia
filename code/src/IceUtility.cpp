@@ -53,7 +53,9 @@ void IceUtility::defineRHS(Vector<LevelData<FArrayBox>* >& a_rhs,
     pp.query("max_rhs_dx", maxRhsDx);
     pp.query("gl_correction", glCorrection);
   }
- 
+
+
+  
   CH_assert(a_rhs.size() <= a_CS.size());
   for (int lev = 0; lev < a_rhs.size(); ++lev)
     {
