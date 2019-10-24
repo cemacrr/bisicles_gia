@@ -13,9 +13,9 @@ ifneq ($(NETCDF_HOME), )
 NETCDF_INC := -I$(shell nc-config --includedir)
 
 ifeq ($(shell nc-config --has-f90), yes)
-NETCDF_LIBS := $(shell nc-config --flibs) #does no harm to link the fortran libs if present
+NETCDF_LIBS := $(shell nc-config --flibs) $(shell nc-config --libs) #does no harm to link the fortran libs if present
 else ifeq ($(shell nc-config --has-fortran), yes)
-NETCDF_LIBS := $(shell nc-config --flibs) #does no harm to link the fortran libs if present
+NETCDF_LIBS := $(shell nc-config --flibs) $(shell nc-config --libs)  #does no harm to link the fortran libs if present
 else
 NETCDF_LIBS := $(shell nc-config --libs)
 endif

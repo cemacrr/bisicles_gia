@@ -33,7 +33,9 @@ inputLevelData.temperatureName = temp000000
 
 #basal friction relation parameters
 main.basalFrictionRelation = powerLaw
-BasalFrictionPowerLaw.m = 0.333
+BasalFrictionPowerLaw.m = 1.0
+
+
 
 #physical constants
 constants.ice_density=918
@@ -86,8 +88,8 @@ JFNKSolver.switchRate = 2.0
 
 
 #time stepping
-main.maxTime = 75  # maximum time to run to
-main.maxStep = 10000   # maximum number of steps to runx
+main.maxTime = 0  # maximum time to run to
+main.maxStep = 0   # maximum number of steps to runx
 amr.temporal_accuracy = 1
 amr.cfl = 0.25  
 amr.initial_cfl = 0.25  

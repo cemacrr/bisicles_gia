@@ -508,7 +508,8 @@ program t
         beta = (1 + rhoi* grav * thck * sqrt(dsx**2 + dsy**2)) / ( max(1.0d-6,umod - umodsia))
 
          !beta is the effective drag f(u) (Tb = f(u) * u), and wewant to run with Tb = beta * |u|^1/3
-        beta = beta * umod**(2.0/3.0)       
+        !beta = beta * umod**(2.0/3.0)
+        !beta
      elsewhere
         beta = 100.0
      end where
