@@ -89,3 +89,53 @@ def readBox2D(amrID, level, lo, hi, component, interpolationOrder = 0):
 
     __error__(status)
     return x,y,v.transpose()
+
+def queryLevelNumber(amrID):
+    
+    status = c_int(-1)
+    n_level = c_int(-1)
+    libamrfile.amr_query_n_level(pointer(status), pointer(n_level), pointer(amrID))
+    
+    return n_level.value
+    
+def queryFABNumber(amrID, level):
+    
+    status = c_int(-1)
+    n_fab = c_int(-1)
+    libamrfile.amr_query_n_fab(pointer(status), pointer(n_fab),
+                               pointer(amrID), pointer(c_int(level)))
+    
+    return n_fab.value
+    
+def readFAB(amrID, level, fab, comp, ng=0):
+    
+
+    
+    status = c_int(-1)
+    nx = c_int(-1)
+    ny = c_int(-1)
+    nz = c_int(-1)
+    
+    libamrfile.amr_query_fab_dimensions_2d(pointer(status), pointer(nx), pointer(ny),
+                                           pointer(nz), pointer(amrID),
+                                           pointer(c_int(level)), 
+                                           pointer(c_int(fab)))
+     
+    nx = nx.value + 2*ng
+    ny = ny.value  + 2*ng                                      
+    x = np.zeros(nx)
+    y = np.zeros(ny)
+    v = np.asfortranarray(np.zeros((nx,ny)))
+
+    libamrfile.amr_read_fab_data_2d(
+            pointer(status),
+            v.ctypes.data_as(POINTER(c_double)), 
+            x.ctypes.data_as(POINTER(c_double)),
+            y.ctypes.data_as(POINTER(c_double)), 
+            pointer(amrID),        
+            pointer(c_int(level)), 
+            pointer(c_int(fab)),
+            pointer(c_int(comp)),
+            pointer(c_int(ng)))
+    
+    return x,y,v.transpose()
