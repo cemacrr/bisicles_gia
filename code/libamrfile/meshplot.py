@@ -18,7 +18,7 @@ time = amrio.queryTime(amrID)
 
 
 n_lev = amrio.queryLevelNumber(amrID)
-lev_col = ['black','blue','purple','red','orange']
+lev_col = ['grey','blue','purple','red','orange']
 
 for lev in range(0,n_lev):
     n_fab = amrio.queryFABNumber(amrID,lev)
@@ -39,12 +39,10 @@ for lev in range(0,n_lev):
         yy = np.arange(y0,y1+eps,dx)
         plt.pcolormesh(xx,yy,h,vmin=hmin,vmax=hmax)
     
-        plt.plot( [x0,x0],[y0,y1], color=lev_col[lev])
-        plt.plot( [x1,x1],[y0,y1], color=lev_col[lev])
-        plt.plot( [x0,x1],[y0,y0], color=lev_col[lev])
-        plt.plot( [x0,x1],[y1,y1], color=lev_col[lev])
+        plt.plot( [x0,x0,x1,x1,x0],[y0,y1,y1,y0,y0], color=lev_col[lev], 
+                 lw=0.5, label = r'$\Delta x = ${} m'.format(dx))
 
-
+plt.legend()
 
 amrio.free(amrID)
 plt.savefig("libamrfile_python_mesh.png")
