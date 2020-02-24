@@ -1394,7 +1394,8 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
  
   HDF5HeaderData& header = m_headerData;
   header.readFromFile(a_handle);
-
+  ParmParse ppAmr("amr");
+  
   //check for various components. Maybe rethink this when HDF5::SetGroup
   //is fixed...
   bool containsDeltaBedHeight(false);
@@ -1427,6 +1428,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
       if (i->second == "iceFrac0000")
 	{
 	  containsIceFrac = true;
+	  ppAmr.query("restart_read_ice_frac", containsIceFrac); // backward compatibility option.
 	}
       if (i->second == "basalFriction0000")
 	{
@@ -1486,7 +1488,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   m_restart_step = m_cur_step;
 
   // optionally, over-ride the step number in the restart checkpoint file with one specified in the inputs
-  ParmParse ppAmr("amr");
+ 
   if (ppAmr.contains("restart_step") )
     {
       int restart_step;
@@ -1883,7 +1885,8 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	      else
 		{
 		  // ensure that ice fraction is set to zero where there's no ice
-		  updateIceFrac(m_vect_coordSys[lev]->getH(), lev);
+		  // or not, since this should have been done before writing
+		  // updateIceFrac(m_vect_coordSys[lev]->getH(), lev);
 		}
 	    } 
 	  else
