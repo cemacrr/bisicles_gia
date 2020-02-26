@@ -376,7 +376,7 @@ contains
  
     !update till water fraction (Crank-Nicolson)
     tmp = 0.5d0 * tillwaterdrainfactor * dt 
-    tillwaterdepth = tillwaterdepth * (1.0d0 - tmp)/( 1.0d0 + tmp) - bmb * dt
+    tillwaterdepth = (tillwaterdepth * (1.0d0 - tmp) - bmb*dt)/( 1.0d0 + tmp)
 
     !ice shelf / open sea regions - set till water to max (seems more sensible than zero)
     if ( (mask.eq.floatingmaskval).or.(mask.eq.openseamaskval) )  then
