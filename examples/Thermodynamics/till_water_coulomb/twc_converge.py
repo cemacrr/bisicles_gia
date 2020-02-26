@@ -38,7 +38,7 @@ m = 2
 for lev,let in zip([0,1,2,3,4],['a','b','c','d','e']):
 
     plt.subplot(m,n,lev+1,aspect='equal')
-    file = sorted(glob.glob('v1_480/plot.twc.{}lev.*.2d.hdf5'.format(lev)))[-1]
+    file = sorted(glob.glob('plot.twc.{}lev.*.2d.hdf5'.format(lev)))[-1]
     print (file)
 
     x,y,h,s,u = readplot(file,lev) 
@@ -66,6 +66,6 @@ cb.minorticks_on()
 cb.set_ticklabels( [r'$10^0$',r'$10^1$',r'$10^2$',r'$10^3$'] )
 cb.set_ticks([1,10,100,1000]) 
 cb.set_label('Ice speed, (m/yr)')
-plt.savefig('tcw_convergnece.png',dpi=300)
+plt.savefig('twc_converge.png',dpi=300)
 
 

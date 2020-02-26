@@ -118,10 +118,13 @@ void PythonInterface::PythonEval(PyObject* a_pFunc,
 void PythonInterface::InitializePythonModule(PyObject **a_pModule,
 					     const std::string& a_pyModuleName)
 {
-  //initialize Python without overriding SIGINT  
-  PyOS_sighandler_t sigint = PyOS_getsig(SIGINT);
-  Py_Initialize();
-  sigint =  PyOS_setsig(SIGINT, sigint);
+  if ( !Py_IsInitialized() )
+    {
+      //initialize Python without overriding SIGINT  
+      PyOS_sighandler_t sigint = PyOS_getsig(SIGINT);
+      Py_Initialize();
+      sigint =  PyOS_setsig(SIGINT, sigint);
+    }
   
   PyObject* pName = PyString_FromString(a_pyModuleName.c_str());
   *a_pModule =  PyImport_Import(pName);
@@ -337,14 +340,14 @@ void  iceDivideBC_PyBC(FArrayBox& a_vel,
 	  if(!a_domain.domainBox().contains(ghostBoxLo))
 	    {
 	      ghostBoxLo &= a_vel.box();
-	      a_vel.mult(-1.0,ghostBoxLo,dir,1);
+	      //a_vel.mult(-1.0,ghostBoxLo,dir,1);
 		  
 	    }
 	  Box ghostBoxHi = adjCellBox(a_valid, dir, Side::Hi, 1);
 	  if(!a_domain.domainBox().contains(ghostBoxHi))
 	    {
 	      ghostBoxHi &= a_vel.box();
-	      a_vel.mult(-1.0,ghostBoxHi,dir,1);
+	      //a_vel.mult(-1.0,ghostBoxHi,dir,1);
 	    }
 
 	}
@@ -413,7 +416,7 @@ void  PythonInterface::PythonIBC::setIceFractionBCs(LevelData<FArrayBox>& a_frac
     {
       if (!(a_domain.isPeriodic(dir))){
 	ReflectGhostCells(a_fraction, a_domain, dir, Side::Lo);
-	ReflectGhostCells(a_fraction, a_domain, dir, Side::Hi);
+	ReflectGhostCells(a_fraction, a_domain, dir, Side::Hi);	
       }
     }
   a_fraction.exchange();
@@ -433,7 +436,6 @@ void  PythonInterface::PythonIBC::setGeometryBCs(LevelSigmaCS& a_coords,
 	ReflectGhostCells(a_coords.getH(), a_domain, dir, Side::Hi);
 	ReflectGhostCells(a_coords.getTopography(), a_domain, dir, Side::Lo);
 	ReflectGhostCells(a_coords.getTopography(), a_domain, dir, Side::Hi);
-        
       }
     }
   a_coords.getTopography().exchange();
@@ -691,7 +693,7 @@ void  PythonInterface::FillKwargs(std::map<std::string,Real>& a_kwarg,
       else if (i->first == "gl_proximity_scale")
 	{
 	  i->second = a_amrIce.groundingLineProximityScale();
-	} 
+	}
       else
 	{
 	  i->second = 0.0;

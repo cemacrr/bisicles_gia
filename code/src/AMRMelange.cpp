@@ -615,3 +615,6 @@ void MelangePhysIBC:: artViscBC(FArrayBox&       a_F,
 {
   MayDay::Error("MelangePhysIBC:artViscBC not implemented");
 }
+
+
+#include "NamespaceFooter.H"

@@ -128,11 +128,40 @@ amr.isothermal = false
   Water in the till is itself transported elsewhere by the basal hydrology
   model. In the simplest, default case (see e.g van Pelt and Oerlemans, 2012, Bueler and van Pelt, 2015)
   it is simply lost (to a putative ground water system) at
-  a rate proportional to the till water depth: the constant of proportionality can be with can be set with:
+  a rate proportional to the till water depth, and limited to a maximum value.
+  
+  These can be set with
 </p>
 <pre>
-ColumnThermodynamics.till_water_drain_factor = 0.001 #(default 0.001 1/a)
+  ColumnThermodynamics.till_water_drain_factor = 0.001 #(default 0.001 1/a)
+  ColumnThermodynamics.till_water_max = 4.0 # #(default 4.0 m)
 </pre>
+<p>
+  It is possible to set a spatially variable till water drain factor using
+  the <a href='surfaceflux.html'>surface flux classes</a>. The following
+  example imposes vary rapid drainage in a disc around the origin,
+  preventing till water from accumulating there.
+</p>
+<pre>
+  #in the inputs.* file
+  tillWaterDrainFactor.type = pythonFlux
+  tillWaterDrainFactor.module = twc
+  tillWaterDrainFactor.function =  till_water_drain_factor
+
+  #in twc.py
+  def till_water_drain_factor(x,y,*etc):
+    R2 = (240e+3)**2
+    factor = 0.005
+    fast_factor = 1.0e+3
+    r2 = x**2 + y**2
+    if (r2 < R2):
+        factor = fast_factor
+
+    return factor
+</pre>
+<p>
+  
+</p>
 <p>
   A more sophisticated basal hydrology model is in devleopment.
 </p>

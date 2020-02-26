@@ -236,6 +236,21 @@ CH_TIME("AmrIce::updateInternalEnergy");
       LevelData<FArrayBox>& basalHeatFlux = *m_bHeatFlux[lev];
       basalHeatBoundaryData().evaluate(basalHeatFlux, *this, lev, a_dt);
 
+
+      /// compute (spatially variable) till water drainage rate
+      LevelData<FArrayBox> tillWaterDrainFactor(levelGrids, 1, IntVect::Unit);
+      {
+	// on the fly creation seems lazy, but we don't need this anywhere else
+	SurfaceFlux* ptr = SurfaceFlux::parse("tillWaterDrainFactor");
+	if (ptr == NULL)
+	  {
+	    // default: use the constant rate set in IceThermodynamics
+	    ptr = new constantFlux(IceThermodynamics::m_till_water_drain_factor);
+	  }
+	ptr->evaluate(tillWaterDrainFactor, *this, lev, a_dt);
+	delete ptr;
+      }
+	  
       for (DataIterator dit(levelGrids); dit.ok(); ++dit)
 	{
 	  const Box& box = levelGrids[dit];
@@ -331,6 +346,7 @@ CH_TIME("AmrIce::updateInternalEnergy");
 	  IceThermodynamics::timestep(E, Wt, sT, bT,
 				      scaledSurfaceHeatFlux,
 				      scaledBasalHeatFlux,
+				      tillWaterDrainFactor[dit],
 				      levelCoordsOld.getFloatingMask()[dit],
 				      levelCoordsNew.getFloatingMask()[dit],
 				      oldH,
@@ -345,26 +361,6 @@ CH_TIME("AmrIce::updateInternalEnergy");
 				      surfaceHeatBoundaryDirichlett(),
 				      box);
 	  
-	  // FORT_UPDATEINTERNALENERGY
-	  //   (CHF_FRA(E), CHF_FRA1(Wt,0), 
-	  //    CHF_FRA1(sT,0), 
-	  //    CHF_FRA1(bT,0),
-	  //    CHF_CONST_FRA1(scaledSurfaceHeatFlux,0),
-	  //    CHF_CONST_FRA1(scaledBasalHeatFlux,0),
-	  //    CHF_CONST_FIA1(levelCoordsOld.getFloatingMask()[dit],0),
-	  //    CHF_CONST_FIA1(levelCoordsNew.getFloatingMask()[dit],0),
-	  //    CHF_CONST_FRA(rhs),
-	  //    CHF_CONST_FRA1(oldH,0),
-	  //    CHF_CONST_FRA1(newH,0),
-	  //    CHF_CONST_FRA(uSigma),
-	  //    CHF_CONST_VR(levelCoordsOld.getFaceSigma()),
-	  //    CHF_CONST_VR(dSigma),
-	  //    CHF_CONST_REAL(halftime), 
-	  //    CHF_CONST_REAL(a_dt),
-	  //    CHF_CONST_INT(nLayers),
-	  //    CHF_CONST_INT(surfaceTempDirichlett),
-	  //    CHF_BOX(box));
-
 	  scaledBasalHeatFlux *= (levelCoordsNew.iceDensity());
 	  basalHeatFlux[dit].copy(scaledBasalHeatFlux);
 	  scaledSurfaceHeatFlux *= (levelCoordsNew.iceDensity());
@@ -394,7 +390,7 @@ CH_TIME("AmrIce::updateInternalEnergy");
       pp.query("till_water_length_scale",  lambda);
       helmholtzSolve(m_tillWaterDepth, 1.0, lambda * lambda * double(skip));      
     }
-
+  
   
   //coarse average from finer levels & exchange
   for (int lev = m_finest_level; lev >= 0 ; --lev)
@@ -591,7 +587,7 @@ void AmrIce::computeInternalEnergyHalf(Vector<LevelData<FluxBox>* >& a_layerEH_h
       // PatchGodunov object for layer thickness/energy advection
       PatchGodunov patchGodunov;
       {
-	int normalPredOrder = 1;
+	int normalPredOrder = 0;
 	bool useFourthOrderSlopes = false;
 	bool usePrimLimiting = false;
 	bool useCharLimiting = false;

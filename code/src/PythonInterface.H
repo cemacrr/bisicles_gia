@@ -13,6 +13,7 @@
 #define _PYTHONINTERFACE_H_
 
 #include "Python.h"
+#include "AmrIceBase.H"
 #include "IceThicknessIBC.H"
 #include "IceInternalEnergyIBC.H"
 #include "SurfaceFlux.H"
@@ -42,8 +43,6 @@
 //
 //  PythonInterface::PythonVelocitySolver , an IceVelocitySolver that allows the velocity to be set by 
 //  a python function f(x,y,thickness,topography)
-
-class AmrIceBase;
 
 namespace PythonInterface
 {
@@ -75,7 +74,7 @@ namespace PythonInterface
     PyObject*  m_pFuncTopg;
     PyObject*  m_pFuncRhs;
     PyObject*  m_pFuncFaceVel;
-    
+
     enum BCType {IceDivide, NoSlip, Natural, MaxBCType};
     
     RefCountedPtr<CompGridVTOBC> BCFactory(BCType a_type, 
@@ -561,7 +560,7 @@ private:
     }
   private:
     
-void operator=(const PythonVelocitySolver& a_input)
+    void operator=(const PythonVelocitySolver& a_input)
     {
       MayDay::Error("invalid operator");
     }
@@ -571,8 +570,7 @@ void operator=(const PythonVelocitySolver& a_input)
       MayDay::Error("invalid operator");
     }
   };
-
-
+  
 }
 
 #include "NamespaceFooter.H"

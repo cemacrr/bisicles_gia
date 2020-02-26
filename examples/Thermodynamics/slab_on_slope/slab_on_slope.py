@@ -1,9 +1,9 @@
 #constant thickness slab on slope
 L = 64.0e+3
-ACAB = 0.5
+ACAB = 4.0
 THICKNESS = 1000.0
-ROS = ACAB / THICKNESS
-NOISE = ROS*0.5 #* 0.125
+ROS = ACAB / THICKNESS * 1.1
+
 
 import random
 random.seed(0)
@@ -20,7 +20,7 @@ def clean_velocity(x,y):
 def noisy_velocity(x,y):
     r = NOISE * (2.0*random.random() - 1.0) * x
     u,v = clean_velocity(x,y)
-    return u + r, v
+    return u + r , v
 
 
 def velocity(x,y,*etc):
@@ -28,7 +28,7 @@ def velocity(x,y,*etc):
 
 def stemp(x,y,t,thck,topg,*etc):
     s = thck + topg
-    return 273.15 - 0.01 * s
+    return 273.15 - 35.0
 
 def bflux(x,y,t,thck,topg,*etc):
 

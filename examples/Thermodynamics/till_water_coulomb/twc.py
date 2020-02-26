@@ -25,3 +25,14 @@ def thickness(x,y,*etc):
 
 def topography(x,y,*etc):
     return 1.0
+
+
+def till_water_drain_factor(x,y,*etc):
+
+    factor = 0.005
+    fast_factor = 1.0e+3
+    r2 = x**2 + y**2
+    if (r2 < 0.25 * Ldomain**2):
+        factor = fast_factor
+
+    return factor

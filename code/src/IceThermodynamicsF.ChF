@@ -117,6 +117,7 @@ c ---------------------------------------------------------------
      &     CHF_FRA1[benergy],
      &     CHF_CONST_FRA1[sflux],
      &     CHF_CONST_FRA1[bflux],
+     &     CHF_CONST_FRA1[tillWaterDrainFactor],
      &     CHF_CONST_FIA1[floatingMaskOld],
      &     CHF_CONST_FIA1[floatingMaskNew],
      &     CHF_CONST_FRA[rhs],
@@ -167,6 +168,7 @@ c     call ice floating if it is nor grounded (ie open sea or floating)
      &     benergy(CHF_AUTOIX[i]), mask,
      &     bflux(CHF_AUTOIX[i]), colrhs,  
      &     thckold(CHF_AUTOIX[i]),  thcknew(CHF_AUTOIX[i]),
+     &     tillWaterDrainFactor(CHF_AUTOIX[i]),
      &     colusig, sigma, dsigma, time, dt, nlay)   
 
       do layer = 0, nlay - 1

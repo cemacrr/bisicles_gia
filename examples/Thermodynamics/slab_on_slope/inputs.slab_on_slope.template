@@ -1,6 +1,7 @@
 domain details
-main.domain_size = 64e+3 16e+3 1.0e+3
+main.domain_size = 64.0e+3 4.0e+3 1.0e+3
 amr.num_cells = 64 4 @NLAYER
+#amr.num_cells = 128 8 @NLAYER
 amr.is_periodic = 0 0 0
 
 #bulk constitutive relation and parameters
@@ -18,7 +19,7 @@ PythonIBC.thicknessFunction = thickness
 PythonIBC.topographyFunction = topography	
 
 geometry.beta_type = constantBeta
-geometry.betaValue =  0.0  #to give Tb = 100 kPa
+geometry.betaValue =  1.0e+6  #to give Tb = 100 kPa
 
 temperature.type = constant
 temperature.value = 268
@@ -55,8 +56,8 @@ PythonVelocitySolver.function = velocity
 
 
 #time stepping
-main.maxTime = 100000.0  # maximum time to run to
-main.maxStep = 4000   # maximum number of steps to runx
+main.maxTime = 10000.0  # maximum time to run to
+main.maxStep = 4000000   # maximum number of steps to runx
 amr.temporal_accuracy = 1
 amr.cfl = 0.25 
 amr.initial_cfl = 0.25 

@@ -161,7 +161,16 @@ basalFlux.function = basal_flux
 #ColumnThermodynamics.water_fraction_drain = 0.01
 #ColumnThermodynamics.water_fraction_max = 0.05
 #ColumnThermodynamics.water_drain_factor = 0.02
-ColumnThermodynamics.till_water_drain_factor = 0.005 # default 0.001
+#ColumnThermodynamics.till_water_drain_factor = 0.005 # default 0.001
+
+#tillWaterDrainFactor.type = constantFlux
+#tillWaterDrainFactor.flux_value = 0.005
+tillWaterDrainFactor.type = pythonFlux
+tillWaterDrainFactor.module = twc
+tillWaterDrainFactor.function =  till_water_drain_factor
+
+
+
 
 #amr.restart_file = chk.twc.0lev.000512.2d.hdf5
 

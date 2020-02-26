@@ -1,7 +1,7 @@
 from amrfile import io as amrio
 import numpy as np
 import matplotlib.pyplot as plt
-
+import os
 
 amrio.freeAll()
 
@@ -39,51 +39,47 @@ def readplot(file, nlayer):
     
       
 
-plt.figure(figsize=(12,12))
+plt.figure(figsize=(16,8))
 
 color = ['red','brown','purple','orange','blue','magenta','cyan','black']
 #nlayer = np.array([4,8,16,32,64,128,256,512])#)128,256,512])
-nlayer = np.array([8])
+nlayer = np.array([8,16,32,64])
 Tmin = np.zeros(len(nlayer))
 nl = 0 
-for n,col in zip(nlayer,color):
-    file = 'plot.slab_on_slope_{}.002000.2d.hdf5'.format(n)
-    x,y,s,h,T = readplot(file,n)  
-    TT = T[0,60,:]-273.15
-    plt.subplot(2,2,1)
-    plt.plot(TT,1-s,'.-',color=col,label=n)
+beta = ['0','1e6']
+linestyle=['-','-.']
+dx = [500,1000]
+
+for sp,dxi in enumerate(dx):
+    nti = int( 15000 / (dxi / 1000) )
+    for betai,ls in zip(beta,linestyle): 
+        for n,col in zip(nlayer,color):
+
+            file = 'beta{}_{}m/plot.slab_on_slope_{}.0{}.2d.hdf5'.format(betai,dxi,n,nti)
+            print (file,os.path.isfile(file))
+            if (os.path.isfile(file)):
+                x,y,s,h,T = readplot(file,n) 
+                plt.subplot(2,1,sp+1)
+                
+                #TT = T[0,1,:]-273.15
+                #plt.plot(TT,1-s,linestyle=ls,color='k',label=file)
+                
+                TT = T[0,0,:]-273.15
+                plt.plot(TT,1-s,linestyle=ls,color=col,label=file)
+               
+
+def annotate(sp):
+    plt.subplot(2,1,sp)  
+    plt.legend()   
+
+    plt.xlabel(r'$T$($^\circ$C)')
+    plt.ylabel(r'$1- \sigma$')
+    plt.ylim(0,0.4)
+    plt.xlim(-37,-27)
     
-    plt.subplot(2,2,2)
-    plt.plot(TT,1-s,'.-',color=col,label=n)
     
-    Tmin[nl] = np.min(TT)
-    nl = nl + 1
-
-#plt.subplot(2,2,3)
-#Tslice = np.flipud( (T[0,:,:]).transpose() ) - 273.15
-#plt.pcolormesh(Tslice)
-#plt.colorbar()
-#plt.xlim((0,65))
-#plt.ylim((0,np.max(nlayer)))
-
-#plt.subplot(2,2,4)
-#N = len(Tmin)
-#plt.loglog((nlayer[0:N-1]),np.abs(Tmin[0:N-1]-Tmin[1:N]))
-#plt.xlabel('n layers')
-#plt.ylabel('|T_min_n - T_min_n+1|' )
-#plt.loglog(nlayer,1/nlayer)
-
-   
-plt.subplot(2,2,1)    
-plt.legend()
-plt.xlabel(r'$T$($^\circ$C)')
-plt.ylabel(r'$1- \sigma$')
-plt.xlim((-20,0))
-
-
-plt.subplot(2,2,2)    
-plt.ylim((-0.01,0.1))
-plt.xlabel(r'$T$($^\circ$C)')
+annotate(1)
+annotate(2)
 
 plt.savefig('T_sigma.png',dpi=300)
 

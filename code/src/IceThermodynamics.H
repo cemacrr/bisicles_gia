@@ -72,6 +72,7 @@ public:
 		       FArrayBox& a_basalInternalEnergy,
 		       const FArrayBox& a_scaledSurfaceHeatFlux,
 		       const FArrayBox& a_scaledBasalHeatFlux,
+		       const FArrayBox& a_tillWaterDrainFactor,
 		       const BaseFab<int>& a_oldMask,
 		       const BaseFab<int>& a_newMask,
 		       const FArrayBox& a_oldH,

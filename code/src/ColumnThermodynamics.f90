@@ -15,7 +15,8 @@ module column_thermodynamics
   ! factor for dependence of melting point on pressure, triple point of water (K)
   
   !real(kind = 8)  water_fraction_drain = 0.01d0, water_fraction_max = 0.05d0, drain_factor = 0.5d0,  ground_water_drain_factor = 0.01d0
-  real(kind = 8)  water_fraction_drain, water_fraction_max, water_drain_factor, till_water_drain_factor, till_water_max
+  real(kind = 8)  water_fraction_drain, water_fraction_max, water_drain_factor
+  real(kind = 8)  deprecated_till_water_drain_factor, till_water_max
   
   integer, parameter :: groundedmaskval = 1, floatingmaskval = 2, openseamaskval = 4, openlandmaskval = 8
   real(kind=8), parameter :: temp_eps = 1.0e-3, max_delta_energy = 200.0
@@ -149,7 +150,7 @@ contains
   end subroutine moisture_transport
   
   subroutine fo_diffusive_advance(energy,tillwaterdepth,senergy,sflux,sdiric, & 
-       benergy,bflux,rhs,thckold,thcknew,fsig,dt,mask,n)
+       benergy,bflux,rhs,thckold,thcknew,tillwaterdrainfactor,fsig,dt,mask,n)
     ! solve the equation 
     ! H*E - dt * 1/H * d/dsigma (q) = Ho*Eo + rhs
     !
@@ -170,7 +171,7 @@ contains
     implicit none
     integer :: n
     real(kind=8), intent(inout) :: tillwaterdepth,senergy,benergy,sflux,bflux
-    real(kind=8), intent(in) :: thckold,thcknew,dt
+    real(kind=8), intent(in) :: thckold,thcknew,dt,tillwaterdrainfactor
     real(kind=8), dimension(1:n), intent(in) :: rhs
     real(kind=8), dimension(1:n), intent(inout) :: energy
     real(kind=8), dimension(1:n+1), intent(in) :: fsig ! sigma, conductivity at layer faces
@@ -372,9 +373,9 @@ contains
 
     !basal melt rate (negative outward)
     bmb = - sum(drain) / dt * cdsig(n) * thcknew
-
+ 
     !update till water fraction (Crank-Nicolson)
-    tmp = 0.5d0 * till_water_drain_factor * dt 
+    tmp = 0.5d0 * tillwaterdrainfactor * dt 
     tillwaterdepth = tillwaterdepth * (1.0d0 - tmp)/( 1.0d0 + tmp) - bmb * dt
 
     !ice shelf / open sea regions - set till water to max (seems more sensible than zero)
@@ -423,14 +424,14 @@ subroutine column_thermodynamics_set_water_constants ( &
   water_fraction_drain = a_water_fraction_drain
   water_drain_factor = a_water_drain_factor
   water_fraction_max = a_water_fraction_max
-  till_water_drain_factor = a_till_water_drain_factor
+  deprecated_till_water_drain_factor = a_till_water_drain_factor
   till_water_max = a_till_water_max
   
 end subroutine column_thermodynamics_set_water_constants
   
 subroutine column_thermodynamics_update_internal_energy(energy, tillwaterdepth, &
      senergy, sflux, sdiric, benergy, mask, &
-     bflux, rhs, thckold, thcknew, usig, fsig, dsig, time, dt, n)
+     bflux, rhs, thckold, thcknew,tillwaterdrainfactor, usig, fsig, dsig, time, dt, n)
 
   !update the mid-layer internal energy density (energy), 
   !the surface  energy density (senergy), and the basal energy density (benergy)
@@ -449,7 +450,7 @@ subroutine column_thermodynamics_update_internal_energy(energy, tillwaterdepth, 
   real(kind=8), dimension(1:n), intent(inout) :: energy,rhs,dsig
   real(kind=8), dimension(1:n+1), intent(inout) :: usig,fsig
   real(kind=8), intent(inout) :: tillwaterdepth,senergy,benergy,bflux,sflux
-  real(kind=8), intent(in) :: time,dt,thckold,thcknew
+  real(kind=8), intent(in) :: time,dt,thckold,thcknew,tillwaterdrainfactor
   integer, intent(in) :: mask
   logical, intent(in) :: sdiric
   !locals
@@ -511,7 +512,7 @@ subroutine column_thermodynamics_update_internal_energy(energy, tillwaterdepth, 
 
         
         call fo_diffusive_advance(energy, tillwaterdepth, senergy, sflux, sdiric, benergy, bflux, rhsl, &
-             tthckold, tthcknew,fsig,dtcfl,mask,n)
+             tthckold, tthcknew,tillwaterdrainfactor,fsig,dtcfl,mask,n)
         
      end do
   else
