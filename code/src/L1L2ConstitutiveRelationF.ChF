@@ -560,9 +560,10 @@ c-------------------------------------------------
      &     -s(CHF_OFFSETIX[i;-ix]))/dx
       dsy = half*(s(CHF_OFFSETIX[i;+iy])
      &     -s(CHF_OFFSETIX[i;-iy]))/dy
-      ds = (dsx**2 + dsy**2)**half + 1.0e-6
+      ds = (dsx**2 + dsy**2)**half
       
-      D(CHF_AUTOIX[i]) = thck(CHF_AUTOIX[i]) * uc / ds
+      D(CHF_AUTOIX[i]) = thck(CHF_AUTOIX[i]) * uc
+     &		       / max(ds,1.0e-4)
       
       CHF_ENDDO
 

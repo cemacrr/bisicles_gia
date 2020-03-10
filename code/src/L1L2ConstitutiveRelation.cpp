@@ -872,6 +872,7 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
       const FArrayBox& s = a_coordSys.getSurfaceHeight()[dit];
 
       //set D = \bar{u'}H / grad(H)
+
       FORT_L1L2COMPUTEDIFFUSIVITY(CHF_FRA1(D,0),
 				  CHF_CONST_FRA1(uvavg[0],0),
 				  CHF_CONST_FRA1(uvavg[1],0),
@@ -934,7 +935,8 @@ L1L2ConstitutiveRelation::modifyTransportCoefficients
 		else if (mask(ivm)==GROUNDEDMASKVAL || mask(iv)==GROUNDEDMASKVAL)
 		  {
 		    Real db = (b(iv)-b(ivm))/dx[dir];
-		    a_faceVelAdvection[dit][dir](iv) -= 2.0 * db*Dface(iv) / (H[dit](iv) + H[dit](ivm));
+		    Real ua = - 2.0 * db * Dface(iv) / (H[dit](iv) + H[dit](ivm));
+		    a_faceVelAdvection[dit][dir](iv) += ua;
 		  }
 	      }
 	  }
