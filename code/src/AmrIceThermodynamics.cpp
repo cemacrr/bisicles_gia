@@ -658,8 +658,14 @@ void AmrIce::computeInternalEnergyHalf(Vector<LevelData<FluxBox>* >& a_layerEH_h
 		{
 		  Box faceBox(levelGrids[dit]);
 		  faceBox.surroundingNodes(dir);
-		  CH_assert(HEhalf[dir].norm(faceBox,0) < HUGE_NORM);
 		  (*a_layerEH_half[lev])[dit][dir].copy(HEhalf[dir],0,layer,1);
+
+		  Real hemax = HEhalf[dir].norm(faceBox,0) + 0.0;
+		  if (hemax > HUGE_NORM)
+		    {
+		      pout() << "AmrIce::computeInternalEnergyHalf max(HE[face]) = "
+			     << hemax << std::endl;
+		    }
 		}
 	      
 	      //H at half time and cell faces
@@ -677,7 +683,6 @@ void AmrIce::computeInternalEnergyHalf(Vector<LevelData<FluxBox>* >& a_layerEH_h
 		{
 		  Box faceBox(levelGrids[dit]);
 		  faceBox.surroundingNodes(dir);
-		  CH_assert(Hhalf[dir].norm(faceBox,0) < HUGE_NORM);
 		  (*a_layerH_half[lev])[dit][dir].copy(Hhalf[dir],0,layer,1);
 		}
 	      

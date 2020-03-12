@@ -18,6 +18,7 @@
 #include "BoxIterator.H"
 #include "ExtrapBCF_F.H"
 #include "ExtrapGhostCells.H"
+#include "ReflectGhostCells.H"
 #include "EdgeToCell.H"
 #include "CellToEdge.H"
 #include "MayDay.H"
@@ -516,11 +517,19 @@ L1L2ConstitutiveRelation::computeFaceFluxVelocity(LevelData<FArrayBox>& a_vel,
 
    computeMuZ(mu, gradVel, epsSqr, sigma, a_vel, 1.0,  a_crseVelPtr, a_nRefCrse, a_A, 
               a_coordSys,  a_domain, extraGhost);
-
-   ExtrapGhostCells(mu, a_domain);
-   ExtrapGhostCells(gradVel, a_domain);
-   ExtrapGhostCells(epsSqr, a_domain);
-
+   
+   // We need to do something at the domain boundaries
+   // and reflection is more common than other choices.
+   for (int dir = 0; dir < SpaceDim; ++dir)
+     {
+       ReflectGhostCells(mu, a_domain, dir, Side::Lo );
+       ReflectGhostCells(mu, a_domain, dir, Side::Hi );
+       ReflectGhostCells(gradVel, a_domain, dir, Side::Lo );
+       ReflectGhostCells(gradVel, a_domain, dir, Side::Hi );
+       ReflectGhostCells(epsSqr, a_domain, dir, Side::Lo );
+       ReflectGhostCells(epsSqr, a_domain, dir, Side::Hi );
+     }
+  
    const LevelData<FluxBox>& faceG = a_coordSys.getGradSurfaceFace();
    const LevelData<FluxBox>& faceH = a_coordSys.getFaceH();
 
@@ -710,15 +719,16 @@ L1L2ConstitutiveRelation::computeFaceFluxVelocity(LevelData<FArrayBox>& a_vel,
              Real s = 0.5 * (sigma[l+1] - sigma[l]);
              vel.plus(du, s , SpaceDim*(l + 1), SpaceDim * l , SpaceDim);
              vel.plus(du, s , SpaceDim*(l), SpaceDim * l , SpaceDim);  
-             vel.plus(vel, 1.0 , SpaceDim*(l + 1), SpaceDim * l , SpaceDim);
+             vel.plus(vel, 1.0 , SpaceDim*(l + 1), SpaceDim * l , SpaceDim);	     
            }
 
-	   // Real maxVel = 1.0e+6;
-	   // FORT_L1L2MODLIMIT(CHF_FRA(vel), 
-	   // 		     CHF_CONST_REAL(maxVel), 
-	   // 		     CHF_BOX(vel.box()),
-	   // 		     CHF_CONST_INT(vel.nComp()));
-
+	   Real vel_max = vel.norm(vel.box(), 0, 0,  nLayer);
+	   if (vel_max > 2.0e+2)
+	     {
+	       pout() << "L1L2ConstititiveRelation::computeFaceFlux  max(|u - u_base|) = "
+		 << vel_max << std::endl; 
+	     }
+	   
 	   //a_layerSFaceXYVel contains the basal velocity at cell centers
 	   //on entry, so average u - u_base from cell faces and add
 	   for (int l = 0; l < nLayer + 1 ; l++)
