@@ -17,6 +17,7 @@
 #include "ParmParse.H"
 #include "AMRIO.H"
 #include "LoadBalance.H"
+#include "BRMeshRefine.H"
 #include "fabncio.H"
 #include "FineInterp.H"
 #include "CoarseAverage.H"
@@ -74,9 +75,18 @@ int main(int argc, char* argv[]) {
 	box = fab.box();
       }// end if serial compute
     broadcast(box,uniqueProc(SerialTask::compute));
+
+
     ProblemDomain pd(box);
-    Vector<Box> boxes(1,pd.domainBox());
-    Vector<int> procAssign(1,uniqueProc(SerialTask::compute));
+    Vector<Box> boxes;
+    int max_box_size = 64;
+    int block_factor = 8;
+    domainSplit(pd, boxes, max_box_size, block_factor);
+
+    pout() << " domain split: " << boxes.size() << std::endl;
+    
+    Vector<int> procAssign(boxes.size());
+    LoadBalance(procAssign,boxes);
     DisjointBoxLayout grids(boxes, procAssign, pd);
     LevelData<FArrayBox> levelData(grids,var.size(),IntVect::Zero);
 
