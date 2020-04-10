@@ -74,6 +74,7 @@ int main(int argc, char* argv[]) {
 #endif
 	box = fab.box();
       }// end if serial compute
+    broadcast(dx, uniqueProc(SerialTask::compute)); 
     broadcast(box,uniqueProc(SerialTask::compute));
 
 
