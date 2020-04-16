@@ -309,7 +309,7 @@ void IceUtility::computeA
 	  FArrayBox layerE(box,1);
 	  layerE.copy(a_internalEnergy[dit],layer,0,1); // an alias would be better?
 	  IceThermodynamics::decomposeInternalEnergy(T, w, layerE , pressure, box);
-	  CH_assert(T.min() > 0.0);
+	  //CH_assert(T.min() > 0.0);
 	  
 	  //3. compute corrected temperature 
 	  FArrayBox Tpmp(box,1);
