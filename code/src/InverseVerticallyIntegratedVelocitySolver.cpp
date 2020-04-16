@@ -221,9 +221,9 @@ InverseVerticallyIntegratedVelocitySolver::Configuration::parse(const char* a_pr
   pp.query("initialUpperC",m_initialUpperC);
   CH_assert(m_initialUpperC > m_initialLowerC);
 
-  m_initialLowerMuCoef = 0.03125;
+  m_initialLowerMuCoef = 0.01;
   pp.query("initialLowerMuCoef",m_initialLowerMuCoef);
-  m_initialUpperMuCoef = 1.5;
+  m_initialUpperMuCoef = 100.0;
   pp.query("initialUpperMuCoef",m_initialUpperMuCoef);
   CH_assert(m_initialUpperMuCoef > m_initialLowerMuCoef);
 
@@ -418,10 +418,10 @@ int InverseVerticallyIntegratedVelocitySolver::solve
 	      FArrayBox& mc = (*m_muCoefOrigin[lev])[dit];
 	      const Real& mcmax = m_config.m_initialUpperMuCoef;
 	      const Real& mcmin = m_config.m_initialLowerMuCoef;
-	      // FORT_BOUNDCTRL(CHF_FRA1(mc,0),
-	      // 		     CHF_CONST_REAL(mcmin),
-	      // 		     CHF_CONST_REAL(mcmax),
-	      // 		     CHF_BOX(m_grids[lev][dit]));
+	       FORT_BOUNDCTRL(CHF_FRA1(mc,0),
+	       		     CHF_CONST_REAL(mcmin),
+	       		     CHF_CONST_REAL(mcmax),
+	       		     CHF_BOX(m_grids[lev][dit]));
 	    } 
 	} 
     }
