@@ -33,7 +33,7 @@ endif
 endif
 
 else
-NETCDF_INC :=-I$(NETCDF_HOME)/include
+NETCDF_INC := -I$(NETCDF_HOME)/include
 NETCDF_LIBS := -L$(NETCDF_HOME)/lib -lnetcdf
 endif
 endif

@@ -126,7 +126,7 @@ void PythonInterface::InitializePythonModule(PyObject **a_pModule,
       sigint =  PyOS_setsig(SIGINT, sigint);
     }
   
-  PyObject* pName = PyString_FromString(a_pyModuleName.c_str());
+  PyObject* pName = PyUnicode_FromString(a_pyModuleName.c_str());
   *a_pModule =  PyImport_Import(pName);
 
   if (*a_pModule == NULL)

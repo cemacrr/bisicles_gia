@@ -710,8 +710,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	{
 	  oldResNorm = resNorm;
 	  
-
-	 
+	  
 	  //create a linearization (either the Jacobian of f or an approximation to it) around the current a_u
 	  LinearizedVTOp J
 	    (&current, localU, m_config.m_h, m_config.m_err, m_config.m_umin, m_config.m_hAdaptive, m_grids, 
@@ -730,8 +729,6 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	  Real minW = (mode == JFNK_LINEARIZATION_MODE)? m_config.m_minStepFactor:1.0;
 	  bool resetOnFail = (mode == JFNK_LINEARIZATION_MODE);
 
-	  //eliminate fast ice if needed
-	  eliminateFastIce(localU, a_calvedIce, a_addedIce, a_removedIce, localRhs, a_coordSys, current);
 	  resNorm = lineSearch(localU, residual, localRhs,  du, J, 
 			       current, minW, resetOnFail);
 	  
@@ -784,6 +781,9 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	    }
 	  
 	  done = resNorm < m_config.m_absTol || resNorm < convergenceMetric * m_config.m_relTol;
+	  
+	  //eliminate fast ice if needed
+	  eliminateFastIce(localU, a_calvedIce, a_addedIce, a_removedIce, localRhs, a_coordSys, current);
 	  
 	  ++iter;
 	}

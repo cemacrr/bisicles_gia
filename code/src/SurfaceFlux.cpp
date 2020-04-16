@@ -11,6 +11,7 @@
 #include "SurfaceFlux.H"
 #include "ComplexSurfaceFlux.H"
 #include "LevelDataSurfaceFlux.H"
+#include "ISMIP6OceanForcing.H"
 #include "GroundingLineLocalizedFlux.H"
 #include "HotspotFlux.H"
 #include <map>
@@ -424,6 +425,10 @@ SurfaceFlux* SurfaceFlux::parse(const char* a_prefix)
 	(new  FloatingDivUHLocalizedFlux(fluxptr->new_surfaceFlux(), dx));
       delete fluxptr;
       
+    }
+  else if (type == "IMSIP6OceanForcing")
+    {
+      ptr = new ISMIP6OceanForcing(pp);
     }
 #ifdef HAVE_PYTHON
   else if (type == "pythonFlux") {

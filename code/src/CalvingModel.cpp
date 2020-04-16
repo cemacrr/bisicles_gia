@@ -9,6 +9,7 @@
 #endif
 
 #include "CalvingModel.H"
+#include "MaskedCalvingModel.H"
 #include "CrevasseCalvingModel.H"
 #include "IceConstants.H"
 #include "AmrIce.H"
@@ -421,6 +422,26 @@ CalvingModel* CalvingModel::parseCalvingModel(const char* a_prefix)
                                                                      endTime);
       ptr = static_cast<CalvingModel*>(Ptr);
 
+    }
+  else if (type == "MaskedCalvingModel")
+    {
+      Real minThickness = 0.0;
+      pp.get("min_thickness", minThickness );
+
+      // masked calving model uses a surfaceFlux as a mask
+      std::string mask_prefix(a_prefix);
+      mask_prefix += ".mask";
+      SurfaceFlux* mask_ptr = SurfaceFlux::parse(mask_prefix.c_str());
+
+      MaskedCalvingModel* Ptr = new MaskedCalvingModel(mask_ptr, minThickness);
+
+      ptr = static_cast<CalvingModel*>(Ptr);
+
+      // MaskedCalvingModel makes a copy of the mask, so clean up here
+      if (mask_ptr != NULL)
+        {
+          delete mask_ptr;
+        }
     }
   else if (type == "CompositeCalvingModel")
     {

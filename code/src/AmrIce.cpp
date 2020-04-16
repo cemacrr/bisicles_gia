@@ -1868,6 +1868,7 @@ AmrIce::timeStep(Real a_dt)
 
   m_dt = a_dt;
 
+  
   // first copy thickness into old thickness   
   for (int lev=0; lev <= m_finest_level ; lev++)
     {
@@ -2073,7 +2074,7 @@ AmrIce::timeStep(Real a_dt)
        m_cf_domain_diagnostic_data.endTimestepDiagnostics
 	 (m_vect_coordSys, m_old_thickness, m_divThicknessFlux, m_basalThicknessSource, m_surfaceThicknessSource, m_volumeThicknessSource,
 	  m_calvedIceThickness, m_addedIceThickness, m_removedIceThickness,
-	  m_amrGrids, m_refinement_ratios, m_amrDx[0], m_time, time(), m_dt,
+	  m_amrGrids, m_refinement_ratios, m_amrDx[0], time(), m_time, m_dt,
 	  m_cur_step, m_finest_level, s_verbosity);
     }
 
@@ -2832,7 +2833,9 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
   setToZero(m_deltaTopography);
 
   applyCalvingCriterion(CalvingModel::Initialization);
+  
 
+  
   // now call velocity solver to initialize velocity field, force a solve no matter what the time step
   solveVelocityField(true);
 
