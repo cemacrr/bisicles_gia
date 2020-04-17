@@ -12,6 +12,7 @@ amr.sigma = 0.0 0.0712603   0.14191442  0.21137662  0.27910062  0.3445959
 
 #bulk constitutive relation and parameters
 main.constitutiveRelation = L1L2
+L1L2.layerCoarsening = 1
 main.rateFactor = patersonRate
 patersonRate.epsSqr0 = 1.0e-12
 
@@ -93,13 +94,13 @@ JFNKSolver.switchRate = 2.0
 
 JFNKSolver.eliminateFastIce = true
 #JFNKSolver.eliminateFastIceEdgeOnly = true
-JFNKSolver.eliminateFastIceSpeed = 5.0e+4
+JFNKSolver.eliminateFastIceSpeed = 5.0e+5
 JFNKSolver.eliminateRemoteIceTol = 50.0
 JFNKSolver.eliminateRemoteIceMaxIter = 16
 
 #time stepping
-main.maxTime = 0  # maximum time to run to
-main.maxStep = 1  # maximum number of steps to runx
+main.maxTime = 16  # trying to use time-steps as restarts.
+main.maxStep = 16  # maximum number of steps to runx
 amr.temporal_accuracy = 1
 amr.cfl = 0.25  
 amr.initial_cfl = 0.25  
@@ -116,7 +117,7 @@ amr.write_solver_rhs = 1
 amr.write_viscous_tensor = true
 amr.write_thickness_sources = true
 #check points
-amr.check_interval = 999
+amr.check_interval = 1
 amr.check_prefix = chk.ant_bmach.inverse.
 amr.check_overwrite = 0
 
@@ -124,13 +125,13 @@ amr.check_overwrite = 0
 #AMR mesh options
 amr.maxLevel = 10 # finest level allowed in simulation
 amr.ref_ratio = 2 2 2 2 2 2 2 2 2 2 2
-amr.regrid_interval = 3200  # number of timesteps between regridding
+amr.regrid_interval = 32  # number of timesteps between regridding
 amr.blockFactor = 16      # block factor used in grid generation
 amr.fill_ratio = 0.85    # how efficient are the grids
 amr.nestingRadius = 1    # proper nesting radius required
 amr.tags_grow = 4        # amount to buffer tags
 #amr.tagSubsetBoxesFile = ../tag_subset.antarctica
-amr.tagCap = 0
+amr.tagCap = 2
 amr.interpolate_zb = 0 #go back to the IBC to regrid geometry
 amr.max_box_size = 32        # largest box length allowed
 
@@ -141,14 +142,14 @@ amr.tag_on_grad_velocity = 0
 #amr.tag_on_grounded_laplacian_velocity = 0
 #amr.lap_vel_tagging_val = 150
 
-#amr.tag_grounding_line = 1
-#amr.grounding_line_tagging_min_vel = 20.0
+amr.tag_grounding_line = 1
+amr.grounding_line_tagging_min_vel = 20.0
 
 
 amr.tag_vel_dx = 1
 amr.vel_dx_tagging_val = 5.0e+5
-amr.vel_dx_finest_level_grounded = 2
-amr.vel_dx_finest_level_floating = 2
+amr.vel_dx_finest_level_grounded = 4
+amr.vel_dx_finest_level_floating = 3
 
 #misc options
 amr.verbosity = 5
@@ -166,7 +167,7 @@ control.velCoef.fileFormat =  ../antarctica_bedmachine_inverse_500m.2d.hdf5
 control.velCoef.name = umodc
 control.velCoef.n = 4
 control.velCoef.startTime = 0.0
-control.velCoef.timeStep = 1.0
+control.velCoef.timeStep = 100.0
 control.velCoef.offset = 0
 control.velCoef.linearInterp = false
 
@@ -176,13 +177,13 @@ control.xVel.fileFormat = ../antarctica_bedmachine_inverse_500m.2d.hdf5
 control.xVel.name = umod
 control.xVel.n = 4
 control.xVel.startTime = 0.0
-control.xVel.timeStep = 1.0
+control.xVel.timeStep = 100.0
 control.xVel.offset = 0
 control.xVel.linearInterp = false
 
 #Tikhonov regularization coefficients
-control.gradCsqRegularization = 1.0e+4
-control.gradMuCoefsqRegularization = 1.0e+10
+control.gradCsqRegularization = 1.0e+2
+control.gradMuCoefsqRegularization = 1.0e+9
 
 #control.gradX0sqRegularization = 1.0e+9
 #control.gradX1sqRegularization = 0.1
@@ -198,7 +199,7 @@ control.lowerX1 = -2.0
 control.upperX1 = 0.5
     
 control.writeInnerSteps = false
-control.CGmaxIter = 32
+control.CGmaxIter = 16 # a low number - the intention is to restart every 16 iterations, advancing a timestep and gaining a checkpoint
 control.CGhang = 0.995
 control.CGsecantMaxIter = 20
 control.CGsecantParameter = 1.0e-7
@@ -206,10 +207,10 @@ control.CGsecantParameter = 1.0e-7
 control.initialLowerC = 1.0
 control.initialUpperC = 1.0e+5
 
-control.initialLowerMuCoef = 0.5
+control.initialLowerMuCoef = 0.1
 control.initialUpperMuCoef = 2.0
 
-control.minLevelForOptimization = 1
+control.minLevelForOptimization = 3
 
 #tag thin submarine cavities in an attempt to refine around pinning points
 amr.tag_thin_cavity = true
