@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
 
       Py_Initialize();
 
-      pName = PyString_FromString(pyScript);
+      pName = PyUnicode_FromString(pyScript);
       pModule = PyImport_Import(pName); // imports the script pName into the python interpreter
       Py_DECREF(pName);//presumably, python can throw away this object now
 

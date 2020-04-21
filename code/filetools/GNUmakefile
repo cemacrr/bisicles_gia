@@ -20,7 +20,7 @@ ifeq ($(NETCDF_HOME), )
 NETCDF_HOME := $(shell nc-config --prefix)
 
 ifneq ($(NETCDF_HOME), )
-NETCDF_INC := -I$(shell nc-config --includedir)
+NETCDF_INC := $(shell nc-config --includedir)
 
 ifeq ($(shell nc-config --has-f90), yes)
 NETCDF_LIBS := $(shell nc-config --flibs) #does no harm to link the fortran libs if present
@@ -50,7 +50,7 @@ ifeq ($(GDAL_INC),)
 
 #no GDAL_HOME? try nc-config
 ifeq ($(GDAL_HOME), )
-GDAL_HOME := $(shell nc-config --prefix)
+GDAL_HOME := $(shell gdal-config --prefix)
 ifneq ($(GDAL_HOME), )
 GDAL_INC := $(shell gdal-config --cflags)
 GDAL_LIBS := $(shell gdal-config --libs)

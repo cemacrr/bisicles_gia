@@ -76,6 +76,7 @@ int main(int argc, char* argv[]) {
         {
 #ifdef HAVE_NETCDF
           NCIO::readFAB(in_file,var,fab,dx);
+	  box = fab.box();
 #else
           MayDay::Error("netcdf input requested but netcdf support not built")
 #endif
