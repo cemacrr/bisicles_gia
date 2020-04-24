@@ -19,16 +19,16 @@ patersonRate.epsSqr0 = 1.0e-12
 #geometry & basal friction input data
 geometry.problem_type = LevelData
 
-inputLevelData.geometryFile = ../antarctica_bedmachine_geometry_500m.2d.hdf5
+inputLevelData.geometryFile = ../../antarctica_bedmachine_geometry_500m.2d.hdf5
 inputLevelData.thicknessName = thk
 inputLevelData.topographyName = topg
 
 geometry.beta_type = LevelData
-inputLevelData.frictionFile = ../antarctica_bedmachine_inverse_500m.2d.hdf5 
+inputLevelData.frictionFile = ../../antarctica_bedmachine_inverse_500m.2d.hdf5 
 inputLevelData.frictionName = btrc
 
 temperature.type = LevelData
-inputLevelData.temperatureFile = ../antarctica_bedmachine_temperature_morlighem_4km_24.2d.hdf5
+inputLevelData.temperatureFile = ../../antarctica_bedmachine_temperature_morlighem_4km_24.2d.hdf5
 inputLevelData.temperatureName = temp000000
 #temperature.type = constant
 #temperature.value = 263.16
@@ -38,7 +38,8 @@ main.basalFrictionRelation = powerLaw
 BasalFrictionPowerLaw.m = 1.0
 
 #physical constants
-constants.ice_density=918
+constants.ice_density=917.0
+constants.sea_water_density=1027.0
 
 #surface fluxes
 surfaceFlux.type = constantFlux
@@ -125,12 +126,12 @@ amr.check_overwrite = 0
 #AMR mesh options
 amr.maxLevel = 10 # finest level allowed in simulation
 amr.ref_ratio = 2 2 2 2 2 2 2 2 2 2 2
-amr.regrid_interval = 32  # number of timesteps between regridding
+amr.regrid_interval = 3  # number of timesteps between regridding
 amr.blockFactor = 16      # block factor used in grid generation
 amr.fill_ratio = 0.85    # how efficient are the grids
 amr.nestingRadius = 1    # proper nesting radius required
 amr.tags_grow = 4        # amount to buffer tags
-#amr.tagSubsetBoxesFile = ../tag_subset.antarctica
+#amr.tagSubsetBoxesFile = ../../tag_subset.antarctica
 amr.tagCap = 2
 amr.interpolate_zb = 0 #go back to the IBC to regrid geometry
 amr.max_box_size = 32        # largest box length allowed
@@ -163,7 +164,7 @@ control.outerStepFileNameBase = ctrl.ant_bmach.
 
 #field of data expressing confidence in speed observations. 0 for no confidence
 control.velCoef.type = LevelData
-control.velCoef.fileFormat =  ../antarctica_bedmachine_inverse_500m.2d.hdf5
+control.velCoef.fileFormat =  ../../antarctica_bedmachine_inverse_500m.2d.hdf5
 control.velCoef.name = umodc
 control.velCoef.n = 4
 control.velCoef.startTime = 0.0
@@ -173,7 +174,7 @@ control.velCoef.linearInterp = false
 
 #x-component of the observed velocity (could be the speed)
 control.xVel.type = LevelData
-control.xVel.fileFormat = ../antarctica_bedmachine_inverse_500m.2d.hdf5
+control.xVel.fileFormat = ../../antarctica_bedmachine_inverse_500m.2d.hdf5
 control.xVel.name = umod
 control.xVel.n = 4
 control.xVel.startTime = 0.0
@@ -195,8 +196,8 @@ control.gradMuCoefsqRegularization = 1.0e+9
 control.boundMethod = Projection
 control.lowerX0 = -5
 control.upperX0 = 5.0
-control.lowerX1 = -2.0
-control.upperX1 = 0.5
+control.lowerX1 = -3.0
+control.upperX1 = 0.25
     
 control.writeInnerSteps = false
 control.CGmaxIter = 16 # a low number - the intention is to restart every 16 iterations, advancing a timestep and gaining a checkpoint

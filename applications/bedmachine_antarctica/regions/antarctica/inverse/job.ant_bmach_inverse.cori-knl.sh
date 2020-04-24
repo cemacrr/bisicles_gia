@@ -14,11 +14,25 @@
 
 NCORE=$((68 * $SLURM_JOB_NUM_NODES))
 echo "n_node: $SLURM_JOB_NUM_NODES , n_core: $NCORE"
-export DRIVER=$HOME/cori-bisicles/BISICLES/code/exec2D/driver2d.Linux.64.CC.ftn.DEBUG.OPT.MPI.PETSC.ex
+DRIVER=$HOME/cori-bisicles/BISICLES/code/exec2D/driver2d.Linux.64.CC.ftn.DEBUG.OPT.MPI.PETSC.ex
+NAME=ant_bmach.inverse
+RUNDIR=$SLURM_SUBMIT_DIR/$SLURM_JOB_ID
+mkdir -p $RUNDIR
+INFILEBASE=inputs.$NAME
+INFILE=$INFILEBASE"."$SLURM_JOB_ID
+cp $SLURM_SUBMIT_DIR/$INFILEBASE $RUNDIR/$INFILE
+cp $SLURM_SUBMIT_DIR/.petscrc $RUNDIR/
+cd $RUNDIR
 
-cd $SLURM_SUBMIT_DIR
-
-INFILE=$SLURM_SUBMIT_DIR/inputs.ant.inverse
+#work out what the latest checkpoint file is (if it exists)
+if test -n "$(find ../ -maxdepth 1 -name 'chk.$NAME.??????.2d.hdf5' -print -quit)"
+    then
+    LCHK=`ls -th ../chk.$NAME.??????.2d.hdf5 | head -n 1`
+    echo "" >> $INFILE #ensure line break
+    echo "amr.restart_file=$LCHK" >> $INFILE
+    echo "amr.restart_set_time=false" >> $INFILE
+    echo "" >> $INFILE #ensure line break
+fi
 
 export CH_TIMER=1
 export CH_OUTPUT_INTERVAL=999
