@@ -25,9 +25,9 @@ cp $SLURM_SUBMIT_DIR/.petscrc $RUNDIR/
 cd $RUNDIR
 
 #work out what the latest checkpoint file is (if it exists)
-if test -n "$(find ../ -maxdepth 1 -name 'chk.$NAME.??????.2d.hdf5' -print -quit)"
+if test -n "$(find ../ -maxdepth 1 -name 'chk.ant_bmach_inverse.??????.2d.hdf5' -print -quit)"
     then
-    LCHK=`ls -th ../chk.$NAME.??????.2d.hdf5 | head -n 1`
+    LCHK=`ls -th ../chk.ant_bmach_inverse.??????.2d.hdf5 | head -n 1`
     echo "" >> $INFILE #ensure line break
     echo "amr.restart_file=$LCHK" >> $INFILE
     echo "amr.restart_set_time=false" >> $INFILE
