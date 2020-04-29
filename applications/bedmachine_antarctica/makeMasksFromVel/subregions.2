@@ -1,0 +1,52 @@
+10
+180 300  258 347 0 -1.0
+180 347  261 380 0 -1.0
+180 381  261 395 1 -1.0
+200 340  216 360 2 1.0
+190 300  225 320 2 1.0
+165 300  180 400 0 1.0
+100 280  250 320 1 1.0
+170 280  190 380 1 -1.0
+170 350  185 365 2 1.0
+220 290  230 305 2 1.0
+
+
+
+21
+1400 2000  2200 2230 1 -1.0
+1400 2020  1830 2260 1 -1.0
+1400 2230  1800 2330 1 -1.0
+1400 2330  1660 2360 1 -1.0  
+1400 2330  1580 2380 1 -1.0
+1400 2330  1490 2370 1  1.0
+1400 2330  1520 2358 1 1.0
+1520 2356  1560 2370 1 1.0
+1450 2000  1630 2350 1 1.0
+1400 2000  2200 2205 1 1.0
+1150 2600  1330 2900 1 -1.0
+1650 2205  1795 2230 1 1.0
+1680 2230  1772 2293 1 1.0
+1680 2293  1762 2300 1 1.0
+1680 2300  1757 2305 1 1.0
+1745 2305  1752 2307 1 1.0
+1745 2305  1751 2310 1 1.0
+1200 2650  1300 2850 1 1.0
+1100 2600  1200 3000 1 1.0
+1881 2220  2000 2260 1 1.0
+1881 2220  2000 2260 1 -1.0
+
+Format:
+number of subregions
+then for each subregion (on its own line):
+low x index, low y index, high x index, high y index, velocity test direction, sign
+
+where the subregion (on the coarsest level) is 
+(low_x, low_y)->(high_x,high_y)
+
+velocity test direction is 0 if we're testing x-vel, 
+                           1 if we're testing y-vel
+                           2 if we just want to grab everything in the block
+
+sign is +1 if we're masking positive velocities,
+        -1 if we're masking negative velocities
+    //
