@@ -70,6 +70,8 @@ using std::string;
 #include "PythonInterface.H"
 #endif
 
+#include "BuelerGIA.H"
+
 #include "NamespaceHeader.H"
 
 // small parameter defining when times are equal
@@ -275,6 +277,7 @@ AmrIce::setDefaults()
   m_surfaceBoundaryHeatDataTemperature = true;
   m_iceDensity = ICE_DENSITY; 
   m_seaWaterDensity = SEA_WATER_DENSITY;
+  m_mantleDensity = 3313.0; 
   m_gravity = GRAVITY;
   m_seconds_per_unit_time = SECONDS_PER_TROPICAL_YEAR;
   
@@ -2847,6 +2850,24 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
       avgDown.averageToCoarse(*m_velocity[lev-1], *m_velocity[lev]);
     }
 
+  // Check if topographyFlux initialized and store initial TOF, if so
+  // First check to see if the pointer is NULL
+  if (m_topographyFluxPtr != NULL)
+  {
+  // now use dynamic casting to see if we're looking at a BuelerGIAFlux
+    BuelerGIAFlux* giaFluxPtr = dynamic_cast<BuelerGIAFlux*>(m_topographyFluxPtr);
+    if (giaFluxPtr != NULL and not giaFluxPtr->isInitIceRef0())
+    {
+      // we were able to cast to a BuelerGIAFlux pointer
+      giaFluxPtr->setInitialLoad(*this);
+    } 
+    else if (giaFluxPtr != NULL) 
+    { 
+      giaFluxPtr->computeInitialUpliftFromVelocity(*this);
+    }
+    // end if we have a BuelerGIAFlux
+    // do any generic TopographyFlux sorts of things
+  } // end if there is a topographyFlux
 
   //#define writePlotsImmediately
 #ifdef  writePlotsImmediately
