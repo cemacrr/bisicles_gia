@@ -66,7 +66,7 @@ protected:
   int m_Nx, m_Ny;
   Real m_Lx, m_Ly;
   IntVect m_domainOffset;
-  bool m_isDomainSet, m_init, m_oceanload, m_includeElas;
+  bool m_isDomainSet, m_init, m_oceanLoad, m_includeElas;
   int m_verbosity;
   Real m_updatedTime;
   int m_pad;
@@ -146,6 +146,5 @@ public:
 
   bool isInitIceRef0() { return m_init; };
 };
-#include "NamespaceFooter.H"
 #include "NamespaceFooter.H"
 #endif

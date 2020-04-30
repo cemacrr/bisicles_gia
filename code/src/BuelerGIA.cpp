@@ -391,7 +391,7 @@ BuelerGIAFlux::precomputeGIAstep() {
         if (vv > 1 and r>vv){
           r = vv;
         }
-        if (isnan(r)) {
+        if (std::isnan(r)) {
           r = vv;
         }
       }
