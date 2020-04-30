@@ -15,9 +15,10 @@
 #include <iostream>
 #include <cstdlib>
 #include "libamrfile.H"
-#ifdef CH_USE_PETSC
-#include "petsc.h"
-#endif 
+#include "NamespaceHeader.H"
+//#ifdef CH_USE_PETSC
+//#include "petsc.h"
+//#endif 
 #ifdef CH_MPI
 #include <mpi.h>
 #endif
@@ -165,13 +166,13 @@ int main(int argc, char* argv[]) {
       exit(status);
     } 
 
-#ifdef CH_USE_PETSC
-  status = PetscFinalize(); CHKERRQ(status);
-#else
+//#ifdef CH_USE_PETSC
+//  status = PetscFinalize(); CHKERRQ(status);
+//#else
 #ifdef CH_MPI
   MPI_Finalize();
 #endif // mpi conditional
-#endif // petsc conditional
+//#endif // petsc conditional
 
 
   return 0;
