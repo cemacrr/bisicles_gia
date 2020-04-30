@@ -6,7 +6,7 @@
 makefiles += BISICLES_test
 
 # the base name(s) of the application(s) in this directory
-ebase = testPetsc testLevelSigmaCS testConstitutive testL1L2 testFortranInterfaceIBC testAVCPoisson testCGOptimize
+ebase = testLevelSigmaCS testConstitutive testL1L2 testFortranInterfaceIBC testAVCPoisson testCGOptimize
 
 # general stuff....
 include ../mk/Make.defs

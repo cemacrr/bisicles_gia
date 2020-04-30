@@ -1,5 +1,8 @@
 # -*- Mode: Makefile -*- 
 
+# at the moment, the GIA module requires fftw, so hardwire it here
+USE_FFTW=TRUE
+
 ### This makefile produces an executable for each 
 ### name in the `ebase' variable
 ebase := driver
