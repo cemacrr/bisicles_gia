@@ -75,6 +75,8 @@ using std::string;
 #include "PythonInterface.H"
 #endif
 
+#include "BuelerGIA.H"
+
 #include "NamespaceHeader.H"
 
 
@@ -1296,6 +1298,32 @@ AmrIce::writeCheckpointFile(const string& a_file)
 	}
     }
 
+  // Check if topographyFlux initialized and checkpoint Uplift and initial TOF.
+  // First check to see if the pointer is NULL
+  if (m_topographyFluxPtr != NULL)
+  {
+  // now use dynamic casting to see if we're looking at a BuelerGIAFlux
+    BuelerGIAFlux* giaFluxPtr = dynamic_cast<BuelerGIAFlux*>(m_topographyFluxPtr);
+    if (giaFluxPtr != NULL)
+    {
+      // we were able to cast to a BuelerGIAFlux pointer
+      sprintf(compStr, "component_%04d", nComp);
+      compName = "thicknessAboveFlotation0";
+      header.m_string[compStr] = compName;
+      nComp++;
+      sprintf(compStr, "component_%04d", nComp);
+      compName = "upliftData";
+      header.m_string[compStr] = compName;
+      nComp++;
+      sprintf(compStr, "component_%04d", nComp);
+      compName = "udotData";
+      header.m_string[compStr] = compName;
+      nComp++;
+      header.m_real["giaUpdatedTime"] = giaFluxPtr->getUpdatedTime();
+    } // end if we have a BuelerGIAFlux
+    // do any generic TopographyFlux sorts of things
+  } // end if there is a topographyFlux
+
   header.writeToFile(handle);
 
   // now loop over levels and write out each level's data
@@ -1368,6 +1396,33 @@ AmrIce::writeCheckpointFile(const string& a_file)
 	      m_observers[i]->writeCheckData(handle, lev);
 	    }
         }
+
+    // Check if topographyFlux initialized and checkpoint Uplift and initial TOF.
+    // First check to see if the pointer is NULL
+    if (m_topographyFluxPtr != NULL && lev == 0)
+    {
+    // now use dynamic casting to see if we're looking at a BuelerGIAFlux
+      BuelerGIAFlux* giaFluxPtr = dynamic_cast<BuelerGIAFlux*>(m_topographyFluxPtr);
+      if (giaFluxPtr != NULL)
+      {
+        // we were able to cast to a BuelerGIAFlux pointer   
+        if (s_verbosity >= 3) {
+          pout() << "Writing GIA checkpoint" << endl;
+        }
+        RefCountedPtr<LevelData<FArrayBox>> tmp;
+        tmp = giaFluxPtr->getTAF0();
+        write(handle, *tmp, "thicknessAboveFlotation0",
+          tmp->ghostVect());
+        tmp = giaFluxPtr->getUn();
+        write(handle, *tmp, "upliftData",
+          tmp->ghostVect());
+        tmp = giaFluxPtr->getUdot();
+        write(handle, *tmp, "udotData",
+          tmp->ghostVect());
+      } // end if we have a BuelerGIAFlux
+      // do any generic TopographyFlux sorts of things
+    } // end if there is a topographyFlux 
+
     }// end loop over levels
   
   handle.close();
@@ -1405,6 +1460,8 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
   bool containsIceFrac(false);
   bool containsBasalFriction(false);
   bool containsMuCoef(false);
+  bool containsTAF0(false);
+  bool containsUN(false);
 
   map<std::string, std::string>::const_iterator i;
   for (i = header.m_string.begin(); i!= header.m_string.end(); ++i)
@@ -1438,6 +1495,14 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	{
 	  containsMuCoef = true;
 	}
+      if (i->second == "thicknessAboveFlotation0")
+    {
+      containsTAF0 = true;
+    }
+      if (i->second == "upliftData")
+    {
+      containsUN = true;
+    }
     }
 
   if (s_verbosity >= 3)
@@ -2008,6 +2073,82 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
 	      m_observers[i]->readCheckData(a_handle, header,  lev, levelDBL);
 	    }
 
+      // Check if topographyFlux initialized and checkpoint Uplift and initial TOF.
+      // First check to see if the pointer is NULL
+      if (m_topographyFluxPtr != NULL && lev == 0)
+      {
+      // now use dynamic casting to see if we're looking at a BuelerGIAFlux
+        BuelerGIAFlux* giaFluxPtr = dynamic_cast<BuelerGIAFlux*>(m_topographyFluxPtr);
+        if (giaFluxPtr != NULL)
+        {
+          pout() << "Checkpoint GIA read-in." << endl;
+          // we were able to cast to a BuelerGIAFlux pointer
+          // set the time of the GIA object.
+          if (header.m_real.find("giaUpdatedTime") == header.m_real.end())
+          {
+            MayDay::Warning("checkpoint file does not contain GIA updated time, but not restarting, setting to 0");
+          }
+          else
+          {
+            giaFluxPtr->setUpdatedTime(header.m_real["giaUpdatedTime"]); 
+          } 
+          // try to read initial thickness above flotation
+          DisjointBoxLayout giaDBL = (giaFluxPtr->m_tafpadhat0)->disjointBoxLayout(); 
+          LevelData<FArrayBox> tafpadhat0;
+          tafpadhat0.define(giaDBL,1);
+    	  int dataStatus = read<FArrayBox>(a_handle,
+    					   tafpadhat0,
+    					   "thicknessAboveFlotation0",
+    				       giaDBL);
+    	  /// note that although this check appears to work, it makes a mess of a_handle and the next lot of data are not read...
+      	  if (dataStatus != 0)
+          {
+    	    MayDay::Warning("checkpoint file does not contain initial ice thickness above flotation -- initializing to zero"); 
+          }
+          else
+          {
+            giaFluxPtr->setTAF0(tafpadhat0);
+          }
+    
+          // try to read initial thickness above flotation
+          LevelData<FArrayBox> upadhat;
+          giaDBL = (giaFluxPtr->m_upadhat)->disjointBoxLayout();
+          upadhat.define(giaDBL,1);
+    	  dataStatus = read<FArrayBox>(a_handle,
+    					   upadhat,
+    					   "upliftData",
+    				       giaDBL);
+    	  /// note that although this check appears to work, it makes a mess of a_handle and the next lot of data are not read...
+      	  if (dataStatus != 0)
+          {
+    	    MayDay::Warning("checkpoint file does not contain uplift data -- initializing to zero"); 
+          }
+          else
+          {
+            giaFluxPtr->setUn(upadhat);
+          }
+
+          // try to read initial thickness above flotation
+          LevelData<FArrayBox> udot;
+          giaDBL = (giaFluxPtr->m_udot)->disjointBoxLayout();
+          udot.define(giaDBL,1);
+    	  dataStatus = read<FArrayBox>(a_handle,
+    					   udot,
+    					   "udotData",
+    				       giaDBL);
+    	  /// note that although this check appears to work, it makes a mess of a_handle and the next lot of data are not read...
+      	  if (dataStatus != 0)
+          {
+    	    MayDay::Warning("checkpoint file does not contain uplift data -- initializing to zero"); 
+          }
+          else
+          {
+            giaFluxPtr->setUdot(udot);
+          }
+
+        } // end if we have a BuelerGIAFlux
+        // do any generic TopographyFlux sorts of things
+      } // end if there is a topographyFlux
 
 	} // end if this level is defined
     } // end loop over levels                                    
