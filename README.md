@@ -2,6 +2,8 @@
 
 BISICLES is an adaptive mesh ice sheet model
 
+BISICLES and Chombo are released under the [Chombo license](LICENSE).
+
 GIANT-BISICLES / BISICLES_GIA is a fork incorporating
 glacial isostatic adjustment.
 
