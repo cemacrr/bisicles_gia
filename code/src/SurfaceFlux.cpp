@@ -266,11 +266,16 @@ SurfaceFlux* SurfaceFlux::parse(const char* a_prefix)
 	  openSeaPtr = floatingPtr->new_surfaceFlux();
 	}
 
+
+      bool floating_check_ocean_connected = false;
+      pp.query("floating_check_ocean_connected",floating_check_ocean_connected);
+      
       ptr = static_cast<SurfaceFlux*>
 	(new MaskedFlux(groundedPtr->new_surfaceFlux(),
 			floatingPtr->new_surfaceFlux(),
 			openSeaPtr->new_surfaceFlux(),
-			openLandPtr->new_surfaceFlux()));
+			openLandPtr->new_surfaceFlux(),
+			floating_check_ocean_connected) );
       
       delete groundedPtr;
       delete floatingPtr;

@@ -81,9 +81,11 @@ ProductSurfaceFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 
 /// constructor
 MaskedFlux::MaskedFlux(SurfaceFlux* a_groundedIceFlux, SurfaceFlux* a_floatingIceFlux,
-		       SurfaceFlux* a_openSeaFlux, SurfaceFlux* a_openLandFlux)
+		       SurfaceFlux* a_openSeaFlux, SurfaceFlux* a_openLandFlux,
+		       bool m_floating_check_ocean_connected)
   :m_groundedIceFlux(a_groundedIceFlux),m_floatingIceFlux(a_floatingIceFlux),
-   m_openSeaFlux(a_openSeaFlux),m_openLandFlux(a_openLandFlux)
+   m_openSeaFlux(a_openSeaFlux),m_openLandFlux(a_openLandFlux),
+   m_floating_check_ocean_connected(m_floating_check_ocean_connected)
 {
   CH_assert(a_groundedIceFlux);
   CH_assert(a_floatingIceFlux);
@@ -99,7 +101,7 @@ SurfaceFlux* MaskedFlux::new_surfaceFlux()
   SurfaceFlux* g = m_groundedIceFlux->new_surfaceFlux();
   SurfaceFlux* s = m_openSeaFlux->new_surfaceFlux();
   SurfaceFlux* l = m_openLandFlux->new_surfaceFlux();
-  return static_cast<SurfaceFlux*>(new MaskedFlux(g,f,s,l));
+  return static_cast<SurfaceFlux*>(new MaskedFlux(g,f,s,l,m_floating_check_ocean_connected));
 }
 
 void MaskedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
@@ -137,6 +139,17 @@ void MaskedFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
 			     CHF_CONST_FIA1(mask,0),
 			     CHF_CONST_INT(m),
 			     CHF_BOX(box));
+
+	  //check ocean connection if required
+	  if ( m_floating_check_ocean_connected )
+	    {
+	      if (m == FLOATINGMASKVAL || m == OPENSEAMASKVAL)
+		{
+		  const FArrayBox& oceanConn =   a_amrIce.geometry(a_level)->getOceanConnected()[dit];
+		  a_flux[dit] *= oceanConn; // assuming 0 < oceanConn < 1, which it was originally.
+		} // end if (m == FLOATINGMASKVAL || m == OPENSEAMASKVAL)
+	    } // end if ( m_floating_check_ocean_connected )
+	  
 	}
     }
 

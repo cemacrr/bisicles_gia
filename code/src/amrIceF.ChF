@@ -2006,9 +2006,9 @@ c Empty cell either side
         frac(CHF_AUTOIX[i]) = frac(CHF_AUTOIX[i]) 
      &                    - factor*vel*(upperFrac-lowerFrac)
 
-        if (abs(vel*factor) .gt. 0.9d0) then
-           write(*,*) "CFL violation at", CHF_AUTOIX[i], vel*factor 
-        endif
+c        if (abs(vel*factor) .gt. 0.9d0) then
+c           write(*,*) "CFL violation at", CHF_AUTOIX[i], vel*factor 
+c        endif
 
       CHF_ENDDO
       return

@@ -158,6 +158,7 @@ private:
     - `A.B.C.floating = <valid SurfaceFlux type (optional, default ZeroFlux) >`
     - `A.B.C.openland = <valid SurfaceFlux type (optional, default ZeroFlux) >`
     - `A.B.C.opensea  = <valid SurfaceFlux type (optional, default ZeroFlux) >`
+    - `A.B.C.floating_check_ocean_connected = <bool, default false>`
 
  */
 class MaskedFlux : public SurfaceFlux
@@ -172,7 +173,8 @@ public:
      @param a_openLandFlux flux over ice free areas above sea level
    */
   MaskedFlux(SurfaceFlux* a_groundedIceFlux, SurfaceFlux* a_floatingIceFlux,
-	     SurfaceFlux* a_openSeaFlux, SurfaceFlux* a_openLandFlux);
+	     SurfaceFlux* a_openSeaFlux, SurfaceFlux* a_openLandFlux,
+	     bool a_floating_check_ocean_connected);
 
   virtual ~MaskedFlux(){};
 
@@ -188,6 +190,7 @@ protected:
   SurfaceFlux* m_floatingIceFlux;
   SurfaceFlux* m_openSeaFlux;
   SurfaceFlux* m_openLandFlux;
+  bool m_floating_check_ocean_connected;
   
 private:
   // Disallowed for all the usual reasons
