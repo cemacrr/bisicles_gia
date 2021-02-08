@@ -1098,6 +1098,9 @@ protected:
   //sea water density
   Real m_seaWaterDensity;
 
+  //mantle density
+  Real m_mantleDensity;
+
   // acceleration due to gravity
   Real m_gravity;
 
