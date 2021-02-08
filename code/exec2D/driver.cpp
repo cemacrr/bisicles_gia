@@ -564,7 +564,16 @@ int main(int argc, char* argv[]) {
 	 ildPP.query("thicknessName",thicknessName);
 	 std::string topographyName = "topg";
 	 ildPP.query("topographyName",topographyName);
-	 
+
+         // default values (only relevant when LevelData input doesn't
+         // cover the domain
+         Real defaultThickness = 0.0;
+         ildPP.query("defaultThickness", defaultThickness);
+         Real defaultTopography = -10000.0;
+         ildPP.query("defaultTopography", defaultTopography);
+         bool setDefaultValues = false;
+         ildPP.query("setDefaultValues", setDefaultValues);
+         
 	 RefCountedPtr<LevelData<FArrayBox> > levelThck
 	   (new LevelData<FArrayBox>());
 	 RefCountedPtr<LevelData<FArrayBox> > levelTopg
@@ -647,7 +656,11 @@ int main(int argc, char* argv[]) {
            } // end if we're setting thickness to zero
        
 	 RealVect levelDx = RealVect::Unit * dx;
-	 LevelDataIBC* ptr = new LevelDataIBC(levelThck,levelTopg,levelDx);
+	 LevelDataIBC* ptr = new LevelDataIBC(levelThck,levelTopg,levelDx,
+                                              defaultThickness,
+                                              defaultTopography,
+                                              setDefaultValues
+                                              );
 	 thicknessIBC = static_cast<IceThicknessIBC*>( ptr);
        }
      else if (problem_type == "MultiLevelData")

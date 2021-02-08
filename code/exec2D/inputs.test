@@ -1,6 +1,6 @@
 #inputs file for Amr ice-sheet solver
 main.maxTime = 10000000  # maximum time to run to
-main.maxStep = 8   # maximum number of steps to run
+main.maxStep = 4   # maximum number of steps to run
 main.constitutiveRelation = GlensLaw
 
 main.domain_size = 160000.0 160000.0 160000.0 
@@ -15,13 +15,13 @@ geometry.problem_type = basic
 geometry.basal_type = constantZb
 geometry.thickness_type = constantThickness1km
 
-geometry.beta_type = sinusoidalBetay
+geometry.beta_type = twistyStreamx
 geometry.betaValue = 100000.0
 geometry.betaEps = 0.01
 # slope should correspond to a 5 degree x-slope
 geometry.basalSlope = -0.087488664 0.0
 
-amr.maxLevel = 1   # finest level allowed in simulation
+amr.maxLevel = 2   # finest level allowed in simulation
 amr.ref_ratio = 2 2 2
 amr.num_cells = 32 32 12   #number of cells in base grid
 amr.is_periodic = 1 1 1    # 1 if domain is periodic 
@@ -36,7 +36,7 @@ amr.initial_cfl = 0.1  # "cfl" number
 amr.max_dt_grow_factor = 1.1 #max amount dt can grow from one timestep to another
 
 amr.plot_style_cf = true
-CFIO.land_ice_thickness = true
+CFIO.lithk = true
 CFIO.whole_domain_diagnostics = true
 
 
@@ -45,6 +45,7 @@ amr.plot_prefix = stream.
 amr.check_interval = -1
 amr.check_prefix = chk
 amr.verbosity = 5
+amr.write_solver_rhs = 1
 
 amr.ref_ratio = 2 2 2   # refinement ratios
 amr.regrid_interval = 10000   # number of timesteps between regridding
@@ -66,14 +67,14 @@ amr.velocity_solver_type = 1
 #JFNK parameters
 JFNKSolver.vtopSafety = 0.95
 JFNKSolver.minPicardIterations = 3
-JFNKSolver.maxIter = 1
+JFNKSolver.maxIter = 8
 JFNKSolver.absTol = 1.0e-3
 JFNKSolver.relTol = 1.0e-8
 # 0 = relax, 1 = BiCGStab, 2 = GMRES, 3 = CG, 4 = petsc
 JFNKSolver.solverType = 0
 JFNKSolver.RelaxRelTol = 2.0e-3
 JFNKSolver.RelaxHang = 0.8
-JFNKSolver.maxRelaxIter = 3
+JFNKSolver.maxRelaxIter = 8
 JFNKSolver.normType = 0
 JFNKSolver.verbosity = 5
 JFNKSolver.vtopRelaxTol = 0.005

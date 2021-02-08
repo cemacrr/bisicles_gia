@@ -4,6 +4,8 @@ EXTERNAL_DATA_PATH='../external_data'
 BEDMACHINE_NC='{}/{}'.format(EXTERNAL_DATA_PATH,'BedMachineAntarctica_2019-11-05_v01.nc')
 MEASURES_NC='{}/{}'.format(EXTERNAL_DATA_PATH,'antarctica_ice_velocity_450m_v2.nc')
 MORLIGHEM_TEMPERATURE_NC ='{}/{}'.format(EXTERNAL_DATA_PATH,'AntarcticTemperature-2020-02-14.nc')
+IMBIE2_BASINS_NC='{}/{}'.format(EXTERNAL_DATA_PATH,'imbie2_basin_numbers_8km.nc')
+
 INTERMEDIATE_DATA_PATH='.'
 
 def name(s):
@@ -13,9 +15,15 @@ def temp_name(s,n_layer):
     return '{}/antarctica_bedmachine_temperature_morlighem_{}_{}.nc'.format(
         INTERMEDIATE_DATA_PATH,s,n_layer)
 
+def imbie_name(s):
+    return '{}/antarctica_bedmachine_imbie2_basins_{}.nc'.format(INTERMEDIATE_DATA_PATH,s)
+
 OUTPUT_NC = name('500m')
 N_LAYER=24
-OUTPUT_TEMP_MOR_NC = temp_name('4km',N_LAYER)
+OUTPUT_TEMP_DX='4km'
+OUTPUT_TEMP_MOR_NC = temp_name(OUTPUT_TEMP_DX,N_LAYER)
+OUTPUT_IMBIE2_DX='4km'
+OUTPUT_IMBIE2_NC = imbie_name(OUTPUT_IMBIE2_DX)
 
 import os, time
 

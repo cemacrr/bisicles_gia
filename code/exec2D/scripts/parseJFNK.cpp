@@ -40,13 +40,14 @@ int main(int argc, char* argv[])
 
   if (is.fail())
     {
-      cerr << "Cannot open grids file";
+      cerr << "Cannot open input file";
       return 1;
     }
 
   int globalIter = 0;
   int iter = -100; 
   double val;
+  int lastIter = -1;
 
   bool done = false;
   while (is.good())
@@ -59,15 +60,19 @@ int main(int argc, char* argv[])
 
       if (iter == 0)
         {
-          globalIter--;
+          if (lastIter != 0)
+            {
+              globalIter--;
+            }
           os << endl;
         }
-
+      
       double factor = 1;
       os << globalIter << "    "  << val << endl;
 
       //cout << "iter = " << iter << ", val = " << val << endl;
       
+      lastIter = iter;
     }
 
 }

@@ -75,7 +75,7 @@ as BISICLES/Chombo, it can easily fall foul of static/shared library paths and s
 other hand, it will generally be installed on a system you have plenty of control over (ie
 a personal computer of some sort rather than a cluster), so issues should be soluble.
 
-If the installation is succesful, libamrfile can be imported into R in the usual way, ie
+If the installation is successful, libamrfile can be imported into R in the usual way, ie
 <pre >
 require libamrfile
 </pre >
@@ -98,7 +98,7 @@ amr.free.all() #any remaining memory is freed
 
 <h3>amr.read.box</h3>
 
-The easiset way to plot maps and integrate quantities of interest is through the
+The easiest way to plot maps and integrate quantities of interest is through the
 the amr.read.box function. It allows the user to specify a rectangular box, defined as a grid on 
 one of the AMR levels, which will be filled with uniform resolution data derived from 
 AMR data. Some data might be piecewise or linearly interpolated from a coarser resolution part of the mesh, 
@@ -154,7 +154,7 @@ a high resolution box
 <h2><a name="python">Python</h2>
 
 Python access is through a collection of modules that interface with the shared library (libamrfile.so).
-So, before using the python functions, the libary needs to be built 
+So, before using the python functions, the library needs to be built 
 <pre >
 > cd $BISICLES_HOME/BISICLES/code/libamrfile
 > make libamrfile.so 
@@ -269,7 +269,7 @@ a high resolution box
 <p>
 MATLAB access is through a collection of functions that 
 interface with the shared library (libamrfile.so).
-First, the libary needs to be built 
+First, the library needs to be built 
 </p>
 <pre >
 > cd $BISICLES_HOME/BISICLES/code/libamrfile
@@ -335,7 +335,7 @@ lo = [50,50]; hi = [150,150]; %box corners
 interp_order = 0; %0 for piecewise constant interpolation, 1 for linear
 [ x1,y1,thk1 ] = amr_read_box_2d( amrID, level, lo, hi, thkname, interp_order  );
 %imagesc(x1,y1,thk1,thkrange);
-%draw a rectange around the high res data
+%draw a rectangle around the high res data
 dx = x1(2)- x1(1);
 w = max(x1)-min(x1)+dx;
 h = max(y1)-min(y1)+dx;
@@ -353,7 +353,7 @@ with amr_read_box_2d()'>
 <h3><a name='matlablibs'>MATLAB issues</a></h3>
 <p>
 MATLAB carries around some system libraries in case
-the installed operating system lacks them. You may find that when you attampt to load the shared library, you see an error along the lines of
+the installed operating system lacks them. You may find that when you attempt to load the shared library, you see an error along the lines of
 </p>
 <pre >
 >> loadlibrary('libamrfile.so','src/libamrfile.H')
@@ -405,7 +405,7 @@ and will cause a fatal error
 > ln -s /&lt;path to a compatible libhdf5_hl.so&gt; libhdf5_hl.so.6
 </pre >
 <p>
-If you need to build these libararies, then something like
+If you need to build these libraries, then something like
 </p>
 <pre >
 > wget http://www.hdfgroup.org/ftp/HDF5/prev-releases/hdf5-1.8.9/src/hdf5-1.8.9.tar.bz2

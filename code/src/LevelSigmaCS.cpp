@@ -11,6 +11,7 @@
 //#include "NewCoordSys.H"
 #include "LevelSigmaCS.H"
 #include "SigmaCSF_F.H"
+#include "amrIceF_F.H"
 #include "DerivativesF_F.H"
 #include "AMRPoissonOpF_F.H"
 #include "CellToEdge.H"
@@ -25,6 +26,7 @@
 #include "FineInterpFace.H"
 #include "IntFineInterp.H"
 #include "PiecewiseLinearFillPatch.H"
+#include "ParmParse.H"
 #include "NamespaceHeader.H"
 
 /// default constructor
@@ -792,6 +794,78 @@ LevelSigmaCS::computeDeltaFactors()
 } // end context for cell-centered deltaFactors
 
 void
+LevelSigmaCS::computeOceanConnection(const LevelSigmaCS* a_crseCoords, 
+			     const int a_refRatio)
+{
+
+  // //Define phi = 1 on ocean boundaries, 0 elsewhere
+  m_oceanConnected.define(m_grids , 1, IntVect::Unit);
+  Box interior = m_grids.physDomain().domainBox();
+  interior.grow(-1);
+  for (DataIterator dit(m_grids); dit.ok(); ++dit)
+    {
+      m_oceanConnected[dit].setVal(0.0);
+      
+      for (int dir = 0; dir < SpaceDim; dir++)
+	{
+	  for (SideIterator side; side.ok(); side.next())
+	    {
+	      Box b = adjCellBox(m_grids[dit], dir, side(), -1); // row of cells along a box edge
+	      if (!( b.intersects(interior) ) ) // looking for cells alongs the domain edge
+		{
+		  for (BoxIterator bit(b); bit.ok(); ++bit)
+		    {
+		      const IntVect& iv = bit();
+		      int m = m_floatingMask[dit](iv);
+		      if (m == FLOATINGMASKVAL | m == OPENSEAMASKVAL)
+			{
+			  m_oceanConnected[dit](iv) = 1.0;
+			}
+		    }
+		}
+	    }
+	}
+    }
+
+  // fill ghost cells from level below
+  if (a_crseCoords)
+    {
+      
+      PiecewiseLinearFillPatch ghostFiller(m_grids,  a_crseCoords->m_grids, 1,
+					   a_crseCoords->m_grids.physDomain(),
+					   a_refRatio, 1);
+      const LevelData<FArrayBox>& crse = a_crseCoords->m_oceanConnected;
+      ghostFiller.fillInterp(m_oceanConnected,crse,crse,0.0, 0, 0, 1);
+    }
+  
+  ParmParse ppgeo("geometry");
+  int n_iter(0);
+  ppgeo.query("compute_ocean_connection_iter", n_iter);
+
+  for (int iter = 0; iter < n_iter; iter++)
+    {
+      m_oceanConnected.exchange();
+      for  (DataIterator dit(m_grids); dit.ok(); ++dit)
+	{
+	  //sweep in all four directions, copying phi = 1 into cells with cavity thickness > tol 
+	  Real tol = 1.0;
+	  
+	  FArrayBox cavity(m_surface[dit].box(),1);
+	  cavity.copy(m_surface[dit]);
+	  cavity -= m_H[dit];
+	  cavity -= m_topography[dit];
+	  
+	  FORT_SWEEPCONNECTED2D(CHF_FRA1(m_oceanConnected[dit],0),
+				CHF_CONST_FRA1(cavity,0),
+				CHF_CONST_REAL(tol), 
+				CHF_BOX(m_grids[dit]));
+	}
+    }
+
+  int dbg = 0; ++dbg;
+}
+
+void
 LevelSigmaCS::computeSurface(const LevelSigmaCS* a_crseCoords, 
 			     const int a_refRatio)
 {
@@ -819,9 +893,10 @@ LevelSigmaCS::computeSurface(const LevelSigmaCS* a_crseCoords,
       
     }
   m_surface.exchange();
-  //update the mask
+  //update the masks
   computeFloatingMask(m_surface);
-
+  computeOceanConnection(a_crseCoords, a_refRatio);
+  
   //thickness over flotation
  for (DataIterator dit(m_grids); dit.ok(); ++dit)
    {

@@ -35,7 +35,7 @@
   <p>Each of the flux quantities can be specified as either a simple flux or a complex fluxes. Simple fluxes just specify a field
     of values (which might be loaded from a file, or computed in some way), while
     complex fluxes combine more than one simple flux. For example, complex fluxes can be used to 
-    apply one flux (which might itelf be a complex flux ) to floating ice and another to 
+    apply one flux (which might itself be a complex flux ) to floating ice and another to 
     grounded ice, or to add a number of them together.</p>
   <p>
     If you have built the doxygen code documentation, the C++ class hierarchy underlying
@@ -106,12 +106,12 @@ surfaceFlux.type = constantFlux
 surfaceFlux.flux_value = 0.3
 </pre>
 </p>
-specfies 0.3 m/a accumulation at the upper surface across the whole domain.
+specifies 0.3 m/a accumulation at the upper surface across the whole domain.
 
 <h3>piecewiseLinearFlux</h3>
 
 This flux is used to construct a rate which
-depends, in a piecewise linear fashiom, on the thickness
+depends, in a piecewise linear fashion, on the thickness
 <pre>
 surfaceFlux.type = piecewiseLinearFlux
 surfaceFlux.n = 2                       
@@ -221,7 +221,7 @@ is applied.
 
 <h3>boxBoundedFlux</h3>
 
-Allows a flux to be resticted to the interior of a 
+Allows a flux to be restricted to the interior of a 
 rectangular region
 <pre>
 surfaceFlux.type = boxBoundedFlux
@@ -263,7 +263,7 @@ basalFlux.floating.y.flux_value = -10.0
 Use productFlux to  construct a flux F from two fluxes flux1 and flux2,
 so that F = flux1 * flux2. For example, given a file maskfile.2d.hdf5
 that include a field asemask set to 0.0 everywhere but the Amundsen Sea
-Embaymant, where it is 1.0. A productFlux can be used to set 
+Embayment, where it is 1.0. A productFlux can be used to set 
 a meltrate in the ASE only, like so:
 </p>
 
@@ -288,7 +288,7 @@ basalFlux.floating.flux2.name = asemask
 <p>
 NormalizedFlux allow the 'amplitude' of a flux to be set, 
 so that the integral of the square of the flux over
-the whole domain is equal to the amplitude squared multipled by the
+the whole domain is equal to the amplitude squared multiplied by the
 area. E.g.
 </p>
 <pre>
@@ -301,8 +301,8 @@ surfaceFlux.amplitude = 0.1
 
 <h3>compositeFlux</h3>
 
-Use compositeFlux to specify an arbitary number of fluxes to be added
-togther - useful in conjunction with boxBoundedFlux. The example
+Use compositeFlux to specify an arbitrary number of fluxes to be added
+together - useful in conjunction with boxBoundedFlux. The example
 below  applies different piecewiseLinearFlux melt rates to
 different regions of an ice shelf
 

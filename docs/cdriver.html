@@ -47,7 +47,7 @@
 <ul>
   <li>create multiple BISICLES instances (for example, to simulate
     several ice sheets in a global model); </li>
-  <li>instruct BISCLES to read e.g surface mass balance data from a rectangular array,
+  <li>instruct BISICLES to read e.g surface mass balance data from a rectangular array,
     potentially distributed across MPI ranks in parallel programs; </li>
   <li>initialize BISICLES, including mesh generation;</li>
   <li>advance the ice sheet to a certain time;</li>
@@ -66,7 +66,7 @@
     e.g  surface mass balance from a particular array. </li>
   <li> Call (f_)bisicles_init_instance: after this point it is possible to change the
     (e.g) surface mass balance data but <strong>not its memory address</strong>.</li>
-  <li>Call f_bisicles_get_2d_data to  e.g the ice sheet upper urface elevation into rectangular arrays.</li>
+  <li>Call f_bisicles_get_2d_data to  e.g the ice sheet upper surface elevation into rectangular arrays.</li>
   <li>Modify (e.g) the surface mass balance data.</li> 
   <li>Call (f_)bisicles_advance to instruct BISICLES to advance in time</li>
   <li>Repeat steps 6-8 till complete.</li>
@@ -91,7 +91,7 @@
 
 </pre>
 <p>
-For a optmized parallel (non-petsc) version, assuming MPICXX=mpiCC and FC=gfortan:
+For a optimized parallel (non-petsc) version, assuming MPICXX=mpiCC and FC=gfortan:
 </p>
 <pre>
   > cd $BISICLES_HOME/code/cdriver

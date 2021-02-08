@@ -3,7 +3,7 @@
 
 ### This makefile produces an executable for each 
 ### name in the `ebase' variable
-ebase :=  nctoamr amrtotxt amrtoplot flatten extract merge addbox amrtocf stats glfaces faces rescale sum pythonf diagnostics
+ebase :=  nctoamr amrtotxt amrtoplot flatten extract merge addbox amrtocf stats glfaces glfacesNew faces rescale sum pythonf diagnostics subregion
 src_dirs = src
 all:  clean libbike 
 
@@ -20,12 +20,12 @@ ifeq ($(NETCDF_HOME), )
 NETCDF_HOME := $(shell nc-config --prefix)
 
 ifneq ($(NETCDF_HOME), )
-NETCDF_INC := $(shell nc-config --includedir)
+NETCDF_INC := -I$(shell nc-config --includedir)
 
 ifeq ($(shell nc-config --has-f90), yes)
-NETCDF_LIBS := $(shell nc-config --flibs) #does no harm to link the fortran libs if present
+NETCDF_LIBS := $(shell nc-config --flibs) $(shell nc-config --libs) #does no harm to link the fortran libs if present
 else ifeq ($(shell nc-config --has-fortran), yes)
-NETCDF_LIBS := $(shell nc-config --flibs) #does no harm to link the fortran libs if present
+NETCDF_LIBS := $(shell nc-config --flibs) $(shell nc-config --libs) #does no harm to link the fortran libs if present
 else
 NETCDF_LIBS := $(shell nc-config --libs)
 endif

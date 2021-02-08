@@ -16,7 +16,7 @@
 
 /// constructor
 HotspotFlux::HotspotFlux() 
-  : m_fluxVal(0.0), m_radius(D_DECL(-10.0,-10.0,-10.0)), m_center(0,0), m_startTime(-1.23456e300), m_stopTime(1.23456e300), m_isValSet(false), m_isLocSet(false)
+  : m_fluxVal(0.0), m_radius(D_DECL(-10.0,-10.0,-10.0)), m_center(D_DECL(0,0,0)), m_startTime(-1.23456e300), m_stopTime(1.23456e300), m_isValSet(false), m_isLocSet(false)
 {
 }
 

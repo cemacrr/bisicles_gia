@@ -366,7 +366,13 @@ public:
     bool m_residualOnly;
     // scale factor, f: solve for f*u internally - still return u 
     Real m_scale;
-
+    // artificial drag that applies everywhere
+    /* if used, need to ensure that 
+       (m_artificial_drag * |u|)^m_artifical_drag_power << rho * g * h * grad(s) ~ 10^4
+       when |u| ~ 10^4
+    */
+    Real m_artificialDragCoef, m_artificialDragPower;
+    
   };
 
 private:

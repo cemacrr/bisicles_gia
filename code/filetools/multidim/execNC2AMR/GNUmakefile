@@ -1,7 +1,7 @@
 # -*- Mode: Makefile; -*-
 
 # the location of the Chombo "lib" directory
-CHOMBO_HOME = ../../../../../../../../Chombo/lib
+CHOMBO_HOME = ../../../../../Chombo/lib
 
 
 ebase = extract3DncTo2dAMR

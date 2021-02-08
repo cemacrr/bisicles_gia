@@ -152,5 +152,5 @@ melange_model.diffusion_factor = 1.0e+6
 
 amr.plot_style_cf = true
 amr.plot_interval = 1
-CFIO.land_ice_thickness=true
-CFIO.land_ice_basal_velocity=1
+CFIO.lithk=true
+CFIO.velbase=1

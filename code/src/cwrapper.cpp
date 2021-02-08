@@ -513,7 +513,7 @@ void init_bisicles_instance(BisiclesWrapper& a_wrapper)
 	{
 	  g = a_wrapper.m_grounded_ice_basal_flux;
 	}
-      MaskedFlux* m = new MaskedFlux(g,f,f,g);
+      MaskedFlux* m = new MaskedFlux(g,f,f,g,true);
       AxbyFlux* ptr = new AxbyFlux(1.0, m , 1.0, basal_flux_ptr);
       amrObject.setBasalFlux(ptr); 
       delete(ptr);

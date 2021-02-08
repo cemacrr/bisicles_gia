@@ -11,7 +11,7 @@ makefiles += multiDim_bisicles
 ebase = bogus
 
 # the location of Chombo lib dir
-CHOMBO_HOME = ../../../../../../../../Chombo/lib
+CHOMBO_HOME = ../../../../../Chombo/lib
 
 # names of Chombo libraries needed by this program, in order of search.
 #1dLibNames =  BoxTools BaseTools

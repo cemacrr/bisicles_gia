@@ -1105,7 +1105,7 @@ c -------------------------------------------------------------
       
       integer CHF_AUTODECL[i], CHF_AUTODECL[ioff], CHF_AUTODECL[joff]
       integer ncomp, idx(CH_SPACEDIM)
-      integer idir, jdir, ii, jj, isSet(CH_SPACEDIM)
+      integer idir, jdir, ii, jj, isSet(2)
       integer nSheet, nIceFree, nOcean, nCorner
       integer in(CH_SPACEDIM),ie(CH_SPACEDIM),is(CH_SPACEDIM),iw(CH_SPACEDIM)
       REAL_T vel(CH_SPACEDIM), grad(CH_SPACEDIM)
@@ -1190,13 +1190,13 @@ c  Check corners for full ice cells
               is(1:ncomp)=(/ CHF_OFFSETIX[i;-joff] /)
               iw(1:ncomp)=(/ CHF_OFFSETIX[i;-ioff] /)
 
-              if (abs(1.0d0-oldFrac(iw(1),in(2))) .lt. epsFrac) then
+              if (abs(1.0d0-oldFrac(CHF_IX[iw(1);in(2)])) .lt. epsFrac) then
                  nCorner = nCorner+1
-              elseif (abs(1.0d0-oldFrac(ie(1),in(2))) .lt. epsFrac) then
+              elseif (abs(1.0d0-oldFrac(CHF_IX[ie(1);in(2)])) .lt. epsFrac) then
                  nCorner = nCorner+1
-              elseif (abs(1.0d0-oldFrac(iw(1),is(2))) .lt. epsFrac) then
+              elseif (abs(1.0d0-oldFrac(CHF_IX[iw(1);is(2)])) .lt. epsFrac) then
                  nCorner = nCorner+1
-              elseif (abs(1.0d0-oldFrac(ie(1),is(2))) .lt. epsFrac) then
+              elseif (abs(1.0d0-oldFrac(CHF_IX[ie(1);is(2)])) .lt. epsFrac) then
                  nCorner = nCorner+1
               endif
               
@@ -1204,7 +1204,7 @@ c  Check corners for full ice cells
 
 c Put an ice front velocity into the empty corner cell
               if (abs(oldFrac(CHF_AUTOIX[i])) .lt. epsFrac) then
-                 if (abs(1.0d0-oldFrac(iw(1),in(2))) .lt. epsFrac) then
+                 if (abs(1.0d0-oldFrac(CHF_IX[iw(1);in(2)])) .lt. epsFrac) then
                     if (abs(oldFrac(CHF_OFFSETIX[i;-ioff])) .gt. critFrac) then
                        vel(1)=uFaceVel(CHF_AUTOIX[i])
                        isSet(1)=1
@@ -1212,6 +1212,8 @@ c Put an ice front velocity into the empty corner cell
                        vel(1)=ccVel(CHF_OFFSETIX[i;-ioff],0)
                        isSet(1)=1
                     endif
+c     add guards to allow for 1D (flowline) modeling
+#if (CH_SPACEDIM == 2)                    
                     if (abs(oldFrac(CHF_OFFSETIX[i;+joff])) .gt. critFrac) then
                        vel(2)=vFaceVel(CHF_OFFSETIX[i;+joff])
                        isSet(2)=1
@@ -1228,8 +1230,8 @@ c Put an ice front velocity into the empty corner cell
                           isSet(1)=1
                        endif
                     endif
-
-                 elseif (abs(1.0d0-oldFrac(ie(1),in(2))) .lt. epsFrac) then
+#endif
+                 elseif (abs(1.0d0-oldFrac(CHF_IX[ie(1);in(2)])) .lt. epsFrac) then
                     if (abs(oldFrac(CHF_OFFSETIX[i;+ioff])) .gt. critFrac) then
                        vel(1)=uFaceVel(CHF_OFFSETIX[i;+ioff])
                        isSet(1)=1
@@ -1237,6 +1239,8 @@ c Put an ice front velocity into the empty corner cell
                        vel(1)=ccVel(CHF_OFFSETIX[i;+ioff],0)
                        isSet(1)=1
                     endif
+c     guards for 1D to allow for flowline modeling
+#if (CH_SPACEDIM == 2)                    
                     if (abs(oldFrac(CHF_OFFSETIX[i;+joff])) .gt. critFrac) then
                        vel(2)=vFaceVel(CHF_OFFSETIX[i;+joff])
                        isSet(2)=1
@@ -1253,8 +1257,8 @@ c Put an ice front velocity into the empty corner cell
                           isSet(1)=1
                        endif
                     endif
-
-                 elseif (abs(1.0d0-oldFrac(iw(1),is(2))) .lt. epsFrac) then
+#endif
+                 elseif (abs(1.0d0-oldFrac(CHF_IX[iw(1);is(2)])) .lt. epsFrac) then
                     if (abs(oldFrac(CHF_OFFSETIX[i;-ioff])) .gt. critFrac) then
                        vel(1)=uFaceVel(CHF_AUTOIX[i])
                        isSet(1)=1
@@ -1262,6 +1266,8 @@ c Put an ice front velocity into the empty corner cell
                        vel(1)=ccVel(CHF_OFFSETIX[i;-ioff],0)
                        isSet(1)=1
                     endif
+c     guards for 1D to allow for flowline modeling
+#if (CH_SPACEDIM == 2)                                        
                     if (abs(oldFrac(CHF_OFFSETIX[i;-joff])) .gt. critFrac) then
                        vel(2)=vFaceVel(CHF_AUTOIX[i])
                        isSet(2)=1
@@ -1278,8 +1284,8 @@ c Put an ice front velocity into the empty corner cell
                           isSet(1)=1
                        endif
                     endif
-
-                 elseif (abs(1.0d0-oldFrac(ie(1),is(2))) .lt. epsFrac) then
+#endif 
+                 elseif (abs(1.0d0-oldFrac(CHF_IX[ie(1);is(2)])) .lt. epsFrac) then
                     if (abs(oldFrac(CHF_OFFSETIX[i;+ioff])) .gt. critFrac) then
                        vel(1)=uFaceVel(CHF_OFFSETIX[i;+ioff])
                        isSet(1)=1
@@ -1287,6 +1293,8 @@ c Put an ice front velocity into the empty corner cell
                        vel(1)=ccVel(CHF_OFFSETIX[i;+ioff],0)
                        isSet(1)=1
                     endif
+c     guards for 1D to allow for flowline modeling
+#if (CH_SPACEDIM == 2)                                        
                     if (abs(oldFrac(CHF_OFFSETIX[i;-joff])) .gt.critFrac) then
                        vel(2)=vFaceVel(CHF_AUTOIX[i])
                        isSet(2)=1
@@ -1303,7 +1311,7 @@ c Put an ice front velocity into the empty corner cell
                           isSet(1)=1
                        endif
                     endif
-
+#endif
                  endif
                  if ((isSet(1)+isSet(2)) .eq. 0) cycle
 
@@ -1425,8 +1433,9 @@ c Set to cell face value if next to empty cell.
 
         if ((isSet(1)+isSet(2)) .eq. 0) cycle 
 
-        u=vel(1)
-        v=vel(2)
+        CHF_DTERM[
+        u=vel(1);
+        v=vel(2)]
 
 c Check for open ocean
         do idir = 0, CH_SPACEDIM-1
@@ -1457,13 +1466,13 @@ c  Check corners for open ocean
             is(1:ncomp)=(/ CHF_OFFSETIX[i;-joff] /)
             iw(1:ncomp)=(/ CHF_OFFSETIX[i;-ioff] /)
 
-            if (mask(iw(1),in(2)) .eq. OCEANMASKVAL) then
+            if (mask(CHF_IX[iw(1);in(2)]) .eq. OCEANMASKVAL) then
                nOcean = nOcean+1
-            elseif (mask(ie(1),in(2)) .eq. OCEANMASKVAL) then
+            elseif (mask(CHF_IX[ie(1);in(2)]) .eq. OCEANMASKVAL) then
                nOcean = nOcean+1
-            elseif (mask(iw(1),is(2)) .eq. OCEANMASKVAL) then
+            elseif (CHF_IX[mask(iw(1);is(2)]) .eq. OCEANMASKVAL) then
                nOcean = nOcean+1
-            elseif (mask(ie(1),is(2)) .eq. OCEANMASKVAL) then
+            elseif (mask(CHF_IX[ie(1);is(2)]) .eq. OCEANMASKVAL) then
                nOcean = nOcean+1
             endif
 
@@ -1552,24 +1561,28 @@ c  Check corners for open ocean
               enddo
 
 
-              speed=dsqrt(grad(1)*grad(1)+grad(2)*grad(2))
+              speed=dsqrt(CHF_DTERM[grad(1)*grad(1);+grad(2)*grad(2)])
               if (speed .lt. epsVel) then
-                 uUnit=0.0d0
-                 vUnit=0.0d0
+                 CHF_DTERM[
+                 uUnit=0.0d0;
+                 vUnit=0.0d0]
               else
-                 uUnit=-grad(1)/speed
-                 vUnit=-grad(2)/speed
+                 CHF_DTERM[
+                 uUnit=-grad(1)/speed;
+                 vUnit=-grad(2)/speed]
               endif
         
            else
 
-              speed=dsqrt(u*u+v*v)
+              speed=dsqrt(CHF_DTERM[u*u;+v*v])
               if (speed .lt. epsVel) then
-                 uUnit=0.0d0
-                 vUnit=0.0d0
+                 CHF_DTERM[
+                 uUnit=0.0d0;
+                 vUnit=0.0d0]
               else
-                 uUnit=u/speed
-                 vUnit=v/speed
+                 CHF_DTERM[
+                 uUnit=u/speed;
+                 vUnit=v/speed]
               endif
 
            endif
@@ -1993,9 +2006,9 @@ c Empty cell either side
         frac(CHF_AUTOIX[i]) = frac(CHF_AUTOIX[i]) 
      &                    - factor*vel*(upperFrac-lowerFrac)
 
-        if (abs(vel*factor) .gt. 0.9d0) then
-           write(*,*) "CFL violation at", CHF_AUTOIX[i], vel*factor 
-        endif
+c        if (abs(vel*factor) .gt. 0.9d0) then
+c           write(*,*) "CFL violation at", CHF_AUTOIX[i], vel*factor 
+c        endif
 
       CHF_ENDDO
       return

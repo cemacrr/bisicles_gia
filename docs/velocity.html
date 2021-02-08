@@ -27,7 +27,7 @@
 <h1>BISICLES ice velocity</h1>
 
 <p>
-  The ice velocity  calculation depends at minumum on the <a href='geometry.html'>ice sheet geometry</a> and 
+  The ice velocity  calculation depends at minimum on the <a href='geometry.html'>ice sheet geometry</a> and 
   <a href='stress.html'>the in-ice and basal stresses</a>. It may also depend on 
   the <a href='thermodynamics.html'>thermodynamics</a> and other factors that influence the in-ice and basal stresses.
 </p>
@@ -62,7 +62,7 @@ Options for  &lt solver_type &gt are
     <li><a href='#snes'>Petsc Nonlinear Solver</a> [EXPERIMENTAL] solves the vertically integrated (SSA, L1L2) stress equations using a PETSc SNES. 
     <li><a href='#fas'>FASMGAMR</a> [EXPERIMENTAL] A full-approximation storage solver for   the vertically integrated (SSA, L1L2) stress equations.
     <li><a href='#python'>Python</a> specifies velocity through the python interface </li>
-    <li><a href='#inversevi'>Inverse Vertically Integrated Velocity Solver</a> Estimates the basal friction and stiffness coefficents in order to 
+    <li><a href='#inversevi'>Inverse Vertically Integrated Velocity Solver</a> Estimates the basal friction and stiffness coefficients in order to 
       provide a velocity field that fits observations.
   </ol>
 
@@ -113,7 +113,7 @@ to try a PETSc algebraic multigrid (AMG) solver. To switch to the PETSc solvers,
 #sensible values? depends what you are doing
 -ksp_max_it 20
 -ksp_rtol 1.0e-4
-#include this to see log the PETSc solver progres in pout.X etc
+#include this to see log the PETSc solver progress in pout.X etc
 -ksp_monitor
     </pre>
   </li>

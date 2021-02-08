@@ -86,7 +86,7 @@ amr.initial_velocity_guess_solver_type = 1 # use JFNK solver's linear mode
 
 amr.plot_interval = 1
 amr.plot_prefix = plot.groundingLine.
-#amr.write_preSolve_plotfiles = true
+amr.write_preSolve_plotfiles = true
 amr.write_solver_rhs = 1
 amr.check_interval = 20
 amr.check_prefix = chk
@@ -148,6 +148,6 @@ JFNKSolver.RelaxTol = 1.0e-5
 JFNKSolver.maxRelaxIter = 50
 JFNKSolver.vtopRelaxTol = 0
 
-JFNKSolver.writeResiduals = true
+JFNKSolver.writeResiduals = false
 
 

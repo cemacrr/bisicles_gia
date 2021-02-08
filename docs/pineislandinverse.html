@@ -81,6 +81,10 @@
     
     control.writeInnerSteps = false
     control.CGmaxIter = 24
+
+
+    control.optimizeX0 = true # default true: optimize w.r.t basal friction coeffcient (C)
+    control.optimizeX1 = true # default true: optimize w.r.t effective viscosity coeffcient (muCoef)
   </pre>
   <p>
     Configured this way, the inverse problem will first be solved on the coarse mesh,

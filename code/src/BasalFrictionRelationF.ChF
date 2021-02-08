@@ -120,6 +120,43 @@ c-----------------------------------
 
       return
       end
+
+
+c--------------------------------------------------------------------------------------------------------
+c     alpha <- alpha / (|u|/|ur| + 1 )^(m). The regularized Coulomb law of Joughin 2019: does not depend on pressure
+c     but instead has characteristic 'fast flow' |ur|.
+c
+c     The full rule is Tb = Cb * |u|^(m)* u/|u| * (|u|/|ur| + 1)^(1/n), where n is typically 1/3.
+c     Joughin 2019 is equivalent but has Tb =  Cj * |u|^(m)* u/|u| * (|u|+|ur|)^m, i.e Cb = Cj/(|ur|^m). 
+c     Cb is convenient because it then has the same units as in the usual power law
+c     (our m is Joughin's 1/m ) 
+c---------------------------------------------------------------------------------------------------------
+      subroutine BFRICTIONJOUGHIN(CHF_FRA1[alpha],
+     &     CHF_CONST_FRA[u],CHF_CONST_REAL[ur],
+     &     CHF_CONST_REAL[m], CHF_BOX[box])
+
+      integer CHF_AUTODECL[i]
+      REAL_T usq, usq0, q
+
+      usq0 = TINY_VEL**2
+      CHF_AUTOMULTIDO[box;i]
+      CHF_DTERM[
+      usq = usq0 + u(CHF_AUTOIX[i],0)**2;
+     &     + u(CHF_AUTOIX[i],1)**2;
+     &     + u(CHF_AUTOIX[i],2)**2]
+c     maybe a bit belt and braces...
+      q = (usq**half)/(abs(ur) + TINY_VEL)
+
+      alpha(CHF_AUTOIX[i]) = alpha(CHF_AUTOIX[i])
+     &     * ( q + one )**(-m)
+
+      CHF_ENDDO
+
+      return
+      end
+
+
+      
 c------------------------------------
 c N = rhog * h * ( 1- hf/h)^p = rhog * h^(1-p) * (h - hf)^p
 c-----------------------------------

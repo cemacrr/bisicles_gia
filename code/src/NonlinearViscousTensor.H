@@ -146,6 +146,15 @@ class IceNonlinearViscousTensor : public NonlinearViscousTensor
   Real m_muMin, m_muMax;
 
   Real m_scale; // scale mu,alpha by 1/m_scale
+
+  
+  // artificial drag that applies everywhere
+    /* if used, need to ensure that 
+       (m_artificial_drag * |u|)^m_artifical_drag_power << rho * g * h * grad(s) ~ 10^4
+       when |u| ~ 10^4
+    */
+    Real m_artificialDragCoef, m_artificialDragPower;
+    
   
   // BCHolder
   RefCountedPtr<BCFunction> m_velSolveBC;
@@ -207,7 +216,8 @@ public:
    Real a_vtopRelaxTol,
    Real a_muMin = 0.0,
    Real a_muMax = 1.234567e+300,
-   Real a_scale = 1.0 );
+   Real a_scale = 1.0,
+   Real a_artificialDragCoef = 0.0, Real a_artificialDragPower=8.0);
 
   //implementation of NonlinearViscousTensor interface 
   virtual void setState(const Vector<LevelData<FArrayBox>*>& a_u);

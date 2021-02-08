@@ -236,8 +236,8 @@ void LinearizedVTOp::writeResidual
     {
       data[lev] = new LevelData<FArrayBox>(m_grids[lev],int(names.size()),IntVect::Zero);
       int j = 0;
-      a_u[lev]->copyTo(Interval(0,1),*data[lev],Interval(j,j+1)); j+=2;
-      a_residual[lev]->copyTo(Interval(0,1),*data[lev],Interval(j,j+1)); j+=2;
+      a_u[lev]->copyTo(Interval(0,SpaceDim-1),*data[lev],Interval(j,j+SpaceDim-1)); j+=SpaceDim;
+      a_residual[lev]->copyTo(Interval(0,SpaceDim-1),*data[lev],Interval(j,j+SpaceDim-1)); j+=SpaceDim;
       m_u->alpha()[lev]->copyTo(Interval(0,0),*data[lev],Interval(j,j)); j+=1;
 
       const LevelData<FluxBox>& mu =  *m_u->mu()[lev];
@@ -248,10 +248,11 @@ void LinearizedVTOp::writeResidual
 	  for (BoxIterator bit( m_grids[lev][dit]);bit.ok();++bit)
 	    {
 	      const IntVect& iv = bit();
-	      const IntVect ive = iv + BASISV(0);
-	      const IntVect ivn = iv + BASISV(1); 
-	      muSum(iv,0) = mu[dit][0](iv) + mu[dit][0](ive) 
-	      	+ mu[dit][1](iv) +  mu[dit][1](ivn);
+              D_TERM(
+              const IntVect ive = iv + BASISV(0);,
+              const IntVect ivn = iv + BASISV(1);, )
+              muSum(iv,0) = D_TERM(mu[dit][0](iv) + mu[dit][0](ive), 
+                                   + mu[dit][1](iv) +  mu[dit][1](ivn), );
 	    }
 	}
     }
@@ -333,7 +334,14 @@ JFNKSolver::Configuration::Configuration()
   m_eliminateFastIceEdgeOnly = false;
   m_eliminateRemoteIceTol = 1.0;
   m_eliminateRemoteIceMaxIter = 10;
-  
+
+  //// artificial drag that applies everywhere
+    /* if used, need to ensure that 
+       (m_artificial_drag_coef * |u|)^m_artifical_drag_power << rho * g * h * grad(s) ~ 10^3-4
+       when |u| ~ 10^4. m_artificial_drag_coef =1.0e-4 is about right.
+    */   
+  m_artificialDragCoef = 0.0;
+  m_artificialDragPower = 8.0;
   // these ones don't need to be stored (at least for now), but should be set
   int mgAverageType  = CoarseAverageFace::arithmetic;
   ViscousTensorOpFactory::s_coefficientAverageType = mgAverageType;
@@ -395,7 +403,8 @@ void JFNKSolver::Configuration::parse(const char* a_prefix)
   
   pp.query("scale", m_scale);
 
-  
+  pp.query("artificialDragCoef",m_artificialDragCoef);
+  pp.query("artificialDragPower",m_artificialDragPower);
   
   if (pp.contains("solverType") )
     {
@@ -643,7 +652,7 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
    (m_grids , m_refRatios, m_domains,m_dxs , a_coordSys, localU ,
     localC, localC0, a_maxLevel, *m_constRelPtr, *m_basalFrictionRelPtr, *m_bcPtr, 
     a_A, faceA, a_time, m_config.m_vtopSafety, m_config.m_vtopRelaxMinIter, m_config.m_vtopRelaxTol, 
-    m_config.m_muMin,  m_config.m_muMax, m_config.m_scale);
+    m_config.m_muMin,  m_config.m_muMax, m_config.m_scale, m_config.m_artificialDragCoef, m_config.m_artificialDragPower);
 
  // eliminate fast ice if required:
  eliminateFastIce(localU, a_calvedIce, a_addedIce, a_removedIce, localRhs, a_coordSys, current);
@@ -752,10 +761,11 @@ int JFNKSolver::solve(Vector<LevelData<FArrayBox>* >& a_u,
 	    }
 	  else if (mode == JFNK_LINEARIZATION_MODE)
 	    {
-	      if (resNorm >= oldResNorm)
+	      Real rate_switch_back = 1.0 + 0.25*(m_config.m_switchRate - 1.0);
+	      if (resNorm >= oldResNorm/rate_switch_back)
 		{
 		  if (m_config.m_verbosity > 0){
-		    pout() << "JFNK iteration " << iter  <<  " did not reduce residual" << std::endl;
+		    pout() << "JFNK iteration " << iter  <<  " did not reduce residual (much)" << std::endl;
 		    if (m_config.m_verbosity > 1)
 		      {
 			pout() << " -- old residual = " << oldResNorm  

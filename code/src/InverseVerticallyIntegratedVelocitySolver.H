@@ -197,6 +197,11 @@ public:
     /// Type of velocity misfit : speed, velocity, or log_speed. Set with <prefix>.vel_misfit_type, default speed
     VelocityMisfitType m_velMisfitType;
 
+    /// attempt to optimize w.r.t X0?
+    bool m_optimizeX0;
+    /// attempt to optimize w.r.t X1?
+    bool m_optimizeX1;
+    
     /// Lower bound on \f$X_0 = \ln C - \ln C_0\f$. Set with with <prefix>.lowerX0
     Real m_lowerX0;
 

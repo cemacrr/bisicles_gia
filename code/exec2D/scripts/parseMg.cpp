@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
 
   if (is.fail())
     {
-      cerr << "Cannot open grids file";
+      cerr << "Cannot open input file";
       return 1;
     }
 

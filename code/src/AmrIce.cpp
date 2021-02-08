@@ -3142,7 +3142,7 @@ AmrIce::solveVelocityField(bool a_forceSolve, Real a_convergenceMetric)
 		  if (mask(iv) == OPENSEAMASKVAL || 
 		      mask(iv) == OPENLANDMASKVAL )
 		    {
-		      vel(iv,0) = 0.0; vel(iv,1) = 0.0;
+		      D_TERM(vel(iv,0) = 0.0;, vel(iv,1) = 0.0;,)
 		    } 
 		}
 	    }
@@ -3917,9 +3917,14 @@ AmrIce::advectIceFrac(Vector<LevelData<FArrayBox>* >& a_iceFrac,
           FArrayBox& thisFrontVel = levelFrontVel[dit];
           FArrayBox& thisTmpVel = levelTmpVel[dit];
 
+          // (DFM -- 1/4/21) do it this way so that this will still work in 1D
+          const FArrayBox& thisFaceVelx = thisFaceVel[0];
+          // this points at the x-faces in 1D, at the y-faces in 2D
+          const FArrayBox& thisFaceVely = thisFaceVel[SpaceDim-1];
+          
 	  FORT_FINDFRONTVEL(CHF_CONST_FRA1(oldFrac,0),
-			      CHF_CONST_FRA1(thisFaceVel[0],0),
-			      CHF_CONST_FRA1(thisFaceVel[1],0),
+			      CHF_CONST_FRA1(thisFaceVelx,0),
+			      CHF_CONST_FRA1(thisFaceVely,0),
 			      CHF_CONST_FRA1(calvingRate,0),
 			      CHF_CONST_FRA1(topg,0),
 			      CHF_CONST_FIA1(mask,0),
@@ -4138,7 +4143,7 @@ if (result != MPI_SUCCESS)
 	 << " || dt = " << dt
 	 << " < TIME_EPS = " << TIME_EPS;
         
-      m_plot_prefix = std::string("error_") + m_plot_prefix;
+      m_plot_prefix = m_plot_prefix + std::string("_error_.");
       writePlotFile();
       pout() << " AmrIce::computeDt exit because " << ss.str() << endl;
       MayDay::Error(ss.str().c_str());

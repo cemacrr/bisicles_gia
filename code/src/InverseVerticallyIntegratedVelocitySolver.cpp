@@ -190,6 +190,14 @@ InverseVerticallyIntegratedVelocitySolver::Configuration::parse(const char* a_pr
       m_gradientFactor = new ConstantData(1.0);
     }
 
+  // default: attempt to optimize w.r.t both X0 (C) and X1 (muCoef)
+  m_optimizeX0 = true;
+  pp.query("optimizeX0", m_optimizeX0 );
+  m_optimizeX1 = true;
+  pp.query("optimizeX1", m_optimizeX1 );
+  CH_assert(m_optimizeX0 || m_optimizeX1); // at least one of these should be true
+  
+  
   m_gradCsqRegularization = 0.0;
   pp.query("gradCsqRegularization",m_gradCsqRegularization);
 
@@ -228,7 +236,6 @@ InverseVerticallyIntegratedVelocitySolver::Configuration::parse(const char* a_pr
   CH_assert(m_initialUpperMuCoef > m_initialLowerMuCoef);
 
   
-
 
   m_lowerX0 = - 3.0;
   m_upperX0 = + 3.0;
@@ -458,16 +465,20 @@ int InverseVerticallyIntegratedVelocitySolver::solve
   for (int lev = 0; lev < m_velObs.size(); lev++)
     {
       LevelData<FArrayBox> u;
+      // DFM (1/4/21) -- use D_TERM here to enable 1D (flowline) build
+      D_TERM(
       if (m_config.m_velObs_x)
 	{
 	  aliasLevelData(u, m_velObs[lev], Interval(0,0) );
 	  m_config.m_velObs_x->evaluate(u, *m_amrIce, lev, 0.0);
-	}
+	},
       if (m_config.m_velObs_y)
 	{
 	  aliasLevelData(u, m_velObs[lev], Interval(1,1) );
 	  m_config.m_velObs_y->evaluate(u, *m_amrIce, lev, 0.0);
-	}
+	},
+      // D_TERM needs a 3D entry, which is nothing here.
+             )
       if (m_config.m_velObs_c)
 	{
 	  m_config.m_velObs_c->evaluate( *m_velCoef[lev], *m_amrIce, lev, 0.0);
@@ -485,7 +496,8 @@ int InverseVerticallyIntegratedVelocitySolver::solve
       mapX(X);
       assign(m_velb,m_velObs);
       assign(m_bestVel,m_velb);
-      assign(m_bestC,m_Cmasked);
+      //      assign(m_bestC,m_Cmasked);
+      assign(m_bestC,m_C);      
       assign(m_bestMuCoef, m_muCoef);
       m_optimization_done = false;
     }
@@ -929,7 +941,8 @@ InverseVerticallyIntegratedVelocitySolver::computeObjectiveAndGradient
     {
       //save the velocity, muCoef, and C;
       assign(m_bestVel,m_velb);
-      assign(m_bestC,m_Cmasked);
+      //      assign(m_bestC,m_Cmasked);
+      assign(m_bestC,m_C);      
       assign(m_bestMuCoef, m_muCoef);
     }
 
@@ -1288,102 +1301,103 @@ void InverseVerticallyIntegratedVelocitySolver::computeGradient
 (Vector<LevelData<FArrayBox>* >& a_g, 
  const  Vector<LevelData<FArrayBox>* >& a_x)
 {
-  
-  // grad w.r.t x_0 (basal friction)  = - adjVel * vel * C 
-  for (int lev = 0; lev <= m_finest_level; lev++)
+
+  if (m_config.m_optimizeX0)
     {
-      for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+      // grad w.r.t x_0 (basal friction)  = - adjVel * vel * C 
+      for (int lev = 0; lev <= m_finest_level; lev++)
 	{
-   
-	  FArrayBox& G = (*a_g[lev])[dit];
-	  const FArrayBox& C = (*m_Cmasked[lev])[dit];
-	  const FArrayBox& u = (*m_velb[lev])[dit];
-	  const FArrayBox& lambda = (*m_adjVel[lev])[dit];
-	  FArrayBox t(G.box(),1);
-	  FORT_CADOTBCTRL(CHF_FRA1(t,0),
-			  CHF_CONST_FRA1(C,0),
-			  CHF_CONST_FRA(u),
-			  CHF_CONST_FRA(lambda),
-			  CHF_BOX(t.box()));
-	  t *= -1.0;
-	  G.plus(t,0,CCOMP);
+	  for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	    {
+	      
+	      FArrayBox& G = (*a_g[lev])[dit];
+	      const FArrayBox& C = (*m_Cmasked[lev])[dit];
+	      const FArrayBox& u = (*m_velb[lev])[dit];
+	      const FArrayBox& lambda = (*m_adjVel[lev])[dit];
+	      FArrayBox t(G.box(),1);
+	      FORT_CADOTBCTRL(CHF_FRA1(t,0),
+			      CHF_CONST_FRA1(C,0),
+			      CHF_CONST_FRA(u),
+			      CHF_CONST_FRA(lambda),
+			      CHF_BOX(t.box()));
+	      t *= -1.0;
+	      G.plus(t,0,CCOMP);
+	    }
 	}
-    }
+    } // end if m_optimizeX1
 
-
-  {
-    // grad w.r.t x_1 (mu coef)  
-    Vector<LevelData<FluxBox>*> faceVT;
-    create(faceVT, SpaceDim, IntVect::Unit);
-    Vector<LevelData<FluxBox>*> faceA;
-    create(faceA, m_A[0]->nComp(), IntVect::Unit);
-    for (int lev = 0; lev <= m_finest_level; lev++)
-      {
-	CellToEdge(*m_A[lev], *faceA[lev]);
-      }
-
-    IceNonlinearViscousTensor state(m_grids, m_refRatio, m_domain, m_dx,
-				    m_coordSys, m_velb, m_Cmasked, m_C0, m_finest_level ,
-				    *m_constitutiveRelation, *m_basalFrictionRelation,
-				    *m_thicknessIBC, m_A, faceA, 0.0, 0.0, 0, 0.0);
-    state.setState(m_velb);
-    state.computeViscousTensorFace(faceVT);
-    
-    
-    for (int lev = 0; lev <= m_finest_level; lev++)
-      {
-	for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
-	  { 
-	    FArrayBox& G = (*a_g[lev])[dit];
-	    const Box& box = m_grids[lev][dit]; 
-	    const FArrayBox& lambda = (*m_adjVel[lev])[dit];
-	    const FArrayBox& muCoef = (*m_muCoef[lev])[dit];
-	    const FArrayBox& h = m_coordSys[lev]->getH()[dit];
-	    const FluxBox& vt = (*faceVT[lev])[dit];
-	    //need to avoid the calving front, so construct an interior mask 
-	    BaseFab<bool> interior(box,1);
-	    const Real tol = 1.0;
-	    for (BoxIterator bit(box);bit.ok();++bit)
-	      {
-		const IntVect& iv = bit();
-		interior(iv) = (h(iv) > tol);
-		for (int dir = 0; dir < SpaceDim; dir++)
-		  {
-		    interior(iv) &= ( h(iv+BASISV(dir)) > tol);
-		    interior(iv) &= ( h(iv-BASISV(dir)) > tol);
-		  }
-	      }
-
-	    FArrayBox t(box,1);
-	    t.setVal(0.0);
-	    for (int facedir = 0; facedir < SpaceDim; facedir++)
-	      {
-		const IntVect e = BASISV(facedir);
-		for (BoxIterator bit(box);bit.ok();++bit)
-		  {
-		    for (int dir = 0; dir < SpaceDim; dir++)
-		      {
-			const IntVect& iv = bit();
-			if ( interior(iv) )
-			  {
-			    t(iv) += (lambda(iv+e,dir)-lambda(iv,dir))* vt[facedir](iv+e,dir)
-			      + (lambda(iv,dir)-lambda(iv-e,dir))* vt[facedir](iv,dir);
-			  }
-		      }
-		  }
-	      }
-
-	    RealVect oneOnTwoDx = 1.0/ (2.0 * m_dx[lev]);
-	    t.mult(-oneOnTwoDx[0]);
-	    t.mult(muCoef);
-	    G.plus(t,0,MUCOMP);
-	  }
-      }
-    free(faceVT);
-    free(faceA);
-  }
-  
-
+  if (m_config.m_optimizeX1)
+    {
+      // grad w.r.t x_1 (mu coef)  
+      Vector<LevelData<FluxBox>*> faceVT;
+      create(faceVT, SpaceDim, IntVect::Unit);
+      Vector<LevelData<FluxBox>*> faceA;
+      create(faceA, m_A[0]->nComp(), IntVect::Unit);
+      for (int lev = 0; lev <= m_finest_level; lev++)
+	{
+	  CellToEdge(*m_A[lev], *faceA[lev]);
+	}
+      
+      IceNonlinearViscousTensor state(m_grids, m_refRatio, m_domain, m_dx,
+				      m_coordSys, m_velb, m_Cmasked, m_C0, m_finest_level ,
+				      *m_constitutiveRelation, *m_basalFrictionRelation,
+				      *m_thicknessIBC, m_A, faceA, 0.0, 0.0, 0, 0.0);
+      state.setState(m_velb);
+      state.computeViscousTensorFace(faceVT);
+      
+      
+      for (int lev = 0; lev <= m_finest_level; lev++)
+	{
+	  for (DataIterator dit(m_grids[lev]);dit.ok();++dit)
+	    { 
+	      FArrayBox& G = (*a_g[lev])[dit];
+	      const Box& box = m_grids[lev][dit]; 
+	      const FArrayBox& lambda = (*m_adjVel[lev])[dit];
+	      const FArrayBox& muCoef = (*m_muCoef[lev])[dit];
+	      const FArrayBox& h = m_coordSys[lev]->getH()[dit];
+	      const FluxBox& vt = (*faceVT[lev])[dit];
+	      //need to avoid the calving front, so construct an interior mask 
+	      BaseFab<bool> interior(box,1);
+	      const Real tol = 1.0;
+	      for (BoxIterator bit(box);bit.ok();++bit)
+		{
+		  const IntVect& iv = bit();
+		  interior(iv) = (h(iv) > tol);
+		  for (int dir = 0; dir < SpaceDim; dir++)
+		    {
+		      interior(iv) &= ( h(iv+BASISV(dir)) > tol);
+		      interior(iv) &= ( h(iv-BASISV(dir)) > tol);
+		    }
+		}
+	      
+	      FArrayBox t(box,1);
+	      t.setVal(0.0);
+	      for (int facedir = 0; facedir < SpaceDim; facedir++)
+		{
+		  const IntVect e = BASISV(facedir);
+		  for (BoxIterator bit(box);bit.ok();++bit)
+		    {
+		      for (int dir = 0; dir < SpaceDim; dir++)
+			{
+			  const IntVect& iv = bit();
+			  if ( interior(iv) )
+			    {
+			      t(iv) += (lambda(iv+e,dir)-lambda(iv,dir))* vt[facedir](iv+e,dir)
+				+ (lambda(iv,dir)-lambda(iv-e,dir))* vt[facedir](iv,dir);
+			    }
+			}
+		    }
+		}
+	      
+	      RealVect oneOnTwoDx = 1.0/ (2.0 * m_dx[lev]);
+	      t.mult(-oneOnTwoDx[0]);
+	      t.mult(muCoef);
+	      G.plus(t,0,MUCOMP);
+	    }
+	}
+      free(faceVT);
+      free(faceA);
+    } // end if m_config.m_optimizeX1
 }
  
 
@@ -1402,24 +1416,24 @@ void InverseVerticallyIntegratedVelocitySolver::regularizeGradient
 	  const FArrayBox& C = (*m_C[lev])[dit];
 	  const FArrayBox& lapMuCoef = (*m_lapMuCoef[lev])[dit];
 	  const FArrayBox& muCoef = (*m_muCoef[lev])[dit];
-
+	  
 	  FArrayBox t(m_grids[lev][dit],1);
 	  // terms arising from (grad C)^2 penalty
-	  if (m_config.m_gradCsqRegularization > 0.0)
+	  if ( (m_config.m_gradCsqRegularization > 0.0) && m_config.m_optimizeX0)
 	    {
 	      t.copy(lapC);t*= C; t*= -m_config.m_gradCsqRegularization;
 	      G.plus(t,0,CCOMP);
 	    }
 
 	  // terms arising from (grad muCoef)^2 penalty
-	  if (m_config.m_gradMuCoefsqRegularization > 0.0)
+	  if ( (m_config.m_gradMuCoefsqRegularization > 0.0) && m_config.m_optimizeX1)
 	    {
 	      t.copy(lapMuCoef);t*= muCoef; t*= -m_config.m_gradMuCoefsqRegularization;
 	      G.plus(t,0,MUCOMP);
 	    }
 
 	  // terms arising from (X0)^2 penalty
-	  if (X0Regularization() > 0.0)
+	  if ( (X0Regularization() > 0.0) && m_config.m_optimizeX0)
 	    {
 	      t.copy(X,CCOMP,0);
 	      t *= X0Regularization();
@@ -1427,7 +1441,7 @@ void InverseVerticallyIntegratedVelocitySolver::regularizeGradient
 	    }
 
 	  // terms arising from (X1)^2 penalty
-	  if (X1Regularization() > 0.0)
+	  if ( (X1Regularization() > 0.0) && m_config.m_optimizeX1)
 	    {
 	      t.copy(X,MUCOMP,0);
 	      t *= X1Regularization();
@@ -1435,14 +1449,14 @@ void InverseVerticallyIntegratedVelocitySolver::regularizeGradient
 	    }
 
 	  // terms arising from (grad X0)^2 penalty
-	  if (m_config.m_gradX0sqRegularization > 0.0)
+	  if ((m_config.m_gradX0sqRegularization > 0.0) && m_config.m_optimizeX0)
 	    {
 	      t.copy((*m_lapX[lev])[dit],CCOMP,0); t*= -m_config.m_gradX0sqRegularization;
 	      G.plus(t,0,CCOMP);
 	    }
 
 	  // terms arising from (grad X1)^2 penalty
-	  if (m_config.m_gradX1sqRegularization > 0.0)
+	  if ((m_config.m_gradX1sqRegularization > 0.0) && m_config.m_optimizeX1)
 	    {
 	      t.copy((*m_lapX[lev])[dit],MUCOMP,0);
 	      CH_assert(t.norm() < 1.2345678e+300);

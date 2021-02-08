@@ -49,21 +49,21 @@ are also options to modify the <a href='#driving'>driving</a> stress
 
 <p>
 The driving stress is determined by the geometry, however there are some options
-that can be used to modify it.  Input geoemtry may lead to isolated ares of
+that can be used to modify it.  Input geometry may lead to isolated ares of
 implausible driving stress, for example at tall ice cliffs. The option
 </p>
 <pre>
   velocity_rhs.max_rhs_dx = 1.0e+10 #(Pa m) :any floating point number > 1
 </pre>
 <p>
-  is diasabled by default but will ensure that rho * g * h * |grad(s)| * dx &lt; velocity_rhs.max_rhs_dx
+  is disabled by default but will ensure that rho * g * h * |grad(s)| * dx &lt; velocity_rhs.max_rhs_dx
   1.0e+10 Pa m: roughly speaking a value of1.0e+10 Pa m:  corresponds
   to a 1 km high ice grounded cliff.
 </p>
 <p>
   Driving stresses are modified immediately upstream and downstream of the grounding line
-  to avoid the combination of steep slopes and zero basal frcition that would otherwise
-  arise. This is the one-sided scheme descibed in Cornford, J. Comput. Phys. 2013, and is enabled
+  to avoid the combination of steep slopes and zero basal friction that would otherwise
+  arise. This is the one-sided scheme described in Cornford, J. Comput. Phys. 2013, and is enabled
   by default. It can be disabled with.
 </p>
 <pre>
@@ -79,7 +79,7 @@ implausible driving stress, for example at tall ice cliffs. The option
   A (T) = 1.0 by default. The simplest model is the linear viscous sliding law tau_b = C u, more complex rules 
   include the usual power law tau_b = \beta^2 |u|^{-2/3} u , and rules that depend on the effective pressure. 
   The code also include an additional linear basal traction term, so that the final rule applied is tau_b = f( C, u) + C_0 u 
-  with C_0 used to impose, for example, drag from rocky fjord walls.  Note that whatever friction coeffcient is chosen, 
+  with C_0 used to impose, for example, drag from rocky fjord walls.  Note that whatever friction coefficient is chosen, 
   it will only be applied to grounded ice or floating ice immediately adjacent to an 
   ice free region whose upper surface lies above the lower surface of the ice (a fjord wall).
 </p>  
@@ -97,19 +97,19 @@ implausible driving stress, for example at tall ice cliffs. The option
   By default, BISICLES sets  beta^2 = 0 for every cell whose center is grounded. Setting
 </p>
 <pre>
-  basal_friction.grounding_line_subdivision = 4 # (any interger > 0, but 4 is recommended)
+  basal_friction.grounding_line_subdivision = 4 # (any integer > 0, but 4 is recommended)
 </pre>
 <p>
   selects a sub-grid interpolation scheme, which proves useful in some circumstances (see e.g Cornford et at, Ann, Glac. 2016).
-  The thickness above flotation is interploated between cell centers to compute a grounded-ice fraction w, with &lt; w &lt; 1,
+  The thickness above flotation is interpolated between cell centers to compute a grounded-ice fraction w, with &lt; w &lt; 1,
   which is used to weight beta^2. At some point we may make this the default.
 </p>
 
 <p>
   The subgrid scheme typically means that a factor of two coarser mesh can be used. Note that BISICLES does not suffer
-  from the much more severe truncation errors noted in Seroussi, The Cryopshere, 2014 when the subrgid scheme
+  from the much more severe truncation errors noted in Seroussi, The Cryopshere, 2014 when the subgrid scheme
   is not used: we attribute this to the one-sided difference scheme for the driving stress described in Cornford, J. Comput. Phys. 2013.
-  This is enabled by default, but can be disbaled with
+  This is enabled by default, but can be disabled with
 </p>
 <pre>
   velocity_rhs.gl_correction = false # true is the default
@@ -326,7 +326,7 @@ BasalFrictionPowerLaw.m = 0.3333
   The englacial constitutive relation has three roles. First, it computes the effective
   viscosity (mu) given the strain rate (e_ij) and rate factor (A), so that the stress
   components are given by t_ij = mu * e_ij. Secondly, it computes the rate of strain
-  heating (usually mu * e_ij * e_ji). Thirdly, it is currenty  responsible for
+  heating (usually mu * e_ij * e_ji). Thirdly, it is currently  responsible for
   reconstructing the velocity field u(x,y,z) from the basal velocity u_b(x,y), though
   this is slated for change when non-vertically integrated stresses are supported.
 </p>

@@ -17,22 +17,36 @@ minimal BISICLES initial data:
 @author: stephen
 """
 
+MASK_OCEAN=0
+MASK_OPENLAND=1
+MASK_GROUNDED=2
+MASK_FLOATING=3
+MASK_VOSTOCK=4
+
 from netCDF4 import Dataset
 import numpy as np
 from  scipy.interpolate import RectBivariateSpline
 from scipy import ndimage
 from osgeo import ogr, osr
 
+def cell_to_face_1D(x):
+    n = len(x)
+    xf = np.zeros(n+1)
+    xf[1:n] = 0.5*(x[0:n-1]+x[1:n])
+    xf[0] = x[0] - 0.5*(x[1]-x[0])
+    xf[n] = x[n-1] + 0.5*(x[n-1] - x[n-2])
+    return xf
 
-def plot(x,y,z,zmin,zmax,name):
+def plot(x,y,z,zmin,zmax,name, step=4):
     import matplotlib.pyplot as plt
     print ('plotting ' + name)
-    plt.figure()
+    plt.figure(figsize=(6,6))
     plt.subplot(1,1,1,aspect='equal')
-    plt.pcolormesh(x[::4],y[::4],z[::4,::4])
+    plt.pcolormesh(cell_to_face_1D(x[::step]),cell_to_face_1D(y[::step]),
+                   z[::step,::step],vmin=zmin,vmax=zmax,cmap='RdBu_r')
     plt.colorbar()
     plt.title(name)
-    plt.savefig('{}.png'.format(name),dpi=300)
+    plt.savefig('{}.png'.format(name),dpi=600)
 
 def zeros_2D(x,y):
     return np.zeros((len(y),len(x)))
@@ -54,11 +68,49 @@ def read_umod_mouginot(x,y,measures_nc):
     return spl(y,x) 
 
 
+def patch_hole(x,y,lo,hi, thk, topg, usrf, mask):
+
+    sx = np.logical_and(x > lo[0], x < hi[0])
+    sy = np.logical_and(y < lo[1], y < hi[0])
+
+    hole_n = np.sum( np.where(thk[sy,sx] > 10, 1 , 0) ) 
+       
+
+def patch_holes(x,y,thk, topg, usrf, mask):
+    #holes are odd regions of thin ice
+    print ('patching holes')
+    topg_f = ndimage.minimum_filter(topg, 4)
+    BIG_DIFF = 300.0 
+    SMALL_THK = 10.0
+    
+    hole = np.logical_and(topg_f < topg - BIG_DIFF, mask == MASK_GROUNDED)
+    hole = np.logical_and(hole, thk < SMALL_THK)
+    
+    print (' found {} hole cells'.format(np.sum(np.where(hole,1,0))))
+        
+    topg_f = np.where(hole, topg_f, topg)
+    thk = np.where(hole, usrf-topg_f,thk) 
+
+    plot(x,y,topg_f-topg,-BIG_DIFF, BIG_DIFF, 'patch_filler', step=2)
+    return thk,topg_f  
+
+def remove_islands(thk,mask):
+    from skimage import morphology
+    print ('removing islands')
+    eps = 1.0
+    ice_free = thk < eps
+    small_area = 128*128
+    ice_free = morphology.remove_small_holes(ice_free, small_area, in_place = True) 
+
+    thk = np.where(ice_free, 0, thk)
+    
+    return thk
+
 def preprocess(output_nc, bedmachine_nc, measures_nc):
 
 
     C_MAX = 1.0e+4 # maximum value for C
-    C_MIN = 1.0e+2 # minimum value for C
+    C_MIN = 1.0e+1 # minimum value for C
 
     #desired dimensions
     NX = 6144*2
@@ -79,9 +131,12 @@ def preprocess(output_nc, bedmachine_nc, measures_nc):
     usrf_bm =  np.flipud(ncbm.variables["surface"][:,:])
     mask = np.flipud(ncbm.variables["mask"][:,:])
 
-    #raise lake vostok
-    topg = np.where(mask == 4, usrf_bm - thk, topg)
+    #raise lake vostok (and set mask to grounded ice)
 
+    
+    topg = np.where(mask == MASK_VOSTOCK, usrf_bm - thk, topg)
+    mask = np.where(mask == MASK_VOSTOCK, MASK_GROUNDED, mask)
+    
     #speed data
     umod = read_umod_mouginot(xbm,ybm,measures_nc)
                     
@@ -95,24 +150,52 @@ def preprocess(output_nc, bedmachine_nc, measures_nc):
     topg = topg[s]
     umod = umod[s]
     usrf_bm = usrf_bm[s]
-    nx = NX
-    ny = NY
+    mask = mask[s]
+    nx = int(NX)
+    ny = int(NY)
 
+    #subset for plots.
+    psx = slice(0,int(nx/2))
+    psy = slice(int(ny/4),int(3*ny/4))
+    
+    #thickness/bedrock mods 
+    thk = remove_islands(thk,mask)
+    
+    thk,topg = patch_holes(x,y,thk, topg, usrf_bm, mask)
+
+    #raise ValueError('enough for now')
+    
     #dependents
+    eps = 1.0e-6
     rhoi = 917.0
     rhoo = 1027.0
     sg = topg + thk
     sf = (1.0 - rhoi/rhoo)*thk
-    eps = 1.0e-6
+    
     grounded = np.logical_and( thk > eps, sg + eps > sf)
     usrf = np.where( grounded, sg, sf )
-    plot(x,y,np.log(np.abs(usrf-usrf_bm)),-3,3,'surface_discrepancy')
 
-
+    #surface check
+    #psx = slice(0,int(nx/2))
+    #psy = slice(int(ny/4),int(3*ny/4))
+    #plot(x[psx],y[psy],(usrf-usrf_bm)[psy,psx],-10,10,'surface_discrepancy',step=1)
+    #mask check
+    
+    #my_mask = np.where(thk > eps,
+    #                   np.where(grounded, MASK_GROUNDED, MASK_FLOATING),
+    #                   np.where(topg > 0, MASK_OPENLAND, MASK_OCEAN))
+    #print(' mask discrepancy in {} cells '.format(np.sum(np.where(mask != my_mask,1,0))))
+    #plot(x[psx],y[psy],(mask-my_mask)[psy,psx],-3,3,'mask_discrepancy',step=1)
+    #plot(x[psx],y[psy],(mask)[psy,psx],0,4,'mask_morli',step=1)
+    #plot(x[psx],y[psy],(my_mask)[psy,psx],0,4,'mask_bike',step=1)                
+    #raise ValueError('enough for now')           
+    
     print ('umod c ...')
     #umodc is the weight w(x,y) in the misfit f_m(x,y) =  w (|u_model| - |u_obs|)^2
     umodc = np.where(umod > 1.0, 1.0, 0.0)
     umodc = np.where(thk > 10.0, umodc, 0.0)
+
+
 
     #surface gradient
     print ('grad s ...')

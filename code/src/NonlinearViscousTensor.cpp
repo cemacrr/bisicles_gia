@@ -105,7 +105,9 @@ IceNonlinearViscousTensor::IceNonlinearViscousTensor
    m_basalFrictionRelPtr(a.m_basalFrictionRelPtr), m_bcPtr(a.m_bcPtr->new_thicknessIBC()),
    m_A(a.m_A), m_faceA(a.m_faceA) , m_time(a.m_time), m_vtopSafety(a.m_vtopSafety),
    m_vtopRelaxMinIter(a.m_vtopRelaxMinIter),m_vtopRelaxTol(a.m_vtopRelaxTol),
-   m_muMin(a.m_muMin),m_muMax(a.m_muMax),m_scale(a.m_scale)
+   m_muMin(a.m_muMin),m_muMax(a.m_muMax),m_scale(a.m_scale),
+   m_artificialDragCoef(a.m_artificialDragCoef),
+   m_artificialDragPower(a.m_artificialDragPower)
 {
   setupCoeffs();
 }
@@ -132,14 +134,15 @@ IceNonlinearViscousTensor::IceNonlinearViscousTensor
  Real a_vtopRelaxTol,
  Real a_muMin ,
  Real a_muMax,
- Real a_scale)
+ Real a_scale, Real a_artificialDragCoef, Real a_artificialDragPower)
 :m_u(a_u), m_C(a_C), m_C0(a_C0), m_grids(a_grids), m_refRatio(a_refRatio),
  m_domains(a_domains), m_dxs(a_dxs),m_finestLevel(a_finestLevel), 
  m_coordSys(a_coordSys), m_constRelPtr(&a_constRel), 
  m_basalFrictionRelPtr(&a_basalFrictionRel), m_bcPtr(a_bc.new_thicknessIBC()),
  m_A(a_A), m_faceA(a_faceA) , m_time(a_time), m_vtopSafety(a_vtopSafety),
  m_vtopRelaxMinIter(a_vtopRelaxMinIter),m_vtopRelaxTol(a_vtopRelaxTol),
- m_muMin(a_muMin),m_muMax(a_muMax),m_scale(a_scale)
+ m_muMin(a_muMin),m_muMax(a_muMax),m_scale(a_scale),
+ m_artificialDragCoef(a_artificialDragCoef),m_artificialDragPower(a_artificialDragPower)
 {
   setupCoeffs();
 }
@@ -272,7 +275,7 @@ void IceNonlinearViscousTensor::setState(const Vector<LevelData<FArrayBox>*>& a_
         {
           QuadCFInterp qcfi(levelGrids, &m_grids[lev-1],
                             m_dxs[lev][0], m_refRatio[lev-1], 
-                            2, levelDomain);
+                            SpaceDim, levelDomain);
           qcfi.coarseFineInterp(levelVel, *a_u[lev-1]);
         }
 
@@ -344,7 +347,22 @@ void IceNonlinearViscousTensor::setState(const Vector<LevelData<FArrayBox>*>& a_
 	  m_basalFrictionRelPtr->computeAlpha
 		      (levelAlpha[dit], levelVel[dit], levelC[dit] , m_scale, 	
 	     levelCoords, dit, lev, gridBox);
-	  levelAlpha[dit] += (*m_C0[lev])[dit];	  
+	  levelAlpha[dit] += (*m_C0[lev])[dit];
+
+	  //artificial drag
+	  if (m_artificialDragCoef > 0.0)
+	    {
+	      const Real& a = m_artificialDragCoef;
+	      Real asq = a*a; 
+	      Real p = 0.5*(m_artificialDragPower-1.0);
+	      const FArrayBox& u = levelVel[dit];
+	      for ( BoxIterator bit(gridBox); bit.ok(); ++bit)
+		{
+		  const IntVect& iv = bit();
+		  Real usq = D_TERM(u(iv,0)*u(iv,0), + u(iv,1)*u(iv,1), + u(iv,2)*u(iv,2));
+		  levelAlpha[dit](iv) += std::pow(asq * usq,p)*a; // alpha = a^(n-1) |u|^(n-1) a  => |alpha*u| = a^n |u|^n
+ 		}
+	    }
 	  CH_assert(levelAlpha[dit].min(gridBox) >= 0.0);
 
 	  

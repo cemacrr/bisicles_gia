@@ -8,4 +8,6 @@
 {if (($1 =="RelaxSolver::") && ($2 == "initial")) print "   0  "  gensub(/,/,"",1,$6)}
 {if (($1 =="RelaxSolver::") && ($2 == "iteration")) print "   " gensub(/,/,"",1,$4) "  "  gensub(/,/,"",1,$8)}
 {if (($1 == "0") && ($2 == "KSP")) print "  "}
-{if (($2 =="KSP") ) print "   " $1 " " $5}
+{if (($2 =="KSP") ) print "   " $2 " " $5}
+{if (($1 =="KSP::") ) print "   " $4 " " $8}
+

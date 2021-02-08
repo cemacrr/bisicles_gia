@@ -47,7 +47,7 @@
 	<a href='#convert'>Convert</a> the data from the netCDF file into the hdf5 based format that BISICLES can read
       </li>
       <li>
-      Create a BISICLES <a href='#configure'>input</a> file ,which specifies the data file, but also
+      Create a BISICLES <a href='#configure'>input</a> file, which specifies the data file, but also
       parameters which affect the behavior of the solver.
       </li>
       <li>
@@ -146,14 +146,14 @@ data:
   </p>
   <h2><a name='convert'>Conversion</a> </h2>
   BISICLES cannot (yet) read  netCDF data directly, instead we must use the nctoamr tool to 
-  convert it into a Chombo AMR hierachy stored in an .hdf5 file. Run
+  convert it into a Chombo AMR hierarchy stored in an .hdf5 file. Run
   <pre>
     $BISICLES_HOME/BISICLES/code/filetools/nctoamr2d.Linux.64.g++.gfortran.DEBUG.ex pig-bisicles-1km.nc pig-bisicles-1km.2d.hdf5 thk topg beta temp000000 temp000001 temp000002 temp000003 temp000004 temp000005 temp000006 temp000007 temp000008 temp000009  xvel yvel velc divuh divuhc
   </pre>
   and you should end up with a file called pig-bisicles-1km.2d.hdf5 that has the same data as pig-bisicles-1km.nc.
   You can inspect the contents of this file with the h5ls and h5dump programs, but it won't be pretty. Instead,
   copy the file to your workstation and open into <a href='visit.html'>VisIt</a> which
-  has a special module for viewing Chombo AMR hierachies.
+  has a special module for viewing Chombo AMR hierarchies.
   <h2><a name='configure'>Configuration file</a> </h2>
   <p>
     As in the MISMIP3D example, we can generate a bunch of configuration files by running
@@ -162,7 +162,7 @@ data:
       > sh make_inputs.sh
     </pre>
     which should create several files, with names like <quote>inputs.pigv5.1km.l1l2.l2</quote>, where
-    l1l2 stands for the choice of the Schoof-Hindmarsh L1L2 physics (as opposed to ssa, for shelfy-stream approximation)
+    l1l2 stands for the choice of the Schoof-Hindmarsh L1L2 physics (as opposed to ssa, for shelfy-stream approximation (aka shallow-shelf approximation))
     and l2 stands for 2 levels of refinement (on top of the base level, to give us 2 level grids). The names
     aren't important of course, only the contents. Below, we'll look at the entries in inputs.pigv5.1km.l1l2.l2.
     </p>
@@ -178,14 +178,14 @@ amr.is_periodic = 0 0 0
 First, we have a comment, beginning with #.
 Next three quantities are given for the domain size, the third of which is ignored for now.
 Also notice that amr.num_cells is repeated; the last occurrence overrides the others.
-The fiest two numbers specify the base resolution, and because the data level sits on a  256 x 384
+The first two numbers specify the base resolution, and because the data level sits on a  256 x 384
 grid, the choice of a 64 x 96 grid means that the data on the base grid
 will be coarsened by a factor of 4 from the input data. The third number is the number of vertical layers,
 which remains the same one every grid.
 </p>
 
 <p>
-The next specifies the bulk constitutive relation and its attendant rate facto
+The next specifies the bulk constitutive relation and its attendant rate factor
 <pre>
 #bulk constitutive relation and parameters
 main.constitutiveRelation = L1L2
@@ -332,7 +332,7 @@ Various time stepping parameters come next
 <pre>
 #time stepping
 main.maxTime = 75  # maximum time to run to
-main.maxStep = 10000   # maximum number of steps to runx
+main.maxStep = 10000   # maximum number of steps to run
 amr.temporal_accuracy = 1
 amr.cfl = 0.25  
 amr.initial_cfl = 0.25  

@@ -400,8 +400,12 @@ c------------------------------------------------------------
                 ixy2 = CHF_ID(1,2)]   
     
 
+#if (CH_SPACEDIM == 1)
+c this doesn't make sense in 1D, so abort. Still need it to compile, however
+      write(*,*) 'integrateheaviside2D called in 1D!'
+      call MAYDAYERROR()
 
-
+#elif (CH_SPACEDIM == 2)
 c     width of sub cells
       subdx = one / (n*two)
       subdx2 = subdx**2
@@ -449,6 +453,9 @@ c     interpolation corners
       end do
       r(CHF_AUTOIX[i]) = rr
       CHF_ENDDO
+
+c   end if 2d
+#endif
 
       return
       end

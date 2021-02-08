@@ -40,10 +40,10 @@
 <h1>BISICLES file tools</h1>
 <p>
 BISICLES includes some tools used to perform miscellaneous actions on BISICLES/Chombo hdf5 files (amr files).
-They are located in the code/filetools directory. The most commonly used are decribed below.
+They are located in the code/filetools directory. The most commonly used are described below.
 </p>
 <p>
-When built (e.g by typing 'make all' in the code/filestools directory) a number
+When built (e.g by typing 'make all' in the code/filetools directory) a number
 of executables, with names like e.g extract2d.Linux.64.g++.gfortran.DEBUG.ex are created.
 Here, we will use the base name (e.g) 'extract' in examples; in practice, you would need e.g 
 extract2d.Linux.64.g++.gfortran.DEBUG.ex. All of the filetools will provide
@@ -65,14 +65,14 @@ usage: merge &lt;input_file a&gt; &lt;input_file b&gt; &lt;output_file&gt;
 </pre>
 <h2><a name='pythonf'>pythonf</a></h2>
  
-Evalute a python cell by cell over an amr file and save the results to a new amr file.
+Evaluate a python cell by cell over an amr file and save the results to a new amr file.
 <pre>
 usage: pythonf &lt;input_file&gt; &lt;output_file&gt; &lt;python script&gt; &lt;python function&gt; &lt;input tuple&gt; &lt;output tuple&gt;
 </pre>
 <p>
 pythonf can be used to carry out a wide range of post- and pre-processing tasks. For example, imagine
 a file 'linear_traction.2d.hdf5' that contains fields C (a drag coefficient), u (x-velocity), and v (y-velocity)
-that allowed the basal traction to be computed for a linear vicouss law (T_x = C * u, T_y = C * v). 
+that allowed the basal traction to be computed for a linear viscous law (T_x = C * u, T_y = C * v). 
 This would be a typical result from the inverse problem. It is possible to create an hdf5
 designed to work with a third-power law ( T_i = D * |u|^{-2/3} * u_i) that should produce the same initial velocity
 by setting D = C * |u|^2/3. Create a python file 'ctransform.py'
@@ -98,7 +98,7 @@ Compute summary statistics (e.g volume) from a plot file.
 usage: stats &lt;plot file&gt; &lt;ice_density&gt; &lt;water_density&gt; &lt;gravity&gt; [mask_file] [mask_no_start = 0] [mask_no_end = mask_no_start] 
 </pre>
 <p>
-The stats tool is primarily used to compute quantities like ice volume and volume aboce flotation.  At minumum, supply a
+The stats tool is primarily used to compute quantities like ice volume and volume above flotation.  At minimum, supply a
 file name and  &lt;ice_density&gt; &lt;water_density&gt; &lt;gravity&gt; arguments. e.g, for the 
 <a href='pineisland.html'>Pine Island Glacier</a> example:
 </p>
@@ -108,7 +108,7 @@ file name and  &lt;ice_density&gt; &lt;water_density&gt; &lt;gravity&gt; argumen
 </pre>
 <p>
 It is also possible to calculate the same statistics for a number of sub-regions. For that, you need an hdf5 (e.g mask.2d.hdf5) file 
-(created with <a href='#nctoamr'>nctoamr</a>, for example) including a single field (named e.g 'mask') that idendifies each area
+(created with <a href='#nctoamr'>nctoamr</a>, for example) including a single field (named e.g 'mask') that identifies each area
 by a unique double precision representation of an integer. If the Pine Island Glacier domain was split into sub-regions 0-3 inclusive,
 stats for regions 1,2 could be computed by running
 </p>
@@ -127,7 +127,7 @@ usage: flatten &lt;input_file&gt; &lt;output_file&gt; level [x0 [y0 [z0]]]
 <p>
 The main benefit of BISICLES AMR is in the solution of PDEs to compute the ice sheet state. The state itself
 is usually amenable to analysis at more modest resolution than is required around the grounding line, 
-and on top of that the hdf5 amr files are a specialised format that many find awkward. The flatten tool
+and on top of that the hdf5 amr files are a specialized format that many find awkward. The flatten tool
 can be used to make a uniform mesh version of the amr file, either as an hdf5 file that BISICLES can read
 for other purposes, or a netcdf file for wider dissemination. All of the interpolation is
 locally conservative.

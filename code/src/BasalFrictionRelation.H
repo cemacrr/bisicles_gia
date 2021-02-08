@@ -96,6 +96,9 @@ public:
 
     - \f$ m = 1 \f$ gives a linear viscous sliding law 
     - \f$ m = 1/3 \f$ is often used (e.g in the MISMIP tests)
+
+    An optional factor \f$ (|u_b|/|u_r| + 1)^m ) \f$ is available (see Joughin 2019)
+    that lead \f$ d|T_b|/d|u| \rightarrow -> 0\f$ as \f$|u| \rightarrow \infty \f$ 
 	
     Run-time configuation is carried out in BasalFrictionRelation::parse.
     If the string `A.B.basalFrictionRelation = powerLaw` is found, the expected
@@ -103,6 +106,7 @@ public:
     
     - `BasalFrictionPowerLaw.m = <float. e,g 0.3333 for m = 1/3>`
     - `BasalFrictionPowerLaw.includeEffectivePressure = <bool>`
+    - `BasalFrictionPowerLaw.fastSlidingSpeed = <float/ e.g 300 for Joughin 2019>`
     
     if includeEffectivePressure, \f$n = m\f$ so that there is a 
     dependence on the thickness over flotation \f$h_ab\f$. Otherwise,
@@ -113,8 +117,8 @@ class BasalFrictionPowerLaw : public BasalFrictionRelation
 {
 public:
 
-  BasalFrictionPowerLaw(Real a_m, bool a_includeEffectivePressure) 
-    : m_m(a_m), m_includeEffectivePressure(a_includeEffectivePressure) {;}
+  BasalFrictionPowerLaw(Real a_m, Real a_fastSlidingSpeed,  bool a_includeEffectivePressure) 
+    : m_m(a_m), m_fastSlidingSpeed(a_fastSlidingSpeed), m_includeEffectivePressure(a_includeEffectivePressure) {;}
   
   virtual ~BasalFrictionPowerLaw() {;}
 
@@ -127,15 +131,16 @@ public:
 			    const Box& a_box) const;
 
   BasalFrictionRelation* getNewBasalFrictionRelation() const{
-    return static_cast<BasalFrictionRelation*> (new BasalFrictionPowerLaw(m_m, m_includeEffectivePressure));
+    return static_cast<BasalFrictionRelation*> (new BasalFrictionPowerLaw(m_m, m_fastSlidingSpeed, m_includeEffectivePressure));
   }
 
   /// \callergraph
-  virtual Real power() const {return m_m;} 
-
+  virtual Real power() const {return m_m;}
+  
 private:
   Real m_m;
   bool m_includeEffectivePressure;
+  Real m_fastSlidingSpeed; // a scale u_r for fast flow : u >> u_r -> Tb -> a constant
   BasalFrictionPowerLaw();
 
 };
@@ -147,15 +152,16 @@ private:
    For a ~ 1, Tb = Tb' is applied most places, with the Coulomb law 
    Tb = a*p*u/|u| imposed at  flotation
 
-   Two laws are supported, one due to Tsai 2015
+   Three laws are supported, one due to Tsai 2015
 
    \f$ \tau_b = \min(|\tau _b^{\prime}|, \alpha N^p) u/|u| \f$
 
-   and a second due to Schoof 2005, Gagliardini 2007, and Leguy 2014, which
+   the second due to Schoof 2005, Gagliardini 2007, and Leguy 2014, which
    is smoother but otherwise similar. We use the form from Leguy 2014
 
    \f$ \tau _b = \tau _b^{\prime} ( N^p / (\alpha |u| + N^p ) )^{1/p}\f$
    
+
     Run-time configuation is carried out in BasalFrictionRelation::parse.
     If the string `A.B.basalFrictionRelation = pressureLimitedLaw` is found, the expected
     form is

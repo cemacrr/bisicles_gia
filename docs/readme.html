@@ -37,7 +37,7 @@
   <li> <a href='#svnco'>Check out</a> the source code</li>
   <li> Set up some third party <a href='#deps'>dependencies</a></li>
   <li> <a href='#chombo'> Configure Chombo</a> by editing some definitions in a makefile</li>
-  <li> <a href='#bikeconf'>Configure BISICLES</a> addtional options by editing some definitions in another makefile</li>
+  <li> <a href='#bikeconf'>Configure BISICLES</a> additional options by editing some definitions in another makefile</li>
   <li> <a href='#bisicles'> Compile driver</a>, the main standalone BISICLES executable.</li>
   <li> <a href='#example'> Run driver on a simple problem </a> to ensure that it works</li>
 </ol>
@@ -55,7 +55,7 @@
   <a href='https://wci.llnl.gov/codes/visit/home.html'>VisIt</a></li> to view the data BISICLES 
 produces (other programs can be put to use, but VisIt is by far the most convenient)</p>
 <p>
-  There are some <a href='sites.html'>site specific notes</a>: look at these before proceeeding
+  There are some <a href='sites.html'>site specific notes</a>: look at these before proceeding
   if you are installing on an Ubuntu or Debian workstations, on a Cray XC30 or XC40 (e.g ARCHER, edison, cori),
   or on any of the other machines that BISICLES has been used before.
 </p>
@@ -86,7 +86,7 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
 </pre>
 <p>
   You may want one of the other branches, especially if you are working with any of
-  the BISICLES developers to introuduce new features, but in that case you will
+  the BISICLES developers to introduce new features, but in that case you will
   probably know which one you need. Note
   that you do not need to layout your source directories as indicated above, or even
   follow the rest of these notes exactly. If you want some other layout, note
@@ -104,7 +104,7 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
       BISICLES needs to know where
       the Chombo includes and libraries are to be found (and possibly the same for python and netcdf).
       By default it assumes that there is a <tt>Chombo</tt> source tree at the same level as
-      the BISICLES source tree, but this can be overidden by setting the environment variable
+      the BISICLES source tree, but this can be overridden by setting the environment variable
       <tt>$CHOMBO_HOME</tt>. e.g if you have Chombo in
       <tt>/path/to/Chombo/3.2</tt> then set <tt>CHOMBO_HOME=/path/to/Chombo/3.2/lib</tt>
     </li>
@@ -125,8 +125,8 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
   So, check to see what's already installed, with an eye open to the possibility that things have been configured in some
   odd way which makes them unusable for us, in which case you you're back to where you were anyway). See the
   <a href='sites.html'>site specific notes</a>, because certain common environments, such as the Cray XC30/40,
-  and recent versions of Debian and Ubuntu GNU/Linux, have well designed systems for satifying some of these dependencies,
-  notaby hdf5 and netcdf. <strong>Do not follow the instructions below for hdf5 and netcdf on those machines, instead follow the much simpler instructions in the  <a href='sites.html'>site specific notes</a></strong>
+  and recent versions of Debian and Ubuntu GNU/Linux, have well designed systems for satisfying some of these dependencies,
+  notably hdf5 and netcdf. <strong>Do not follow the instructions below for hdf5 and netcdf on those machines, instead follow the much simpler instructions in the  <a href='sites.html'>site specific notes</a></strong>
 </p>
 
 <p>
@@ -137,11 +137,11 @@ produces (other programs can be put to use, but VisIt is by far the most conveni
   substantially improve the performance of the nonlinear ice velocity solve for problems where the native Chombo geometric multigrid (GMG) solvers struggle. 
 </p>
 <p> BISICLES includes some complementary tools which require netcdf, and can be linked with the Glimmer-CISM model,
-  which also requires netcdf. As with hdf5, there may be a suitauble version installed on your system
+  which also requires netcdf. As with hdf5, there may be a suitable version installed on your system
   but you may need to compile netCDF from source.
 </p>
 <p>
-  There should be a script, download_dependencies.sh (in the same directrory as this file, 
+  There should be a script, download_dependencies.sh (in the same directory as this file, 
   $BISICLES_HOME/BISICLES/docs) that will get the (version 1.8.21) hdf5 sources and  
   unpack them, twice : once into hdf5/serial/src and once into hdf5/parallel/src. 
   It assumes $BISICLES_HOME is set. It should contain the following
@@ -577,7 +577,7 @@ cd $BISICLES_HOME/BISICLES/code
 make all OPT=TRUE MPI=TRUE
 </pre>
 <p>
-or specify the optons you prefer. 
+or specify the options you prefer. 
 </p>
 </div>
 

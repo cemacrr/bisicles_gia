@@ -984,6 +984,8 @@ void computeStats(Vector<LevelData<FArrayBox>* >& topography,
   pout() << " floatingArea = " << floatingArea << " ";
   pout() << " totalArea = " << totalArea << " ";
   pout() << " groundedPlusOpenLandArea = " << groundedPlusOpenLandArea << " ";
+  pout() << " iceMassAll = " << iceVolumeAll*iceDensity << " ";
+  pout() << " iceMassAbove = " << iceVolumeAbove*iceDensity << " ";
   if (has_src)
     {
       pout() << " Total Melt = " << totalMelt << "." << endl;

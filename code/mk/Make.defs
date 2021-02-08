@@ -12,7 +12,9 @@ THIS_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 ifeq ($(BISICLES_HOME),)
 BISICLES_HOME := $(THIS_DIR)/../../../
 endif
+ifeq ($(BISICLES_BRANCH),)
 BISICLES_BRANCH := $(THIS_DIR)/../../
+endif
 
 ifeq ($(CHOMBO_HOME),)
 CHOMBO_HOME := $(BISICLES_HOME)/Chombo/lib
@@ -76,7 +78,7 @@ endif
 $(info python: $(PYTHON_INC) $(PYTHON_LIBS) )
 ifneq ($(PYTHON_INC),)
 CPPFLAGS :=$(PYTHON_INC) -DHAVE_PYTHON	$(CPPFLAGS)
-LIBFLAGS+=$(PYTHON_LIBS)
+LIBFLAGS+=$(PYTHON_LIBS) 
 endif
 
 SVN_REV=$(shell cd $(BISICLES_BRANCH) ; svnversion -n)

@@ -211,6 +211,8 @@ int main(int argc, char* argv[]) {
     // velocity test direction is 0 if we're testing x-vel, 
     //                            1 if we're testing y-vel
     //                            2 if we just want to grab the entire block
+    //                            3 if we want the entire block and want to force it (so clobber existing tags)
+    //                            4 if like 2, but upper- or lower-triangular
     // sign is +1 if we're masking positive velocities,
     //         -1 if we're masking negative velocities
     //
@@ -284,6 +286,10 @@ int main(int argc, char* argv[]) {
           {
             testVelComp =2;            
           }
+        else 
+          {
+            testVelComp =vectTestDir[i];            
+          }        
           
         RealVect dxLev = datafile_crseDx*RealVect::Unit;
         for (int lev=0; lev<datafile_numLevels; lev++)
@@ -337,13 +343,41 @@ int main(int argc, char* argv[]) {
                     for (bit.begin(); bit.ok(); ++bit)
                       {
                         IntVect iv = bit();
+                        if (testVelComp == 3)
+                          {
+                            // mark as part of this sector regardless of
+                            // what's already there
+                            thisData(iv,data_maskComp) = sector_val;
+                          }                            
                         // don't poach from other sectors
-                        if (thisData(iv, data_maskComp) > maskTestVal)
+                        else if (thisData(iv, data_maskComp) > maskTestVal)
                           {
                             if (testVelComp == 2)
                               {
                                 // mark as part of this sector
                                 thisData(iv,data_maskComp) = sector_val;
+                              }
+                            else if (testVelComp == 4)
+                              {
+                                int ilo = subregion.smallEnd()[0];
+                                int ihi = subregion.bigEnd()[0];
+                                int jlo = subregion.smallEnd()[1];
+                                int jhi = subregion.bigEnd()[1];
+                                if (vectSign[i]*((jlo-iv[1])*(ihi-ilo)+(jhi-jlo)*(iv[0]-ilo)) > 0)
+                                  {
+                                    thisData(iv,data_maskComp) = sector_val;
+                                  }
+                              }
+                            else if (testVelComp == 5)
+                              {
+                                int ilo = subregion.smallEnd()[0];
+                                int ihi = subregion.bigEnd()[0];
+                                int jlo = subregion.smallEnd()[1];
+                                int jhi = subregion.bigEnd()[1];
+                                if (vectSign[i]*((jhi-iv[1])*(ihi-ilo)+(jlo-jhi)*(iv[0]-ilo)) > 0)
+                                  {
+                                    thisData(iv,data_maskComp) = sector_val;
+                                  }
                               }                            
                             else if (vectSign[i]*thisVel(iv,testVelComp) > 0.0)
                               {

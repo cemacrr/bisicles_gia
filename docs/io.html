@@ -136,7 +136,7 @@ amr.write_fluxVel = true; # if true, write the vertically averaged mass flux vel
 amr.write_viscousTensor = false; # if true, write the effective drag and viscosity, plus components of the stress tensor
 amr.write_baseVel = true; # if true, write the velocity at the ice base
 amr.write_internal_energy = false; # if true, include the internal energy density of each vertical layer, plus surface and base 
-amr.write_thickness_sources = false; # if true, write the surface and basal thicness fluxes (SMB and melt-rate)
+amr.write_thickness_sources = false; # if true, write the surface and basal thickness fluxes (SMB and melt-rate)
 amr.write_layer_velocities = false; # if true, write the horizontal velocity at each vertical layer
 amr.write_mask = false;# if true, write the grounded/floating/land/sea mask
 </pre>
@@ -160,10 +160,10 @@ compatible data. They differ from the standard files in several respects:</p>
 <ol>
   <li>They include a single mesh level, and data from coarser or finer levels is interpolated/coarsened as needed)</li>
   <li>The fields are time-averaged rather than snapshots: each file contains the time means since the previous
-    file was writtent</li>
+    file was written</li>
   <li>Time sequences of domain wide data (such as ice volume) are included: these span the time interval since the previous
     file was written</li>
-  <li>The output fields (ice thickness etc) are labelled with to CF standard names</li>
+  <li>The output fields (ice thickness etc) are labeled with to CF standard names</li>
 </ol>
 <p>
 The files produced are not themselves CF-compliant, because they are
@@ -175,7 +175,7 @@ plot.X.CF.2d.hdf5, run (for example)
   $BISICLES_HOME/BISICLES/code/filetools/flatten2d.Linux.64.g++.gfortran.DEBUG.OPT.ex plot.X.CF.2d.hdf5 plot.X.nc 0
 </pre>
 <p>
-  which will also condstuct some metadata, e.g specfify the projection. To enable CF plot files, disable the standard files and include some typical data:
+  which will also construct some metadata, e.g specify the projection. To enable CF plot files, disable the standard files and include some typical data:
 </p>
 <pre>
 amr.plot_style_cf = true
@@ -247,7 +247,7 @@ amr_restart_set_time = false
 <p>
 The following script template was designed for ARCHER. The script is submitted from 
 a given directory (which will set $PBS_O_WORKDIR). When it runs, each job 
-creates its own numbered working sub-directory, so that log putput is seperated. 
+creates its own numbered working sub-directory, so that log output is separated. 
 plot and checkpoint files are written to ../ - which will be  $PBS_O_WORKDIR.
 Subsequent runs of the same script will be restarted from the last checkpoint.
 If  you copy this script, make sure you replace all the &lt;variables&gt;
@@ -273,7 +273,7 @@ RUNDIR=$BASEDIR/$PBS_JOBID
 mkdir -p $RUNDIR
 cd $RUNDIR
 
-export INFILEBASE=$BASEDIR/&lt;configuraton file&gt
+export INFILEBASE=$BASEDIR/&lt;configuration file&gt
 export INFILE=@INFILE.$JOBNO
 cp $INFILEBASE $INFILE
 

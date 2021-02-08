@@ -245,27 +245,12 @@ int main(int argc, char* argv[]) {
       }
 
 
-    BasalFrictionRelation* basalFrictionRelationPtr;
-    std::string basalFrictionRelType = "powerLaw";
-    pp2.query("basalFrictionRelation", basalFrictionRelType);
-    
-    //basal friction relation
-    if (basalFrictionRelType == "powerLaw")
-      {
-	ParmParse plPP("BasalFrictionPowerLaw");
-
-	Real m = 1.0;
-	plPP.query("m",m);
-	bool includeEffectivePressure = false;
-	plPP.query("includeEffectivePressure",includeEffectivePressure);
-	BasalFrictionPowerLaw*  pl = new BasalFrictionPowerLaw(m,includeEffectivePressure);
-	basalFrictionRelationPtr = static_cast<BasalFrictionRelation*>(pl);
-      }
-    else
+    BasalFrictionRelation* basalFrictionRelationPtr = BasalFrictionRelation::parse("main",0);
+    if (!  basalFrictionRelationPtr )
       {
 	MayDay::Error("undefined basalFrictionRelation in inputs");
       }
-
+    
     //we only need this for the velocity boundary condition
     IceThicknessIBC* thicknessIBC;
     std::string problem_type;

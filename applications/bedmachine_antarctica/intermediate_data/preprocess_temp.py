@@ -14,6 +14,7 @@ def sigma(n_layer):
 def morlighem_temperature_nc(out_temperature_file, geometry_file, morlighem_temperature_file, sigma_mid):
 
     from  scipy.interpolate import RectBivariateSpline
+    from scipy import ndimage
     T_MAX = 273
 
     ncgeo = Dataset(geometry_file,'r')
@@ -45,14 +46,29 @@ def morlighem_temperature_nc(out_temperature_file, geometry_file, morlighem_temp
     s = np.where( s > sf, s, sf) 
 
 
+    ice = np.where(thk < 1, 0, 1)
+    dx = x[1]-x[0]
+    ice_not_edge = ndimage.minimum_filter(ice,int(8e3/dx))
+    #thkm = RectBivariateSpline(x,y,thk,kx=1,ky=1)(xm,ym)
+
+    
+
     def read_morlighem_layer(x,y,k):
         layer = nmor - k  -1
         print('reading layer {}, zeta = {}, sigma = {}'.format(layer, zeta[layer], 1-zeta[layer]))
         T0 = ncmor.variables['temperature'][layer,:,:]
         T0 = np.where(T0 < T_MAX, T0, T_MAX)
+        #T0 = np.where(thkm > 1 , T0, T_MAX)
         print ('interpolating x,y')
         T = RectBivariateSpline(xm,ym,T0,kx=1,ky=1)
         Txy = T(x,y)
+        Txy  = np.where(ice_not_edge, Txy, T_MAX)
+        print ('    ...filtering')
+
+        Txyf = ndimage.maximum_filter(Txy, int(12e3/dx))
+        #Txyf = ndimage.gaussian_filter(Txyf, int(16e3/dx))
+        Txy = np.where(ice_not_edge < 1, Txyf, Txy)
+        
         return np.where(thk > 1, Txy, T_MAX)
 
     kp,kp_prev = 1,0

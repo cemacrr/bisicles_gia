@@ -31,13 +31,17 @@
 <h2><a name='debian'>Debian based systems (e.g Ubuntu)</a></h2>
 
 <p>
-  Recent Debian GNU/Linux derivatives (from around 2016), including Ubuntu 18.04 (the latest LTS) allow an mpi environment ,
-  hdf5, and netcdf to be installed in a way that works well for BISICLES. On Ubuntu run
+  Recent Debian GNU/Linux derivatives (from around 2016), including Ubuntu 20.04 (the latest LTS) allow an mpi environment ,
+  hdf5, and netcdf to be installed in a way that works well for BISICLES. On Ubuntu 20.04 run
 </p>
 <pre>
-  sudo apt-get install subversion g++ gfortran csh mpi-default-bin mpi-default-dev libhdf5-mpi-dev libhdf5-dev hdf5-tools libnetcdff-dev libnetcdf-dev python libpython-dev
+  sudo apt-get install subversion g++ gfortran csh mpi-default-bin mpi-default-dev libhdf5-mpi-dev libhdf5-dev hdf5-tools libnetcdff-dev libnetcdf-dev python3 python3-dev
+ libpython3-dev
 </pre>
 <p>
+If you want to use python for analysis you will need the usual libraries (numpy, matplotlib etc) 
+Substitute python for python3 if you are opposed to python 3 (but since python 2 is now deprecated that
+might not be tenable. I wish they had not changed the arithmetic rules, though.
   The file $BISICLES_HOME/Chombo/lib/mk/Make.defs.local should contain:
 </p>
 <pre>
@@ -57,12 +61,14 @@ foptflags     = -fPIC -O3 -ffast-math -funroll-loops
 </pre>
 <p>
   and the file $BISICLES_HOME/BISICLES/code/mk/Make.defs.$mymachine (where $mymachine is
-  the output from 'uname -n') should contain
+  the output from 'uname -n') can be copied from s$BISICLES_HOME/BISICLES/code/mk/Make.defs.ubuntu_20.4 and should contain
 </p>
 <pre>
+PYTHON_INC=$(shell python3-config --includes)
+#--ldflags does not contain -lpython for reasons that escape me
+PYTHON_LIBS=-lpython3.8 $(shell python3-config --ldflags)
 NETCDF_HOME=$(shell nc-config --prefix)
 NETCDF_LIBS=-lnetcdff -lnetcdf -lhdf5_hl
-PYTHON_VERSION=2.7
 </pre>
 
 
@@ -105,15 +111,18 @@ PYTHON_VERSION=2.7
     <h2><a name='nersc'>NERSC</a></h2>
     The US DOE-run National Energy Research Supercomputing Center ( <a href='http://www.nersc.gov'>NERSC</a>) has several machines which BISICLES users may find useful. 
 
-<h3>Cori -- GNU compilers </h3>
+<h3>Cori </h3>
 
 <p>
-  The Cray XC40 ( <a href='https://www.nersc.gov/users/computational-systems/cori'>Cori </a>) at NERSC offers Cray, GNU, and Intel compilers. All three compilers can be supported with a single
-  Make.defs.local, it only only necessary to load the correct PrgEnv module and the cray-hdf5-parallel.  
-<p>
-Cori has two partitions -- the instructions here are for the Intel Xeon "Haswell" partition, rather than the Knights Landing (KNL) partition.
+  The Cray XC40 ( <a href='https://www.nersc.gov/users/computational-systems/cori'>Cori </a>) at NERSC offers Cray, GNU, and Intel compilers. Cori has two partitions -- the Intel Xeon "Haswell" partition is often faster execution time-wise, but has longer waits in the queues. The Knights Landing "KNL" partition has slower run times, but often significantly faster turnaround in the queues. I (Dan Martin) generally use the Haswell nodes for things like visualization (I use VisIt in client-server mode, leaving the data on NERSC), and the KNL nodes for moderate to large production runs. We are also maintaining precompiled executables for our own (and others') use if that's more convenent. If you have any difficulties with these, e-mail Dan at DFMartin@lbl.gov.
 </p>
-
+<h4> Haswell nodes -- GNU compilers </h4>
+<p>
+  The precompiled BISICLES executable for Haswell nodes (from the public/trunk branch) can be found at
+  </p>
+<pre>
+/global/common/software/m1041/BISICLES/haswell/bin/driver2d.Linux.64.CC.ftn.OPT.MPI.PETSC.ex
+</pre>
 <p>
   To compile with GNU, switch to the correct PrgEnv and load an hdf5 module, plus netcdf and python if desired
 </p>
@@ -135,7 +144,7 @@ Cori has two partitions -- the instructions here are for the Intel Xeon "Haswell
 <p>
 If you want to use the PETSc solvers, you can use the libraries maintained by Mark Adams:
 <p>
-PETSC_DIR=/global/homes/m/madams/petsc_install/petsc-cori-haswell-opt64-gcc
+  PETSC_DIR=/global/common/software/m1041/petsc_install/petsc_haswell_gnu
 <p>
 PETSC_ARCH=""
 <p>
@@ -179,99 +188,51 @@ HDFMPIINCFLAGS=-I$(HDF5_DIR)/include $(HDF_INCLUDE_OPTS)
 </pre>
 
 <p>
-  For python and netcdf, $BISICLES_HOME/BISICLES/code/mk/Make.defs.cori should include:
-</p>
+  For python and netcdf, the build should hopefully see the existing Make.defs.cori file, which is being maintained for KNL, but should also work for Haswell builds.
+<p>
+  
+<h4> KNL Nodes -- Intel compilers </h4>
+
+<p>
+  The precompiled BISICLES executable for KNL nodes (from the public/trunk branch) can be found at
+  </p>
 <pre>
-NETCDF_HOME =$(NETCDF_DIR)
-NETCDF_LIBS= -lnetcdff -lnetcdf
-PYTHON_VERSION=2.7
-PYTHON_INC=-I$(PYTHON_DIR)/include/python2.7
-PYTHON_LIBS=-L$(PYTHON_DIR)/lib/ -lpython2.7 -ldl -lutil -lm -Xlinker -export-dynamic
-NETCDF_INC=$(shell nc-config --includedir)
-NETCDF_LIBS=$(shell nc-config --flibs)
+/global/common/software/m1041/BISICLES/KNL/bin/driver-public2d.Linux.64.CC.ftn.OPT.MPI.PETSC.ex
 </pre>
+<p>
+  
+    We've found that the Intel compilers work well for the KNL part of Cori. You'll first need to load the correct modules and set some environment variables (including pointing the build toward the Mark Adams-maintained PETSC library).
+    
+<pre>
+setenv NERSC_HOST `/usr/common/usg/bin/nersc_host`
+
+module unload PrgEnv-gnu
+module unload craype-haswell
+module load PrgEnv-intel
+module load craype-mic-knl
+module load cray-hdf5-parallel
+module load cray-netcdf-hdf5parallel
+module load visit  
+setenv PETSC_DIR PETSC_DIR=/global/common/software/m1041/petsc_install/petsc_knl_intel
+setenv PETSC_ARCH ""
+setenv CRAY_ROOTFS DSL
+setenv CRAYPE_LINK_TYPE dynamic
+</pre>
+
+And then use Chombo/lib/mk/local/Make.defs.cori.knl
+
+If you want to use the python functionality, then you should also load the python module. Unfortunately, it appears that you currently also have to add the python library directory to your LD_LIBRARY_PATH environment. In a csh/tcsh environment, this looks like:
+<pre>
+module load python
+setenv LD_LIBRARY_PATH ${PYTHON_DIR}/lib:${LD_LIBRARY_PATH}
+</pre>
+  
+Your build should also automagically access the existing Make.defs.cori file in BISICLES/code/mk, which is being kept up to date for KNL builds and runs that we are constantly doing.
+  
 
     
-<h3>Edison -- GNU compilers  (note that Edison is being decomissioned on May 13, 2019) </h3>
+<h3>Edison -- GNU compilers  (Edison was decommissioned on May 13, 2019) </h3>
 
-<p>
-  The Cray XC30 (Edison) at NERSC offers Cray, GNU, and Intel compilers. All three compilers can be supported with a single
-  Make.defs.local, it only only necessary to load the correct PrgEnv module and the cray-hdf5-parallel.
-</p>
-
-<p>
-  To compile with GNU, switch to the correct PrgEnv and load an hdf5 module, plus netcdf and python if desired
-</p>
-<pre>
-> module swap PrgEnv-cray PrgEnv-gnu
-> module load cray-hdf5-parallel
-> module load python
-> module load cray-netcdf-hdf5parallel
-> module unload  cray-shmem #needed for python only
-</pre>
-<p>
-  To have the python interface work, the compiler needs the -shared and -fPIC flags, and
-  the linker needs the -dynamic flag. You may also need to have the environment variable CRAYPE_LINK_TYPE set to "dynamic"; in the csh or tcsh shells:
-</p>
-<pre>
-> setenv CRAYPE_LINK_TYPE dynamic
-</pre>
-
- You should be able to use the existing Chombo/lib/mk/loocal/Make.defs.edison file in the Chombo release as a starting point.  An example $BISICLES_HOME/Chombo/lib/mk/local/Make.defs.local would be:
-</p>
-<pre>
-makefiles+=Make.defs.local
-
-#default to MPI=TRUE,OPT=TRUE,DEBUG=FALSE 
-MPI=TRUE
-OPT=TRUE
-DEBUG=FALSE
-
-#this seems to be the Cray way
-CXX=CC
-FC=ftn
-MPICXX=CC
-USE_64=TRUE
-
-ifeq ($(PE_ENV),GNU)
-
-CH_CPP=$(CXX) -E -P 
-XTRACONFIG=.GNU
-cxxoptflags += -shared -fPIC
-foptflags += -shared -fPIC
-ldoptflags += -dynamic
-cxxoptflags += -march=ivybridge -O2 -mavx -ftree-vectorize -ffast-math -funroll-loops
-foptflags += -march=ivybridge -O2 -mavx -ftree-vectorize -ffast-math -funroll-loops
-
-else
-$(ECHO) "UNKNOWN PROGRAMMING ENVIRONMENT!"
-endif
-
-# The appropriate module (cray-hdf5-parallel) must be loaded for this to work.
-USE_HDF=TRUE
-HDFLIBFLAGS=   -L$(HDF5_DIR)/lib     $(HDF_POST_LINK_OPTS)  -lhdf5 -lz
-HDFMPILIBFLAGS=-L$(HDF5_DIR)/lib     $(HDF_POST_LINK_OPTS)  -lhdf5 -lz
-HDFINCFLAGS=   -I$(HDF5_DIR)/include $(HDF_INCLUDE_OPTS)
-HDFMPIINCFLAGS=-I$(HDF5_DIR)/include $(HDF_INCLUDE_OPTS)
-</pre>
-
-<p>
-  For python and netcdf, $BISICLES_HOME/BISICLES/code/mk/Make.defs.edison should include:
-</p>
-<pre>
-PYTHON_INC=/usr/common/usg/python/2.7.9/include/python2.7
-PYTHON_LIBS=-L/usr/common/usg/python/2.7.9/lib/ -lpython2.7 -ldl -lutil -lm -Xlinker -export-dynamic
-NETCDF_INC=$(shell nc-config --includedir)
-NETCDF_LIBS=$(shell nc-config --flibs)
-
-NETCDF_HOME =$(NETCDF_DIR)
-NETCDF_LIBS= -lnetcdff -lnetcdf
-PYTHON_VERSION=2.7
-PYTHON_INC=-I$(PYTHON_DIR)/include/python2.7
-PYTHON_LIBS=-L$(PYTHON_DIR)/lib/ -lpython2.7 -ldl -lutil -lm -Xlinker -export-dynamic
-NETCDF_INC=$(shell nc-config --includedir)
-NETCDF_LIBS=$(shell nc-config --flibs)
-</pre>
   
 <h3>Hopper -- GNU compilers</h3>
 
@@ -346,7 +307,7 @@ nodes. Choose static if you have no strong preference.
   make all OPT=TRUE MPI=TRUE DEBUG=FALSE # are all default 
 </pre>
   <p>
-    the exectable will be driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex. To
+    the executable will be driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.ex. To
     compile a PETSc-enable executable,  driver2d.Linux.64.CC.ftn.OPT.MPI.PETSC.GNU.ex
   </p>
   <pre>
@@ -401,7 +362,7 @@ To build with GNU, switch to the correct PrgEnv and load an hdf5 module
     make all OPT=TRUE MPI=TRUE DEBUG=FALSE # are all default 
   </pre>
   <p>
-    the exectable will be driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.DY.ex. To
+    the executable will be driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.DY.ex. To
     compile a PETSc-enable executable,  driver2d.Linux.64.CC.ftn.OPT.MPI.PETSC.GNU.DY.ex
   </p>
   <pre>
@@ -428,7 +389,7 @@ instead of
 <p>
 The binary will be called driver2d.Linux.64.CC.ftn.OPT.MPI.INTEL.ex. (or driver2d.Linux.64.CC.ftn.OPT.MPI.INTEL.DY.ex)
 </p>
-<h3>Running jobs on ARACHER</h3>
+<h3>Running jobs on ARCHER</h3>
   
 <p> ARCHER's compute nodes do not have access to the /home mount point (and therefore your home directory) 
 It's not obvious where login scripts come from in that case, either. This can all be dealt with inside the submission script
@@ -449,21 +410,21 @@ module load python-compute
 
 cd $PBS_O_WORKDIR
 
-#A GNU dymamic executable - change the name for intel, static linking, etc  
+#A GNU dynamic executable - change the name for intel, static linking, etc  
 EXE=/path/to/driver2d.Linux.64.CC.ftn.OPT.MPI.GNU.DY.ex 
 aprun -n 24 $EXE inputs.whatever
 </pre>
 
 <h2><a name='monsoon'>The Monsoon Cray XC40 at the UK Met Office</a></h2>
 <p>
-  The Monsoon Cray XC40 is much like ARCHER (and eidison and cori at NERSC).
+  The Monsoon Cray XC40 is much like ARCHER (and Edison and Cori at NERSC).
   So much so that the ARCHER makefile seems to work, ie
 </p>
 <pre>
 ln -s $BISICLES_HOME/Chombo/lib/mk/local/Make.defs.archer $BISICLES_HOME/Chombo/lib/mk/Make.defs.local
 </pre>
 <p>
-  I'm assuming that Monsoon users are interested in bisicles coupled via glimmer-cism to
+  I'm assuming that Monsoon users are interested in BISICLES coupled via glimmer-cism to
   UKESM, i.e have checked out UniCiCles, and want to use the intel compiler. 
 </p>
 <pre>
@@ -511,7 +472,7 @@ The binary will be called driver2d.Linux.64.CC.ftn.OPT.MPI.PETSC.INTEL.ex
 
 <h2><a name='hpcwales'>HPC Wales (Swansea University)</a></h2>
 <p>
-  HPC Wales providea number of clusters, including two at Swansea University. To login to the Swansea
+  HPC Wales provides a number of clusters, including two at Swansea University. To login to the Swansea
   systems, first login to the HPC Wales login node, then a Swansea login node, e.g
 </p>
 <pre>

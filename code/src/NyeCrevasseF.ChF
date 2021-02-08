@@ -15,8 +15,8 @@ c----------------------------------------------
 
       CHF_AUTOMULTIDO[box; i]
 #if (CH_SPACEDIM == 1)
-
-      e(CHF_AUTOIX[i],0) = gradu(CHF_AUTOIX[i],0)
+      uxx = u(CHF_AUTOIX[i],xxComp)
+      e(CHF_AUTOIX[i],0) = uxx
 
 #elif (CH_SPACEDIM == 2)
 

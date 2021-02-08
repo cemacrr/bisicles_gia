@@ -41,7 +41,10 @@ public:
    */
   LevelDataIBC(RefCountedPtr<LevelData<FArrayBox> > a_thck, 
 	       RefCountedPtr<LevelData<FArrayBox> > a_topg,
-	       const RealVect& a_dx);
+	       const RealVect& a_dx,
+               Real a_defaultThickness = 0.0,
+               Real a_defaultTopography = -10000,
+               bool a_setDefaultValues = false);
 
   LevelDataIBC();
 
@@ -160,6 +163,14 @@ private:
   RefCountedPtr<CompGridVTOBC> m_velBCs;
   bool m_isBCsetUp;
   bool m_verbose;
+  /// default value for thickness
+  Real m_default_thickness;
+  // default value for topogaphy
+  Real m_default_topography;
+  /// if true, set thickness and topography to default values as a hedge
+  /** Useful if we're filling a grown domain from a smaller dataset
+   */
+  bool m_set_default_values;
   void setupBCs();
 
 private:

@@ -56,29 +56,31 @@ BasalFrictionPowerLaw::computeAlpha(FArrayBox& a_alpha,
   const Real mm1 = m_m - 1.0;
   const FArrayBox& thckOverFlotation = a_coords.getThicknessOverFlotation()[a_dit];
   const BaseFab<int>& mask = a_coords.getFloatingMask()[a_dit];
-  // if (std::abs(mm1) > 1.0e-3)
-  //   {
-      FArrayBox Cscale(a_C.box(), a_C.nComp());
-      Cscale.copy(a_C); Cscale /= std::pow(a_scale, m_m);
-			  
-      const Real pexp = (m_includeEffectivePressure)?m_m:0.0;
-      FORT_BFRICTIONPOWER(CHF_FRA1(a_alpha,0),
-			  CHF_CONST_FRA(a_basalVel),
-			  CHF_CONST_FRA1(Cscale,0),
-			  CHF_CONST_FRA1(thckOverFlotation,0),
-			  CHF_CONST_FIA1(mask,0),
-			  CHF_CONST_REAL(mm1),
-			  CHF_CONST_REAL(pexp),
-			  CHF_BOX(a_box));	
-  //   }
-  // else
-  //   {
-  //     a_alpha.copy(a_C,a_box);
-  //     a_alpha /= a_scale;
-  //     if (m_includeEffectivePressure)
-  // 	a_alpha *= thckOverFlotation;
-  //   }
+
+  FArrayBox Cscale(a_C.box(), a_C.nComp());
+  Cscale.copy(a_C); Cscale /= std::pow(a_scale, m_m);
   
+  const Real pexp = (m_includeEffectivePressure)?m_m:0.0;
+  FORT_BFRICTIONPOWER(CHF_FRA1(a_alpha,0),
+		      CHF_CONST_FRA(a_basalVel),
+		      CHF_CONST_FRA1(Cscale,0),
+		      CHF_CONST_FRA1(thckOverFlotation,0),
+		      CHF_CONST_FIA1(mask,0),
+		      CHF_CONST_REAL(mm1),
+		      CHF_CONST_REAL(pexp),
+		      CHF_BOX(a_box));
+
+  if (m_fastSlidingSpeed > TINY_VEL)
+    {
+      FORT_BFRICTIONJOUGHIN(CHF_FRA1(a_alpha,0),
+			   CHF_CONST_FRA(a_basalVel),
+			   CHF_CONST_REAL(m_fastSlidingSpeed),
+			   CHF_CONST_REAL(m_m),
+			   CHF_BOX(a_box));
+    }
+
+  
+
 }
 /// computes cell-centered \f$ s = - T_b . u_b \f$
 /// based on the cell-centered velocity
@@ -180,7 +182,7 @@ PressureLimitedBasalFrictionRelation::computeAlpha
 				CHF_CONST_REAL(n),
 				CHF_BOX(a_box));
     }
-    
+
 }
 
 
@@ -203,7 +205,9 @@ BasalFrictionRelation::parse(const char* a_prefix, int a_recursion)
 	plPP.query("m",m);
 	bool includeEffectivePressure = false;
 	plPP.query("includeEffectivePressure",includeEffectivePressure);
-	BasalFrictionPowerLaw*  pl = new BasalFrictionPowerLaw(m,includeEffectivePressure);
+	Real fastSlidingSpeed = -HUGE_VEL; // choosing a negative value is equivalent to  fastSlidingSpeed -> infinity
+	plPP.query("fastSlidingSpeed", fastSlidingSpeed);
+	BasalFrictionPowerLaw*  pl = new BasalFrictionPowerLaw(m,fastSlidingSpeed,includeEffectivePressure);
 	basalFrictionRelationPtr = static_cast<BasalFrictionRelation*>(pl);
       }
   else if (type == "pressureLimitedLaw")
@@ -226,7 +230,7 @@ BasalFrictionRelation::parse(const char* a_prefix, int a_recursion)
       else if (models == "Leguy")
 	{
 	  model = PressureLimitedBasalFrictionRelation::Leguy;
-	}  
+	}
       else
 	{
 	  MayDay::Error("undefined BasalFrictionPressureLimitedLaw.model in inputs");

@@ -24,8 +24,12 @@
 
 LevelDataIBC::LevelDataIBC( RefCountedPtr<LevelData<FArrayBox> > a_thck, 
 			    RefCountedPtr<LevelData<FArrayBox> > a_topg,
-			    const RealVect& a_dx)
-  :m_thck(a_thck),m_topg(a_topg),m_dx(a_dx),m_isBCsetUp(false),m_verbose(true)
+			    const RealVect& a_dx,
+                            Real a_defaultThickness,
+                            Real a_defaultTopography,
+                            bool a_setDefaultValues
+                            )
+                            :m_thck(a_thck),m_topg(a_topg),m_dx(a_dx),m_default_thickness(a_defaultThickness), m_default_topography(a_defaultTopography), m_set_default_values(a_setDefaultValues), m_isBCsetUp(false),m_verbose(true)
 {
   // Construction means nothing to me. It's a lot like Vienna.
   if (!m_thck.isNull())
@@ -278,6 +282,19 @@ void LevelDataIBC::initializeIceGeometry(LevelSigmaCS& a_coords,
     {
       MayDay::Error("LevelDataIBC::initializeIceGeometry incompatible a_dx and m_dx");
     }
+
+  // if desired, fill with default values first
+  if (m_set_default_values)
+    {
+      LevelData<FArrayBox>& thickness = a_coords.getH();
+      LevelData<FArrayBox>& topography = a_coords.getTopography();
+      DataIterator dit = thickness.dataIterator();
+      for (dit.begin(); dit.ok(); ++dit)
+        {
+          thickness[dit].setVal(m_default_thickness);
+          topography[dit].setVal(m_default_topography);
+        }
+    }
   
   if (refRatio > 1.0 + tolerance)
     {
@@ -389,7 +406,10 @@ bool LevelDataIBC::regridIceGeometry(LevelSigmaCS& a_coords,
 
 IceThicknessIBC* LevelDataIBC::new_thicknessIBC()
 {
-  LevelDataIBC* retval = new LevelDataIBC(m_thck,m_topg,m_dx);
+  LevelDataIBC* retval = new LevelDataIBC(m_thck,m_topg,m_dx,
+                                          m_default_thickness,
+                                          m_default_topography,
+                                          m_set_default_values);
   return static_cast<IceThicknessIBC*>(retval);
 }
 

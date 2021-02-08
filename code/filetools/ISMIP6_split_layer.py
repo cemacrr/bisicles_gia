@@ -12,6 +12,9 @@ NCTOAMR = '/home/stephen/Development/BISICLES-ISMIP6-AIS/code/filetools/nctoamr2
 
 NCTOAMR = '/global/homes/c/cornford/cori-bisicles/BISICLES-ismip6ais/code/filetools/nctoamr2d.Linux.64.CC.ftn.DEBUG.OPT.ex'
 
+NCTOAMR = '/home/dan/code/BISICLES-public/code/filetools/nctoamr2d.Linux.64.mpiCC.gfortran.DEBUG.MPI.ex'
+
+
 def split_and_layer(nc_file_name, var_name, out_file_name_base, time_offset):
     """
     
@@ -87,13 +90,13 @@ def split_and_layer(nc_file_name, var_name, out_file_name_base, time_offset):
       
         s = ''.join([' %s']*len(var_names)) % tuple(var_names)
         hdf5_w_file_name =  w_file_name + '.2d.hdf5'
-        os.system('{} {} {} {}'.format( NCTOAMR, nc_w_file_name, hdf5_w_file_name, s))
+#        os.system('{} {} {} {}'.format( NCTOAMR, nc_w_file_name, hdf5_w_file_name, s))
 
 
 #default arguments...
-nc_file_name = 'HadGEM2-ES_RCP85_thermal_forcing_8km_x_60m.nc'
+nc_file_name = 'NorESM1-M_RCP26_thermal_forcing_8km_x_60m.nc'
 var_name = 'thermal_forcing'
-out_file_name_base = 'HadGEM2-ES_RCP85_thermal_forcing_8km'
+out_file_name_base = 'NorESM1-M_RCP26_thermal_forcing_8km'
 time_offset = 1995
 
 #arguments
