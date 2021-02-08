@@ -217,11 +217,35 @@ int main(int argc, char* argv[]) {
      // ---------------------------------------------
     // set topography (bedrock) flux. 
     // ---------------------------------------------
-    
+
     SurfaceFlux* topg_flux_ptr = SurfaceFlux::parse("topographyFlux");
     if (topg_flux_ptr == NULL)
       {
-	topg_flux_ptr = new zeroFlux();
+	// local parsing if necessary
+	std::string type = "";
+	
+	ParmParse pp("topographyFlux");
+	pp.query("type",type);
+	
+	if (type == "pythonGIA")
+	  {
+	    // initialize pythonGIA
+	    //topg_flux_ptr = new pythonGIAflux();
+	    ParmParse pyPP("PythonGIA");
+	    std::string module;
+	    pyPP.get("module",module);
+	    std::string giaFuncName = "giaFunc";
+	    pyPP.query("giaFunction",giaFuncName);
+#if 0
+	    pythonGIAflux* pythonPtr = new pythonGIAflux(module,
+							 giaFuncName);
+	    topg_flux_ptr = static_cast<SurfaceFlux*>( pythonPtr);
+#endif
+	  }
+	else
+	  {
+	    topg_flux_ptr = new zeroFlux();
+	  }
       }
     amrObject.setTopographyFlux(topg_flux_ptr); 
 
