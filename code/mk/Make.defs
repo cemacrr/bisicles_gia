@@ -16,6 +16,8 @@ ifeq ($(BISICLES_BRANCH),)
 BISICLES_BRANCH := $(THIS_DIR)/../../
 endif
 
+GIAHOME=$(BISICLES_HOME)
+
 ifeq ($(CHOMBO_HOME),)
 CHOMBO_HOME := $(BISICLES_HOME)/Chombo/lib
 endif
@@ -28,7 +30,7 @@ LibNames := AMRElliptic AMRTimeDependent AMRTools BoxTools BaseTools
 
 #Bisicles: lib
 
-XTRACPPFLAGS :=-I$(THIS_DIR)/../src -I$(THIS_DIR)/../util
+XTRACPPFLAGS :=-I$(THIS_DIR)/../src -I$(THIS_DIR)/../util -I$(GIAHOME)/src_gia
 include $(CHOMBO_HOME)/mk/Make.example
 
 #see if there is a host specific file.
