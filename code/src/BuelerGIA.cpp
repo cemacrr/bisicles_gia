@@ -239,7 +239,7 @@ BuelerGIAFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
       pout() << "actualDt: " << a_dt << endl;
       pout() << "new time: " << time << endl;
     }
-    updateUdot(a_amrIce, a_dt);
+    updateUdot(a_amrIce, time-m_udatedTime);
     m_updatedTime = time; 
   }
   RealVect dx = a_amrIce.dx(a_level);
@@ -431,6 +431,7 @@ void BuelerGIAFlux::setInitialLoad( const AmrIceBase& a_amrIce )
   }
   computeAndTransformTAF(a_amrIce);
   m_tafpadhat->copyTo(*m_tafpadhat0);
+  m_tafpadhat->copyTo(*m_tafpadhatold);
 }
 
 // Set initial uplift.
@@ -603,7 +604,7 @@ BuelerGIAFlux::updateUdot( const AmrIceBase& a_amrIce, Real a_dt ) {
       // If elastic uplift has been requested, it is added to the velocity
       // below, but does not affect the uplift stored here for disequilbrium.
       if (m_includeElas) {
-        m_udothatFAB(iv,comp) += m_elasFAB(iv,comp)*(m_tafhatFAB(iv,comp)-m_tafhatoldFAB(iv,comp))/m_dt;
+        m_udothatFAB(iv,comp) += m_elasFAB(iv,comp)*(m_tafhatFAB(iv,comp)-m_tafhatoldFAB(iv,comp))/a_dt;
       }
     }
   }
