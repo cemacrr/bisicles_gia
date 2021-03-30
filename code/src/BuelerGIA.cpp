@@ -239,7 +239,7 @@ BuelerGIAFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
       pout() << "actualDt: " << a_dt << endl;
       pout() << "new time: " << time << endl;
     }
-    updateUdot(a_amrIce, time-m_udatedTime);
+    updateUdot(a_amrIce, time-m_updatedTime);
     m_updatedTime = time; 
   }
   RealVect dx = a_amrIce.dx(a_level);
