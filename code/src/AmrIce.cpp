@@ -2854,20 +2854,8 @@ AmrIce::initData(Vector<RefCountedPtr<LevelSigmaCS> >& a_vectCoordSys,
   // First check to see if the pointer is NULL
   if (m_topographyFluxPtr != NULL)
   {
-  // now use dynamic casting to see if we're looking at a BuelerGIAFlux
-    BuelerGIAFlux* giaFluxPtr = dynamic_cast<BuelerGIAFlux*>(m_topographyFluxPtr);
-    if (giaFluxPtr != NULL and not giaFluxPtr->isInitIceRef0())
-    {
-      // we were able to cast to a BuelerGIAFlux pointer
-      giaFluxPtr->setInitialLoad(*this);
-    } 
-    else if (giaFluxPtr != NULL) 
-    { 
-      giaFluxPtr->computeInitialUpliftFromVelocity(*this);
-    }
-    // end if we have a BuelerGIAFlux
-    // do any generic TopographyFlux sorts of things
-  } // end if there is a topographyFlux
+    m_topographyFluxPtr->init(*this);
+  }
 
   //#define writePlotsImmediately
 #ifdef  writePlotsImmediately
