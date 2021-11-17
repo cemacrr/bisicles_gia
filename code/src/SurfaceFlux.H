@@ -100,6 +100,9 @@ public:
    */
   static SurfaceFlux* parse(const char* a_prefix);
 
+  /// Initialization function, called in AmrIce, left no-op by default.
+  virtual void init ( const AmrIceBase& a_amrIce ){ };
+
   // /// re-implement to set something up once 
   // virtual void init(const AmrIceBase& a_amrIce){};
   // /// re-implement to set something up once per time step, rather
