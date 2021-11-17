@@ -43,16 +43,13 @@
 
 
 BuelerGIAFlux::BuelerGIAFlux( Real a_iceDensity, Real a_mantleDensity, Real a_gravity, Real a_waterDensity)
-  : m_flex(1e23), m_visc(1e21), m_dt(1.), m_Nx(0), m_Ny(0), m_Lx(0), m_Ly(0), m_nlayers(0), m_pad(1), 
+  : m_flex(1e23), m_visc(1e21), m_dt(0.), m_Nx(0), m_Ny(0), m_Lx(0), m_Ly(0), m_nlayers(0), m_pad(1), 
     m_isDomainSet(false), m_updatedTime(0.), m_verbosity(5), m_init(false),
     m_iceDensity(a_iceDensity), m_mantleDensity(a_mantleDensity), m_gravity(a_gravity), m_waterDensity(a_waterDensity)
 {
   // need to allocate pointers for LevelData
   RefCountedPtr<LevelData<FArrayBox> > betaTmpPtr(new LevelData<FArrayBox>());
   m_beta = betaTmpPtr;
-
-  RefCountedPtr<LevelData<FArrayBox> > gammaTmpPtr(new LevelData<FArrayBox>());
-  m_gamma = gammaTmpPtr;
 
   RefCountedPtr<LevelData<FArrayBox> > tauTmpPtr(new LevelData<FArrayBox>());
   m_tau = tauTmpPtr;
@@ -62,6 +59,9 @@ BuelerGIAFlux::BuelerGIAFlux( Real a_iceDensity, Real a_mantleDensity, Real a_gr
 
   RefCountedPtr<LevelData<FArrayBox> > topoTmpPtr(new LevelData<FArrayBox>());    
   m_topo = topoTmpPtr;
+
+  RefCountedPtr<LevelData<FArrayBox> > hTmpPtr(new LevelData<FArrayBox>());    
+  m_h = hTmpPtr;
 
   RefCountedPtr<LevelData<FArrayBox> > loadTmpPtr(new LevelData<FArrayBox>());    
   m_load = loadTmpPtr;
@@ -137,11 +137,11 @@ BuelerGIAFlux::new_surfaceFlux()
   newPtr->fftfor        = fftfor;
   newPtr->fftinv        = fftinv;
 
-  newPtr->m_beta        = m_beta;
-  newPtr->m_gamma       = m_gamma;
+  newPtr->m_beta        = m_beta; 
   newPtr->m_tau         = m_tau;
   newPtr->m_taf         = m_taf;
   newPtr->m_topo        = m_topo;
+  newPtr->m_h           = m_h;
   newPtr->m_load        = m_load; 
   newPtr->m_tafpadhat   = m_tafpadhat;
   newPtr->m_u           = m_u;
@@ -159,6 +159,9 @@ BuelerGIAFlux::new_surfaceFlux()
 
   newPtr->m_oceanLoad   = m_oceanLoad;
 
+  newPtr->m_ELRA        = m_ELRA;
+  newPtr->m_ELRAtau     = m_ELRAtau;
+
   newPtr->m_inpad       = m_inpad;
   newPtr->m_outpadhat   = m_outpadhat;
   newPtr->m_inpadhat    = m_inpadhat;
@@ -170,8 +173,11 @@ BuelerGIAFlux::new_surfaceFlux()
 }
 
 BuelerGIAFlux::~BuelerGIAFlux() {
-  fftw_destroy_plan(fftfor);
-  fftw_destroy_plan(fftinv);
+  if (m_verbosity>3) {
+    pout() << "BuelerGIAFlux::~BuelerGIAFlux" << endl;
+  }
+  //fftw_destroy_plan(fftfor);
+  //fftw_destroy_plan(fftinv);
 }
 
 // Set domain size characteristics..
@@ -221,6 +227,13 @@ BuelerGIAFlux::setElastic( bool a_includeElas, Real& a_lame1, Real& a_lame2 ){
   m_lame2 = a_lame2;
 }
 
+// Set ELRA variables
+void
+BuelerGIAFlux::setELRA( bool a_ELRA, Real& a_ELRAtau ){
+  m_ELRA = a_ELRA;
+  if ( m_ELRA ){ m_ELRAtau = a_ELRAtau; }
+}
+
 // Method called each timestep by SurfaceFlux.
 void 
 BuelerGIAFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
@@ -235,8 +248,9 @@ BuelerGIAFlux::surfaceThicknessFlux(LevelData<FArrayBox>& a_flux,
   if ( needToUpdate ) {  
     // If need to update, do so. 
     if (m_verbosity > 3 ) {
+      pout() << "Last upd: " << m_updatedTime << endl;
       pout() << "AMR time: " << a_amrIce.time() << endl;
-      pout() << "actualDt: " << a_dt << endl;
+      pout() << "actualDt: " << time-m_updatedTime << endl;
       pout() << "new time: " << time << endl;
     }
     updateUdot(a_amrIce, time-m_updatedTime);
@@ -281,12 +295,12 @@ BuelerGIAFlux::precomputeGIAstep() {
   // Resize the arrays
   (*m_taf).define(dbl,1); 
   (*m_topo).define(dbl,1); 
+  (*m_h).define(dbl,1); 
   (*m_load).define(dbl,1); 
   (*m_udot).define(dbl,1);
   (*m_u).define(dbl,1);
 
   (*m_beta).define(dblPad,1);
-  (*m_gamma).define(dblPad,1);
   (*m_tau).define(dblPad,1);
   (*m_tafpadhat0).define(dblPad,1);          
   (*m_tafpadhat).define(dblPad,1); 
@@ -307,6 +321,7 @@ BuelerGIAFlux::precomputeGIAstep() {
   {
     (*m_taf)[ditert].setVal(0);
     (*m_topo)[ditert].setVal(0);
+    (*m_h)[ditert].setVal(0);
     (*m_load)[ditert].setVal(0);
     (*m_udot)[ditert].setVal(0);
     (*m_u)[ditert].setVal(0);
@@ -316,7 +331,6 @@ BuelerGIAFlux::precomputeGIAstep() {
   for (diter.begin();diter.ok();++diter)
   {
     (*m_beta)[diter].setVal(0);
-    (*m_gamma)[diter].setVal(0);
     (*m_tau)[diter].setVal(0);
     (*m_tafpadhat0)[diter].setVal(0);        
     (*m_tafpadhat)[diter].setVal(0); 
@@ -352,11 +366,8 @@ BuelerGIAFlux::precomputeGIAstep() {
   for (dit.begin();dit.ok();++dit) {
     // grab this FAB
     FArrayBox& m_betaFAB = (*m_beta)[dit];
-    FArrayBox& m_gammaFAB = (*m_gamma)[dit];
     FArrayBox& m_tauFAB = (*m_tau)[dit];
-
     FArrayBox& m_elasFAB = (*m_elas)[dit];
-
 
     BoxIterator bit(m_betaFAB.box());
     for (bit.begin(); bit.ok(); ++bit) {
@@ -369,7 +380,7 @@ BuelerGIAFlux::precomputeGIAstep() {
       //                     (m_N-1)/m_L is the spacing of the points.
       kx = PI2*min(ix,m_Nx*m_pad-ix)/m_Nx/m_pad*(m_Nx-1)/m_Lx;    // m^{-1}
       ky = PI2*min(iy,m_Ny*m_pad-iy)/m_Ny/m_pad*(m_Ny-1)/m_Ly;    // m^{-1}
-      if (m_verbosity>4) {
+      if (m_verbosity>5) {
 	pout() << iv[0] << '\t' << iv[1] << '\t' << ix << '\t' << iy << '\t';
       };
       kij = sqrt(pow(kx,2)+pow(ky,2));                            // m^{-1}
@@ -400,26 +411,45 @@ BuelerGIAFlux::precomputeGIAstep() {
       }
       // The explonential viscous relaxation time constant (s)
       tau = 2*m_visc*kij/m_gravity/m_mantleDensity/alpha_l*r;
+      if (m_ELRA) {
+        tau = m_ELRAtau*SECSPERYEAR;
+      }
       m_tauFAB(iv,comp) = tau;
       // The Bueler et al., 2007 fields.  
       m_betaFAB(iv,comp) = m_mantleDensity*m_gravity + m_flex*pow(kij,4);               // Pa/m
-      m_gammaFAB(iv,comp) = pow((m_betaFAB(iv,comp)*(tau + 0.5*m_dt*SECSPERYEAR)),-1);  // m/s/Pa
       if (m_includeElas) {
         m_elasFAB(iv,comp) = -(1-pow(alpha_l,-1))*(1./m_lame2+1./(m_lame1+m_lame2))/(2*kij); // m/Pa
       }
 
       if (ix == 0 && iy == 0) {
-        m_gammaFAB(iv,comp) = 0.;
         m_elasFAB(iv,comp) = 0.;
       }
-      if (m_verbosity>3) {
-        pout() << kij << '\t' << r << '\t' << alpha_l << '\t' << tau << '\t' << m_gammaFAB(iv,comp) << '\t' << m_betaFAB(iv,comp) << endl;
+      if (m_verbosity>5) {
+        pout() << kij << '\t' << r << '\t' << alpha_l << '\t' << tau << '\t' << m_betaFAB(iv,comp) << endl;
       }
     }
   }
 
   if (m_verbosity>1) {
     pout() << "BuelerGIAFlux::precomputeGIAstep() successful" << endl;
+  }
+}
+
+void BuelerGIAFlux::init( const AmrIceBase& a_amrIce )
+{
+  if (m_verbosity>1) {
+    pout() << "BuelerGIAFlux::init()" << endl;
+  }
+  if (m_init) { 
+    // If initializing with a velocity field, compute and initialize the committed uplift.
+    // Also assumes that the topography is not in equlibrium to start, so keeps
+    // the reference load at zero load.
+    computeInitialUpliftFromVelocity( a_amrIce );
+  }
+  else {
+    // Otherwise assume the initial topography, with ice, is in equilibrium and
+    // establishes current ice thickness (and water load) as reference.
+    setInitialLoad(a_amrIce);
   }
 }
 
@@ -431,6 +461,7 @@ void BuelerGIAFlux::setInitialLoad( const AmrIceBase& a_amrIce )
   }
   computeAndTransformTAF(a_amrIce);
   m_tafpadhat->copyTo(*m_tafpadhat0);
+  // Save previous load for elastic correct. Suboptimal memory.
   m_tafpadhat->copyTo(*m_tafpadhatold);
 }
 
@@ -455,15 +486,31 @@ void BuelerGIAFlux::setInitialVelocity( LevelData<FArrayBox>& a_udot0 )
   a_udot0.copyTo(*m_udot);
 
   fftpadfor(*m_udot, *m_udotpadhat);
+
+  // a REALLY ineffient (but one time) mass conservation assurance.
+  DataIterator dit = (*m_udotpadhat).dataIterator();
+
+  for (dit.begin();dit.ok();++dit) {
+    // grab the relevant FAB 
+    FArrayBox& m_udothatFAB = (*m_udotpadhat)[dit];
+    BoxIterator bit(m_udothatFAB.box());
+    for (bit.begin(); bit.ok(); ++bit) {
+      IntVect iv = bit();
+      int comp = 0;
+      if (iv[0]-m_domainOffset[0] == 0 && iv[1]-m_domainOffset[1] == 0) {
+        m_udothatFAB(iv,comp) = 0.; 
+      }
+    }
+  }
 }
 
 // Extract thickness above flotation from AmrIce, add ocean load if desired, 
 // and transform to FFT space.
 void BuelerGIAFlux::computeAndTransformTAF( const AmrIceBase& a_amrIce )
 {
-  if (m_verbosity>1) {
+  //if (m_verbosity>1) {
     pout() << "BuelerGIAFlux::computeAndTransformTAF()" << endl;
-  }
+  //}
   // extract height above flotation for each level,
   // flatten it to a single level and compute response.
   int n = a_amrIce.finestLevel() + 1;
@@ -475,16 +522,30 @@ void BuelerGIAFlux::computeAndTransformTAF( const AmrIceBase& a_amrIce )
     data[lev] = const_cast<LevelData<FArrayBox>* >(&(a_amrIce.geometry(lev)->getThicknessOverFlotation()));
     amrDx[lev] = a_amrIce.dx(lev);
   }
-
   RealVect m_destDx = a_amrIce.dx(0);
   flattenCellData(*m_taf, m_destDx,data,amrDx,m_verbosity); 
 
+  //pout() << "Collecting thickness" << endl;
+  Vector<LevelData<FArrayBox>* > datathk(n);
+  Vector<RealVect> amrDxthk(n);
+  // Thickness
+  for (int lev=0; lev<n; lev++) {
+    datathk[lev] = const_cast<LevelData<FArrayBox>* >(&(a_amrIce.geometry(lev)->getH()));
+  //const LevelData<FArrayBox>& H = (&(a_amrIce.geometry(lev)->getH()));
+    amrDxthk[lev] = a_amrIce.dx(lev);
+  }
+  //pout() << "Flattening thickness" << endl;
+  flattenCellData(*m_h, m_destDx,datathk,amrDxthk,m_verbosity); 
+  //pout() << "Thicknes collected" << endl;
+
+  Vector<LevelData<FArrayBox>* > dataocean(n);
+  Vector<RealVect> amrDxocean(n);
   // Ocean load
   for (int lev=0; lev<n; lev++) {
-    data[lev] = const_cast<LevelData<FArrayBox>* >(&(a_amrIce.geometry(lev)->getTopography()));
-    amrDx[lev] = a_amrIce.dx(lev);
+    dataocean[lev] = const_cast<LevelData<FArrayBox>* >(&(a_amrIce.geometry(lev)->getTopography()));
+    amrDxocean[lev] = a_amrIce.dx(lev);
   }
-  flattenCellData(*m_topo, m_destDx,data,amrDx,m_verbosity); 
+  flattenCellData(*m_topo, m_destDx,dataocean,amrDxocean,m_verbosity); 
 
   DataIterator dit = (*m_taf).dataIterator();
 
@@ -493,20 +554,27 @@ void BuelerGIAFlux::computeAndTransformTAF( const AmrIceBase& a_amrIce )
     FArrayBox& m_tafFAB = (*m_taf)[dit];
     FArrayBox& m_topoFAB = (*m_topo)[dit];
     FArrayBox& m_loadFAB = (*m_load)[dit];
+    FArrayBox& m_hFAB = (*m_h)[dit];
 
     BoxIterator bit(m_loadFAB.box());
     for (bit.begin(); bit.ok(); ++bit) {
       IntVect iv = bit();
       int comp = 0;
-      if (m_oceanLoad && m_topoFAB(iv,comp) < 0) {	// check if below sea level and ocean load desired
-	// For nodes where topo<0 and taf>0, this is the same as the total thickness of the ice.
-        m_loadFAB(iv, comp) = -m_waterDensity*m_topoFAB(iv,comp) + m_iceDensity*m_tafFAB(iv, comp);
+      if (m_oceanLoad && (m_topoFAB(iv,comp) <= 0) && (m_tafFAB(iv,comp) <= 0)) { 
+      //if (m_oceanLoad && (m_topoFAB(iv,comp) <= 0)) { 
+      // Ocean-consistent load with no grounded (taf<=0) ice is water load (topo<0)
+        //m_loadFAB(iv, comp) = -m_waterDensity*m_topoFAB(iv,comp) + m_iceDensity*m_tafFAB(iv, comp);
+        m_loadFAB(iv, comp) = -m_waterDensity*m_topoFAB(iv,comp);
       }
-      else
-      {
+      else if (m_oceanLoad && (m_tafFAB(iv,comp) > 0)) {
+      // Ocean-consstent load with grounded ice (taf>0) is total ice load (h)
+        m_loadFAB(iv, comp) = m_iceDensity*m_hFAB(iv,comp);
+      }
+      else {
+      // If not considering ocean load, using thickness above flotation.
         m_loadFAB(iv, comp) = m_iceDensity*m_tafFAB(iv,comp);
       }
-
+    //pout() << m_loadFAB(iv, comp) << endl;
     }
   }
    // Forward FFT the load (padding it with zeros first)
@@ -542,6 +610,10 @@ void BuelerGIAFlux::computeInitialUpliftFromVelocity(  const AmrIceBase& a_amrIc
 
       // Bueler formula
       m_uhatFAB(iv,comp) = -(m_gravity*m_tafhatFAB(iv,comp))/m_betaFAB(iv,comp) - m_tauFAB(iv,comp)*m_udothatFAB(iv,comp)/SECSPERYEAR;
+      // Mass conservation.
+      if (iv[0]-m_domainOffset[0] == 0 && iv[1]-m_domainOffset[1] == 0) {
+        m_uhatFAB(iv,comp) = 0.; 
+      }
     }
   }
 }
@@ -558,7 +630,9 @@ BuelerGIAFlux::updateUdot( const AmrIceBase& a_amrIce, Real a_dt ) {
     pout() << "BuelerGIAFlux::updateUdot()" << endl;
   }
 
-  CH_TIME("BuelerGIAFlux::updateUdot");  computeAndTransformTAF(a_amrIce);
+  CH_TIME("BuelerGIAFlux::updateUdot");  
+  
+  computeAndTransformTAF(a_amrIce);
 
 
   DataIterator dit = (*m_beta).dataIterator();
@@ -567,7 +641,6 @@ BuelerGIAFlux::updateUdot( const AmrIceBase& a_amrIce, Real a_dt ) {
   for (dit.begin();dit.ok();++dit) { 
     // grab the relevant FAB
     FArrayBox& m_betaFAB = (*m_beta)[dit];
-    FArrayBox& m_gammaFAB = (*m_gamma)[dit];
     FArrayBox& m_tauFAB = (*m_tau)[dit];
 
     FArrayBox& m_tafhatFAB = (*m_tafpadhat)[dit];
@@ -585,18 +658,16 @@ BuelerGIAFlux::updateUdot( const AmrIceBase& a_amrIce, Real a_dt ) {
       int comp = 0;
       // Compute the gamma array using the timestep taken.
       Real actualGamma = pow((m_betaFAB(iv,comp)*(m_tauFAB(iv,comp) + 0.5*a_dt*SECSPERYEAR)),-1);  // m/s/Pa
-      if (iv[0]-m_domainOffset[0] == 0 && iv[1]-m_domainOffset[1] == 0) {
-        if (m_verbosity>1) {
-          pout() << "BuelerGIAFlux::updateUdot() actualGamma=0." << endl;
-        }
-        actualGamma = 0.; 
-      }
 
-      // Compute stress change, Pa
+      // Compute stress change from initial t=0 state, Pa
       Real dL = (m_tafhatFAB(iv,comp)-m_tafhat0FAB(iv,comp))*m_gravity;
+
       // m/yr
       m_udothatFAB(iv,comp) = -actualGamma*(dL + m_betaFAB(iv,comp)*m_uhatFAB(iv,comp))*SECSPERYEAR;   
-
+      // Mass conservation.
+      if (iv[0]-m_domainOffset[0] == 0 && iv[1]-m_domainOffset[1] == 0) {
+        m_udothatFAB(iv,comp) = 0.; 
+      }
       // Update the viscously relaxed uplift stored here for approach to
       // equilibrium.
       m_uhatFAB(iv,comp) += m_udothatFAB(iv,comp)*a_dt;
