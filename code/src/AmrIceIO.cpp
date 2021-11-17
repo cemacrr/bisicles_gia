@@ -1312,6 +1312,10 @@ AmrIce::writeCheckpointFile(const string& a_file)
       header.m_string[compStr] = compName;
       nComp++;
       sprintf(compStr, "component_%04d", nComp);
+      compName = "thicknessAboveFlotationOld";
+      header.m_string[compStr] = compName;
+      nComp++;
+      sprintf(compStr, "component_%04d", nComp);
       compName = "upliftData";
       header.m_string[compStr] = compName;
       nComp++;
@@ -1412,6 +1416,9 @@ AmrIce::writeCheckpointFile(const string& a_file)
         RefCountedPtr<LevelData<FArrayBox>> tmp;
         tmp = giaFluxPtr->getTAF0();
         write(handle, *tmp, "thicknessAboveFlotation0",
+          tmp->ghostVect());
+        tmp = giaFluxPtr->getTAFold();
+        write(handle, *tmp, "thicknessAboveFlotationOld",
           tmp->ghostVect());
         tmp = giaFluxPtr->getUn();
         write(handle, *tmp, "upliftData",
@@ -2109,8 +2116,24 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
           {
             giaFluxPtr->setTAF0(tafpadhat0);
           }
-    
-          // try to read initial thickness above flotation
+          // try to read previous thickness above flotation
+          DisjointBoxLayout giaDBLold = (giaFluxPtr->m_tafpadhatold)->disjointBoxLayout(); 
+          LevelData<FArrayBox> tafpadhatold;
+          tafpadhat0.define(giaDBLold,1);
+    	  dataStatus = read<FArrayBox>(a_handle,
+    					   tafpadhat0,
+    					   "thicknessAboveFlotationOld",
+    				       giaDBLold);
+    	  /// note that although this check appears to work, it makes a mess of a_handle and the next lot of data are not read...
+      	  if (dataStatus != 0)
+          {
+    	    MayDay::Warning("checkpoint file does not contain initial ice thickness above flotation -- initializing to zero"); 
+          }
+          else
+          {
+            giaFluxPtr->setTAFold(tafpadhatold);
+          }   
+          // try to read fft uplift
           LevelData<FArrayBox> upadhat;
           giaDBL = (giaFluxPtr->m_upadhat)->disjointBoxLayout();
           upadhat.define(giaDBL,1);
