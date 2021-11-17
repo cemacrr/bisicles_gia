@@ -67,13 +67,15 @@ protected:
   Real m_Lx, m_Ly;
   IntVect m_domainOffset;
   bool m_isDomainSet, m_init, m_oceanLoad, m_includeElas;
+  bool m_ELRA;
+  Real m_ELRAtau;
   int m_verbosity;
   Real m_updatedTime;
   int m_pad;
   // Constants for GIA step (computed once, stored) (size pad*Nx x pad*Ny)
-  RefCountedPtr<LevelData<FArrayBox>> m_beta, m_gamma, m_elas, m_tau;
+  RefCountedPtr<LevelData<FArrayBox>> m_beta, m_elas, m_tau;
   // Padded quantities required during computation (size pad*Nx x pad*Ny)
-  RefCountedPtr<LevelData<FArrayBox>> m_tafpadhat, m_tafpadhatold;   // Thickness above flotation and FFT'.
+  RefCountedPtr<LevelData<FArrayBox>> m_tafpadhat;   // Thickness above flotation and FFT'.
   RefCountedPtr<LevelData<FArrayBox>> m_udotpad, m_udotpadhat; // Surface velocity and FFT'd.
   // Pass-through arrays for the FFT and inverse FFT (size pad*Nxx pad*Ny)
   RefCountedPtr<LevelData<FArrayBox>> m_inpad, m_outpadhat;
@@ -92,7 +94,7 @@ protected:
 
   // Forward transform a_varin, using pass-through arrays.
   // a_varin is unpadded, a_varouthat is padded.
-  void fftpadfor(LevelData<FArrayBox>& a_varin, LevelData<FArrayBox>& a_varoutpad);
+  void fftpadfor(LevelData<FArrayBox>& a_varin, LevelData<FArrayBox>& a_varouthat);
   // Inverse transform a_varinhat, normalize, and crop into a_varout
   void fftinvcrop(LevelData<FArrayBox>& a_varinhat, LevelData<FArrayBox>& a_varout);
   
@@ -113,9 +115,13 @@ public:
                   int a_pad );
   // Set the elastic properties.
   void setElastic( bool a_includeElas, Real& a_lame1, Real& a_lame2 );
+  // Set ELRA
+  void setELRA( bool a_ELRA, Real& a_ELRAtau );
+  // Set Ocean Load bool
   void setOceanLoad( bool a_oceanLoad ) {m_oceanLoad = a_oceanLoad;};
   // Compute and store values for GIA steps 
   void precomputeGIAstep();
+  void init( const AmrIceBase& a_amrIce );
   // Set the initial thickness above flotation (tof at equilibrium uplift)..
   void setInitialLoad( const AmrIceBase& a_amrIce ) ;
   // Set the initial uplift field.
@@ -129,22 +135,27 @@ public:
 
   /* Checkpoint restart functions */
   void setTAF0( LevelData<FArrayBox>& a_tafpadhat0 ) { a_tafpadhat0.copyTo(*m_tafpadhat0); };
+  void setTAFold( LevelData<FArrayBox>& a_tafpadhatold ) { a_tafpadhatold.copyTo(*m_tafpadhatold); };
   void setUn( LevelData<FArrayBox>& a_upadhat ) { a_upadhat.copyTo(*m_upadhat); };
   void setUdot( LevelData<FArrayBox>& a_udot ) { a_udot.copyTo(*m_udot); };
   void setUpdatedTime( Real t ) { m_updatedTime = t; };
   void setInitIceRef0( bool a_init ) {m_init=a_init;};
 
-  RefCountedPtr<LevelData<FArrayBox>> m_tafpadhat0, m_upadhat; // Surface velocity and FFT'd.
-  RefCountedPtr<LevelData<FArrayBox>> m_udot, m_taf, m_u, m_topo, m_load; // Surface velocity and FFT'd.
+  RefCountedPtr<LevelData<FArrayBox>> m_tafpadhat0, m_upadhat, m_tafpadhatold; // Surface velocity and FFT'd.
+  //RefCountedPtr<LevelData<FArrayBox>> m_udot, m_taf, m_u, m_topo, m_load; // Surface velocity and FFT'd.
+  RefCountedPtr<LevelData<FArrayBox>> m_udot, m_taf, m_u, m_topo, m_h, m_load; // Surface velocity and FFT'd.
 
   /* Checkpoint write functions */
   RefCountedPtr<LevelData<FArrayBox>> getTAF0() { return m_tafpadhat0; };
+  RefCountedPtr<LevelData<FArrayBox>> getTAFold() { return m_tafpadhatold; };
   RefCountedPtr<LevelData<FArrayBox>> getUn() { return m_upadhat; };
   RefCountedPtr<LevelData<FArrayBox>> getUdot() { return m_udot; };
+  RefCountedPtr<LevelData<FArrayBox>> getLoad() { return m_load; };
   Real getUpdatedTime() { return m_updatedTime; };
-  
+ 
 
   bool isInitIceRef0() { return m_init; };
 };
+
 #include "NamespaceFooter.H"
-#endif
+#endif /*_BUELERGIA_H_*/
