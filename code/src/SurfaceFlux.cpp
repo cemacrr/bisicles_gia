@@ -452,6 +452,9 @@ SurfaceFlux* SurfaceFlux::parse(const char* a_prefix)
 
     buelerFlux->setDomain(Nx, Ny, Lx, Ly, domainOffset, pad);
 
+    Real t = 0.;
+    ppAmr.query("offsetTime", t);
+    buelerFlux->setUpdatedTime(t);
 
     int nlayers;
     pp.get("nlayers", nlayers);
@@ -494,6 +497,12 @@ SurfaceFlux* SurfaceFlux::parse(const char* a_prefix)
     bool oceanLoad = false;
     pp.query("oceanLoad", oceanLoad);
     buelerFlux->setOceanLoad(oceanLoad);
+
+    bool ELRA = false;
+    Real ELRAtau = 1e3; // in yr
+    pp.query("ELRA", ELRA);
+    pp.query("ELRAtau", ELRAtau);
+    buelerFlux->setELRA(ELRA, ELRAtau);
 
     Real dt=0;
     pp.query("dt", dt);
