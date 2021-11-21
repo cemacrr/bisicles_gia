@@ -2121,7 +2121,7 @@ AmrIce::readCheckpointFile(HDF5Handle& a_handle)
           LevelData<FArrayBox> tafpadhatold;
           tafpadhat0.define(giaDBLold,1);
     	  dataStatus = read<FArrayBox>(a_handle,
-    					   tafpadhat0,
+    					   tafpadhatold,
     					   "thicknessAboveFlotationOld",
     				       giaDBLold);
     	  /// note that although this check appears to work, it makes a mess of a_handle and the next lot of data are not read...
